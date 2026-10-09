@@ -4,7 +4,7 @@ An open-source macOS menu bar app for battery awareness. It replaces the system 
 
 The built-in macOS indicator alerts only at 10% and 5%, those levels cannot be changed, and on recent macOS releases it repeats the warning every minute. This app exists to fix that: alerts at levels you pick, delivered in a way you notice without being nagged.
 
-This document describes functionality only. The project ships no third-party branding, artwork, or copy.
+This document describes functionality only. The project ships no third-party branding, artwork, or copy. Screen-by-screen designs for the settings window are in [design-docs/](design-docs/README.md).
 
 ## Platform and quality bar
 
@@ -18,7 +18,7 @@ This document describes functionality only. The project ships no third-party bra
 
 ### Menu bar icon
 
-The app lives in the menu bar, and its icon is meant to replace the system battery icon. It shows the current charge and is themeable. Clicking it opens the panel described in [Menu bar panel](#menu-bar-panel).
+The app lives in the menu bar, and its icon is meant to replace the system battery icon. It has three styles: a battery indicator, a minimal iPhone-style battery, and a static logo. It can show the percentage, change colour and size, and use status colours (green when charging, orange when low, red when critical). Devices can be pinned beside it to show their batteries directly in the menu bar. Clicking it opens the panel described in [Menu bar panel](#menu-bar-panel).
 
 ### Custom battery alerts
 
@@ -28,7 +28,7 @@ You set alerts at any charge level, as many as you want, on the way down and on 
 - Last-chance alerts at 2% and 1%, so a video call doesn't drop without warning.
 - A high-charge alert at 80% (see lifecycle alerts).
 
-Each alert fires once when its threshold is crossed, not every minute.
+Each alert fires once when its threshold is crossed, not every minute. Each alert sets its own position (centre or top of screen), screen-edge glow, and sound. Separate alerts fire when the power adapter is connected or disconnected. A master switch turns all alerts off, and an option closes the system's own battery notifications automatically so they don't double up.
 
 ### Notification styles
 
@@ -53,23 +53,39 @@ Reminders that protect long-term battery life, chiefly an alert at 80% while cha
 
 ### Charge limits
 
-Lets you cap charging at a set level. Detail to define: whether the app enforces the limit itself or only builds on what macOS already offers.
+Pauses charging at a target level so the battery stays in a healthier range. It is off by default and turned on from the Charging settings screen.
 
 ### App usage monitoring
 
-Shows which apps are using the most energy, so you can see what is draining the battery.
+Shows which apps are using the most energy right now and over the last 24 hours, 7 days, or 30 days, with per-app trend lines. It also points out problems in plain language: an app that dominates total energy use, or one drawing far more than its usual share. Each finding comes with buttons to see details or quit the app.
 
 ### Desktop widgets
 
-Battery information as macOS desktop widgets. Detail to define: which data each widget shows.
+WidgetKit widgets for the desktop and Notification Center, in three types: All Batteries (the Mac and every device; small to extra large), Mac Battery, and Device Battery. Each placed widget is configured separately: which devices, Rings, List, or Bars style, device names, whether to include the Mac, and colour or monochrome.
+
+### Battery history
+
+Keeps a history of the Mac's battery level, daily discharge and screen-on time, health, and temperature, and charts them over 24 hours, 7 days, or 14 days.
+
+### iPhone and iPad battery health
+
+Shows battery health, cycle count, and lifetime stats for an iPhone or iPad connected by cable, or over Wi-Fi once Finder's Wi-Fi sync is on.
+
+### Keyboard shortcuts
+
+A global hotkey (default ⌃⌥J) opens the menu bar panel from anywhere. While the panel is open, single keys expand or collapse its sections (I, U, D) and toggle Low Power Mode (L).
+
+### General settings
+
+App language, light, dark, or automatic appearance, and launch at login.
 
 ### Other devices' batteries
 
-The menu bar shows the battery of every nearby Apple device, with low-battery alerts for each:
+The menu bar panel shows the battery of every nearby Apple device, lowest level first, with low-battery alerts for each. Any device can be hidden from the panel or pinned to the menu bar. Levels a device reports only approximately are shown with a tilde (~50%). Supported devices:
 
 - AirPods and Beats headphones
 - iPhone and iPad
-- Magic Mouse and Magic Keyboard
+- Magic Mouse, Magic Keyboard, and Magic Trackpad
 - Apple Watch
 
 The Apple Watch talks only to its paired iPhone, so the app reads the Watch battery through the iPhone. No companion app is installed on the iPhone or Watch. You connect the iPhone to the Mac by cable once; after that it works over Wi-Fi. This works only on Apple Silicon Macs and only in the unsandboxed build.
