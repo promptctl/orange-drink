@@ -16,9 +16,9 @@ The ticket is ready when every line below is true of its description. Check each
 3. It points at the design doc or PROJECT.md section it implements, or says there is none.
 4. Anything it needs from outside its epic is wired as a `blocks` edge (`lit dep add --from <blocker> --to <id>`). Inside its epic, rank order is the dependency, because lit refuses blocks edges between siblings.
 5. It fits in one PR.
-6. It has no open question about how. If one remains, file a research ticket labelled `spike`, rank it directly above <id>, and write "Waits on <spike-id>" into <id>'s description. Leave `refine` on <id>, then go and work the spike.
+6. It has no open question about how. If one remains, file a research ticket in <id>'s epic: `lit new --parent <id's epic> --labels spike,refine --topic <id's topic> --title "<the question>"`, then `lit rank <spike-id> --above <id>`, and write "Waits on <spike-id>" into <id>'s description. Leave `refine` on <id>, then go and work the spike.
 
-If <id> fails line 5, it is several tickets. Split it: `lit update <id> --type epic`, file the pieces as its children with `lit new --parent <id> --labels refine`, rank them in build order, and stop. Each child goes through this same workflow when it reaches the top. That is the recursion, and it ends at tickets that fit in one PR.
+If <id> fails line 5, it is several tickets. Split it into siblings that replace it: file each piece with `lit new --parent <id's epic> --labels refine --topic <id's topic>`, rank each with `lit rank <piece> --above <id>` in build order, move any `blocks` edge on <id> to the piece it belongs to, then `lit close <id> --resolution superseded --of <first piece>` and stop. Do not turn <id> into an epic or file the pieces under <id>: lit refuses the type change, and children of a task fall outside every epic. Each piece goes through this same workflow when it reaches the top. That is the recursion, and it ends at tickets that fit in one PR.
 
 Refining is not designing the implementation. Describe the outcome and the check, not the classes or files: the description has to stay true after a refactor.
 

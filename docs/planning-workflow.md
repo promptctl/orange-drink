@@ -38,20 +38,20 @@ flowchart TB
     subgraph RF["Refine a ticket: refine.md"]
         direction TB
         RF1{"Fits in one PR?"}
-        RF1 -- no --> Split["Becomes an epic; children<br/>each labelled refine"]
+        RF1 -- no --> Split["Replaced by sibling tickets<br/>in its epic, each labelled refine"]
         RF1 -- yes --> RF2{"Open question<br/>about how?"}
         RF2 -- yes --> Spike["File a spike ranked above it;<br/>description says Waits on spike"]
         RF2 -- no --> Ready["All six lines hold:<br/>remove refine"]
     end
-    Split -- "children reach the top later" --> N
+    Split -- "pieces reach the top later" --> N
     Spike --> N
     Ready --> W
 
-    Done --> SF{"Was it a spike?"}
-    SF -- yes --> SFin["spike-finish.md: write the finding<br/>into waiting tickets, re-label refine"]
-    SF -- no --> DN["done.md: did this make a refined<br/>ticket wrong? Re-label it refine"]
+    Done --> DN["done.md: did this make a refined<br/>ticket wrong? Re-label it refine"]
+    DN --> SF{"Was it a spike?"}
+    SF -- yes --> SFin["spike-finish.md also runs: write the finding<br/>into waiting tickets, re-label refine"]
+    SF -- no --> N
     SFin --> N
-    DN --> N
     SFin -. "finding breaks the plan" .-> H(["Human decides"])
 ```
 
@@ -70,7 +70,7 @@ stateDiagram-v2
     [*] --> refine: child filed by decompose
     refine --> ready: all six lines hold
     refine --> split: too big for one PR
-    split --> refine: each child starts here
+    split --> refine: each piece starts here
     refine --> waiting: open question
     waiting --> refine: spike closes, finding lands
     ready --> building: lit start
@@ -90,12 +90,12 @@ A spike is a ticket with both `spike` and `refine`. It goes through the same pat
 
 | File | Fires when | Stop condition the agent checks |
 | --- | --- | --- |
-| `plan-campaign.md` | Any backlog view or `lit next` | `lit ls --labels decompose --status open` is empty. The agent then deletes the file. |
+| `plan-campaign.md` | Any backlog view, or `lit next` when it hands out a ticket | `lit ls --labels decompose --status open` is empty. The agent then deletes the file. |
 | `decompose.md` | An epic labelled `decompose` is shown or started | Every Scope item maps to a child in a comment on the epic, and the user approved the breakdown. |
 | `refine.md` | A ticket labelled `refine` is shown, pulled, or started | Six lines hold: what and why, a runnable "Done when", a doc reference, dependencies wired, fits one PR, no open question. |
 | `spike-start.md` | A `spike` ticket is started | A comment answers the question, with pasted prototype output as evidence. |
-| `spike-finish.md` | A `spike` ticket closes | No open ticket still says "Waits on" that spike. |
-| `done.md` | Any ticket closes | Tickets the work made wrong carry `refine` again; new work is filed as follow-ups. |
+| `spike-finish.md` | A `spike` ticket closes, by `lit done` or `lit close` | No open ticket still says "Waits on" that spike. |
+| `done.md` | A ticket is finished with `lit done` | Tickets the work made wrong carry `refine` again; new work is filed as follow-ups. |
 
 ## How the workflow files are built
 
@@ -110,7 +110,7 @@ lit workflows only add text to a command's output. They don't block, gate, loop,
 Some smaller techniques worth copying:
 
 - **Override by id.** `done.md` has the same id as lit's built-in close reminder, so the project file replaces it whole. It keeps the built-in paragraph word for word and adds one, so the original guidance isn't lost.
-- **Recursion through types.** A ticket too big for one PR becomes an epic (`lit update --type epic`), and its pieces become its children, each labelled `refine`. The same workflow runs on them when they reach the top. The recursion ends at tickets that fit in one PR, and lit's own epic nesting holds the tree.
+- **Recursion through replacement.** A ticket too big for one PR is replaced by sibling tickets in its epic, each labelled `refine` and ranked where it stood, and the original is closed as superseded. The same workflow runs on each piece when it reaches the top. The recursion ends at tickets that fit in one PR, and every piece stays inside the epic.
 - **Rank is the dependency inside an epic.** lit refuses `blocks` edges between siblings, so the workflows rely on order: a spike is ranked directly above the tickets that need it, and those tickets say "Waits on <spike-id>" in their description. That text is how `spike-finish.md` finds them again.
 - **`<id>` interpolation.** Bodies use `<id>`, and lit replaces it with the ticket being acted on. The commands in the guidance can then be copied and run as written.
 - **Bodies are prompts.** Each body opens with what the agent is doing, ends with its stop condition and the one shortcut it will be tempted to take, and keeps the middle short. The agent glances back at the opening and the closing lines, so those carry the parts that are easy to forget.
