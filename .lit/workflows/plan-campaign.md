@@ -1,6 +1,6 @@
 ---
-# A campaign is a temporary workflow. It fires on every backlog view and every
-# `lit next` until its stop condition holds; then the agent deletes this file and
+# A campaign is a temporary workflow. It fires on the events below until its
+# stop condition holds; then the agent deletes this file and
 # the campaign is over. Start a new campaign by writing a new file like this one.
 id: plan-campaign
 name: "Campaign: break every epic into tickets"
@@ -10,7 +10,7 @@ A planning campaign is running. Until it ends, breaking down epics comes before 
 
 Check the stop condition first: `lit ls --labels decompose --status open`.
 
-- **Any epics listed:** take the highest-ranked one, run `lit show <epic-id>`, and follow the `decompose` guidance that appears. Leave what `lit next` offered for later, even when the `refine` guidance printed beside this tells you to refine it first: while this campaign runs, it outranks `refine` on a pulled ticket.
+- **Any epics listed:** take the highest-ranked one, run `lit show <epic-id>`, and follow the `decompose` guidance that appears. Leave what `lit next` offered for later; while this campaign runs, it outranks the `refine` guidance printed beside it.
 - **None listed:** the campaign is finished. End it:
   1. `git rm .lit/workflows/plan-campaign.md`
   2. Commit with the message "End planning campaign: every epic decomposed".

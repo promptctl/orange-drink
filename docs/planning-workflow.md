@@ -38,7 +38,7 @@ flowchart TB
     subgraph RF["Refine a ticket: refine.md"]
         direction TB
         RF1{"Fits in one PR?"}
-        RF1 -- no --> Split["Replaced by sibling tickets<br/>in its epic, each labelled refine"]
+        RF1 -- no --> Split["Replaced by sibling pieces,<br/>each labelled refine;<br/>closed as superseded"]
         RF1 -- yes --> RF2{"Open question<br/>about how?"}
         RF2 -- yes --> Spike["File a spike ranked above it;<br/>description says Waits on spike"]
         RF2 -- no --> Ready["All six lines hold:<br/>remove refine"]
@@ -110,9 +110,9 @@ lit workflows only add text to a command's output. They don't block, gate, loop,
 Some smaller techniques worth copying:
 
 - **Override by id.** `done.md` has the same id as lit's built-in close reminder, so the project file replaces it whole. It keeps the built-in paragraph word for word and adds one, so the original guidance isn't lost.
-- **Recursion through replacement.** A ticket too big for one PR is replaced by sibling tickets in its epic, each labelled `refine` and ranked where it stood, and the original is closed as superseded. The same workflow runs on each piece when it reaches the top. The recursion ends at tickets that fit in one PR, and every piece stays inside the epic.
+- **Recursion through replacement.** A ticket too big for one PR is replaced by sibling tickets under the same parent, each carrying its labels and ranked where it stood, and the original is closed as superseded. The same workflow runs on each piece when it reaches the top. The recursion ends at tickets that fit in one PR, and every piece stays where the original stood in the tree.
 - **Rank is the dependency inside an epic.** lit refuses `blocks` edges between siblings, so the workflows rely on order: a spike is ranked directly above the tickets that need it, and those tickets say "Waits on <spike-id>" in their description. That text is how `spike-finish.md` finds them again.
-- **`<id>` interpolation.** Bodies use `<id>`, and lit replaces it with the ticket being acted on. The commands in the guidance can then be copied and run as written.
+- **`<id>` interpolation.** Bodies use `<id>`, and lit replaces it with the ticket being acted on. The commands in the guidance then need only the other bracketed values filled in.
 - **Bodies are prompts.** Each body opens with what the agent is doing, ends with its stop condition and the one shortcut it will be tempted to take, and keeps the middle short. The agent glances back at the opening and the closing lines, so those carry the parts that are easy to forget.
 
 ### Limits
