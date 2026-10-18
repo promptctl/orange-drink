@@ -1,0 +1,33 @@
+# [LAW:one-source-of-truth] The Xcode project is generated from this file; nothing in
+# *.xcodeproj is hand-edited, and Info.plist keys live here as INFOPLIST_KEY_* settings.
+name: OrangeDrink
+options:
+  bundleIdPrefix: dev.orangedrink
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    GENERATE_INFOPLIST_FILE: YES
+    ARCHS: arm64
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: 1
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+targets:
+  OrangeDrink:
+    type: application
+    platform: macOS
+    sources: [Sources/OrangeDrink]
+    settings:
+      base:
+        INFOPLIST_KEY_LSUIElement: YES
+    scheme:
+      testTargets: [OrangeDrinkTests]
+  OrangeDrinkTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/OrangeDrinkTests]
+    dependencies:
+      - target: OrangeDrink
