@@ -8,16 +8,13 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
+    GENERATE_INFOPLIST_FILE: YES
     ARCHS: arm64
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: 1
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "-"
     DEVELOPMENT_TEAM: ""
-    # [LAW:no-mode-explosion] exception: without this, every target's build warns
-    # "No AppIntents.framework dependency found". Delete it the day a target links
-    # AppIntents (the Shortcuts work); the warning then has a real cause.
-    LM_SKIP_METADATA_EXTRACTION: YES
 targets:
   OrangeDrink:
     type: application
@@ -25,15 +22,11 @@ targets:
     sources: [Sources/OrangeDrink]
     settings:
       base:
-        GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_LSUIElement: YES
   OrangeDrinkTests:
     type: bundle.unit-test
     platform: macOS
     sources: [Tests/OrangeDrinkTests]
-    settings:
-      base:
-        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: OrangeDrink
 schemes:
