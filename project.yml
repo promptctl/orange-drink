@@ -23,20 +23,11 @@ targets:
     settings:
       base:
         INFOPLIST_KEY_LSUIElement: YES
+    scheme:
+      testTargets: [OrangeDrinkTests]
   OrangeDrinkTests:
     type: bundle.unit-test
     platform: macOS
     sources: [Tests/OrangeDrinkTests]
     dependencies:
       - target: OrangeDrink
-schemes:
-  OrangeDrink:
-    build:
-      targets:
-        OrangeDrink: all
-        OrangeDrinkTests: [test]
-    run:
-      config: Debug
-    test:
-      config: Debug
-      targets: [OrangeDrinkTests]
