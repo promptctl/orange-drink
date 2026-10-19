@@ -16,9 +16,12 @@ import Carbon.HIToolbox
 }
 
 struct HotKeyError: Error, CustomStringConvertible {
-    let combo: KeyCombo
+    /// The combination refused; nil when the system would not take the handler that delivers any of them.
+    let combo: KeyCombo?
     let status: OSStatus
-    var description: String { "the system would not register \(combo.display) (OSStatus \(status))" }
+    var description: String {
+        "the system would not \(combo.map { "register \($0.display)" } ?? "deliver hot keys") (OSStatus \(status))"
+    }
 }
 
 /// Hot keys through Carbon's RegisterEventHotKey: no Accessibility permission, and the press is
@@ -26,8 +29,10 @@ struct HotKeyError: Error, CustomStringConvertible {
 @MainActor final class CarbonHotKeys: HotKeys {
     private static let signature: OSType = 0x4F44484B   // 'ODHK'
 
+    /// Hot key ids are the process's, not an instance's, so every instance's handler can tell its own presses.
+    private static var nextID: UInt32 = 1
+
     private var fires: [UInt32: @MainActor () -> Void] = [:]
-    private var nextID: UInt32 = 1
     private var handler: EventHandlerRef?
 
     init() throws {
@@ -40,15 +45,19 @@ struct HotKeyError: Error, CustomStringConvertible {
             guard read == noErr else { return read }
             let registrar = Unmanaged<CarbonHotKeys>.fromOpaque(userData).takeUnretainedValue()
             // Carbon delivers application events on the main thread.
-            MainActor.assumeIsolated { registrar.fires[id.id]?() }
-            return noErr
-        }, 1, &pressed, Unmanaged.passUnretained(self).toOpaque(), &handler)
-        guard status == noErr else { throw HotKeyError(combo: .openPanel, status: status) }
+            return MainActor.assumeIsolated {
+                guard id.signature == CarbonHotKeys.signature, let fire = registrar.fires[id.id] else { return OSStatus(eventNotHandledErr) }
+                fire()
+                return noErr
+            }
+        // The handler is the system's for as long as the process lives, so it holds its registrar for as long.
+        }, 1, &pressed, Unmanaged.passRetained(self).toOpaque(), &handler)
+        guard status == noErr else { throw HotKeyError(combo: nil, status: status) }
     }
 
     func register(_ combo: KeyCombo, fire: @escaping @MainActor () -> Void) throws -> any HotKeyRegistration {
-        let id = nextID
-        nextID += 1
+        let id = Self.nextID
+        Self.nextID += 1
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(combo.keyCode, combo.modifiers.carbon, EventHotKeyID(signature: Self.signature, id: id),
                                          GetApplicationEventTarget(), 0, &ref)
