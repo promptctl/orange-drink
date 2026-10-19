@@ -10,8 +10,12 @@ generate:
 build: generate
 	$(call gated,build)
 
+# The unit tests, then the accessibility-tree check of the shared settings components: SwiftUI builds
+# its tree only for a client of the running app, so that check is its own process (see ax-check).
+# It fails loudly, never skips, when the invoking terminal is not trusted for Accessibility.
 test: generate
 	$(call gated,test)
+	$(MAKE) ax-check
 
 # The ticket's step on a real Mac: unplug the adapter, wait a few seconds, plug it back in.
 # The variable reaches the test host as UNPLUG_CHECK (xcodebuild strips TEST_RUNNER_) and
