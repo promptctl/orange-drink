@@ -84,7 +84,7 @@ private struct ThresholdSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SettingsSectionHeader(symbol: header.symbol, color: header.color, title: header.title, info: info)
+            SettingsSectionHeader(symbol: header.symbol, color: header.color, title: LocalizedStringKey(header.title), info: LocalizedStringKey(info))
             ForEach(alerts) { alert in
                 AlertCard(alert: alert, onEdit: { change in perform { $0.edit(alert.id, change) } }) {
                     perform { $0.remove(alert.id) }

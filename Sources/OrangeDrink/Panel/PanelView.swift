@@ -7,6 +7,7 @@ struct PanelView: View {
     let deviceSettings: DeviceSettingsModel
     let sections: PanelSections
     let look: AppAppearanceModel
+    let language: AppLanguageModel
 
     var body: some View {
         VStack(spacing: 10) {
@@ -32,7 +33,7 @@ struct PanelView: View {
         .padding(12)
         .frame(width: 330)
         .background(AdaptiveColor(light: .white.opacity(0.85), dark: .black.opacity(0.85)))
-        .preferredColorScheme(look.value.colorScheme)
+        .appLook(look, language)
     }
 }
 
@@ -110,7 +111,7 @@ private struct ProgressBar: View {
 }
 
 struct CollapsibleCard<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let symbolColor: Color
     let section: PanelSections.Section

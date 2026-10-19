@@ -118,7 +118,7 @@ extension BatteryInformation.Condition {
 }
 
 private struct SectionHeader: View {
-    let symbol: String, color: Color, title: String, help: String
+    let symbol: String, color: Color, title: LocalizedStringKey, help: LocalizedStringKey
     @State private var explaining = false
 
     var body: some View {
@@ -134,7 +134,7 @@ private struct SectionHeader: View {
 }
 
 private struct Reading: View {
-    let label: String, value: String
+    let label: LocalizedStringKey, value: String
     var badge: String?
 
     var body: some View {
@@ -149,7 +149,7 @@ private struct Reading: View {
 }
 
 private struct CapacityRow: View {
-    let label: String, value: String, color: Color
+    let label: LocalizedStringKey, value: String, color: Color
 
     var body: some View {
         HStack {

@@ -7,8 +7,8 @@ import SwiftUI
 struct SettingsSectionHeader: View {
     let symbol: String
     let color: Color
-    let title: String
-    var info: String?
+    let title: LocalizedStringKey
+    var info: LocalizedStringKey?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -46,8 +46,8 @@ struct SettingCard<Content: View>: View {
 /// An optional muted icon tile, a bold title over a grey description, and a right-aligned control.
 struct SettingRow<Control: View>: View {
     var icon: (symbol: String, color: Color)?
-    let title: String
-    var description: String?
+    let title: LocalizedStringKey
+    var description: LocalizedStringKey?
     @ViewBuilder let control: () -> Control
 
     var body: some View {
@@ -121,16 +121,16 @@ struct RadioRow: View {
 struct PopUpButton<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [Value]
-    let title: (Value) -> String
+    let title: (Value) -> Text
 
     var body: some View {
         Menu {
             ForEach(options, id: \.self) { option in
-                Button(title(option)) { selection = option }
+                Button { selection = option } label: { title(option) }
             }
         } label: {
             HStack(spacing: 6) {
-                Text(title(selection))
+                title(selection)
                 Image(systemName: "chevron.up.chevron.down").font(.caption2)
             }
         }
