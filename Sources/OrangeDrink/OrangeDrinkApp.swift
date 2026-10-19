@@ -7,10 +7,22 @@ let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as! Strin
 
 @main
 struct OrangeDrinkApp: App {
-    @State private var battery = BatteryModel(readings: BatteryMonitor.readings())
+    @State private var battery: BatteryModel
+    @State private var alerts: AlertCenter
     @State private var sections = PanelSections()
 
     init() {
+        // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
+        let alerts: AlertCenter
+        do {
+            // Nothing shows a firing yet; the pill, glow, and sound tickets take over this sink.
+            alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: { _ in })
+        } catch {
+            fatalError("stored alert settings do not decode: \(error)")
+        }
+        _alerts = State(initialValue: alerts)
+        _battery = State(initialValue: BatteryModel(
+            readings: BatteryMonitor.readings(), onReading: { alerts.observe($0) }))
         #if DEBUG
         ComponentGallery.showIfRequested()
         #endif
