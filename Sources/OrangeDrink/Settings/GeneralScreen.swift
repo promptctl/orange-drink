@@ -1,13 +1,45 @@
 import SwiftUI
 
-/// design-docs/general.md. Only Notification Appearance so far; the screen's other sections arrive with their features.
+/// design-docs/general.md. App Appearance and Notification Appearance so far; the screen's other sections arrive with their features.
 struct GeneralScreen: View {
     let appearance: NotificationAppearanceModel
+    let look: AppAppearanceModel
 
     var body: some View {
-        NotificationAppearanceSection(appearance: appearance)
-            .padding(24)
-            .background(SettingsBackground())
+        VStack(alignment: .leading, spacing: 24) {
+            AppAppearanceSection(look: look)
+            NotificationAppearanceSection(appearance: appearance)
+        }
+        .padding(24)
+        .background(SettingsBackground())
+    }
+}
+
+/// Auto, Light, or Dark for the settings window and the panel, applied as it is chosen.
+private struct AppAppearanceSection: View {
+    let look: AppAppearanceModel
+    @State private var saveFailure: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(symbol: "circle.lefthalf.filled", color: .purple, title: "Appearance")
+            if let saveFailure {
+                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+            }
+            SettingCard {
+                SettingRow(icon: ("circle.lefthalf.filled", .purple), title: "App Appearance", description: "Auto follows your Mac's system appearance") {
+                    PopUpButton(selection: Binding(get: { look.value }, set: { choice in
+                        // [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
+                        do {
+                            try look.update { $0 = choice }
+                            saveFailure = nil
+                        } catch {
+                            saveFailure = error.localizedDescription
+                        }
+                    }), options: AppAppearance.allCases, title: \.rawValue)
+                }
+            }
+        }
     }
 }
 
@@ -41,7 +73,7 @@ private struct NotificationAppearanceSection: View {
                 }
             }
             ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.03))
+                RoundedRectangle(cornerRadius: 12).fill(Color.adaptive(light: Color(white: 0.9), dark: Color(white: 0.03)))
                 if showGlow { GlowView(severity: Self.sample.severity, strength: look.glowStrength) }
                 PillView(content: Self.sample, scale: look.bubbleSize.scale, onClose: {})
             }

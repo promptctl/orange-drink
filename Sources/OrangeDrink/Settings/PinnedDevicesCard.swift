@@ -64,7 +64,7 @@ struct PinnedDevicesCard: View {
     /// A button that trades places with a neighbour, and is off when there is none on that side.
     private func moveButton(_ symbol: String, _ label: String, _ id: DeviceID, with neighbour: DeviceID?) -> some View {
         Button { if let neighbour { perform { $0.pinned.swap(id, with: neighbour) } } } label: {
-            Image(systemName: symbol).frame(width: 32, height: 32).background(.white.opacity(0.1), in: Circle())
+            Image(systemName: symbol).frame(width: 32, height: 32).background(Color.veil(0.1), in: Circle())
         }
         .buttonStyle(.plain)
         .disabled(neighbour == nil)

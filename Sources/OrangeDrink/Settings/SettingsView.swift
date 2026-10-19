@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     let alerts: AlertCenter
     let appearance: NotificationAppearanceModel
+    let look: AppAppearanceModel
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
@@ -21,10 +22,10 @@ struct SettingsView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            ScreenView(screen: selection, alerts: alerts, appearance: appearance, menuBarIcon: menuBarIcon, devices: devices,
+            ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, menuBarIcon: menuBarIcon, devices: devices,
                        deviceSettings: deviceSettings, select: { selection = $0 })
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(look.value.colorScheme)
         .frame(minWidth: 760, minHeight: 640)
     }
 }
@@ -60,6 +61,7 @@ private struct ScreenView: View {
     let screen: SettingsScreen
     let alerts: AlertCenter
     let appearance: NotificationAppearanceModel
+    let look: AppAppearanceModel
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
@@ -78,7 +80,7 @@ private struct ScreenView: View {
                     Text(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
                 switch screen {
-                case .general: GeneralScreen(appearance: appearance)
+                case .general: GeneralScreen(appearance: appearance, look: look)
                 case .alerts: AlertsScreen(center: alerts)
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)

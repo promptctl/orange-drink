@@ -37,9 +37,9 @@ struct SettingCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .padding(.bottom, -1)
-            .background(.white.opacity(0.05))
+            .background(Color.veil(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.1), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.veil(0.1), lineWidth: 1))
     }
 }
 
@@ -137,7 +137,7 @@ struct PopUpButton<Value: Hashable>: View {
         .menuStyle(.button)
         .buttonStyle(.plain)
         .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.veil(0.1), in: RoundedRectangle(cornerRadius: 8))
         .fixedSize()
     }
 }
@@ -168,7 +168,7 @@ struct SegmentedPills<Value: Hashable>: View {
                     Text(title(option)).fontWeight(selected ? .bold : .regular)
                         .foregroundStyle(selected ? .white : .secondary)
                         .padding(.horizontal, 12).padding(.vertical, 5)
-                        .background(selected ? accent : .white.opacity(0.1), in: Capsule())
+                        .background(selected ? accent : Color.veil(0.1), in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(title(option))
@@ -178,14 +178,14 @@ struct SegmentedPills<Value: Hashable>: View {
     }
 }
 
-/// Near-black with large, soft, low-opacity glows of colour: decoration that tracks no data.
+/// Near-black (near-white in a light appearance) with large, soft, low-opacity glows of colour: decoration that tracks no data.
 struct SettingsBackground: View {
     var glow: Color = .green
     var glowCenter: UnitPoint = .topTrailing
 
     var body: some View {
         ZStack {
-            Color(white: 0.06)
+            Color.adaptive(light: Color(white: 0.96), dark: Color(white: 0.06))
             RadialGradient(colors: [glow.opacity(0.18), .clear], center: glowCenter, startRadius: 0, endRadius: 420)
         }
         .ignoresSafeArea()

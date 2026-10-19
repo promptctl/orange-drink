@@ -63,6 +63,6 @@ private struct Tile: View {
             if let text { Text(text).font(.caption.monospaced().bold()) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.veil(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
 }
