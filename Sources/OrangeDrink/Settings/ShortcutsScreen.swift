@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// design-docs/shortcuts.md: the global shortcut that opens the panel, the letters that work in it, and
@@ -8,6 +9,8 @@ struct ShortcutsScreen: View {
         case global
         case menu(MenuShortcut)
     }
+
+    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
 
     let controller: ShortcutsController
     @State private var recording: Target?
@@ -71,7 +74,11 @@ struct ShortcutsScreen: View {
     /// Ends whatever recording there is and has the system hold the saved global shortcut again.
     private func endRecording() {
         recording = nil
-        do { try controller.start() } catch { failure = failure ?? describe(error) }
+        do { try controller.start() } catch {
+            // The screen may be gone by now, so the failure is also logged.
+            Self.log.error("the global shortcut could not be held again: \(error)")
+            failure = failure ?? describe(error)
+        }
     }
 
     private func capture(_ key: RecordedKey) {

@@ -27,6 +27,7 @@ struct RecordedKey: Equatable {
 
     /// [LAW:parse-dont-validate] The global combination this press is, or why it is not one.
     func globalCombo() throws -> KeyCombo {
+        guard KeyCombo.isSupportedKey(keyCode) else { throw ShortcutError.notALetter }
         guard let combo = KeyCombo(keyCode: keyCode, label: character.map(String.init), modifiers: modifiers) else { throw ShortcutError.needsModifiers }
         return combo
     }
@@ -77,11 +78,10 @@ struct RecordedKey: Equatable {
         try change(registering: nil) { try $0.assign(letter, to: shortcut) }
     }
 
-    /// Reset to default shortcuts: ⌃⌥J and a letter per row as the screen first shows them. The letters are
-    /// reset whatever the system says about the combination.
+    /// Reset to default shortcuts: ⌃⌥J and a letter per row as the screen first shows them, all or nothing.
     func reset() throws {
-        try change(registering: nil) { $0.resetLetters() }
-        try record(openPanel: Shortcuts().openPanel)
+        let defaults = Shortcuts()
+        try change(registering: defaults.openPanel) { $0 = defaults }
     }
 
     private func change(registering combo: KeyCombo?, _ edit: (inout Shortcuts) throws -> Void) throws {

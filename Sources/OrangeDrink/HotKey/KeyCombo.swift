@@ -30,10 +30,18 @@ struct KeyCombo: Equatable, Codable, Sendable {
     /// held with at least two of Control, Option, and Command, so a global shortcut can never take a plain
     /// key, ⌘Q, or an Option-typed character from every app.
     init?(keyCode: UInt32, label: String? = nil, modifiers: Modifiers) {
-        guard let letter = Self.letters[keyCode], modifiers.intersection([.control, .option, .command]).rawValue.nonzeroBitCount >= 2 else { return nil }
+        guard let letter = Self.letters[keyCode], Self.hasEnoughModifiers(modifiers) else { return nil }
         self.keyCode = keyCode
-        self.label = label.map { $0.uppercased() } ?? letter
+        // A keycap is one letter; anything else a layout reports (a control character, nothing) is the key's ANSI letter.
+        self.label = label.flatMap { $0.count == 1 && $0.first!.isLetter ? $0.uppercased() : nil } ?? letter
         self.modifiers = modifiers
+    }
+
+    /// Whether a key can be a global shortcut at all, whatever it is held with.
+    static func isSupportedKey(_ keyCode: UInt32) -> Bool { letters[keyCode] != nil }
+
+    static func hasEnoughModifiers(_ modifiers: Modifiers) -> Bool {
+        modifiers.intersection([.control, .option, .command]).rawValue.nonzeroBitCount >= 2
     }
 
     /// The same shortcut whatever its keycap says: the system knows a key by its code.

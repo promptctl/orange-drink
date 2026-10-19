@@ -112,6 +112,17 @@ import Testing
         #expect(throws: ShortcutError.self) { try press(18, [.control, .option], "1").globalCombo() }
     }
 
+    @Test func aKeyThatIsNotALetterIsSaidSoAndNotBlamedOnTheModifiers() {
+        do { _ = try RecordedKey(keyCode: 18, character: "1", modifiers: [.control, .option]).globalCombo() } catch let error as ShortcutError {
+            guard case .notALetter = error else { Issue.record("expected notALetter, got \(error)"); return }
+        } catch { Issue.record("\(error)") }
+    }
+
+    @Test func aKeycapThatIsNotOneLetterIsTheKeysOwnLetter() throws {
+        #expect(try RecordedKey(keyCode: 40, character: "\n", modifiers: [.control, .option]).globalCombo().display == "⌃⌥K")
+        #expect(try RecordedKey(keyCode: 40, character: nil, modifiers: [.control, .option]).globalCombo().display == "⌃⌥K")
+    }
+
     @Test func aCombinationIsShownAsItsKeycapReadsOnTheLayoutItWasRecordedOn() throws {
         // The key at the ANSI A position reads Q on an AZERTY keyboard.
         let key = RecordedKey(keyCode: 0, character: "q", modifiers: [.control, .option])
@@ -149,13 +160,13 @@ import Testing
         #expect(keys.combos == [.openPanel])
     }
 
-    @Test func resetRestoresTheLettersEvenWhenTheSystemRefusesTheDefaultCombination() throws {
+    @Test func resetIsAllOrNothingWhenTheSystemRefusesTheDefaultCombination() throws {
         let rig = try Rig()
         try rig.controller.record(openPanel: Self.k)
         try rig.controller.record("b", for: .batteryInformation)
         rig.keys.refused = [.openPanel]
         #expect(throws: ShortcutError.self) { try rig.controller.reset() }
-        #expect(rig.shortcuts.letter(for: .batteryInformation) == "i")
+        #expect(rig.shortcuts.letter(for: .batteryInformation) == "b")
         #expect(rig.shortcuts.openPanel == Self.k)
         #expect(rig.keys.combos == [Self.k])
     }
@@ -190,5 +201,14 @@ import Testing
         #expect(shortcuts.openPanel == Self.k)
         #expect(shortcuts.letter(for: .batteryInformation) == "b")
         #expect(shortcuts.letter(for: .appsUsingSignificantEnergy) == "u")
+    }
+
+    @Test func aRowAddedWithADefaultSomeoneHoldsTakesTheFirstFreeLetter() throws {
+        let defaults = scratchDefaults()
+        let held = #"{"openPanel":{"keyCode":40,"modifiers":3},"letters":{"batteryInformation":"u","connectedDevices":"a","lowPowerMode":"l"}}"#
+        defaults.set(Data(held.utf8), forKey: Shortcuts.storageKey)
+        let shortcuts = try ShortcutsModel(defaults: defaults).value
+        #expect(shortcuts.letter(for: .appsUsingSignificantEnergy) == "b")
+        #expect(Set(MenuShortcut.allCases.map { shortcuts.letter(for: $0) }).count == 4)
     }
 }

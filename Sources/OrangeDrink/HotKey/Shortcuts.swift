@@ -18,6 +18,8 @@ struct ShortcutLetter: Hashable, Codable, Sendable, ExpressibleByUnicodeScalarLi
 
     var display: String { character.uppercased() }
 
+    static let all = "abcdefghijklmnopqrstuvwxyz".map { ShortcutLetter($0)! }
+
     init(from decoder: Decoder) throws {
         let text = try decoder.singleValueContainer().decode(String.self)
         guard text.count == 1, let letter = ShortcutLetter(text.first!) else {
@@ -82,8 +84,6 @@ struct Shortcuts: Stored {
 
     mutating func set(openPanel combo: KeyCombo) { openPanel = combo }
 
-    mutating func resetLetters() { letters = Self().letters }
-
     /// A letter belongs to one row: taking one another row holds is refused rather than leaving two rows to race for it.
     mutating func assign(_ letter: ShortcutLetter, to shortcut: MenuShortcut) throws {
         if let holder = self.shortcut(for: letter), holder != shortcut { throw Conflict(letter: letter, heldBy: holder) }
@@ -96,11 +96,18 @@ struct Shortcuts: Stored {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         openPanel = try values.decode(KeyCombo.self, forKey: .openPanel)
         // A row added by a later release has no stored letter yet and starts at its default; a row since removed is dropped.
+        // If its default is another row's letter now, it takes the first letter nobody holds.
         let stored = try values.decode([String: ShortcutLetter].self, forKey: .letters)
-        letters = Dictionary(uniqueKeysWithValues: MenuShortcut.allCases.map { ($0, stored[$0.rawValue] ?? $0.defaultLetter) })
-        guard Set(letters.values).count == letters.count else {
+        var kept = MenuShortcut.allCases.compactMap { row in stored[row.rawValue].map { (row, $0) } }
+        guard Set(kept.map(\.1)).count == kept.count else {
             throw DecodingError.dataCorruptedError(forKey: .letters, in: values, debugDescription: "every row needs its own letter")
         }
+        for row in MenuShortcut.allCases where stored[row.rawValue] == nil {
+            let held = Set(kept.map(\.1))
+            let free = held.contains(row.defaultLetter) ? ShortcutLetter.all.first { !held.contains($0) }! : row.defaultLetter
+            kept.append((row, free))
+        }
+        letters = Dictionary(uniqueKeysWithValues: kept)
     }
 }
 
