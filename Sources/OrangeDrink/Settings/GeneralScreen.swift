@@ -1,17 +1,47 @@
 import SwiftUI
 
-/// design-docs/general.md. App Appearance and Notification Appearance so far; the screen's other sections arrive with their features.
+/// design-docs/general.md. App Language, App Appearance, and Notification Appearance so far; the screen's other sections arrive with their features.
 struct GeneralScreen: View {
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
+    let language: AppLanguageModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
+            LanguageSection(language: language)
             AppAppearanceSection(look: look)
             NotificationAppearanceSection(appearance: appearance)
         }
         .padding(24)
         .background(SettingsBackground())
+    }
+}
+
+/// Match System or a language the app carries, applied as it is chosen.
+private struct LanguageSection: View {
+    let language: AppLanguageModel
+    @State private var saveFailure: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(symbol: "globe", color: .blue, title: "Language")
+            if let saveFailure {
+                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+            }
+            SettingCard {
+                SettingRow(icon: ("globe", .blue), title: "App Language", description: "Choose the language \(appName) uses. Changes apply immediately.") {
+                    PopUpButton(selection: Binding(get: { language.value }, set: { choice in
+                        // [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
+                        do {
+                            try language.update { $0 = choice }
+                            saveFailure = nil
+                        } catch {
+                            saveFailure = error.localizedDescription
+                        }
+                    }), options: AppLanguage.choices(), title: { LocalizedStringKey($0.menuTitle(speaking: language.value)) })
+                }
+            }
+        }
     }
 }
 
@@ -36,7 +66,7 @@ private struct AppAppearanceSection: View {
                         } catch {
                             saveFailure = error.localizedDescription
                         }
-                    }), options: AppAppearance.allCases, title: \.rawValue)
+                    }), options: AppAppearance.allCases, title: { LocalizedStringKey($0.rawValue) })
                 }
             }
         }
@@ -63,10 +93,10 @@ private struct NotificationAppearanceSection: View {
             }
             SettingCard {
                 SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {
-                    PopUpButton(selection: binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: \.rawValue)
+                    PopUpButton(selection: binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: { LocalizedStringKey($0.rawValue) })
                 }
                 SettingRow(title: "Screen Edge Glow", description: "Strength of the glow around the screen edge") {
-                    PopUpButton(selection: binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: \.rawValue)
+                    PopUpButton(selection: binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: { LocalizedStringKey($0.rawValue) })
                 }
                 SettingRow(title: "Preview") {
                     AccentSwitch(isOn: $showGlow, tint: .green, label: "Show Glow")

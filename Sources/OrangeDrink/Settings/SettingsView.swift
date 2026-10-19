@@ -5,6 +5,7 @@ struct SettingsView: View {
     let alerts: AlertCenter
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
+    let language: AppLanguageModel
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
@@ -22,10 +23,10 @@ struct SettingsView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, menuBarIcon: menuBarIcon, devices: devices,
+            ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, menuBarIcon: menuBarIcon, devices: devices,
                        deviceSettings: deviceSettings, select: { selection = $0 })
         }
-        .preferredColorScheme(look.value.colorScheme)
+        .appLook(look, language)
         .frame(minWidth: 760, minHeight: 640)
     }
 }
@@ -62,6 +63,7 @@ private struct ScreenView: View {
     let alerts: AlertCenter
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
+    let language: AppLanguageModel
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
@@ -80,7 +82,7 @@ private struct ScreenView: View {
                     Text(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
                 switch screen {
-                case .general: GeneralScreen(appearance: appearance, look: look)
+                case .general: GeneralScreen(appearance: appearance, look: look, language: language)
                 case .alerts: AlertsScreen(center: alerts)
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
