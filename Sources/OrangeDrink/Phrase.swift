@@ -44,21 +44,21 @@ struct Phrase: Equatable, Sendable, ExpressibleByStringInterpolation {
 
     /// The sentence in `language`: its key looked up in the catalog, then filled with the values.
     func resolve(in language: AppLanguage, bundle: Bundle = .main) -> String {
-        fill(language.resolve(key, in: bundle), language: language, bundle: bundle)
+        fill(language.resolve(key, in: bundle), locale: language.locale) { $0.resolve(in: language, bundle: bundle) }
     }
 
     /// The sentence as the code that wrote it reads it: the key filled in.
-    var english: String { fill(key, language: .matchSystem, bundle: .main, translating: false) }
+    var english: String { fill(key, locale: Locale(identifier: "en_US")) { $0.english } }
 
-    private func fill(_ format: String, language: AppLanguage, bundle: Bundle, translating: Bool = true) -> String {
+    private func fill(_ format: String, locale: Locale, nested: (Phrase) -> String) -> String {
         let arguments: [CVarArg] = values.map {
             switch $0 {
             case .number(let number): number
             case .text(let text): text
-            case .phrase(let phrase): translating ? phrase.resolve(in: language, bundle: bundle) : phrase.english
+            case .phrase(let phrase): nested(phrase)
             }
         }
-        return String(format: format, locale: translating ? language.locale : Locale(identifier: "en_US"), arguments: arguments)
+        return String(format: format, locale: locale, arguments: arguments)
     }
 }
 
