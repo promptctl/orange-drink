@@ -213,6 +213,14 @@ import Testing
             == [.threshold(alert), .pluggedIn(sound: true), .temperatureWarning])
     }
 
+    @Test func theLogWordsEveryFiringByItsFacts() {
+        let alert = Alert(kind: .low, threshold: 5, position: .center, glow: true, sound: false)
+        #expect(Firing.threshold(alert).description == "low 5% position center glow true sound false")
+        #expect(Firing.pluggedIn(sound: true).description == "plugged in sound true")
+        #expect(Firing.unplugged(sound: false).description == "unplugged sound false")
+        #expect(Firing.temperatureWarning.description == "temperature warning")
+    }
+
     @Test func aMacLaunchedHotIsNotWarnedAboutAtLaunch() throws {
         #expect(Self.firings([try Self.battery(celsius: 41), try Self.battery(celsius: 42)]) == [])
     }

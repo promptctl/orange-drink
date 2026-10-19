@@ -39,7 +39,7 @@ import os
         for firing in fired {
             Self.log.info("""
                 alert \(delivered.isEmpty ? "suppressed by master switch" : "fired", privacy: .public): \
-                \(String(describing: firing), privacy: .public) at \(reading.chargePercent)%
+                \(firing.description, privacy: .public) at \(reading.chargePercent)%
                 """)
         }
         for firing in delivered { deliver(firing) }
