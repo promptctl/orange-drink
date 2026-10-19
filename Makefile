@@ -2,7 +2,7 @@ APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
 
-.PHONY: generate build test unplug-check pill-check cpu-check ax-check
+.PHONY: generate build test unplug-check devices-check pill-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -22,6 +22,11 @@ test: generate
 # enables the one test that needs a person at the cable.
 unplug-check: export TEST_RUNNER_UNPLUG_CHECK = 1
 unplug-check: test
+
+# The devices ticket's step on a real Mac: with paired devices connected, prints each one's name,
+# type, and level to compare with Control Center. Same TEST_RUNNER_ shape as unplug-check.
+devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
+devices-check: test
 
 # Same shape for the alert pill: put an app full screen, then click the × of the pill that appears
 # at the centre of the screen and again at the top, then once more at the centre with the screen glow.
