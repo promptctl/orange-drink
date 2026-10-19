@@ -35,7 +35,7 @@ struct MenuBarIcon: Equatable {
     }
 
     init(_ reading: BatteryReading, _ config: MenuBarIconConfig, on bar: Bar) {
-        self.init(BatteryIndicator(reading, display: config.display, statusColors: config.statusColors), config, on: bar)
+        self.init(BatteryIndicator(reading, display: config.renderedDisplay, statusColors: config.statusColors), config, on: bar)
     }
 
     /// The logo is the same at every charge, so it is made without a reading.

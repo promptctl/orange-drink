@@ -69,7 +69,7 @@ struct MenuBarScreen: View {
                 }
                 Group {
                     SettingRow(icon: ("checklist", .purple), title: "Display", description: "Choose what to display in the menu bar icon") {
-                        PopUpButton(selection: binding(\.display, shown: config.renderedDisplay), options: config.style.displays, title: \.title)
+                        PopUpButton(selection: Binding(get: { config.renderedDisplay }, set: { display in perform { $0.display = display } }), options: config.style.displays, title: \.title)
                     }
                     SettingRow(icon: ("circle.lefthalf.filled", .orange), title: "Color", description: "Match your menu bar style") {
                         PopUpButton(selection: binding(\.color), options: MenuBarIconConfig.Color.allCases, title: \.title)
@@ -91,8 +91,8 @@ struct MenuBarScreen: View {
         .background(SettingsBackground())
     }
 
-    private func binding<Value>(_ keyPath: WritableKeyPath<MenuBarIconConfig, Value>, shown: Value? = nil) -> Binding<Value> {
-        Binding(get: { shown ?? model.value[keyPath: keyPath] }, set: { value in perform { $0[keyPath: keyPath] = value } })
+    private func binding<Value>(_ keyPath: WritableKeyPath<MenuBarIconConfig, Value>) -> Binding<Value> {
+        Binding(get: { model.value[keyPath: keyPath] }, set: { value in perform { $0[keyPath: keyPath] = value } })
     }
 
     /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
@@ -119,7 +119,7 @@ struct MenuBarPreview: View {
     /// [LAW:one-source-of-truth] The same `MenuBarIcon` the status item is made of, handed the
     /// sample and the mockup's own dark bar.
     static func icon(_ config: MenuBarIconConfig) -> MenuBarIcon {
-        MenuBarIcon(BatteryIndicator(percent: samplePercent, power: samplePower, display: config.display, statusColors: config.statusColors),
+        MenuBarIcon(BatteryIndicator(percent: samplePercent, power: samplePower, display: config.renderedDisplay, statusColors: config.statusColors),
                     config, on: .dark)
     }
 
