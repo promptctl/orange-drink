@@ -80,7 +80,7 @@ private struct ScreenView: View {
                 switch screen {
                 case .general: GeneralScreen(appearance: appearance)
                 case .alerts: AlertsScreen(center: alerts)
-                case .menuBar: MenuBarScreen(model: menuBarIcon)
+                case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
                 default: EmptyState(screen: screen).padding(.top, 60)
                 }
