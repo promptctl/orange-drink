@@ -16,22 +16,28 @@ import Testing
         let ac = try run("/usr/bin/pmset", "-g", "ac")
         #expect([before.percent, after.percent].contains(reading.chargePercent))
         let estimates = [before.estimate, after.estimate]
+        #expect(Self.pmsetStates(for: reading.power).contains(after.state))
 
         switch reading.power {
         case .battery(let timeToEmpty):
-            #expect(after.state == "discharging")
             #expect(ac.contains("No adapter attached."))
             #expect(estimates.contains(timeToEmpty))
         case .adapter(let watts, let charging):
             let adapterWatts = ac.firstMatch(of: /Wattage = (\d+)W/)?.1
             #expect(watts == adapterWatts.map { .init(value: Double($0)!, unit: .watts) })
-            switch charging {
-            case .charging(let timeToFull):
-                #expect(after.state == "charging" || after.state == "finishing charge")
-                #expect(estimates.contains(timeToFull))
-            case .notCharging: #expect(after.state == "AC attached; not charging")
-            case .full: #expect(after.state == "charged")
-            }
+            if case .charging(let timeToFull) = charging { #expect(estimates.contains(timeToFull)) }
+        }
+    }
+
+    /// The states pmset.m prints for a power source. [LAW:one-source-of-truth] The one map
+    /// from a reading's power to pmset's words; the bracketed read and the plug and unplug
+    /// arrivals both judge pmset by it.
+    static func pmsetStates(for power: PowerSource) -> [String] {
+        switch power {
+        case .battery: ["discharging"]
+        case .adapter(_, .charging): ["charging", "finishing charge"]
+        case .adapter(_, .notCharging): ["AC attached; not charging"]
+        case .adapter(_, .full): ["charged"]
         }
     }
 
@@ -73,18 +79,25 @@ import Testing
     }
 
     @Test func subscriptionStartsWithTheCurrentReading() async throws {
+        let store = try OSLogStore(scope: .currentProcessIdentifier)
+        let since = store.position(date: Date())
         var readings = BatteryMonitor.readings().makeAsyncIterator()
         let published = try #require(try await readings.next(), "the stream ended before its first reading")
         let first = try #require(published, "this check needs a Mac with a battery")
         let direct = try #require(try IOKitBattery.read())
         #expect(first.capacity.design == direct.capacity.design)
         #expect(first.cycles == direct.cycles)
+        let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
+                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
+        #expect(entries.contains { $0.composedMessage.hasPrefix("battery notifications: registered token ") })
     }
 
     /// The ticket's step on a real Mac, run by `make unplug-check` with a person at the cable;
     /// `make test` skips it. Each event is checked against pmset at the moment it arrives.
     @Test func plugAndUnplug() async throws {
         struct Arrival { let reading: BatteryReading; let pmsetState: String }
+        let start = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
+        guard case .adapter = start.power else { Issue.record("start with the adapter plugged in"); return }
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         let since = store.position(date: Date())
         let run = Task { () -> (unplugged: Arrival, plugged: Arrival)? in
@@ -104,18 +117,18 @@ import Testing
             return nil
         }
         let deadline = Task { try await Task.sleep(for: .seconds(120)); run.cancel() }
+        defer { deadline.cancel() }
         let arrivals = try #require(try await run.value, "no unplug followed by a plug within 120 s")
-        deadline.cancel()
 
         guard case .battery = arrivals.unplugged.reading.power else {
             Issue.record("unplug event carried \(arrivals.unplugged.reading.power)"); return
         }
-        #expect(arrivals.unplugged.pmsetState == "discharging")
         guard case .adapter = arrivals.plugged.reading.power else {
             Issue.record("plug event carried \(arrivals.plugged.reading.power)"); return
         }
-        #expect(arrivals.plugged.pmsetState.hasPrefix("AC attached") || arrivals.plugged.pmsetState == "charging"
-                || arrivals.plugged.pmsetState == "charged")
+        for arrival in [arrivals.unplugged, arrivals.plugged] {
+            #expect(Self.pmsetStates(for: arrival.reading.power).contains(arrival.pmsetState))
+        }
 
         let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
                                                                              IOKitBattery.logSubsystem, IOKitBattery.logCategory))

@@ -10,15 +10,18 @@ enum BatteryMonitor {
     /// with no battery. A read that fails ends the stream with its error.
     ///
     /// [LAW:effects-at-boundaries] The one edge that listens to powerd. It registers for
-    /// kIOPSNotifyTimeRemaining, which IOKit posts on every estimate change and every change
-    /// of power source, so one key covers plug, unplug, and level.
+    /// kIOPSNotifyAnyPowerSource, the one public key IOPowerSources.h documents for a change to
+    /// any attribute, percent included; kIOPSNotifyTimeRemaining promises only estimate and
+    /// power-source changes. The price is powerd's periodic republish, measured at one post a
+    /// minute while held steady at 80% on AC, so one read a minute against the 60 ms a minute
+    /// the CPU budget allows.
     static func readings() -> AsyncThrowingStream<BatteryReading?, any Error> {
         AsyncThrowingStream { continuation in
             // [LAW:no-ambient-temporal-coupling] One serial queue owns every read for this
             // subscription, so the initial read and the notification reads cannot interleave.
             let queue = DispatchQueue(label: "\(IOKitBattery.logSubsystem).battery-monitor")
             var token: Int32 = 0
-            let status = notify_register_dispatch(kIOPSNotifyTimeRemaining, &token, queue) { _ in
+            let status = notify_register_dispatch(kIOPSNotifyAnyPowerSource, &token, queue) { _ in
                 publish(into: continuation)
             }
             guard status == NOTIFY_STATUS_OK else {
