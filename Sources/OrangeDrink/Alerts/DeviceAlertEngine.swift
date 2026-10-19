@@ -4,9 +4,9 @@ import Foundation
 struct DeviceFiring: Equatable, Sendable, CustomStringConvertible {
     let alert: Alert
     let name: String
-    let percent: Int
+    let level: BatteryLevel
 
-    var description: String { "\(name) \(percent)%: low \(alert.threshold)%" }
+    var description: String { "\(name) \(level.approximate ? "~" : "")\(level.percent)%: low \(alert.threshold)%" }
 }
 
 /// Decides which low alerts a device's new level sets off: each once per crossing, never for hovering.
@@ -18,20 +18,25 @@ struct DeviceFiring: Equatable, Sendable, CustomStringConvertible {
 struct DeviceAlertEngine: Equatable, Sendable {
     private var engines: [DeviceID: AlertEngine] = [:]
 
-    /// Everything this list sets off. A device that is not watched, not connected, or reports no
-    /// level is not observed, and one that is not watched or not connected is forgotten, so
-    /// turning its bell on again at a low level is a first sighting, which announces nothing.
+    /// What this list sets off for the devices being watched. Every connected device that reports a
+    /// level is tracked, watched or not, as the battery is tracked with the master switch off, so
+    /// turning a bell on at 21% still announces the fall to 19%; the bell only decides who is
+    /// announced. A device that is not connected is forgotten.
+    ///
+    /// [LAW:dataflow-not-control-flow] Every device takes the same transitions on every list.
     mutating func observe(_ list: DeviceList, watching: Set<DeviceID>, alerts: [Alert]) -> [DeviceFiring] {
         let lows = alerts.filter { $0.kind == .low }
-        let watched = list.devices.filter { watching.contains($0.id) }
-        var next = engines.filter { id, _ in watched.contains { $0.id == id } }
+        let present = Set(list.devices.map(\.id))
+        var next = engines.filter { present.contains($0.key) }
         var firings: [DeviceFiring] = []
-        for device in watched {
-            guard let level = device.levels.lowest else { continue }
+        for device in list.devices {
+            guard let level = device.levels.alertLevel else { continue }
             var engine = next[device.id] ?? AlertEngine()
-            firings += engine.observe(level: level.percent, alerts: lows)
-                .map { DeviceFiring(alert: $0, name: device.name, percent: level.percent) }
+            let crossed = engine.observe(level: level.percent, alerts: lows)
             next[device.id] = engine
+            if watching.contains(device.id) {
+                firings += crossed.map { DeviceFiring(alert: $0, name: device.name, level: level) }
+            }
         }
         engines = next
         return firings

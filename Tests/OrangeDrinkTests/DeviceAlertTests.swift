@@ -23,7 +23,7 @@ import Testing
     @Test func aWatchedDeviceCrossingItsThresholdFiresExactlyOnce() {
         var engine = DeviceAlertEngine()
         let fired = aroundTwenty.flatMap { engine.observe(list([Self.mouse: $0]), watching: [Self.mouse], alerts: [alert]) }
-        #expect(fired == [DeviceFiring(alert: alert, name: "Magic Mouse", percent: 19)])
+        #expect(fired == [DeviceFiring(alert: alert, name: "Magic Mouse", level: BatteryLevel(percent: 19, approximate: false))])
     }
 
     @Test func aDeviceWhoseBellIsOffFiresNothing() {
@@ -54,6 +54,55 @@ import Testing
         #expect(engine.observe(list([Self.mouse: 10]), watching: [Self.mouse], alerts: [alert]).isEmpty)
     }
 
+    @Test func turningTheBellOnJustAboveTheThresholdStillAnnouncesTheFall() {
+        var engine = DeviceAlertEngine()
+        _ = engine.observe(list([Self.mouse: 21]), watching: [], alerts: [alert])
+        let fired = engine.observe(list([Self.mouse: 19]), watching: [Self.mouse], alerts: [alert])
+        #expect(fired.map(\.level.percent) == [19])
+    }
+
+    @Test func budsGoingIntoTheirCaseIsNotTheLevelFalling() {
+        func pods(left: Int?, right: Int?, case: Int) -> DeviceList {
+            func level(_ percent: Int?) -> BatteryLevel? { percent.map { BatteryLevel(percent: $0, approximate: false) } }
+            var list = DeviceList()
+            list.apply(.swept([Device(id: Self.pods, name: "AirPods", kind: .accessory,
+                                      levels: .earbuds(left: level(left), right: level(right), case: level(`case`)))]))
+            return list
+        }
+        var engine = DeviceAlertEngine()
+        let watching: Set = [Self.pods]
+        _ = engine.observe(pods(left: 50, right: 50, case: 10), watching: watching, alerts: [alert])
+        #expect(engine.observe(pods(left: nil, right: nil, case: 10), watching: watching, alerts: [alert]).isEmpty)
+        #expect(engine.observe(pods(left: 50, right: 50, case: 10), watching: watching, alerts: [alert]).isEmpty)
+    }
+
+    @Test func anApproximateLevelIsMarkedOnThePill() {
+        let firing = DeviceFiring(alert: alert, name: "AirPods", level: BatteryLevel(percent: 19, approximate: true))
+        #expect(PillContent(firing).headline == "AirPods: ~19% Remaining")
+    }
+
+    @Test func theModelTellsItsCallbackTheListAfterEveryEvent() async {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        var seen: [Int] = []
+        let (counts, count) = AsyncStream.makeStream(of: Int.self)
+        let model = DevicesModel(events: events, onChange: { seen.append($0.devices.count); count.yield($0.devices.count) })
+        send.yield(.swept([DeviceListTests.mouse]))
+        send.yield(.reported(DeviceListTests.pods))
+        var iterator = counts.makeAsyncIterator()
+        _ = await iterator.next()
+        _ = await iterator.next()
+        #expect(seen == [1, 2])
+        _ = model
+    }
+
+    @Test func theBellShowsOnItsDetectedRow() {
+        var settings = DeviceSettings()
+        settings.toggleAlerting(DeviceListTests.mouse.id)
+        var devices = DeviceList()
+        devices.apply(.swept([DeviceListTests.mouse, DeviceListTests.pods]))
+        #expect(DetectedDevices(devices, settings: settings).entries.map(\.isAlerting) == [true, false])
+    }
+
     @Test func aDeviceReportingNoLevelIsNotObserved() {
         var engine = DeviceAlertEngine()
         var silent = DeviceList()
@@ -75,7 +124,7 @@ import Testing
         let delivered = Box()
         let center = try center(delivered)
         for level in aroundTwenty { center.observe(devices: list([Self.mouse: level]), watching: [Self.mouse]) }
-        #expect(delivered.firings.map(\.percent) == [19])
+        #expect(delivered.firings.map(\.level.percent) == [19])
     }
 
     @Test func theMasterSwitchOffDeliversNothingButKeepsTracking() throws {
@@ -91,7 +140,7 @@ import Testing
     }
 
     @Test func aDeviceFiringsPillNamesTheDeviceItsLevelAndTheAlertsLook() {
-        let firing = DeviceFiring(alert: AlertEngineTests.low(5), name: "Magic Mouse", percent: 4)
+        let firing = DeviceFiring(alert: AlertEngineTests.low(5), name: "Magic Mouse", level: BatteryLevel(percent: 4, approximate: false))
         let pill = PillContent(firing)
         #expect(pill.headline == "Magic Mouse: 4% Remaining")
         #expect(pill.severity == .red)
