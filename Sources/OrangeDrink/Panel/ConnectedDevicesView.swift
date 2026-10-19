@@ -2,20 +2,21 @@ import SwiftUI
 
 /// The expanded Connected Devices card: one row per device under inset hairlines.
 struct ConnectedDevicesView: View {
-    let devices: DevicesModel
+    let connected: ConnectedDevices
+    let failed: Bool
 
     var body: some View {
-        if devices.failure != nil {
+        if failed {
             note("Device readings stopped. Quit and reopen the app.")
         } else {
-            let rows = ConnectedDevices(devices.list).rows
+            let rows = connected.rows
             if rows.isEmpty {
-                note("No connected Bluetooth devices to show.")
+                note(connected.hiddenCount > 0 ? "Every device is hidden. Show them again in Settings → Devices." : "No connected Bluetooth devices to show.")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                         if index > 0 { Divider().padding(.leading, 34) }
-                        DeviceRow(row: row)
+                        DeviceRowView(row: row)
                     }
                 }
             }
@@ -27,8 +28,8 @@ struct ConnectedDevicesView: View {
     }
 }
 
-private struct DeviceRow: View {
-    let row: ConnectedDevices.Row
+struct DeviceRowView: View {
+    let row: DeviceRow
 
     private var tint: Color { row.tone == .nearlyFull ? .green : .white.opacity(0.7) }
 

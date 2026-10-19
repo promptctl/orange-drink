@@ -4,6 +4,8 @@ import SwiftUI
 struct SettingsView: View {
     let alerts: AlertCenter
     let appearance: NotificationAppearanceModel
+    let devices: DevicesModel
+    let deviceSettings: DeviceSettingsModel
     @State private var selection: SettingsScreen = .general
 
     var body: some View {
@@ -18,7 +20,8 @@ struct SettingsView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            ScreenView(screen: selection, alerts: alerts, appearance: appearance)
+            ScreenView(screen: selection, alerts: alerts, appearance: appearance, devices: devices, deviceSettings: deviceSettings,
+                       select: { selection = $0 })
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 760, minHeight: 640)
@@ -56,6 +59,9 @@ private struct ScreenView: View {
     let screen: SettingsScreen
     let alerts: AlertCenter
     let appearance: NotificationAppearanceModel
+    let devices: DevicesModel
+    let deviceSettings: DeviceSettingsModel
+    let select: (SettingsScreen) -> Void
 
     var body: some View {
         ScrollView {
@@ -72,6 +78,7 @@ private struct ScreenView: View {
                 switch screen {
                 case .general: GeneralScreen(appearance: appearance)
                 case .alerts: AlertsScreen(center: alerts)
+                case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
                 default: EmptyState(screen: screen).padding(.top, 60)
                 }
             }

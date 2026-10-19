@@ -1,7 +1,7 @@
 import Foundation
 
 /// A paired Bluetooth device, identified by its address: the one thing a rename cannot change.
-struct DeviceID: Hashable, Sendable { let address: String }
+struct DeviceID: Hashable, Codable, Sendable { let address: String }
 
 enum DeviceKind: Equatable, Sendable {
     case phone, tablet
