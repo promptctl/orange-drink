@@ -14,13 +14,17 @@ import Observation
 
     /// [LAW:composability] The model mirrors whatever events it is given: the app hands it
     /// `BluetoothDevices.events()`, a test a recorded stream with no Bluetooth in the room.
-    init<Events: AsyncSequence & Sendable>(events: Events) where Events.Element == DeviceEvent {
+    /// `onChange` is told of the list after every event, so what acts on it (device alerts) never watches `list`.
+    init<Events: AsyncSequence & Sendable>(
+        events: Events, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
+    ) where Events.Element == DeviceEvent {
         subscription = Task { [weak self] in
             let ending: any Error
             do {
                 for try await event in events {
                     guard let self else { return }
                     self.list.apply(event)
+                    onChange(self.list)
                 }
                 ending = DevicesModelError.streamFinished
             } catch {

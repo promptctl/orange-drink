@@ -51,8 +51,8 @@ struct DevicesHelpLine: Equatable, Identifiable {
 }
 
 /// design-docs/devices.md: the switch for the panel's Connected Devices card, every detected device
-/// with its eye button, and the help list. Bell and pin buttons, and the Apple Watch section, come
-/// with their own features.
+/// with its bell and eye buttons, and the help list. The pin buttons and the Apple Watch section
+/// come with their own features.
 struct DevicesScreen: View {
     let devices: DevicesModel
     let settings: DeviceSettingsModel
@@ -103,6 +103,12 @@ struct DevicesScreen: View {
                             Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 12)
+                        Button { toggleAlerting(entry.id) } label: {
+                            Image(systemName: entry.isAlerting ? "bell.fill" : "bell.slash").frame(width: 32, height: 32)
+                                .background(.white.opacity(0.1), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(entry.isAlerting ? "Turn off battery alerts for \(entry.row.name)" : "Turn on battery alerts for \(entry.row.name)")
                         Button { toggleHidden(entry.id) } label: {
                             Image(systemName: entry.isHidden ? "eye.slash" : "eye").frame(width: 32, height: 32)
                                 .background(.white.opacity(0.1), in: Circle())
@@ -136,6 +142,7 @@ struct DevicesScreen: View {
     }
 
     private func toggleHidden(_ id: DeviceID) { perform { $0.toggleHidden(id) } }
+    private func toggleAlerting(_ id: DeviceID) { perform { $0.toggleAlerting(id) } }
 
     /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
     private func perform(_ edit: (inout DeviceSettings) -> Void) {
