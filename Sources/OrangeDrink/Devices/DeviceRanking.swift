@@ -39,10 +39,14 @@ enum DeviceRanking {
 struct ConnectedDevices: Equatable {
     let isShown: Bool
     let rows: [DeviceRow]
+    /// Devices that report a level but are hidden from this card, so an empty card can say why.
+    let hiddenCount: Int
 
     init(_ list: DeviceList, settings: DeviceSettings) {
         isShown = settings.showConnectedDevices
-        rows = DeviceRanking.rows(list).filter { !settings.hidden.contains($0.id) }
+        let ranked = DeviceRanking.rows(list)
+        rows = ranked.filter { !settings.hidden.contains($0.id) }
+        hiddenCount = ranked.count - rows.count
     }
 }
 

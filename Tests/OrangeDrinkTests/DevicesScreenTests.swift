@@ -15,10 +15,8 @@ import Testing
         list.apply(.swept([device("a", 95), device("b", 37), device("c", 54), device("d", 49)]))
         return list
     }
-    private func model(_ suite: String = #function) throws -> DeviceSettingsModel {
-        let defaults = UserDefaults(suiteName: "DevicesScreenTests.\(suite)")!
-        defaults.removePersistentDomain(forName: "DevicesScreenTests.\(suite)")
-        return try DeviceSettingsModel(defaults: defaults)
+    private func model() throws -> DeviceSettingsModel {
+        try DeviceSettingsModel(defaults: UserDefaults(suiteName: "DevicesScreenTests.\(UUID().uuidString)")!)
     }
 
     @Test func detectedDevicesRunLowestFirst() {
@@ -50,10 +48,16 @@ import Testing
         #expect(ConnectedDevices(list, settings: settings.settings).isShown)
     }
 
-    @Test func settingsSurviveARelaunch() throws {
-        let name = "DevicesScreenTests.relaunch"
+    /// A suite no other test or run shares, removed when the test ends however it ends.
+    private func scratchDefaults() -> (UserDefaults, cleanup: () -> Void) {
+        let name = "DevicesScreenTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
-        defaults.removePersistentDomain(forName: name)
+        return (defaults, { defaults.removePersistentDomain(forName: name) })
+    }
+
+    @Test func settingsSurviveARelaunch() throws {
+        let (defaults, cleanup) = scratchDefaults()
+        defer { cleanup() }
         let first = try DeviceSettingsModel(defaults: defaults)
         try first.update { $0.showConnectedDevices = false; $0.toggleHidden(DeviceID(address: "c")) }
         let second = try DeviceSettingsModel(defaults: defaults)
@@ -62,10 +66,10 @@ import Testing
     }
 
     @Test func storedSettingsThatDoNotDecodeFailTheLoad() {
-        let defaults = UserDefaults(suiteName: "DevicesScreenTests.corrupt")!
+        let (defaults, cleanup) = scratchDefaults()
+        defer { cleanup() }
         defaults.set(Data("not json".utf8), forKey: DeviceSettingsModel.storageKey)
         #expect(throws: (any Error).self) { try DeviceSettingsModel(defaults: defaults) }
-        defaults.removePersistentDomain(forName: "DevicesScreenTests.corrupt")
     }
 
     @Test func theMenuBarSettingsLinkOpensTheMenuBarScreen() throws {
@@ -77,5 +81,29 @@ import Testing
 
     @Test func theHelpListHasTheSixLinesOfTheDesignDoc() {
         #expect(DevicesHelpLine.all.count == 6)
+    }
+
+    @Test func settingsStoredBeforeAFieldExistedStillLoad() throws {
+        let (defaults, cleanup) = scratchDefaults()
+        defer { cleanup() }
+        defaults.set(Data(#"{"showConnectedDevices":false}"#.utf8), forKey: DeviceSettingsModel.storageKey)
+        let loaded = try DeviceSettingsModel(defaults: defaults).settings
+        #expect(!loaded.showConnectedDevices)
+        #expect(loaded.hidden.isEmpty)
+    }
+
+    @Test func aHiddenDeviceThatIsNotConnectedChangesNothing() throws {
+        let settings = try model()
+        try settings.update { $0.toggleHidden(DeviceID(address: "gone")) }
+        #expect(ConnectedDevices(list, settings: settings.settings).rows.count == 4)
+        #expect(ConnectedDevices(list, settings: settings.settings).hiddenCount == 0)
+    }
+
+    @Test func hidingEveryDeviceIsCountedSoTheCardCanSaySo() throws {
+        let settings = try model()
+        try settings.update { for id in ["a", "b", "c", "d"] { $0.toggleHidden(DeviceID(address: id)) } }
+        let card = ConnectedDevices(list, settings: settings.settings)
+        #expect(card.rows.isEmpty)
+        #expect(card.hiddenCount == 4)
     }
 }

@@ -2,16 +2,16 @@ import SwiftUI
 
 /// The expanded Connected Devices card: one row per device under inset hairlines.
 struct ConnectedDevicesView: View {
-    let devices: DevicesModel
-    let settings: DeviceSettings
+    let connected: ConnectedDevices
+    let failed: Bool
 
     var body: some View {
-        if devices.failure != nil {
+        if failed {
             note("Device readings stopped. Quit and reopen the app.")
         } else {
-            let rows = ConnectedDevices(devices.list, settings: settings).rows
+            let rows = connected.rows
             if rows.isEmpty {
-                note("No connected Bluetooth devices to show.")
+                note(connected.hiddenCount > 0 ? "Every device is hidden. Show them again in Settings → Devices." : "No connected Bluetooth devices to show.")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in

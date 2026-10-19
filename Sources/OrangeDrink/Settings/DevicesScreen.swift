@@ -2,11 +2,14 @@ import SwiftUI
 
 /// One of the Devices screen's help lines: a coloured icon tile and grey text, which may end in a
 /// link to another screen.
-struct DevicesHelpLine: Equatable {
+struct DevicesHelpLine: Equatable, Identifiable {
     struct Link: Equatable {
         let title: String
         let screen: SettingsScreen
     }
+
+    /// Each line has its own icon, so the icon names it.
+    var id: String { symbol }
 
     let symbol: String
     let color: Color
@@ -77,7 +80,7 @@ struct DevicesScreen: View {
                 detectedCard(DetectedDevices(devices.list, settings: current))
             }
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(DevicesHelpLine.all, id: \.text) { helpLine($0) }
+                ForEach(DevicesHelpLine.all) { helpLine($0) }
             }
         }
         .padding(24)
