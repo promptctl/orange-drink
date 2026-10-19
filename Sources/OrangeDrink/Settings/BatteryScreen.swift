@@ -2,13 +2,13 @@ import Charts
 import OSLog
 import SwiftUI
 
-/// design-docs/battery.md: the stat tiles and the Battery Level card. Daily usage and health over
-/// time come with their own tickets.
+/// design-docs/battery.md: the stat tiles, the Battery Level card, and the Daily Usage and Battery Health cards.
 struct BatteryScreen: View {
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     @State private var range = HistoryRange.day
     @State private var loaded: Result<BatteryLevelTimeline, any Error>?
+    @State private var overview: Result<BatteryOverview, any Error>?
     @Environment(\.appLanguage) private var language
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "history")
 
@@ -16,19 +16,36 @@ struct BatteryScreen: View {
         VStack(alignment: .leading, spacing: 24) {
             tiles
             // A Mac with no battery records nothing, so a card promising a filling history would never fill.
-            if case .known(nil) = battery.state {} else { levelCard }
+            if case .known(nil) = battery.state {} else {
+                levelCard
+                if case .success(let overview)? = overview {
+                    DailyUsageCard(overview: overview)
+                    if case .known(let reading?) = battery.state { BatteryHealthCard(reading: reading, overview: overview) }
+                }
+            }
         }
         .padding(24)
         .background(SettingsBackground(glow: .green, glowCenter: .top))
         // The timeline is read again when the range changes and whenever the history is written.
-        .task(id: Refresh(range: range, revision: (try? history.get())?.revision)) { load() }
+        .task(id: Refresh(range: range, revision: (try? history.get())?.revision)) { loadTimeline() }
+        // The overview does not depend on the range, so switching it reads nothing more.
+        .task(id: (try? history.get())?.revision) { loadOverview() }
     }
 
     private struct Refresh: Equatable { let range: HistoryRange; let revision: Int? }
 
-    private func load() {
+    private func loadTimeline() {
         loaded = Result { try history.get().timeline(range: range) }
-        if case .failure(let error) = loaded { Self.log.error("battery timeline unreadable: \(String(describing: error), privacy: .public)") }
+        report(loaded?.error)
+    }
+
+    private func loadOverview() {
+        overview = Result { try history.get().overview() }
+        report(overview?.error)
+    }
+
+    private func report(_ failure: (any Error)?) {
+        if let failure { Self.log.error("battery history unreadable: \(String(describing: failure), privacy: .public)") }
     }
 
     @ViewBuilder private var tiles: some View {
@@ -120,4 +137,8 @@ private struct StatTile: View {
         case .info: .blue
         }
     }
+}
+
+private extension Result {
+    var error: Failure? { if case .failure(let error) = self { error } else { nil } }
 }

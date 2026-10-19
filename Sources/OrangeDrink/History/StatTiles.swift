@@ -35,3 +35,13 @@ struct StatTiles: Equatable {
                       status: "of \(reading.cycles.rated) rated", tone: .info)
     }
 }
+
+extension BatteryReading {
+    /// "5,942 / 6,249 mAh": what a full charge holds today over what it held new.
+    func capacityText(locale: Locale) -> String {
+        func mAh(_ capacity: Measurement<UnitElectricCharge>) -> String {
+            Int(capacity.converted(to: .milliampereHours).value.rounded()).formatted(.number.locale(locale))
+        }
+        return "\(mAh(capacity.full)) / \(mAh(capacity.design)) mAh"
+    }
+}

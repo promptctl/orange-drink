@@ -70,12 +70,22 @@ final class HistoryStore: Sendable {
                       health: row["health"], temperature: .init(value: row["celsius"], unit: .celsius))
     }
 
-    /// Every recorded day, keyed by the start of the local day it was recorded for.
-    func dailyUsage() throws -> [Date: DayUsage] {
+    /// What the Daily Usage and Battery Health cards chart, read in one transaction so the days, the
+    /// health, and the freshness describe the same moment of the history.
+    func overviewRows() throws -> (usage: [Date: DayUsage], healthSamples: [(at: Date, health: Double)], latestSample: Date?) {
         try queue.read { db in
-            Dictionary(uniqueKeysWithValues: try Row.fetchAll(db, sql: "SELECT * FROM dailyUsage").map { row in
-                (Date(timeIntervalSince1970: row["day"]), DayUsage(dischargedPercent: row["dischargedPercent"], screenOn: row["screenOnSeconds"]))
-            })
+            // Two columns of health, so years of history stay cheap to read.
+            let health = try Row.fetchAll(db, sql: "SELECT at, health FROM batterySample ORDER BY at").map { (Date(timeIntervalSince1970: $0["at"]), $0["health"] as Double) }
+            return (try Self.usage(db), health, try Double.fetchOne(db, sql: "SELECT max(at) FROM batterySample").map(Date.init(timeIntervalSince1970:)))
         }
+    }
+
+    /// Every recorded day, keyed by the start of the local day it was recorded for.
+    func dailyUsage() throws -> [Date: DayUsage] { try queue.read(Self.usage) }
+
+    private static func usage(_ db: Database) throws -> [Date: DayUsage] {
+        Dictionary(uniqueKeysWithValues: try Row.fetchAll(db, sql: "SELECT * FROM dailyUsage").map { row in
+            (Date(timeIntervalSince1970: row["day"]), DayUsage(dischargedPercent: row["dischargedPercent"], screenOn: row["screenOnSeconds"]))
+        })
     }
 }

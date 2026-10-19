@@ -14,6 +14,7 @@ import OSLog
     private(set) var revision = 0
     @ObservationIgnored private let store: HistoryStore
     @ObservationIgnored private let timekeeper: any Timekeeper
+    @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private var recorder: HistoryRecorder
     /// [LAW:types-are-the-program] exception: assigned after init by `follow`, which needs `self`.
     @ObservationIgnored nonisolated(unsafe) private var screenTask: Task<Void, Never>?
@@ -21,6 +22,7 @@ import OSLog
     init(store: HistoryStore, timekeeper: any Timekeeper = SystemTimekeeper(), calendar: Calendar = .current) {
         self.store = store
         self.timekeeper = timekeeper
+        self.calendar = calendar
         recorder = HistoryRecorder(calendar: calendar, launchedAt: timekeeper.now())
     }
 
@@ -40,6 +42,12 @@ import OSLog
         let now = timekeeper.now()
         return BatteryLevelTimeline(
             range: range, now: now, samples: try store.samples(since: now.addingTimeInterval(-BatteryLevelTimeline.lookback)))
+    }
+
+    /// What the Daily Usage and Battery Health cards show, read from the store as of now.
+    func overview() throws -> BatteryOverview {
+        let rows = try store.overviewRows()
+        return BatteryOverview(usage: rows.usage, healthSamples: rows.healthSamples, calendar: calendar, collectedAt: rows.latestSample)
     }
 
     func follow<Changes: AsyncSequence & Sendable>(screen changes: Changes) where Changes.Element == Bool {

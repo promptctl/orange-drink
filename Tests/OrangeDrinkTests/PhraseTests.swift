@@ -96,6 +96,11 @@ import Testing
                     "Building your battery-level history — your charge timeline fills in as you use your Mac.",
                     "The battery history could not be read. Quit and reopen the app.", "This Mac has no battery.", "Reading the battery…",
                     "Battery readings stopped. Quit and reopen the app."]
+        phrases += ["DAILY USAGE", BatteryOverview.age(0), BatteryOverview.age(120), BatteryOverview.age(7200), BatteryOverview.age(200_000),
+                    "Building your daily usage", "\("App") tracks battery discharge and screen-on time across each day. Come back in a couple of days to see your charts fill in.",
+                    "\(1) day collected so far", "\(2) days collected so far", "Battery used", "Screen on", "Battery Health",
+                    "How much charge the battery holds today compared with when it was new.",
+                    "Building your battery-health history — your health trend fills in as you use your Mac.", "Battery health over time"]
         phrases += ["Close", "Plugged In", "On Battery", "Show Glow"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
         phrases += [true, false].flatMap { on in
