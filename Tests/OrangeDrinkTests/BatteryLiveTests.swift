@@ -92,7 +92,7 @@ import Testing
     @MainActor @Test(.timeLimit(.minutes(1))) func appModelHoldsTheCurrentReading() async throws {
         let model = BatteryModel(readings: BatteryMonitor.readings())
         let direct = try #require(try IOKitBattery.read())
-        switch await model.state(once: { if case .unknown = $0 { false } else { true } }) {
+        switch await model.state(once: BatteryModel.isSettled) {
         case .known(let reading?): #expect(reading.cycles == direct.cycles)
         case .known(nil): Issue.record("the subscription saw no battery where a direct read saw one")
         case .ended(let error): Issue.record("the subscription ended: \(error.map { "\($0)" } ?? "the stream finished")")

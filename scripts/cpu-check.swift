@@ -10,7 +10,7 @@ let budgetPercent = 0.1
 
 enum CPUCheckError: Error, CustomStringConvertible {
     case usage
-    case pmsetNamedNoSource(String)
+    case pmset(status: Int32, output: String)
     case appExited(Process.TerminationReason, status: Int32)
     case rusage(errno: Int32)
     case interrupted(signal: Int32)
@@ -18,7 +18,7 @@ enum CPUCheckError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .usage: "usage: cpu-check <path to the app executable>"
-        case .pmsetNamedNoSource(let output): "pmset -g batt named no power source:\n\(output)"
+        case .pmset(let status, let output): "pmset -g batt exited \(status) and named no power source:\n\(output)"
         case .appExited(.exit, let status): "the app exited with status \(status) before the window ended"
         case .appExited(_, let signal): "the app was killed by signal \(signal) before the window ended"
         case .rusage(let errno): "proc_pid_rusage failed: \(String(cString: strerror(errno)))"
@@ -45,25 +45,31 @@ let signalSources = [SIGINT, SIGTERM, SIGHUP].map { number -> DispatchSourceSign
     return source
 }
 
+/// Throws the signal that has arrived, if one has.
+func checkInterruption() throws {
+    if let number = interruptedBy.withLock({ $0 }) { throw CPUCheckError.interrupted(signal: number) }
+}
+
 /// Sleeps for the seconds, or throws the signal that cut the sleep short.
 func sleep(seconds: Double) throws {
     _ = interruption.wait(timeout: .now() + seconds)
-    if let number = interruptedBy.withLock({ $0 }) { throw CPUCheckError.interrupted(signal: number) }
+    try checkInterruption()
 }
 
 /// User plus system time the kernel has charged to the app, from launch. proc_pid_rusage
 /// reports it in Mach ticks, which the timebase turns into nanoseconds.
 ///
 /// [LAW:one-source-of-truth] The kernel is the one judge of whether the app is still there:
-/// Process.isRunning trails the exit, so a sample it cannot take is an exit, reported by
-/// its reason and status once Foundation has collected them.
+/// Process.isRunning trails the exit, so the sample itself tells, by a gone pid or by the
+/// exit time the kernel stamps on one not yet reaped, and the exit is reported by its reason
+/// and status once Foundation has collected them.
 func cpuTime(of app: Process) throws -> Duration {
     var info = rusage_info_v4()
     let status = withUnsafeMutablePointer(to: &info) {
         $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(app.processIdentifier, RUSAGE_INFO_V4, $0) }
     }
-    guard status == 0 else {
-        guard errno == ESRCH else { throw CPUCheckError.rusage(errno: errno) }
+    if status != 0, errno != ESRCH { throw CPUCheckError.rusage(errno: errno) }
+    guard status == 0, info.ri_proc_exit_abstime == 0 else {
         app.waitUntilExit()
         throw CPUCheckError.appExited(app.terminationReason, status: app.terminationStatus)
     }
@@ -83,13 +89,13 @@ func powerSource() throws -> String {
     try pmset.run()
     let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     pmset.waitUntilExit()
-    guard let match = output.firstMatch(of: #/Now drawing from '([^']+)'/#) else {
-        throw CPUCheckError.pmsetNamedNoSource(output)
+    guard pmset.terminationStatus == 0, let match = output.firstMatch(of: #/Now drawing from '([^']+)'/#) else {
+        throw CPUCheckError.pmset(status: pmset.terminationStatus, output: output)
     }
     return String(match.1)
 }
 
-struct Measurement {
+struct MeasuredWindow {
     let cpu: Duration
     let elapsed: Duration
     /// The source over the window, or both when it changed under the measurement.
@@ -98,7 +104,7 @@ struct Measurement {
 
 /// [LAW:effects-at-boundaries] The one function that owns the app process: however the
 /// measurement ends, the app ends with it, so a failed run leaves nothing in the menu bar.
-func measure(executable: String) throws -> Measurement {
+func measure(executable: String) throws -> MeasuredWindow {
     let app = Process()
     app.executableURL = URL(fileURLWithPath: executable)
     try app.run()
@@ -114,8 +120,9 @@ func measure(executable: String) throws -> Measurement {
     let cpu = try cpuTime(of: app) - cpuBefore
     let elapsed = ContinuousClock.now - windowStart
     let sourceAfter = try powerSource()
+    try checkInterruption()
     let source = sourceBefore == sourceAfter ? sourceBefore : "\(sourceBefore), then \(sourceAfter)"
-    return Measurement(cpu: cpu, elapsed: elapsed, source: source)
+    return MeasuredWindow(cpu: cpu, elapsed: elapsed, source: source)
 }
 
 do {
