@@ -3,6 +3,7 @@ import SwiftUI
 /// The expanded Battery Information card: four sections under thin dividers.
 struct BatteryInformationView: View {
     let info: BatteryInformation
+    let reading: BatteryReading
     let battery: BatteryModel
 
     var body: some View {
@@ -73,6 +74,7 @@ struct BatteryInformationView: View {
                     }
                 }
             }
+            if let flow = PowerFlow(reading) { PowerFlowView(flow: flow) }
         }
     }
 

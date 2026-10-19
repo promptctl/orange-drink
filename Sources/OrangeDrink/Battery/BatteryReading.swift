@@ -19,6 +19,16 @@ struct BatteryReading: Equatable, Sendable {
     let voltage: Measurement<UnitElectricPotentialDifference>
     /// Positive while charge flows into the battery, negative while it flows out.
     let current: Measurement<UnitElectricCurrent>
+    /// What the system takes in from the adapter, as the battery's power telemetry reports it;
+    /// nil when this Mac publishes none, and while there is no adapter to take from.
+    let systemPowerIn: Measurement<UnitPower>?
+}
+
+extension BatteryReading {
+    /// Positive while power flows into the battery, negative while it flows out: voltage times current.
+    var batteryPower: Measurement<UnitPower> {
+        .init(value: voltage.converted(to: .volts).value * current.converted(to: .amperes).value, unit: .watts)
+    }
 }
 
 enum PowerSource: Equatable, Sendable {
@@ -88,6 +98,10 @@ extension BatteryReading {
         temperature = .init(value: try integer("Temperature") / 100, unit: .celsius)
         voltage = .init(value: try integer("Voltage") / 1000, unit: .volts)
         current = .init(value: try integer("Amperage"), unit: .milliamperes)
+        // The telemetry is a dictionary of milliwatts, absent on Macs that do not publish it.
+        let telemetry: [String: Any]? = try optionalField("PowerTelemetryData", in: registry, "registry")
+        let milliwatts: Int? = try telemetry.flatMap { try optionalField("SystemPowerIn", in: $0, "power telemetry") }
+        systemPowerIn = milliwatts.map { .init(value: Double($0) / 1000, unit: .watts) }
     }
 }
 
