@@ -20,14 +20,14 @@ struct ConnectedDevices: Equatable {
     /// From this level up a device is nearly full and its bar turns green.
     static let nearlyFull = 90
 
-    /// Lowest level first, so the device that needs charging is at the top; equal levels keep the
-    /// list's stable name order.
+    /// Lowest level first, so the device that needs charging is at the top; equal levels in name
+    /// then address order, so a row never reshuffles between renders.
     let rows: [Row]
 
     init(_ list: DeviceList) {
         rows = list.devices
             .compactMap { device in device.levels.lowest.map { (device, $0) } }
-            .sorted { $0.1.percent < $1.1.percent }
+            .sorted { ($0.1.percent, $0.0.name, $0.0.id.address) < ($1.1.percent, $1.0.name, $1.0.id.address) }
             .map { device, level in
                 Row(id: device.id, name: device.name, kind: device.kind,
                     percent: "\(level.approximate ? "~" : "")\(level.percent)%",

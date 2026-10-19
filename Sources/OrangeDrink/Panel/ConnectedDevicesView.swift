@@ -5,14 +5,12 @@ struct ConnectedDevicesView: View {
     let devices: DevicesModel
 
     var body: some View {
-        if let failure = devices.failure {
-            Text("Device readings stopped (\(String(describing: failure))). Quit and reopen the app.")
-                .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+        if devices.failure != nil {
+            note("Device readings stopped. Quit and reopen the app.")
         } else {
             let rows = ConnectedDevices(devices.list).rows
             if rows.isEmpty {
-                Text("No connected devices report a battery.")
-                    .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                note("No connected Bluetooth devices to show.")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
@@ -22,6 +20,10 @@ struct ConnectedDevicesView: View {
                 }
             }
         }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -39,7 +41,7 @@ private struct DeviceRow: View {
                     Spacer()
                     Text(row.percent).fontWeight(.bold).foregroundStyle(tint)
                 }
-                Gauge(fraction: row.fraction, tint: tint)
+                LevelBar(fraction: row.fraction, tint: tint)
             }
         }
         .padding(.vertical, 8)
