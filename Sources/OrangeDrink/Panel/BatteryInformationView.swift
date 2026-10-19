@@ -22,7 +22,7 @@ struct BatteryInformationView: View {
 
     private var healthSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(symbol: "checkmark.circle.fill", color: info.health.condition.color, title: "Battery Health",
+            SectionHeader(symbol: info.health.condition.checkSymbol, color: info.health.condition.color, title: "Battery Health",
                           help: "How much charge the battery holds today compared with when it was new.")
             HStack(alignment: .firstTextBaseline) {
                 Text(info.health.percent).font(.system(size: 28, weight: .bold)).foregroundStyle(info.health.condition.color)
@@ -48,7 +48,7 @@ struct BatteryInformationView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing) {
-                    Label(info.temperature.status, systemImage: "checkmark").foregroundStyle(info.temperature.condition.color)
+                    Label(info.temperature.status, systemImage: info.temperature.condition.markSymbol).foregroundStyle(info.temperature.condition.color)
                     Text(info.temperature.caption).font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -78,11 +78,11 @@ struct BatteryInformationView: View {
         }
     }
 
-    /// The age is re-read every 30 s while the card is open, so "Updated" keeps counting between readings.
+    /// The age is re-read every 10 s while the card is open, so "Updated" keeps counting between readings.
     private var footer: some View {
         VStack(spacing: 4) {
             Label(UpdatedFooter.explanation, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
-            TimelineView(.periodic(from: .now, by: 30)) { _ in
+            TimelineView(.periodic(from: .now, by: 10)) { _ in
                 Text(battery.updatedText() ?? "").font(.caption).foregroundStyle(.secondary)
             }
             Button { battery.refresh() } label: { Label(UpdatedFooter.action, systemImage: "arrow.clockwise").font(.caption) }
@@ -111,6 +111,10 @@ extension BatteryInformation.Condition {
         case .bad: .red
         }
     }
+
+    /// A status mark that agrees with the colour: a checkmark only for a healthy reading.
+    var markSymbol: String { self == .good ? "checkmark" : "exclamationmark.triangle.fill" }
+    var checkSymbol: String { self == .good ? "checkmark.circle.fill" : "exclamationmark.triangle.fill" }
 }
 
 private struct SectionHeader: View {

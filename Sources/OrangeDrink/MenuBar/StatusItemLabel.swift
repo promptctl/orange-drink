@@ -4,7 +4,16 @@ import SwiftUI
 /// none otherwise, so a missing battery or a dead subscription is never a stale percentage.
 struct StatusItemLabel: View {
     let state: BatteryModel.State
-    let config: MenuBarIconConfig
+    /// The menu bar's own appearance: a dark bar takes a light glyph and a light bar a dark one.
+    @Environment(\.colorScheme) private var barScheme
+
+    /// The choices in force. Until the Menu Bar screen supplies saved ones these are the defaults,
+    /// with the glyph's colour matched to the bar it sits in.
+    private var config: MenuBarIconConfig {
+        var config = MenuBarIconConfig()
+        config.color = barScheme == .dark ? .light : .dark
+        return config
+    }
 
     var body: some View {
         if config.style == .logo {

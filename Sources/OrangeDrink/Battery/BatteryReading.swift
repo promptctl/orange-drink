@@ -92,6 +92,10 @@ extension BatteryReading {
             current: .init(value: try integer("AppleRawCurrentCapacity"), unit: .milliampereHours),
             full: .init(value: try integer("AppleRawMaxCapacity"), unit: .milliampereHours),
             design: .init(value: try integer("DesignCapacity"), unit: .milliampereHours))
+        // Health divides by the design capacity, so a reading without one is not a reading.
+        guard capacity.design.value > 0 else {
+            throw BatteryReadError.invalid(key: "DesignCapacity", source: "registry")
+        }
         cycles = Cycles(
             count: try field("CycleCount", in: registry, "registry"),
             rated: try field("DesignCycleCount9C", in: registry, "registry"))

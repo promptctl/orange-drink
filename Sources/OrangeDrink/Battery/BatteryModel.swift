@@ -93,16 +93,18 @@ import Observation
         state = .known(reading)
     }
 
-    /// nil once the model has ended: nothing refreshes a dead subscription back to life.
-    private func untilRefreshDue() -> Duration? {
-        if case .ended = state { return nil }
-        guard case .known = state, let readingAt else { return Self.refreshInterval }
+    /// How long until a reading is due: the interval less the age of the one held. The refresher
+    /// outlives `.ended`, because a powerd publish can bring the model back to `.known`.
+    private func untilRefreshDue() -> Duration {
+        guard let readingAt else { return Self.refreshInterval }
         let age = Duration.seconds(timekeeper.now().timeIntervalSince(readingAt))
         return max(.zero, Self.refreshInterval - age)
     }
 
+    /// Only a model holding a reading refreshes it: before the first one the subscription is
+    /// still delivering, and after a failure it is the failure that is on show.
     private func refreshIfDue() {
-        guard untilRefreshDue() == .zero else { return }
+        guard case .known = state, untilRefreshDue() == .zero else { return }
         refresh()
     }
 
