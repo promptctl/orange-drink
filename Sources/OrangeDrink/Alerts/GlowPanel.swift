@@ -19,21 +19,11 @@ struct GlowView: View {
     }
 }
 
-/// A borderless panel over a whole screen that floats over every app, full-screen ones included,
-/// and lets every click through to what is beneath.
-final class GlowPanel: NSPanel {
+/// A borderless panel over a whole screen that lets every click through to what is beneath.
+final class GlowPanel: OverlayPanel {
     init(severity: Alert.Severity, screen: NSScreen) {
-        super.init(
-            contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = false
+        super.init(frame: screen.frame, level: .glow, content: GlowView(severity: severity))
         ignoresMouseEvents = true
-        isReleasedWhenClosed = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        level = .screenSaver
-        contentView = NSHostingView(rootView: GlowView(severity: severity))
+        hasShadow = false
     }
-
-    override var canBecomeKey: Bool { false }
 }

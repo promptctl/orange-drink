@@ -18,24 +18,13 @@ enum PillPlacement {
     }
 }
 
-/// A borderless panel that floats over every app, full-screen ones included, without taking focus.
-private final class PillPanel: NSPanel {
+/// The pill's window: it takes the close button's clicks without taking focus.
+private final class PillPanel: OverlayPanel {
     init(_ content: PillContent, screen: NSScreen, onClose: @escaping () -> Void) {
         super.init(
-            contentRect: PillPlacement.frame(content.position, on: screen.visibleFrame),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        isReleasedWhenClosed = false
-        // A full-screen app is its own Space: joining all Spaces as a full-screen auxiliary is what
-        // lets a window of an accessory app appear there.
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        level = .screenSaver
-        contentView = NSHostingView(rootView: PillView(content: content, onClose: onClose))
+            frame: PillPlacement.frame(content.position, on: screen.visibleFrame), level: .pill,
+            content: PillView(content: content, onClose: onClose))
     }
-
-    override var canBecomeKey: Bool { false }
 }
 
 /// The one pill on screen, with the screen glow its alert asks for: a new alert replaces both, and
@@ -83,7 +72,6 @@ private final class PillPanel: NSPanel {
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, screen: screen) : nil
-        // Both float at one level, so the later one fronted is on top: the glow goes behind the pill.
         glow?.orderFrontRegardless()
         panel.orderFrontRegardless()
         up = Up(content: content, panel: panel, glow: glow)
