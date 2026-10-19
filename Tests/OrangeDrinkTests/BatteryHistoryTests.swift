@@ -75,6 +75,13 @@ import Testing
             Self.midnight.addingTimeInterval(86_400): DayUsage(screenOn: 2 * 3600)])
     }
 
+    @Test func aWriteTheStoreRefusedIsCountedAgainWithTheNext() throws {
+        var recorder = HistoryRecorder(calendar: Self.utc, launchedAt: Self.midnight)
+        let refused = recorder.screen(on: false, at: Self.midnight.addingTimeInterval(3600))
+        recorder.restore(refused)
+        #expect(recorder.flush(at: Self.midnight.addingTimeInterval(7200)).days == [Self.midnight: DayUsage(screenOn: 3600)])
+    }
+
     @Test func steadyReadingsWriteAtMostOneSampleEveryTenMinutes() throws {
         var recorder = HistoryRecorder(calendar: Self.utc, launchedAt: Self.midnight)
         let steady = try Self.onBattery(80)

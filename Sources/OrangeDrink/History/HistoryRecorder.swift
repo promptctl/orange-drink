@@ -30,8 +30,9 @@ struct DayUsage: Equatable, Sendable {
     /// Seconds the display was awake.
     var screenOn: TimeInterval = 0
 
-    static func + (lhs: Self, rhs: Self) -> Self {
-        .init(dischargedPercent: lhs.dischargedPercent + rhs.dischargedPercent, screenOn: lhs.screenOn + rhs.screenOn)
+    static func += (lhs: inout Self, rhs: Self) {
+        lhs.dischargedPercent += rhs.dischargedPercent
+        lhs.screenOn += rhs.screenOn
     }
 }
 
@@ -84,6 +85,11 @@ struct HistoryRecorder {
         return write
     }
 
+    /// Takes back a write the store refused, so its counts go out with the next one instead of vanishing.
+    mutating func restore(_ write: HistoryWrite) {
+        for (day, usage) in write.days { pending[day, default: DayUsage()] += usage }
+    }
+
     /// Everything counted so far, for a quit: the open screen interval is credited up to `at`.
     mutating func flush(at: Date) -> HistoryWrite { drain(at: at, sample: nil) }
 
@@ -104,7 +110,7 @@ struct HistoryRecorder {
     }
 
     private mutating func credit(_ usage: DayUsage, on instant: Date) {
-        pending[calendar.startOfDay(for: instant), default: DayUsage()] = pending[calendar.startOfDay(for: instant), default: DayUsage()] + usage
+        pending[calendar.startOfDay(for: instant), default: DayUsage()] += usage
     }
 
     /// An interval that crosses midnight is split there, each part going to its own day.

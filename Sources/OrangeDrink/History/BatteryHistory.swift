@@ -46,6 +46,7 @@ import OSLog
         guard !write.isEmpty else { return }
         do { try store.apply(write) } catch {
             Self.log.error("history write failed: \(String(describing: error), privacy: .public)")
+            recorder.restore(write)
         }
     }
 
