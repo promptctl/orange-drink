@@ -1,25 +1,23 @@
 import AppKit
 import Observation
-import os
 
-/// One pinned device's menu bar item: its type glyph and its level.
+/// One pinned device's menu bar item: the same row the panel and the Devices screen show, so its
+/// name, type glyph, and level text ("37%", "~50%" when approximate) are written once.
 struct PinnedItem: Equatable, Identifiable {
-    let id: DeviceID
-    let name: String
-    let kind: DeviceKind
-    /// "37%", or "~50%" when the level is only approximate.
-    let percent: String
+    let row: DeviceRow
+    var id: DeviceID { row.id }
 
-    /// One item for each pinned device that is connected and reports a level, by name then address.
-    /// The Menu Bar screen's ordering (orange-devices-bue.2af) replaces that order.
+    /// One item for each pinned device that is connected and reports a level, by name then address
+    /// so an item never reshuffles as levels change. The Menu Bar screen's ordering
+    /// (orange-devices-bue.2af) replaces that order.
     ///
     /// [LAW:one-source-of-truth] Derived from the live list and the pinned set on every call; no
     /// item outlives the facts it shows.
     static func items(_ list: DeviceList, pinned: Set<DeviceID>) -> [PinnedItem] {
-        let rows = Dictionary(DeviceRanking.rows(list).map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
-        return list.devices.compactMap { device in
-            pinned.contains(device.id) ? rows[device.id].map { PinnedItem(id: device.id, name: device.name, kind: device.kind, percent: $0.percent) } : nil
-        }
+        DeviceRanking.rows(list)
+            .filter { pinned.contains($0.id) }
+            .sorted { ($0.name, $0.id.address) < ($1.name, $1.id.address) }
+            .map(PinnedItem.init)
     }
 }
 
@@ -36,22 +34,24 @@ struct PinnedItem: Equatable, Identifiable {
 /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list or the
 /// pins, so the items follow both with no timer and no polling.
 @MainActor final class PinnedItemsController {
-    private let makeItem: @MainActor () -> any PinnedStatusItem
-    private var statusItems: [DeviceID: any PinnedStatusItem] = [:]
+    /// Makes the status item for a device; the same device always gets the same place in the bar.
+    private let makeItem: @MainActor (DeviceID) -> any PinnedStatusItem
+    /// Each item with what it last showed, so an unchanged one is not redrawn.
+    private var statusItems: [DeviceID: (item: any PinnedStatusItem, shown: PinnedItem)] = [:]
 
-    init(makeItem: @escaping @MainActor () -> any PinnedStatusItem = { NSPinnedStatusItem() }) {
+    init(makeItem: @escaping @MainActor (DeviceID) -> any PinnedStatusItem = { NSPinnedStatusItem(id: $0) }) {
         self.makeItem = makeItem
     }
 
     /// Makes the status items equal to `items`: the missing added, the rest updated, the stale removed.
     func apply(_ items: [PinnedItem]) {
         let wanted = Set(items.map(\.id))
-        for (id, item) in statusItems where !wanted.contains(id) { item.remove() }
+        for (id, held) in statusItems where !wanted.contains(id) { held.item.remove() }
         statusItems = statusItems.filter { wanted.contains($0.key) }
-        for item in items {
-            let shown = statusItems[item.id] ?? makeItem()
-            shown.show(item)
-            statusItems[item.id] = shown
+        for pinned in items {
+            let item = statusItems[pinned.id]?.item ?? makeItem(pinned.id)
+            if statusItems[pinned.id]?.shown != pinned { item.show(pinned) }
+            statusItems[pinned.id] = (item, pinned)
         }
     }
 
@@ -69,18 +69,22 @@ struct PinnedItem: Equatable, Identifiable {
 @MainActor final class NSPinnedStatusItem: PinnedStatusItem {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
+    /// [LAW:one-source-of-truth] The autosave name is what AppKit keys the item's place in the bar
+    /// by, so a device that drops out and returns gets back the place the user dragged it to.
+    init(id: DeviceID) { item.autosaveName = "pinned-device-\(id.address)" }
+
     /// The text the item shows, for the check that it shows the device's level.
     var title: String { item.button?.title ?? "" }
 
     func show(_ pinned: PinnedItem) {
         guard let button = item.button else {
-            Logger(subsystem: IOKitBattery.logSubsystem, category: "devices").error("a pinned device's status item has no button")
+            BluetoothDevices.log.error("a pinned device's status item has no button")
             return
         }
-        button.image = NSImage(systemSymbolName: pinned.kind.symbol, accessibilityDescription: pinned.name)
+        button.image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
         button.imagePosition = .imageLeading
-        button.title = pinned.percent
-        button.toolTip = pinned.name
+        button.title = pinned.row.percent
+        button.toolTip = pinned.row.name
     }
 
     func remove() { NSStatusBar.system.removeStatusItem(item) }

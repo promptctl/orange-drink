@@ -27,7 +27,17 @@ import Testing
     final class Items { var made: [RecordingItem] = [] }
 
     private func controller(_ items: Items) -> PinnedItemsController {
-        PinnedItemsController(makeItem: { let item = RecordingItem(); items.made.append(item); return item })
+        PinnedItemsController(makeItem: { _ in let item = RecordingItem(); items.made.append(item); return item })
+    }
+
+    /// Spins until `condition` holds or five seconds pass, so a failure fails instead of hanging the run.
+    private func eventually(_ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !condition() {
+            guard ContinuousClock.now < deadline else { return false }
+            await Task.yield()
+        }
+        return true
     }
 
     @Test func aPinnedDeviceShowsItsLevelAndFollowsAChange() {
@@ -35,14 +45,14 @@ import Testing
         let controller = controller(items)
         controller.apply(PinnedItem.items(list([Self.mouse: level(37)]), pinned: [Self.mouse]))
         #expect(items.made.count == 1)
-        #expect(items.made[0].shown?.percent == "37%")
+        #expect(items.made[0].shown?.row.percent == "37%")
         controller.apply(PinnedItem.items(list([Self.mouse: level(30)]), pinned: [Self.mouse]))
         #expect(items.made.count == 1)
-        #expect(items.made[0].shown?.percent == "30%")
+        #expect(items.made[0].shown?.row.percent == "30%")
     }
 
     @Test func anApproximateLevelIsMarked() {
-        #expect(PinnedItem.items(list([Self.mouse: level(50, approximate: true)]), pinned: [Self.mouse]).map(\.percent) == ["~50%"])
+        #expect(PinnedItem.items(list([Self.mouse: level(50, approximate: true)]), pinned: [Self.mouse]).map(\.row.percent) == ["~50%"])
     }
 
     @Test func onlyPinnedConnectedDevicesWithALevelHaveAnItem() {
@@ -50,7 +60,7 @@ import Testing
         #expect(PinnedItem.items(devices, pinned: []).isEmpty)
         #expect(PinnedItem.items(devices, pinned: [Self.pods]).isEmpty)
         #expect(PinnedItem.items(devices, pinned: [DeviceID(address: "gone")]).isEmpty)
-        #expect(PinnedItem.items(devices, pinned: [Self.mouse, Self.pods]).map(\.name) == ["Magic Mouse"])
+        #expect(PinnedItem.items(devices, pinned: [Self.mouse, Self.pods]).map(\.row.name) == ["Magic Mouse"])
     }
 
     @Test func unpinningOrDisconnectingRemovesTheItem() {
@@ -70,7 +80,7 @@ import Testing
         let items = Items()
         let controller = controller(items)
         controller.apply(PinnedItem.items(list([Self.mouse: level(37), Self.pods: level(80)]), pinned: [Self.mouse, Self.pods]))
-        #expect(items.made.map { $0.shown?.percent } == ["80%", "37%"] || items.made.map { $0.shown?.percent } == ["37%", "80%"])
+        #expect(items.made.map { $0.shown?.row.percent } == ["80%", "37%"] || items.made.map { $0.shown?.row.percent } == ["37%", "80%"])
         #expect(items.made.count == 2)
     }
 
@@ -81,15 +91,19 @@ import Testing
         let settings = try DeviceSettingsModel(defaults: defaults)
         let items = Items()
         let controller = controller(items)
-        controller.follow(devices: model, settings: settings)
-        try settings.update { $0.togglePinned(Self.mouse) }
-        send.yield(.swept(list([Self.mouse: level(37)]).devices))
-        while items.made.first?.shown?.percent != "37%" { await Task.yield() }
-        send.yield(.swept(list([Self.mouse: level(30)]).devices))
-        while items.made.first?.shown?.percent != "30%" { await Task.yield() }
-        try settings.update { $0.togglePinned(Self.mouse) }
-        while items.made.first?.removed != true { await Task.yield() }
-        #expect(items.made.count == 1)
+        // The observation holds the controller weakly, so keep it alive to the end of the test.
+        defer { withExtendedLifetime(controller) {} }
+        do {
+            controller.follow(devices: model, settings: settings)
+            try settings.update { $0.togglePinned(Self.mouse) }
+            send.yield(.swept(list([Self.mouse: level(37)]).devices))
+            #expect(await eventually { items.made.first?.shown?.row.percent == "37%" })
+            send.yield(.swept(list([Self.mouse: level(30)]).devices))
+            #expect(await eventually { items.made.first?.shown?.row.percent == "30%" })
+            try settings.update { $0.togglePinned(Self.mouse) }
+            #expect(await eventually { items.made.first?.removed == true })
+            #expect(items.made.count == 1)
+        }
     }
 
     @Test func thePinPersistsAndAnOlderStoredValueWithoutItStillLoads() throws {
@@ -102,11 +116,37 @@ import Testing
     }
 
     @Test func theMenuBarItemShowsTheLevelAndRemovesCleanly() {
-        let item = NSPinnedStatusItem()
-        item.show(PinnedItem(id: Self.mouse, name: "Magic Mouse", kind: .accessory, percent: "37%"))
+        let item = NSPinnedStatusItem(id: Self.mouse)
+        func pinned(_ percent: Int) -> PinnedItem {
+            PinnedItem.items(list([Self.mouse: level(percent)]), pinned: [Self.mouse])[0]
+        }
+        item.show(pinned(37))
         #expect(item.title == "37%")
-        item.show(PinnedItem(id: Self.mouse, name: "Magic Mouse", kind: .accessory, percent: "30%"))
+        item.show(pinned(30))
         #expect(item.title == "30%")
         item.remove()
+    }
+
+    @Test func anUnchangedItemIsNotRedrawn() {
+        final class Counting: PinnedStatusItem {
+            var shows = 0
+            func show(_ item: PinnedItem) { shows += 1 }
+            func remove() {}
+        }
+        let counting = Counting()
+        let controller = PinnedItemsController(makeItem: { _ in counting })
+        let items = PinnedItem.items(list([Self.mouse: level(37)]), pinned: [Self.mouse])
+        controller.apply(items)
+        controller.apply(items)
+        #expect(counting.shows == 1)
+        controller.apply(PinnedItem.items(list([Self.mouse: level(36)]), pinned: [Self.mouse]))
+        #expect(counting.shows == 2)
+    }
+
+    @Test func eachDeviceIsMadeItsOwnItemByItsId() {
+        var made: [DeviceID] = []
+        let controller = PinnedItemsController(makeItem: { made.append($0); return RecordingItem() })
+        controller.apply(PinnedItem.items(list([Self.mouse: level(37), Self.pods: level(80)]), pinned: [Self.mouse, Self.pods]))
+        #expect(made == [Self.pods, Self.mouse])
     }
 }
