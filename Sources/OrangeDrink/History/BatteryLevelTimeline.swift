@@ -54,7 +54,7 @@ struct BatteryLevelTimeline: Equatable, Sendable {
     static func chargeEnd(in samples: [HistorySample]) -> HistorySample? {
         guard let last = samples.lastIndex(where: \.charging) else { return nil }
         let charging = samples[last]
-        guard samples.indices.contains(last + 1), samples[last + 1].at.timeIntervalSince(charging.at) <= HistoryRecorder.sampleInterval else { return charging }
+        guard samples.indices.contains(last + 1), samples[last + 1].at.timeIntervalSince(charging.at) <= Self.gap else { return charging }
         return samples[last + 1]
     }
 

@@ -85,6 +85,8 @@ struct BatteryScreen: View {
                     .foregroundStyle(.green.opacity(0.2))
                 LineMark(x: .value("Time", point.sample.at), y: .value("Level", point.sample.level), series: .value("Run", point.run))
                     .foregroundStyle(.green)
+                // A run of one sample has no line to draw, and would otherwise not show at all.
+                PointMark(x: .value("Time", point.sample.at), y: .value("Level", point.sample.level)).symbolSize(12).foregroundStyle(.green)
             }
             .chartXScale(domain: timeline.now.addingTimeInterval(-timeline.range.duration)...timeline.now)
             .chartYScale(domain: 0...100)

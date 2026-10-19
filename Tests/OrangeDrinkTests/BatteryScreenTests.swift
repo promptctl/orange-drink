@@ -40,6 +40,12 @@ import Testing
         #expect(BatteryLevelTimeline(range: .day, now: Self.now, samples: samples).runs.map(\.run) == [0, 0, 1, 1])
     }
 
+    @Test func theChargeEndAndTheChartCallASilenceTheSameThing() {
+        let jittered = [Self.sample(hoursAgo: 5, level: 55, charging: true), Self.sample(hoursAgo: 5 - 1.2 * HistoryRecorder.sampleInterval / 3600, level: 79)]
+        #expect(BatteryLevelTimeline.chargeEnd(in: jittered)?.level == 79)
+        #expect(BatteryLevelTimeline(range: .day, now: Self.now, samples: jittered).runs.map(\.run) == [0, 0])
+    }
+
     @Test func noChargingMeansNoLastCharge() {
         #expect(BatteryLevelTimeline.chargeEnd(in: [Self.sample(hoursAgo: 2, level: 50), Self.sample(hoursAgo: 1, level: 49)]) == nil)
     }
