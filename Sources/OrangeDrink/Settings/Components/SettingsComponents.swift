@@ -73,33 +73,35 @@ struct SettingRow<Control: View>: View {
 
 /// A grey circled "i" (or other glyph) that shows an explanation of the setting.
 struct InfoButton: View {
-    let text: String
+    let text: Phrase
     var glyph = "info.circle"
-    var label = "Info"
+    var label: Phrase = "Info"
+    @Environment(\.appLanguage) private var language
     @State private var showing = false
 
     var body: some View {
         Button { showing.toggle() } label: { Image(systemName: glyph).foregroundStyle(.secondary) }
             .buttonStyle(.plain)
-            .accessibilityLabel(label)
-            .popover(isPresented: $showing) { Text(text).padding(12).frame(width: 240) }
+            .accessibilityLabel(label.text(in: language))
+            .popover(isPresented: $showing) { PhraseText(text).padding(12).frame(width: 240) }
     }
 }
 
 /// One option of a pick-one list: a bold title over a grey description, and on the far right a green
 /// check when chosen or an empty ring when not.
 struct RadioRow: View {
-    let title: String
-    let description: String
+    let title: Phrase
+    let description: Phrase
     let isSelected: Bool
     let choose: () -> Void
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         Button(action: choose) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).fontWeight(.bold)
-                    Text(description).font(.callout).foregroundStyle(.secondary)
+                    PhraseText(title).fontWeight(.bold)
+                    PhraseText(description).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 12)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
@@ -111,8 +113,8 @@ struct RadioRow: View {
         }
         .buttonStyle(.plain)
         .overlay(alignment: .bottom) { Divider() }
-        .accessibilityLabel(title)
-        .accessibilityHint(description)
+        .accessibilityLabel(title.text(in: language))
+        .accessibilityHint(description.text(in: language))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -146,7 +148,7 @@ struct PopUpButton<Value: Hashable>: View {
 struct AccentSwitch: View {
     @Binding var isOn: Bool
     let tint: Color
-    let label: String
+    let label: LocalizedStringKey
 
     var body: some View {
         Toggle(label, isOn: $isOn).labelsHidden().toggleStyle(.switch).tint(tint)
@@ -158,20 +160,21 @@ struct SegmentedPills<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [Value]
     let accent: Color
-    let title: (Value) -> String
+    let title: (Value) -> Phrase
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(options, id: \.self) { option in
                 let selected = option == selection
                 Button { selection = option } label: {
-                    Text(title(option)).fontWeight(selected ? .bold : .regular)
+                    PhraseText(title(option)).fontWeight(selected ? .bold : .regular)
                         .foregroundStyle(selected ? .white : .secondary)
                         .padding(.horizontal, 12).padding(.vertical, 5)
                         .background(selected ? accent : Color.veil(0.1), in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(title(option))
+                .accessibilityLabel(title(option).text(in: language))
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }

@@ -64,7 +64,7 @@ import Testing
 
     @Test func theMenuBarSettingsLinkOpensTheMenuBarScreen() throws {
         let link = try #require(DevicesHelpLine.all.compactMap(\.link).first)
-        #expect(link.title == "Menu Bar settings")
+        #expect(link.title.english == "Menu Bar settings")
         #expect(DevicesHelpLine.screen(for: DevicesHelpLine.url(for: link.screen)) == .menuBar)
         #expect(DevicesHelpLine.screen(for: URL(string: "https://example.com/menuBar")!) == nil)
     }

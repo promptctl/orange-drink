@@ -2,7 +2,7 @@ import Foundation
 
 extension Alert.Position {
     /// The Alerts screen's wording for where the pill sits.
-    var title: String {
+    var title: Phrase {
         switch self {
         case .center: "Center of Screen"
         case .top: "Top of Screen"
@@ -12,10 +12,22 @@ extension Alert.Position {
 
 extension Alert {
     /// The card's grey line: the position, then only the options that are on, joined by " • ".
-    var summary: String {
-        let options = [glow ? "Border Glow" : nil, sound ? "Sound" : nil].compactMap { $0 }
-        return ([position.title] + options).joined(separator: " • ")
+    var summary: Phrase {
+        let options: [Phrase] = [glow ? "Border Glow" : nil, sound ? "Sound" : nil].compactMap { $0 }
+        return options.reduce(position.title) { "\($0) • \($1)" }
     }
+
+    /// What the card's gear and trash buttons are called to a screen reader.
+    func buttonName(_ action: Action) -> Phrase {
+        switch (kind, action) {
+        case (.low, .edit): "Edit low battery alert at \(threshold)%"
+        case (.charged, .edit): "Edit charged alert at \(threshold)%"
+        case (.low, .delete): "Delete low battery alert at \(threshold)%"
+        case (.charged, .delete): "Delete charged alert at \(threshold)%"
+        }
+    }
+
+    enum Action { case edit, delete }
 }
 
 extension Alert.Kind {

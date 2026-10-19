@@ -60,7 +60,7 @@ import Testing
 
     /// A phrase the app says that the catalog has no entry for is said in English whatever the language, so each
     /// phrase the panel and the window's chrome can show is looked for in French and Spanish.
-    @Test func everyPhraseThePanelAndTheWindowChromeCanShowIsInTheCatalog() throws {
+    @Test func everyPhraseTheAppCanShowIsInTheCatalog() throws {
         func hasTranslation(_ phrase: Phrase, _ code: String) -> Bool {
             let sentinel = "\u{0}missing"
             guard let lproj = Self.app.path(forResource: code, ofType: "lproj").flatMap(Bundle.init(path:)) else {
@@ -76,6 +76,33 @@ import Testing
         phrases += SettingsScreen.allCases.flatMap { [$0.title] + ($0.subtitle(appName: "App").map { [$0] } ?? []) }
         phrases += [3, 15, 40, 80].map { PowerFlow.workload(watts: Double($0)) }
         phrases += ["Not charging", "Charging at \(5) W", "UNTIL EMPTY", "UNTIL FULL", "\(1)h \(2)m"]
+        phrases += Alert.Position.allCases.map(\.title)
+        phrases += [true, false].flatMap { glow in [Alert(kind: .low, threshold: 5, position: .top, glow: glow, sound: glow).summary] }
+        phrases += [Alert.Kind.low, .charged].flatMap { kind in
+            [Alert.Action.edit, .delete].map { Alert(kind: kind, threshold: 5, position: .top, glow: false, sound: false).buttonName($0) }
+        }
+        phrases += MenuBarIconConfig.Style.allCases.flatMap { [$0.title(appName: "App"), $0.description(appName: "App")] }
+        phrases += MenuBarIconConfig.Display.allCases.map(\.title) + MenuBarIconConfig.Color.allCases.map(\.title) + MenuBarIconConfig.Size.allCases.map(\.title)
+        phrases += [MenuBarPreview.overflowHelp, MenuBarPreview.tutorialHelp, "Control \("App") from the menu bar", "Don't see it?",
+                    "Remove default battery icon from menu bar", "Click to see quick tutorial", "Menu bar preview", "Info"]
+        phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
+        phrases += [true, false].flatMap { on in
+            let entry = DetectedDevices.Entry(row: DeviceRow(id: DeviceID(address: "d"), name: "D", kind: .accessory, percent: "50%", fraction: 0.5, tone: .normal), isHidden: on, isAlerting: on, isPinned: on)
+            return [entry.alertingLabel, entry.pinnedLabel, entry.hiddenLabel]
+        }
+        phrases += ["Move \("D") up, toward the left of the menu bar", "Move \("D") down, toward the right of the menu bar"]
+        phrases += ["＋ \("Add Low Battery Alert")", "Add Low Battery Alert", "Add Charged Alert", "Enable Notifications", "Show battery alerts and notifications",
+                    "Low Battery Alerts", "Notify when battery goes below percentage", "Charged Alerts", "Notify when battery reaches percentage",
+                    "Power Source Alerts", "Plugged In", "Notify when power adapter is connected", "Unplugged", "Notify when power adapter is disconnected",
+                    "Sound", "Play a sound for these alerts", "Power Source Sound", "Threshold", "Below this level", "At or above this level", "Position",
+                    "Border Glow", "Light the screen edges", "Play a sound",
+                    "Menu Bar Icon", "Display", "Choose what to display in the menu bar icon", "Color", "Match your menu bar style", "Size",
+                    "Make the icon and its text larger and easier to read", "Status colors",
+                    "Green when charging, orange for low battery. Off keeps the icon neutral and only turns it red when critical.",
+                    "Bluetooth Devices", "Show Connected Devices", "Display battery levels for paired Bluetooth devices in the menu bar dropdown",
+                    "Detected Devices", "Device readings stopped. Quit and reopen the app.", "No connected Bluetooth devices report a battery.",
+                    "Pinned Devices", "Pin a connected device from the Devices screen to arrange it here.",
+                    "The top device sits leftmost in the menu bar. Dragging an item in the menu bar is undone when a pinned device connects, disconnects, or is moved here."]
         for edit: (inout [String: Any]) -> Void in [{ _ in }, { $0["AppleRawMaxCapacity"] = 4000 }, { $0["Temperature"] = 3700 },
                                                      { $0["Temperature"] = 4300 }, { $0["Voltage"] = 8000 }] {
             let info = try Words.reference(edit)
