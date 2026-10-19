@@ -7,6 +7,9 @@ import os
 enum BluetoothDevices {
     static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "devices")
     static let pollInterval = Duration.seconds(60)
+    /// A device's battery arrives after it connects, with no event to say so, so a connect is
+    /// followed by one more sweep once the first report has had time to land.
+    static let settleInterval = Duration.seconds(5)
 
     /// [LAW:effects-at-boundaries] The one edge that talks to IOBluetooth. Spike
     /// orange-devices-bue.355 measured a sweep of every connected device at under a millisecond of
@@ -20,7 +23,7 @@ enum BluetoothDevices {
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                let watcher = Watcher(continuation: continuation)
+                let watcher = Watcher(continuation: continuation, timekeeper: timekeeper)
                 defer { watcher.stop() }
                 do {
                     try watcher.start()
@@ -58,8 +61,11 @@ enum BluetoothDevices {
         }
         private let registrations = OSAllocatedUnfairLock(uncheckedState: Registrations())
 
-        init(continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation) {
+        private let timekeeper: any Timekeeper
+
+        init(continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, timekeeper: any Timekeeper) {
             self.continuation = continuation
+            self.timekeeper = timekeeper
         }
 
         func start() throws {
@@ -83,29 +89,40 @@ enum BluetoothDevices {
 
         @objc private func connected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
             observe(device)
+            // The stream's end makes this sweep's yield a no-op, so it needs no cancelling.
+            Task { [timekeeper] in
+                try? await timekeeper.sleep(for: BluetoothDevices.settleInterval)
+                sweep()
+            }
         }
 
         @objc private func disconnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
             let id = DeviceID(address: device.addressString)
             registrations.withLockUnchecked { $0.disconnects.removeValue(forKey: id.address) }?.unregister()
-            BluetoothDevices.log.info("device gone: \(id.address, privacy: .public)")
+            BluetoothDevices.log.info("device gone: \(id.address, privacy: .private)")
             continuation.yield(.gone(id))
         }
 
         func sweep() {
-            for device in IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? [] where device.isConnected() {
-                observe(device)
-            }
+            let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
+            connected.forEach(register)
+            let devices = connected.map(Device.init)
+            BluetoothDevices.log.info("device sweep: \(devices.count, privacy: .public) connected")
+            continuation.yield(.swept(devices))
+        }
+
+        private func register(_ device: IOBluetoothDevice) {
+            let address = device.addressString!
+            guard registrations.withLockUnchecked({ $0.disconnects[address] == nil }),
+                  let notification = device.register(forDisconnectNotification: self, selector: #selector(disconnected(_:device:)))
+            else { return }
+            registrations.withLockUnchecked { $0.disconnects[address] = notification }
         }
 
         private func observe(_ device: IOBluetoothDevice) {
+            register(device)
             let reading = Device(device)
-            let needsDisconnect = registrations.withLockUnchecked { $0.disconnects[reading.id.address] == nil }
-            if needsDisconnect, let notification = device.register(
-                forDisconnectNotification: self, selector: #selector(disconnected(_:device:))) {
-                registrations.withLockUnchecked { $0.disconnects[reading.id.address] = notification }
-            }
-            BluetoothDevices.log.info("device reported: \(String(describing: reading), privacy: .public)")
+            BluetoothDevices.log.info("device reported: \(String(describing: reading), privacy: .private)")
             continuation.yield(.reported(reading))
         }
     }
@@ -128,7 +145,8 @@ private extension Device {
         }
         // The name System Settings shows is the user's alias, which only the private getDisplayName
         // returns; `name` is the name the device broadcasts ("Beats Studio Buds +", not "Brandon’s Beats Studio Buds +").
-        let name = device.perform(Selector(("getDisplayName"))).takeUnretainedValue() as! String
+        let name = device.perform(Selector(("getDisplayName")))?.takeUnretainedValue() as? String
+            ?? device.name ?? device.addressString!
         let (left, right, `case`) = (level("batteryPercentLeft"), level("batteryPercentRight"), level("batteryPercentCase"))
         let levels: DeviceLevels
         if left != nil || right != nil || `case` != nil {

@@ -12,8 +12,8 @@ enum DeviceKind: Equatable, Sendable {
     /// says "phone" for classic pairings only; a BLE-only pairing reads class 0 (spike
     /// orange-devices-bue.355), so the name is the only thing left to tell an iPad from an iPhone.
     static func classify(majorClass: UInt32, name: String) -> DeviceKind {
-        if name.localizedCaseInsensitiveContains("ipad") { return .tablet }
-        if majorClass == Self.phoneMajorClass || name.localizedCaseInsensitiveContains("iphone") { return .phone }
+        if name.contains(/\biPad\b/.ignoresCase()) { return .tablet }
+        if majorClass == Self.phoneMajorClass || name.contains(/\biPhone\b/.ignoresCase()) { return .phone }
         return .accessory
     }
 
@@ -51,10 +51,17 @@ struct Device: Equatable, Sendable, Identifiable {
     let levels: DeviceLevels
 }
 
-/// What the Bluetooth edge tells the list: a device's current state, or that it is gone.
+/// What the Bluetooth edge tells the list: a device's current state, that it is gone, or the
+/// complete set of connected devices at one sweep.
+///
+/// [LAW:no-ambient-temporal-coupling] Connect and disconnect notifications and the sweep arrive from
+/// different threads with no order between them, so a disconnect can land before the sweep that read
+/// the device as connected. The sweep is the authority: it replaces the list, so any such race
+/// is gone by the next sweep instead of leaving a device listed that is not there.
 enum DeviceEvent: Equatable, Sendable {
     case reported(Device)
     case gone(DeviceID)
+    case swept([Device])
 }
 
 /// Every connected device the app knows of. [LAW:one-source-of-truth] The one reduction from
@@ -66,6 +73,7 @@ struct DeviceList: Equatable, Sendable {
         switch event {
         case .reported(let device): byID[device.id] = device
         case .gone(let id): byID[id] = nil
+        case .swept(let devices): byID = Dictionary(uniqueKeysWithValues: devices.map { ($0.id, $0) })
         }
     }
 

@@ -7,7 +7,7 @@ import Observation
 /// this and never read IOBluetooth themselves.
 @Observable @MainActor final class DevicesModel {
     private(set) var list = DeviceList()
-    /// Set when the stream ends with an error: no event will follow, and the list is what was last known.
+    /// Set when the stream ends with an error: no event will follow, and the list is emptied rather than left stale.
     private(set) var failure: (any Error)?
     /// [LAW:types-are-the-program] exception: see BatteryModel.subscription; same reason.
     @ObservationIgnored nonisolated(unsafe) private var subscription: Task<Void, Never>?
@@ -23,6 +23,7 @@ import Observation
                 }
             } catch {
                 BluetoothDevices.log.error("device subscription ended: \(String(describing: error), privacy: .public)")
+                self?.list = DeviceList()
                 self?.failure = error
             }
         }

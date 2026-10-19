@@ -35,6 +35,17 @@ struct DeviceListTests {
         #expect(list.devices == [Self.pods])
     }
 
+    @Test func aSweepReplacesTheListSoALateReportLeavesNoGhost() {
+        var list = DeviceList()
+        list.apply(.reported(Self.mouse))
+        list.apply(.reported(Self.pods))
+        // The mouse disconnected, but a sweep that had read it as connected reported it afterwards.
+        list.apply(.gone(Self.mouse.id))
+        list.apply(.reported(Self.mouse))
+        list.apply(.swept([Self.pods]))
+        #expect(list.devices == [Self.pods])
+    }
+
     @Test func aReplayedReportChangesNothing() {
         var list = DeviceList()
         list.apply(.reported(Self.mouse))
@@ -52,6 +63,7 @@ struct DeviceListTests {
     @Test(arguments: [
         (UInt32(0x02), "Pixel", DeviceKind.phone), (0, "Brandon’s iPhone", .phone), (0, "Brandon’s iPad", .tablet),
         (0x04, "Beats Studio Buds +", .accessory), (0x05, "Magic Trackpad", .accessory), (0, "DISTO X3", .accessory),
+        (0, "Hipad Speaker", .accessory),
     ])
     func classifiesByClassThenName(majorClass: UInt32, name: String, kind: DeviceKind) {
         #expect(DeviceKind.classify(majorClass: majorClass, name: name) == kind)
@@ -102,15 +114,20 @@ struct DeviceListTests {
     func matchesSystemProfiler() async throws {
         let connected = try Self.profilerConnected()
         try #require(!connected.isEmpty, "this check needs paired devices connected")
+        // The first sweep is the whole connected set, so it is the one event this check needs.
         var list = DeviceList()
         for try await event in BluetoothDevices.events() {
+            guard case .swept = event else { continue }
             list.apply(event)
-            if connected.keys.allSatisfy({ name in list.devices.contains { $0.name == name } }) { break }
+            break
         }
         for device in list.devices {
             print("device: \(device.name) | \(device.kind) | \(device.levels)")
             if let profiled = connected[device.name] {
-                #expect(profiled == Self.percents(device.levels), "\(device.name) differs from system_profiler")
+                let ours = Self.percents(device.levels)
+                #expect(Set(ours.keys) == Set(profiled.keys), "\(device.name) reports different parts than system_profiler")
+                // The two reads are moments apart; a level moves by at most a point or two between them.
+                for (part, percent) in ours { #expect(abs(percent - (profiled[part] ?? percent)) <= 2, "\(device.name) \(part)") }
             }
         }
     }
