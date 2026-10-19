@@ -22,7 +22,7 @@ struct BatteryIndicator: Equatable {
         fill = Double(reading.chargePercent) / 100
         text = switch display {
         case .percentage: String(reading.chargePercent)
-        case .timeRemaining: Self.clock(reading.power)
+        case .timeRemaining: Self.clock(reading)
         case .iconOnly: nil
         }
         tint = switch (reading.power, reading.chargePercent) {
@@ -35,13 +35,8 @@ struct BatteryIndicator: Equatable {
     }
 
     /// The estimate as h:mm; an en dash while the system has none or there is nothing to count.
-    private static func clock(_ power: PowerSource) -> String {
-        let estimate: Duration? = switch power {
-        case .battery(let timeToEmpty): timeToEmpty
-        case .adapter(_, .charging(let timeToFull)): timeToFull
-        case .adapter: nil
-        }
-        guard let minutes = estimate.map({ Int($0.components.seconds / 60) }) else { return "–" }
+    private static func clock(_ reading: BatteryReading) -> String {
+        guard let minutes = reading.estimate.map({ Int($0.components.seconds / 60) }) else { return "–" }
         return "\(minutes / 60):" + String(format: "%02d", minutes % 60)
     }
 }
