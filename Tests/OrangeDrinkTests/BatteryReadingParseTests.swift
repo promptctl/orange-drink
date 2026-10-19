@@ -115,3 +115,13 @@ import Testing
         }
     }
 }
+
+extension BatteryReadingParse {
+    @Test func aRegistryWithoutADesignCapacityFailsNamingIt() {
+        var registry = Self.registry
+        registry["DesignCapacity"] = 0
+        #expect(throws: BatteryReadError.invalid(key: "DesignCapacity", source: "registry")) {
+            try BatteryReading(registry: registry, powerSource: Self.onACNotCharging(charged: false), adapter: Self.adapter)
+        }
+    }
+}

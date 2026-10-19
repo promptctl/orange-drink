@@ -32,6 +32,8 @@ enum PanelAction: CaseIterable {
 
     /// "v1.2.0": the bundle's short version string, in the form the Quit row prints it.
     static func versionText(of bundle: Bundle) -> String {
-        "v" + (bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String)
+        versionText(shortVersion: bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String)
     }
+
+    static func versionText(shortVersion: String) -> String { "v" + shortVersion }
 }

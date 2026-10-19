@@ -35,6 +35,7 @@ struct PowerFlowView: View {
         let height = tile * 2 + gap
         return Canvas { context, size in
             func ribbon(to y: CGFloat, share: Double, color: Color) {
+                guard share > 0 else { return }
                 let thickness = max(2, (height / 2 - 4) * 2 * share)
                 var path = Path()
                 path.move(to: CGPoint(x: 0, y: height / 2))

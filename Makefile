@@ -40,7 +40,6 @@ endef
 ax-check: generate
 	$(call gated,build)
 	@set -e; app=build/DerivedData/Build/Products/Debug/$(APP).app; \
-	open -n "$$app" --args -ComponentGallery; sleep 3; \
-	pid=$$(pgrep -x $(APP)); \
+	"$$app/Contents/MacOS/$(APP)" -ComponentGallery & pid=$$!; \
 	status=0; swift scripts/ax-check.swift $$pid || status=$$?; \
 	kill $$pid; exit $$status
