@@ -54,4 +54,17 @@ import Testing
         center.observe(try PowerAndTemperatureAlerts.adapter())
         #expect(pills.shown?.headline == "Plugged In")
     }
+
+    @Test func aPowerPillTellsTheEventAndCountsTheReading() throws {
+        let pills = PillController()
+        defer { pills.close() }
+        let battery = try PowerAndTemperatureAlerts.battery()
+        pills.deliver(.unplugged(sound: false), reading: battery)
+        #expect(pills.shown == PillContent.power("On Battery", severity: .orange, reading: battery))
+        #expect(pills.shown?.position == .top && pills.shown?.glow == false)
+        #expect(pills.shown?.progress == Double(battery.chargePercent) / 100)
+
+        pills.deliver(.pluggedIn(sound: false), reading: try PowerAndTemperatureAlerts.adapter())
+        #expect(pills.shown?.headline == "Plugged In" && pills.shown?.severity == .green)
+    }
 }

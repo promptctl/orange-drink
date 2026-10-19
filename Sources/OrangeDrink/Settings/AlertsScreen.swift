@@ -25,13 +25,13 @@ struct AlertsScreen: View {
                 }
             }
             ThresholdSection(
-                kind: .low, header: ("battery.25percent", .red, "Low Battery Alerts"),
+                kind: .low, header: (Alert.Kind.low.symbol, .red, "Low Battery Alerts"),
                 info: "Notify when battery goes below percentage", addTitle: "Add Low Battery Alert",
-                alerts: settings.alerts(.low), center: center, perform: perform)
+                alerts: settings.alerts(.low), perform: perform)
             ThresholdSection(
-                kind: .charged, header: ("battery.100percent.bolt", .green, "Charged Alerts"),
+                kind: .charged, header: (Alert.Kind.charged.symbol, .green, "Charged Alerts"),
                 info: "Notify when battery reaches percentage", addTitle: "Add Charged Alert",
-                alerts: settings.alerts(.charged), center: center, perform: perform)
+                alerts: settings.alerts(.charged), perform: perform)
             VStack(alignment: .leading, spacing: 8) {
                 SettingsSectionHeader(symbol: "powerplug.fill", color: .orange, title: "Power Source Alerts")
                 SettingCard {
@@ -80,7 +80,6 @@ private struct ThresholdSection: View {
     let info: String
     let addTitle: String
     let alerts: [Alert]
-    let center: AlertCenter
     let perform: (@escaping (inout AlertSettings) -> Void) -> Void
 
     var body: some View {
@@ -95,6 +94,7 @@ private struct ThresholdSection: View {
                     .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(addTitle)
             .frame(maxWidth: .infinity)
         }
     }
@@ -109,7 +109,7 @@ private struct AlertCard: View {
         let color = alert.severity.color
         SettingCard {
             HStack(spacing: 12) {
-                Image(systemName: alert.kind == .low ? "battery.25percent" : "battery.100percent.bolt")
+                Image(systemName: alert.kind.symbol)
                     .font(.system(size: 22)).foregroundStyle(color).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(alert.threshold)%").fontWeight(.bold).foregroundStyle(.white)

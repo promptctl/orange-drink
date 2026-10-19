@@ -18,13 +18,23 @@ extension Alert {
     }
 }
 
+extension Alert.Kind {
+    /// The SF Symbol of this kind's battery, on its section header and on each of its cards.
+    var symbol: String {
+        switch self {
+        case .low: "battery.25percent"
+        case .charged: "battery.100percent.bolt"
+        }
+    }
+}
+
 extension AlertSettings {
     /// The alerts of one kind as their list shows them: lowest threshold first.
     func alerts(_ kind: Alert.Kind) -> [Alert] {
         alerts.filter { $0.kind == kind }.sorted { $0.threshold < $1.threshold }
     }
 
-    /// A new alert starts at a level the reference list has no card for, at the top of the screen and heard.
+    /// A new alert starts at a fixed level, at the top of the screen and heard; the user sets it from there.
     mutating func add(_ kind: Alert.Kind) {
         let threshold = switch kind { case .low: 10; case .charged: 90 }
         alerts.append(Alert(kind: kind, threshold: threshold, position: .top, glow: false, sound: true))
