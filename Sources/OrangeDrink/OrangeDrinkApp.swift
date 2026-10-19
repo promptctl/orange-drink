@@ -9,22 +9,27 @@ let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as! Strin
 struct OrangeDrinkApp: App {
     @State private var battery: BatteryModel
     @State private var alerts: AlertCenter
+    @State private var appearance: NotificationAppearanceModel
     @State private var sections = PanelSections()
 
     init() {
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
         let alerts: AlertCenter
-        let pills = PillController()
+        let appearance: NotificationAppearanceModel
+        let pills: PillController
         let sounds = AlertSounds()
         do {
+            appearance = try NotificationAppearanceModel(defaults: .standard)
+            pills = PillController(appearance: appearance)
             alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
                 pills.deliver($0, reading: $1)
                 sounds.deliver($0)
             })
         } catch {
-            fatalError("stored alert settings do not decode: \(error)")
+            fatalError("stored alert or appearance settings do not decode: \(error)")
         }
         _alerts = State(initialValue: alerts)
+        _appearance = State(initialValue: appearance)
         _battery = State(initialValue: BatteryModel(
             readings: BatteryMonitor.readings(), onReading: { alerts.observe($0) }))
         #if DEBUG
@@ -40,7 +45,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance) }
     }
 }
 

@@ -8,8 +8,13 @@ enum PillPlacement {
     nonisolated static let size = CGSize(width: 280, height: 64)
     private static let topGap: CGFloat = 12
 
-    static func frame(_ position: Alert.Position, on screen: CGRect) -> CGRect {
-        let size = Self.size
+    /// The pill's size at a multiple of the standard: the window and the drawn pill both read it.
+    static func size(scale: Double) -> CGSize {
+        CGSize(width: size.width * scale, height: size.height * scale)
+    }
+
+    static func frame(_ position: Alert.Position, on screen: CGRect, scale: Double) -> CGRect {
+        let size = Self.size(scale: scale)
         let x = screen.midX - size.width / 2
         switch position {
         case .center: return CGRect(x: x, y: screen.midY - size.height / 2, width: size.width, height: size.height)
@@ -20,10 +25,10 @@ enum PillPlacement {
 
 /// The pill's window: it takes the close button's clicks without taking focus.
 private final class PillPanel: OverlayPanel {
-    init(_ content: PillContent, screen: NSScreen, onClose: @escaping () -> Void) {
+    init(_ content: PillContent, scale: Double, screen: NSScreen, onClose: @escaping () -> Void) {
         super.init(
-            frame: PillPlacement.frame(content.position, on: screen.visibleFrame), level: .pill,
-            content: PillView(content: content, onClose: onClose))
+            frame: PillPlacement.frame(content.position, on: screen.visibleFrame, scale: scale), level: .pill,
+            content: PillView(content: content, scale: scale, onClose: onClose))
     }
 }
 
@@ -43,14 +48,19 @@ private final class PillPanel: OverlayPanel {
         func close() { panel.close(); glow?.close() }
     }
 
+    private let appearance: NotificationAppearanceModel
     private var up: Up?
     private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(appearance: NotificationAppearanceModel) { self.appearance = appearance }
 
     var shown: PillContent? { up?.content }
     /// The panel's frame in screen coordinates while a pill is up.
     var shownFrame: CGRect? { up?.panel.frame }
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
     var shownGlowFrame: CGRect? { up?.glow?.frame }
+    /// The strength the shown glow was built at.
+    var shownGlowStrength: NotificationAppearance.GlowStrength? { up?.glow?.strength }
 
     /// The sink an `AlertCenter` delivers to. The temperature warning has no pill so far.
     func deliver(_ firing: Firing, reading: BatteryReading) {
@@ -70,10 +80,11 @@ private final class PillPanel: OverlayPanel {
             close()
             return
         }
-        let panel = PillPanel(content, screen: screen, onClose: { [weak self] in self?.close() })
+        let look = appearance.appearance
+        let panel = PillPanel(content, scale: look.bubbleSize.scale, screen: screen, onClose: { [weak self] in self?.close() })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
-        let glow = content.glow ? GlowPanel(severity: content.severity, screen: screen) : nil
+        let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, screen: screen) : nil
         glow?.orderFrontRegardless()
         panel.orderFrontRegardless()
         up = Up(content: content, panel: panel, glow: glow)

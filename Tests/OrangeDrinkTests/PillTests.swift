@@ -19,7 +19,7 @@ import Testing
     }
 
     @Test func aLowAlertAtTopOfScreenShowsOnePillForTheReadingThatCrossedIt() throws {
-        let pills = PillController()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
         defer { pills.close() }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)])
@@ -28,12 +28,12 @@ import Testing
         #expect(pills.shown == PillContent(
             headline: "14% Remaining", subline: "9min until empty", severity: .orange, progress: 0.14, position: .top, glow: false))
         let screen = try #require(NSScreen.main ?? NSScreen.screens.first).visibleFrame
-        #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen))
+        #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen, scale: 1))
         #expect(try #require(pills.shownFrame).maxY > screen.midY)
     }
 
     @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {
-        let pills = PillController()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
         defer { pills.close() }
         let center = try Self.center(pills, alerts: [
             Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
@@ -54,7 +54,7 @@ import Testing
     }
 
     @Test func aCenterAlertSitsAtTheMiddleOfTheScreen() throws {
-        let pills = PillController()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
         defer { pills.close() }
         pills.show(PillContent(Alert(kind: .low, threshold: 5, position: .center, glow: false, sound: false),
                                reading: try Self.reading(4)))
@@ -64,7 +64,7 @@ import Testing
     }
 
     @Test func aNewPillReplacesTheOneShowingAndClosingClearsIt() throws {
-        let pills = PillController()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         pills.show(PillContent(low, reading: try Self.reading(13)))
@@ -74,7 +74,7 @@ import Testing
     }
 
     @Test func replacingAPillDoesNotReleaseWhoeverWaitsForNoPill() async throws {
-        let pills = PillController()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         var released = false
@@ -102,7 +102,8 @@ import Testing
     /// sample pill over a full-screen app at the centre, then at the top, each closed by its ×.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["PILL_CHECK"] != nil, "run by make pill-check with a person at the screen"))
     func pillsShowOverAFullScreenApp() async throws {
-        let pills = PillController()
+        // The appearance a person set on the General screen, as the app itself loads it.
+        let pills = PillController(appearance: try NotificationAppearanceModel(defaults: .standard))
         defer { pills.close() }
         let sounds = AlertSounds()
         let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
@@ -120,5 +121,12 @@ import Testing
             await pills.untilClosed()
             deadline.cancel()
         }
+    }
+}
+
+extension NotificationAppearanceModel {
+    /// An appearance over a throwaway suite, starting from the defaults.
+    static func scratch(_ defaults: UserDefaults = AlertSettingsPersistence.suite()) -> NotificationAppearanceModel {
+        try! NotificationAppearanceModel(defaults: defaults)
     }
 }

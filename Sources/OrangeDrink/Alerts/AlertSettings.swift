@@ -19,22 +19,8 @@ struct AlertSettings: Codable, Equatable, Sendable {
     }()
 }
 
-/// The settings as UserDefaults keeps them across launches.
-///
-/// [LAW:composability] The store is whatever defaults it is given: the app passes the standard
-/// ones, a test a throwaway suite, so a "relaunch" is a second store over the same suite.
-struct AlertSettingsStore {
-    private static let key = "alerts.settings"
-    let defaults: UserDefaults
+typealias AlertSettingsStore = DefaultsStore<AlertSettings>
 
-    /// [LAW:parse-dont-validate] The one place stored bytes become settings. Nothing stored is a
-    /// first launch; something stored that does not decode throws, rather than being replaced.
-    func load() throws -> AlertSettings {
-        guard let data = defaults.data(forKey: Self.key) else { return .initial }
-        return try JSONDecoder().decode(AlertSettings.self, from: data)
-    }
-
-    func save(_ settings: AlertSettings) throws {
-        defaults.set(try JSONEncoder().encode(settings), forKey: Self.key)
-    }
+extension DefaultsStore where Value == AlertSettings {
+    init(defaults: UserDefaults) { self.init(key: "alerts.settings", initial: .initial, defaults: defaults) }
 }
