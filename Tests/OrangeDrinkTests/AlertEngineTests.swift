@@ -1,4 +1,5 @@
 import Foundation
+import IOKit.ps
 import Testing
 @testable import OrangeDrink
 
@@ -144,7 +145,7 @@ import Testing
 
     static func reading(_ source: [String: Any], celsius: Double = 30.93) throws -> BatteryReading {
         var registry = BatteryReadingParse.registry
-        registry["Temperature"] = Int(celsius * 100)
+        registry["Temperature"] = Int((celsius * 100).rounded())
         return try #require(try BatteryReading(
             registry: registry, powerSource: source, adapter: BatteryReadingParse.adapter))
     }
@@ -193,6 +194,23 @@ import Testing
     @Test func warmIsAsFarAsNormalGoesAndStaysOneWarning() throws {
         let (normal, warm, hot) = (try Self.battery(), try Self.battery(celsius: 36), try Self.battery(celsius: 41))
         #expect(Self.firings([normal, warm, hot, warm]) == [.temperatureWarning])
+    }
+
+    @Test func theWarningFiresAtExactlyTheWarmBoundaryAndNotJustBelowIt() throws {
+        let below = try Self.battery(celsius: TemperatureState.warmCelsius - 0.01)
+        let boundary = try Self.battery(celsius: TemperatureState.warmCelsius)
+        #expect(Self.firings([try Self.battery(), below]) == [])
+        #expect(Self.firings([try Self.battery(), boundary]) == [.temperatureWarning])
+    }
+
+    @Test func oneReadingCanSetOffThresholdPowerAndTemperatureTogetherInThatOrder() throws {
+        let alert = AlertEngineTests.low(50)
+        var plugged = BatteryReadingParse.onACNotCharging(charged: false)
+        plugged[kIOPSCurrentCapacityKey] = 49
+        var engine = AlertEngine()
+        _ = engine.observe(try Self.battery(), alerts: [alert], power: Self.both)
+        #expect(engine.observe(try Self.reading(plugged, celsius: 41), alerts: [alert], power: Self.both)
+            == [.threshold(alert), .pluggedIn(sound: true), .temperatureWarning])
     }
 
     @Test func aMacLaunchedHotIsNotWarnedAboutAtLaunch() throws {
