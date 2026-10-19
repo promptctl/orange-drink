@@ -40,7 +40,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView() }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts) }
     }
 }
 

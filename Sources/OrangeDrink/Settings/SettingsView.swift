@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The settings window: the sidebar on the left, the chosen screen on the right.
 struct SettingsView: View {
+    let alerts: AlertCenter
     @State private var selection: SettingsScreen = .general
 
     var body: some View {
@@ -16,7 +17,7 @@ struct SettingsView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            ScreenView(screen: selection)
+            ScreenView(screen: selection, alerts: alerts)
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 760, minHeight: 640)
@@ -52,6 +53,7 @@ private struct SidebarRow: View {
 /// One screen: its header, its subtitle, and, until its epic fills it, the empty state.
 private struct ScreenView: View {
     let screen: SettingsScreen
+    let alerts: AlertCenter
 
     var body: some View {
         ScrollView {
@@ -65,7 +67,10 @@ private struct ScreenView: View {
                 if let subtitle = screen.subtitle(appName: appName) {
                     Text(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
-                EmptyState(screen: screen).padding(.top, 60)
+                switch screen {
+                case .alerts: AlertsScreen(center: alerts)
+                default: EmptyState(screen: screen).padding(.top, 60)
+                }
             }
         }
     }

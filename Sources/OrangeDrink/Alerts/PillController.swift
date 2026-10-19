@@ -52,11 +52,13 @@ private final class PillPanel: OverlayPanel {
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
     var shownGlowFrame: CGRect? { up?.glow?.frame }
 
-    /// The sink an `AlertCenter` delivers to. Only threshold alerts have a pill so far.
+    /// The sink an `AlertCenter` delivers to. The temperature warning has no pill so far.
     func deliver(_ firing: Firing, reading: BatteryReading) {
         switch firing {
         case .threshold(let alert): show(PillContent(alert, reading: reading))
-        case .pluggedIn, .unplugged, .temperatureWarning: break
+        case .pluggedIn: show(.power("Plugged In", severity: .green, reading: reading))
+        case .unplugged: show(.power("On Battery", severity: .orange, reading: reading))
+        case .temperatureWarning: break
         }
     }
 

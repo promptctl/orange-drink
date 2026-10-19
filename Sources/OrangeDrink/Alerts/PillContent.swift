@@ -49,6 +49,13 @@ struct PillContent: Equatable, Sendable {
         glow = alert.glow
     }
 
+    /// The pill for a power source alert: it has no threshold or position of its own, so it sits at
+    /// the top, tells the event, and counts down or up as the reading does.
+    static func power(_ headline: String, severity: Alert.Severity, reading: BatteryReading) -> PillContent {
+        PillContent(headline: headline, subline: subline(reading), severity: severity,
+                    progress: Double(reading.chargePercent) / 100, position: .top, glow: false)
+    }
+
     private static func subline(_ reading: BatteryReading) -> String? {
         guard let estimate = reading.estimate else { return nil }
         let minutes = estimate.wholeMinutes
