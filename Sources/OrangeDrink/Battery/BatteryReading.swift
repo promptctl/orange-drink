@@ -113,7 +113,7 @@ private extension PowerSource {
     init(powerSource: [String: Any], adapter: [String: Any]) throws {
         switch try field(kIOPSPowerSourceStateKey, in: powerSource, "power source") as String {
         case kIOPSBatteryPowerValue:
-            self = .battery(timeToEmpty: estimate(try field(kIOPSTimeToEmptyKey, in: powerSource, "power source")))
+            self = .battery(timeToEmpty: minutes(try field(kIOPSTimeToEmptyKey, in: powerSource, "power source")))
         case kIOPSACPowerValue:
             let watts: Int? = try optionalField(kIOPSPowerAdapterWattsKey, in: adapter, "adapter")
             self = .adapter(watts.map { .init(value: Double($0), unit: .watts) }, try Charging(powerSource: powerSource))
@@ -128,7 +128,7 @@ private extension Charging {
     /// BatteryTimeRemaining.m, packageKernelPowerSource), so it is read only on that branch.
     init(powerSource: [String: Any]) throws {
         if try field(kIOPSIsChargingKey, in: powerSource, "power source") {
-            self = .charging(timeToFull: estimate(try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source")))
+            self = .charging(timeToFull: minutes(try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source")))
         } else if try field(kIOPSIsChargedKey, in: powerSource, "power source") {
             self = .full
         } else {
@@ -138,7 +138,7 @@ private extension Charging {
 }
 
 /// IOPowerSources reports minutes, and `kIOPSTimeRemainingUnknown` while still calculating.
-private func estimate(_ minutes: Int) -> Duration? {
+private func minutes(_ minutes: Int) -> Duration? {
     minutes == Int(kIOPSTimeRemainingUnknown) ? nil : .seconds(minutes * 60)
 }
 

@@ -21,7 +21,7 @@ import Testing
     static func icon(_ reading: BatteryReading, _ edit: (inout MenuBarIconConfig) -> Void = { _ in }) -> MenuBarIcon {
         var config = MenuBarIconConfig()
         edit(&config)
-        return MenuBarIcon(reading, config)
+        return MenuBarIcon(reading, config, on: .dark)
     }
     static func pixels(_ icon: MenuBarIcon) -> Pixels { Pixels(icon.image, scale: icon.size.scale) }
 

@@ -19,14 +19,20 @@ struct BatteryIndicator: Equatable {
     let tint: Tint
 
     init(_ reading: BatteryReading, display: MenuBarIconConfig.Display = .percentage, statusColors: Bool = true) {
-        fill = Double(reading.chargePercent) / 100
+        self.init(percent: reading.chargePercent, power: reading.power, display: display, statusColors: statusColors)
+    }
+
+    /// What the glyph needs of a reading: the charge and where it is going. The Menu Bar screen's
+    /// preview draws a sample from these without faking the rest of a reading.
+    init(percent: Int, power: PowerSource, display: MenuBarIconConfig.Display = .percentage, statusColors: Bool = true) {
+        fill = Double(percent) / 100
         text = switch display {
-        case .percentage: String(reading.chargePercent)
-        case .timeRemaining: Self.clock(reading)
+        case .percentage: String(percent)
+        case .timeRemaining: Self.clock(power.estimate)
         case .iconOnly: nil
         }
-        tint = switch (reading.power, reading.chargePercent) {
-        case (_, ...Self.criticalPercent) where !charging(reading.power): .red
+        tint = switch (power, percent) {
+        case (_, ...Self.criticalPercent) where !charging(power): .red
         case _ where !statusColors: .neutral
         case (.adapter(_, .charging), _): .green
         case (_, ...Self.lowPercent): .orange
@@ -35,8 +41,8 @@ struct BatteryIndicator: Equatable {
     }
 
     /// The estimate as h:mm; an en dash while the system has none or there is nothing to count.
-    private static func clock(_ reading: BatteryReading) -> String {
-        guard let minutes = reading.estimate.map({ Int($0.components.seconds / 60) }) else { return "–" }
+    private static func clock(_ estimate: Duration?) -> String {
+        guard let minutes = estimate?.wholeMinutes else { return "–" }
         return "\(minutes / 60):" + String(format: "%02d", minutes % 60)
     }
 }

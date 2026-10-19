@@ -1,10 +1,10 @@
 import Foundation
 
-extension BatteryReading {
+extension PowerSource {
     /// The estimate the system is counting toward: empty on battery, full while charging. nil
     /// while it has no estimate yet, and when nothing is being counted (held or full on the adapter).
     var estimate: Duration? {
-        switch power {
+        switch self {
         case .battery(let timeToEmpty): timeToEmpty
         case .adapter(_, .charging(let timeToFull)): timeToFull
         case .adapter: nil

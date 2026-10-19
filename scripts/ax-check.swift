@@ -59,7 +59,8 @@ guard let window else { print("ax-check: the Component Gallery window never appe
 let all = window.all
 let words = Set(all.flatMap(\.words))
 for expected in ["Section Title", "Switch Row", "Switch description", "Popup Row", "Popup description",
-                 "Info Row", "Info description", "Pills Row", "Pills description"] {
+                 "Info Row", "Info description", "Pills Row", "Pills description",
+                 "First Radio", "First radio description", "Second Radio"] {
     expect(words.contains(expected), "\"\(expected)\" is not exposed")
 }
 expect(all.contains { $0.role == "AXCheckBox" || $0.role == "AXSwitch" }, "no switch control")
@@ -74,6 +75,15 @@ if let month = pill("Month") {
     Thread.sleep(forTimeInterval: 0.5)
     expect(pill("Month")?.selected == true, "pressing Month did not select it")
     expect(pill("Week")?.selected != true, "Week stayed selected after Month was pressed")
+}
+
+func radio(_ title: String) -> Node? { gallery()?.all.first { $0.role == "AXButton" && $0.words.contains(title) } }
+expect(radio("First Radio")?.selected == true && radio("Second Radio")?.selected != true, "First Radio should start selected")
+if let second = radio("Second Radio") {
+    AXUIElementPerformAction(second.element, kAXPressAction as CFString)
+    Thread.sleep(forTimeInterval: 0.5)
+    expect(radio("Second Radio")?.selected == true, "pressing Second Radio did not select it")
+    expect(radio("First Radio")?.selected != true, "First Radio stayed selected after Second Radio was pressed")
 }
 
 if failures.isEmpty { print("ax-check: ok"); exit(0) }
