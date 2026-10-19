@@ -108,6 +108,9 @@ private struct AlertCard: View {
     let onEdit: (@escaping (inout Alert) -> Void) -> Void
     let onDelete: () -> Void
     @State private var editing = false
+    /// The threshold the editor's stepper shows while it is open. Landing a threshold re-sorts the
+    /// card, and the popover rides its card, so it is kept here and lands when the popover closes.
+    @State private var draftThreshold: Int?
 
     var body: some View {
         let color = alert.severity.color
@@ -128,7 +131,15 @@ private struct AlertCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Edit \(alert.kind.rawValue) \(alert.threshold)% alert")
-                .popover(isPresented: $editing) { AlertEditor(alert: alert, onEdit: onEdit) }
+                .popover(isPresented: $editing) {
+                    AlertEditor(alert: alert, draftThreshold: $draftThreshold, onEdit: onEdit)
+                }
+                .onChange(of: editing) { _, isEditing in
+                    if !isEditing, let threshold = draftThreshold {
+                        draftThreshold = nil
+                        onEdit { $0.threshold = threshold }
+                    }
+                }
                 Button(action: onDelete) {
                     Image(systemName: "trash.fill").foregroundStyle(.red)
                         .frame(width: 30, height: 30).background(Circle().fill(.red.opacity(0.2)))
@@ -143,15 +154,16 @@ private struct AlertCard: View {
 }
 
 /// The editor behind a card's gear: the alert's threshold, position, Border Glow, and Sound.
-/// Each control changes its one field, so the card follows it as it changes.
+/// Each control changes its one field and the card follows; the threshold waits for the popover to close.
 private struct AlertEditor: View {
     let alert: Alert
+    @Binding var draftThreshold: Int?
     let onEdit: (@escaping (inout Alert) -> Void) -> Void
 
     var body: some View {
         SettingCard {
             SettingRow(title: "Threshold", description: alert.kind == .low ? "Below this level" : "At or above this level") {
-                Stepper("\(alert.threshold)%", value: binding(\.threshold), in: 1...100)
+                Stepper("\(threshold.wrappedValue)%", value: threshold, in: 1...100)
             }
             SettingRow(title: "Position") {
                 SegmentedPills(selection: binding(\.position), options: Alert.Position.allCases, accent: .green, title: \.title)
@@ -165,6 +177,10 @@ private struct AlertEditor: View {
         }
         .frame(width: 400)
         .padding(12)
+    }
+
+    private var threshold: Binding<Int> {
+        Binding(get: { draftThreshold ?? alert.threshold }, set: { draftThreshold = $0 })
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<Alert, Value>) -> Binding<Value> {
