@@ -73,7 +73,7 @@ private struct NotificationAppearanceSection: View {
                 }
             }
             ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color.adaptive(light: Color(white: 0.9), dark: Color(white: 0.03)))
+                RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.03))
                 if showGlow { GlowView(severity: Self.sample.severity, strength: look.glowStrength) }
                 PillView(content: Self.sample, scale: look.bubbleSize.scale, onClose: {})
             }

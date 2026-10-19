@@ -76,7 +76,7 @@ struct DevicesScreen: View {
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
-                SettingsSectionHeader(symbol: "antenna.radiowaves.left.and.right", color: .white, title: "Detected Devices")
+                SettingsSectionHeader(symbol: "antenna.radiowaves.left.and.right", color: .primary, title: "Detected Devices")
                 detectedCard(DetectedDevices(devices.list, settings: current))
             }
             VStack(alignment: .leading, spacing: 12) {

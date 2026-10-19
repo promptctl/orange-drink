@@ -23,7 +23,7 @@ One card with one row:
 
 - Purple half-circle tile.
 - Title "App Appearance", description "Auto follows your Mac's system appearance".
-- Pop-up button, value "Auto". Presumably also Light and Dark.
+- Pop-up button, value "Auto". Auto, Light, or Dark; applies at once to the settings window and the panel and is kept across launches.
 
 ## System Integration
 

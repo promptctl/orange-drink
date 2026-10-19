@@ -31,7 +31,7 @@ struct PanelView: View {
         }
         .padding(12)
         .frame(width: 330)
-        .background(Color.adaptive(light: .white.opacity(0.85), dark: .black.opacity(0.85)))
+        .background(AdaptiveColor(light: .white.opacity(0.85), dark: .black.opacity(0.85)))
         .preferredColorScheme(look.value.colorScheme)
     }
 }

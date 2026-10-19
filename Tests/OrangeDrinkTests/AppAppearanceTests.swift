@@ -31,16 +31,8 @@ import Testing
         #expect(AppAppearance.allCases.map(\.rawValue) == ["Auto", "Light", "Dark"])
     }
 
-    @Test func anAdaptiveColourResolvesToItsLightOrItsDarkSide() throws {
-        let color = NSColor(Color.adaptive(light: .white, dark: .black))
-        func brightness(_ name: NSAppearance.Name) throws -> CGFloat {
-            var value: CGFloat = 0
-            try #require(NSAppearance(named: name)).performAsCurrentDrawingAppearance {
-                value = color.usingColorSpace(.deviceRGB)?.brightnessComponent ?? -1
-            }
-            return value
-        }
-        #expect(try brightness(.aqua) == 1)
-        #expect(try brightness(.darkAqua) == 0)
+    @Test func aSchemePicksItsOwnSide() {
+        #expect(ColorScheme.light.pick(light: "l", dark: "d") == "l")
+        #expect(ColorScheme.dark.pick(light: "l", dark: "d") == "d")
     }
 }

@@ -119,7 +119,7 @@ private struct AlertCard: View {
                 Image(systemName: alert.kind.symbol)
                     .font(.system(size: 22)).foregroundStyle(color).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(alert.threshold)%").fontWeight(.bold).foregroundStyle(.white)
+                    Text("\(alert.threshold)%").fontWeight(.bold).foregroundStyle(.primary)
                         .padding(.horizontal, 10).padding(.vertical, 2)
                         .background(color.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
                     Text(alert.summary).font(.callout).foregroundStyle(.secondary)

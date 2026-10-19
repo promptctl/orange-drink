@@ -185,7 +185,7 @@ struct SettingsBackground: View {
 
     var body: some View {
         ZStack {
-            Color.adaptive(light: Color(white: 0.96), dark: Color(white: 0.06))
+            AdaptiveColor(light: Color(white: 0.96), dark: Color(white: 0.06))
             RadialGradient(colors: [glow.opacity(0.18), .clear], center: glowCenter, startRadius: 0, endRadius: 420)
         }
         .ignoresSafeArea()

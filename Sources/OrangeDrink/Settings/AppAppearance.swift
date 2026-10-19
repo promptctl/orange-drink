@@ -22,14 +22,21 @@ enum AppAppearance: String, Stored, CaseIterable {
 
 typealias AppAppearanceModel = StoredModel<AppAppearance>
 
-extension Color {
-    /// A colour that is `light` under a light appearance and `dark` under a dark one.
-    static func adaptive(light: Color, dark: Color) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            NSColor(appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light)
-        })
-    }
+extension ColorScheme {
+    func pick<T>(light: T, dark: T) -> T { self == .dark ? dark : light }
+}
 
+/// [LAW:one-source-of-truth] A colour that is `light` or `dark` by the SwiftUI colour scheme, the same
+/// environment `Color.primary` and `veil` follow, so a surface and the text on it cannot disagree.
+struct AdaptiveColor: View {
+    let light: Color
+    let dark: Color
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View { scheme.pick(light: light, dark: dark) }
+}
+
+extension Color {
     /// A wash of the text colour over the surface: the faint lift cards, tracks and buttons have in
     /// either appearance (white on dark, black on light).
     static func veil(_ opacity: Double) -> Color { Color.primary.opacity(opacity) }
