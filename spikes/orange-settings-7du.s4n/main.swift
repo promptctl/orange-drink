@@ -37,18 +37,22 @@ enum NSPinnedStatusItem { static let buttonID = NSUserInterfaceItemIdentifier("p
 @MainActor func state() -> String { "panel open=\(StatusItemPanel().isOpen) key=\(NSApp.keyWindow.map { String(describing: type(of: $0)) } ?? "none")  batteryInformation=\(sections.isOpen(.batteryInformation)) connectedDevices=\(sections.isOpen(.connectedDevices))" }
 
 // Letters are typed only while the panel is this app's key window, so they cannot land in another app.
-let script: [(String, Int?)] = [("opened by the hot key", nil), ("press i", kVK_ANSI_I), ("press i again", kVK_ANSI_I), ("press d", kVK_ANSI_D), ("press d again", kVK_ANSI_D), ("press x (no shortcut)", kVK_ANSI_X)]
+let script: [(String, Int?)] = [("opened by the hot key", nil), ("press i", kVK_ANSI_I), ("press i again", kVK_ANSI_I), ("press d", kVK_ANSI_D), ("press d again", kVK_ANSI_D), ("press x (no shortcut)", kVK_ANSI_X), ("closed by the hot key", -1), ("reopened by the hot key", -2), ("press i after reopening", kVK_ANSI_I), ("press d after reopening", kVK_ANSI_D)]
 @MainActor func step(_ n: Int) {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { MainActor.assumeIsolated {
-        if n > 0 {
+        let code = n > 0 ? script[n].1 : nil
+        // Letters are typed only while the panel is this app's key window.
+        if let code, code > 0 {
             guard NSApp.keyWindow.map({ String(describing: type(of: $0)).hasPrefix("MenuBarExtraWindow") }) == true else { print("panel is not the key window; stopping"); exit(1) }
+            post(code)
+        } else if code != nil {
+            post(kVK_ANSI_J, [.maskControl, .maskAlternate])
         }
-        if n > 0, let code = script[n].1 { post(code) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { MainActor.assumeIsolated {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { MainActor.assumeIsolated {
             print("\(script[n].0): \(state())")
             if n + 1 < script.count { step(n + 1) } else {
                 post(kVK_ANSI_J, [.maskControl, .maskAlternate])
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { MainActor.assumeIsolated { print("closed by the hot key: \(state())"); exit(0) } }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { MainActor.assumeIsolated { print("finally closed by the hot key: \(state())"); exit(0) } }
             }
         } }
     } }
