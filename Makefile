@@ -2,7 +2,7 @@ APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
 
-.PHONY: generate build test unplug-check cpu-check ax-check
+.PHONY: generate build test unplug-check pill-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -22,6 +22,11 @@ test: generate
 # enables the one test that needs a person at the cable.
 unplug-check: export TEST_RUNNER_UNPLUG_CHECK = 1
 unplug-check: test
+
+# Same shape for the alert pill: put an app full screen, then click the × of the pill that appears
+# at the centre of the screen and again at the top.
+pill-check: export TEST_RUNNER_PILL_CHECK = 1
+pill-check: test
 
 # [LAW:verifiable-goals] PROJECT.md's 0.1% steady-state CPU bar, measured on the Release build
 # launched as a user runs it. Prints the percent and the power state; fails over the bar.
