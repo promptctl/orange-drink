@@ -1,17 +1,6 @@
 import AppKit
 import os
 
-extension Firing {
-    /// Whether the alert that fired asks to be heard.
-    var sound: Bool {
-        switch self {
-        case .threshold(let alert): alert.sound
-        case .pluggedIn(let sound), .unplugged(let sound): sound
-        case .temperatureWarning: false
-        }
-    }
-}
-
 /// The sound subscriber of an `AlertCenter`: plays a firing's chime when its alert has Sound on.
 ///
 /// [LAW:effects-at-boundaries] What makes the noise is handed in, so the decision to play is
@@ -27,11 +16,15 @@ extension Firing {
         if firing.sound { play() }
     }
 
-    /// [LAW:no-silent-failure] A chime that cannot play is logged, not skipped.
+    /// [LAW:no-silent-failure] A chime that cannot play is logged, not skipped. The system hands out
+    /// one shared sound, which refuses to play while it is still playing, so a second firing from the
+    /// same reading restarts it: two alerts together are one chime, not a dropped one and an error.
     static func playSystemChime() {
-        guard NSSound(named: "Glass")?.play() == true else {
-            log.error("the alert chime could not be played")
+        guard let chime = NSSound(named: "Glass") else {
+            log.error("the system sound Glass is missing")
             return
         }
+        chime.stop()
+        if !chime.play() { log.error("the alert chime did not play") }
     }
 }
