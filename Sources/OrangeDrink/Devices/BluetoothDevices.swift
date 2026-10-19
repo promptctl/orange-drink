@@ -173,11 +173,12 @@ enum BluetoothDevicesError: Error, Equatable {
 private extension Device {
     /// [LAW:parse-dont-validate] The crossing from IOBluetooth's untyped device to a `Device`. The
     /// battery properties are private selectors, checked present at the border; a 0 means "not
-    /// reported" and cannot be told from a drained battery, so it reads as no level.
+    /// reported" and cannot be told from a drained battery, so it reads as no level, and so does
+    /// anything else outside 1...100: `BatteryLevel.percent` is always a real percentage.
     init?(_ device: IOBluetoothDevice) {
         guard let id = DeviceID(device) else { return nil }
         func level(_ key: String) -> BatteryLevel? {
-            guard let percent = (device.value(forKey: key) as? NSNumber)?.intValue, percent > 0 else { return nil }
+            guard let percent = (device.value(forKey: key) as? NSNumber)?.intValue, (1...100).contains(percent) else { return nil }
             return BatteryLevel(percent: percent, approximate: false)
         }
         // The name System Settings shows is the user's alias, which only the private getDisplayName

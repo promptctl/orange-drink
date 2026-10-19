@@ -34,7 +34,7 @@ private struct DeviceRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: row.kind.symbol).frame(width: 24).foregroundStyle(.secondary)
+            Image(systemName: row.kind.symbol).frame(width: 24).foregroundStyle(.secondary).accessibilityHidden(true)
             VStack(spacing: 6) {
                 HStack {
                     Text(row.name).lineLimit(1)
@@ -45,6 +45,7 @@ private struct DeviceRow: View {
             }
         }
         .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
     }
 }
 

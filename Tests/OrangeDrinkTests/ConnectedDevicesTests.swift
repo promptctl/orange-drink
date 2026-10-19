@@ -49,4 +49,14 @@ struct ConnectedDevicesTests {
         #expect(rows([pods]).map(\.percent) == ["60%"])
         #expect(rows([pods]).map(\.fraction) == [0.6])
     }
+
+    @Test func ninetyPercentIsNearlyFullAndEightyNineIsNot() {
+        let tones = rows([device("1", "A", single(89)), device("2", "B", single(90))]).map(\.tone)
+        #expect(tones == [.normal, .nearlyFull])
+    }
+
+    @Test func equalLevelsOrderByNameThenAddress() {
+        let tied = [device("2", "Mouse", single(50)), device("3", "Keyboard", single(50)), device("1", "Mouse", single(50))]
+        #expect(rows(tied).map(\.id.address) == ["3", "1", "2"])
+    }
 }
