@@ -1,0 +1,11 @@
+opened by the hot key: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=false connectedDevices=false
+press i: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=true connectedDevices=false
+press i again: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=false connectedDevices=false
+press d: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=false connectedDevices=true
+press d again: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=false connectedDevices=false
+press x (no shortcut): panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=false connectedDevices=false
+closed by the hot key: panel open=false key=none  batteryInformation=false connectedDevices=false
+reopened by the hot key: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=false connectedDevices=false
+press i after reopening: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=true connectedDevices=false
+press d after reopening: panel open=true key=MenuBarExtraWindow<AnyView>  batteryInformation=true connectedDevices=true
+finally closed by the hot key: panel open=false key=none  batteryInformation=true connectedDevices=true

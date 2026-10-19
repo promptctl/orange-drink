@@ -18,7 +18,8 @@ struct OrangeDrinkApp: App {
     @State private var menuBarIcon: MenuBarIconModel
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
-    @State private var sections = PanelSections()
+    @State private var sections: PanelSections
+    private let keyboard: PanelKeyboard
 
     init() {
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
@@ -65,6 +66,9 @@ struct OrangeDrinkApp: App {
         _appearance = State(initialValue: appearance)
         _menuBarIcon = State(initialValue: menuBarIcon)
         _look = State(initialValue: look)
+        let sections = PanelSections()
+        _sections = State(initialValue: sections)
+        keyboard = PanelKeyboard(sections: sections, events: NSKeyEvents())
         _language = State(initialValue: language)
         _battery = State(initialValue: BatteryModel(
             readings: BatteryMonitor.readings(), onReading: { alerts.observe($0) }))
@@ -75,7 +79,7 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, sections: sections, look: look, language: language)
+            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, sections: sections, keyboard: keyboard, look: look, language: language)
         } label: {
             StatusItemLabel(state: battery.state, icon: menuBarIcon)
         }
