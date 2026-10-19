@@ -2,6 +2,7 @@
 // PROJECT.md's 0.1% bar. Run by `make cpu-check`; usage: cpu-check <path to the app executable>.
 // Exits 0 under the bar, 1 over it, and 2 when no measurement could be made.
 import Foundation
+import os
 
 let settleSeconds = 10.0
 let windowSeconds = 60.0
@@ -10,31 +11,62 @@ let budgetPercent = 0.1
 enum CPUCheckError: Error, CustomStringConvertible {
     case usage
     case pmsetNamedNoSource(String)
-    case appExited(status: Int32)
+    case appExited(Process.TerminationReason, status: Int32)
     case rusage(errno: Int32)
+    case interrupted(signal: Int32)
 
     var description: String {
         switch self {
         case .usage: "usage: cpu-check <path to the app executable>"
         case .pmsetNamedNoSource(let output): "pmset -g batt named no power source:\n\(output)"
-        case .appExited(let status): "the app exited with status \(status) before the window ended"
+        case .appExited(.exit, let status): "the app exited with status \(status) before the window ended"
+        case .appExited(_, let signal): "the app was killed by signal \(signal) before the window ended"
         case .rusage(let errno): "proc_pid_rusage failed: \(String(cString: strerror(errno)))"
+        case .interrupted(let signal): "interrupted by signal \(signal)"
         }
     }
+}
+
+/// The signal that would have ended the script, held for the sleep it cuts short.
+///
+/// [LAW:no-ambient-temporal-coupling] Process starts the app in its own process group, out of
+/// Ctrl-C's reach, so a signal ends the measurement as an error and `measure`'s defer ends the
+/// app with it, on the one path every ending takes.
+let interruption = DispatchSemaphore(value: 0)
+let interruptedBy = OSAllocatedUnfairLock<Int32?>(initialState: nil)
+let signalSources = [SIGINT, SIGTERM, SIGHUP].map { number -> DispatchSourceSignal in
+    signal(number, SIG_IGN)
+    let source = DispatchSource.makeSignalSource(signal: number)
+    source.setEventHandler {
+        interruptedBy.withLock { $0 = number }
+        interruption.signal()
+    }
+    source.resume()
+    return source
+}
+
+/// Sleeps for the seconds, or throws the signal that cut the sleep short.
+func sleep(seconds: Double) throws {
+    _ = interruption.wait(timeout: .now() + seconds)
+    if let number = interruptedBy.withLock({ $0 }) { throw CPUCheckError.interrupted(signal: number) }
 }
 
 /// User plus system time the kernel has charged to the app, from launch. proc_pid_rusage
 /// reports it in Mach ticks, which the timebase turns into nanoseconds.
 ///
-/// [LAW:single-enforcer] The one place that tells a running app from one that has exited, so
-/// either sample reports an exit by the app's status and never by a failed kernel call.
+/// [LAW:one-source-of-truth] The kernel is the one judge of whether the app is still there:
+/// Process.isRunning trails the exit, so a sample it cannot take is an exit, reported by
+/// its reason and status once Foundation has collected them.
 func cpuTime(of app: Process) throws -> Duration {
-    guard app.isRunning else { throw CPUCheckError.appExited(status: app.terminationStatus) }
     var info = rusage_info_v4()
     let status = withUnsafeMutablePointer(to: &info) {
         $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(app.processIdentifier, RUSAGE_INFO_V4, $0) }
     }
-    guard status == 0 else { throw CPUCheckError.rusage(errno: errno) }
+    guard status == 0 else {
+        guard errno == ESRCH else { throw CPUCheckError.rusage(errno: errno) }
+        app.waitUntilExit()
+        throw CPUCheckError.appExited(app.terminationReason, status: app.terminationStatus)
+    }
     var timebase = mach_timebase_info_data_t()
     mach_timebase_info(&timebase)
     let ticks = Int64(info.ri_user_time + info.ri_system_time)
@@ -74,11 +106,11 @@ func measure(executable: String) throws -> Measurement {
         app.terminate()
         app.waitUntilExit()
     }
-    Thread.sleep(forTimeInterval: settleSeconds)
+    try sleep(seconds: settleSeconds)
     let sourceBefore = try powerSource()
     let cpuBefore = try cpuTime(of: app)
     let windowStart = ContinuousClock.now
-    Thread.sleep(forTimeInterval: windowSeconds)
+    try sleep(seconds: windowSeconds)
     let cpu = try cpuTime(of: app) - cpuBefore
     let elapsed = ContinuousClock.now - windowStart
     let sourceAfter = try powerSource()

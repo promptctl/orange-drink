@@ -6,13 +6,13 @@ import Observation
 /// from this and never read IOKit themselves, and the CPU check measures the app with it live.
 @Observable @MainActor final class BatteryModel {
     /// [LAW:types-are-the-program] A view can tell "no reading yet" from "no battery" from
-    /// "the subscription ended", so none of them is a stale reading in disguise.
+    /// "no more readings", so none of them is a stale reading in disguise.
     enum State {
         case unknown
         /// The latest reading; nil is a Mac with no battery.
         case known(BatteryReading?)
-        /// The subscription ended with this error, and no reading will follow it.
-        case unavailable(any Error)
+        /// No reading will follow: the stream threw this error, or finished when it is nil.
+        case ended((any Error)?)
     }
 
     private(set) var state: State = .unknown
@@ -29,15 +29,21 @@ import Observation
         // as long as the model does, and a dropped model cancels it before the next publish
         // rather than letting the task keep the model alive through it.
         subscription = Task { [weak self] in
+            let ending: (any Error)?
             do {
                 for try await reading in readings {
                     guard let self else { return }
                     self.state = .known(reading)
                 }
+                ending = nil
             } catch {
-                IOKitBattery.log.error("battery subscription ended: \(String(describing: error), privacy: .public)")
-                self?.state = .unavailable(error)
+                ending = error
             }
+            // A dropped model cancelled the stream itself, so its ending is no event.
+            guard let self else { return }
+            let reason = ending.map { String(describing: $0) } ?? "the stream finished"
+            IOKitBattery.log.error("battery subscription ended: \(reason, privacy: .public)")
+            self.state = .ended(ending)
         }
     }
 
