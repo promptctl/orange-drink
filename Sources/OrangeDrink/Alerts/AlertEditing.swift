@@ -29,15 +29,23 @@ extension Alert.Kind {
 }
 
 extension AlertSettings {
-    /// The alerts of one kind as their list shows them: lowest threshold first.
+    /// The alerts of one kind as their list shows them: lowest threshold first, equal ones in a fixed order.
     func alerts(_ kind: Alert.Kind) -> [Alert] {
-        alerts.filter { $0.kind == kind }.sorted { $0.threshold < $1.threshold }
+        alerts.filter { $0.kind == kind }.sorted { ($0.threshold, $0.id.uuidString) < ($1.threshold, $1.id.uuidString) }
     }
 
     /// A new alert starts at a fixed level, at the top of the screen and heard; the user sets it from there.
     mutating func add(_ kind: Alert.Kind) {
         let threshold = switch kind { case .low: 10; case .charged: 90 }
         alerts.append(Alert(kind: kind, threshold: threshold, position: .top, glow: false, sound: true))
+    }
+
+    /// Applies one change to the alert with this id as it stands now. Changes are per field, so two
+    /// edits in a row never write one another's field back; an alert removed meanwhile has nothing
+    /// left to edit.
+    mutating func edit(_ id: Alert.ID, _ change: (inout Alert) -> Void) {
+        guard let index = alerts.firstIndex(where: { $0.id == id }) else { return }
+        change(&alerts[index])
     }
 
     mutating func remove(_ id: Alert.ID) {
