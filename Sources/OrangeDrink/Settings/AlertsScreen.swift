@@ -150,7 +150,7 @@ private struct AlertEditor: View {
 
     var body: some View {
         SettingCard {
-            SettingRow(title: "Threshold", description: alert.kind == .low ? "Below this level" : "At this level") {
+            SettingRow(title: "Threshold", description: alert.kind == .low ? "Below this level" : "At or above this level") {
                 Stepper("\(alert.threshold)%", value: binding(\.threshold), in: 1...100)
             }
             SettingRow(title: "Position") {
