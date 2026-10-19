@@ -8,6 +8,7 @@ let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as! Strin
 
 @main
 struct OrangeDrinkApp: App {
+    @NSApplicationDelegateAdaptor(TerminationLog.self) private var terminationLog
     @State private var battery: BatteryModel
     @State private var devices: DevicesModel
     @State private var deviceSettings: DeviceSettingsModel
