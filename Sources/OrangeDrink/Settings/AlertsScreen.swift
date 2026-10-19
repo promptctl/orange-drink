@@ -123,7 +123,7 @@ private struct AlertCard: View {
                         .frame(width: 30, height: 30).background(Circle().fill(.red.opacity(0.2)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Delete \(alert.threshold)% alert")
+                .accessibilityLabel("Delete \(alert.kind.rawValue) \(alert.threshold)% alert")
             }
             .padding(12)
             .accessibilityElement(children: .contain)
