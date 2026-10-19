@@ -7,6 +7,8 @@ struct DeviceSettings: Codable, Equatable, Sendable {
     var showConnectedDevices = true
     /// Devices the user hid from the panel's list; they stay on the Devices screen to be shown again.
     var hidden: Set<DeviceID> = []
+    /// Devices whose bell is on: each is held to the Low Battery alerts.
+    var alerting: Set<DeviceID> = []
 
     init() {}
 
@@ -16,10 +18,15 @@ struct DeviceSettings: Codable, Equatable, Sendable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         showConnectedDevices = try values.decodeIfPresent(Bool.self, forKey: .showConnectedDevices) ?? showConnectedDevices
         hidden = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .hidden) ?? hidden
+        alerting = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .alerting) ?? alerting
     }
 
     mutating func toggleHidden(_ id: DeviceID) {
         if hidden.remove(id) == nil { hidden.insert(id) }
+    }
+
+    mutating func toggleAlerting(_ id: DeviceID) {
+        if alerting.remove(id) == nil { alerting.insert(id) }
     }
 }
 

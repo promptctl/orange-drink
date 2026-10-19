@@ -28,11 +28,16 @@ struct OrangeDrinkApp: App {
             alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
                 pills.deliver($0, reading: $1)
                 sounds.deliver($0)
+            }, deliverDevice: {
+                pills.deliver($0)
+                sounds.deliver($0)
             })
         } catch {
             fatalError("stored alert, appearance, or device settings do not decode: \(error)")
         }
-        _devices = State(initialValue: DevicesModel(events: BluetoothDevices.appEvents()))
+        _devices = State(initialValue: DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
+            alerts.observe(devices: $0, watching: deviceSettings.settings.alerting)
+        }))
         _deviceSettings = State(initialValue: deviceSettings)
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)

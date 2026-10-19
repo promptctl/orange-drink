@@ -16,6 +16,10 @@ import os
         if firing.sound { play() }
     }
 
+    func deliver(_ firing: DeviceFiring) {
+        if firing.alert.sound { play() }
+    }
+
     /// [LAW:no-silent-failure] A chime that cannot play is logged, not skipped. The system hands out
     /// one shared sound, which refuses to play while it is still playing, so a second firing from the
     /// same reading restarts it: two alerts together are one chime, not a dropped one and an error.

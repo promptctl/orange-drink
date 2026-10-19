@@ -34,6 +34,16 @@ enum DeviceLevels: Equatable, Sendable {
     case single(BatteryLevel)
     case earbuds(left: BatteryLevel?, right: BatteryLevel?, case: BatteryLevel?)
 
+    /// The level an alert watches: what powers the device. A bud going into its case must not read as
+    /// the level falling from the buds' to the case's, so the case is never the level.
+    var alertLevel: BatteryLevel? {
+        switch self {
+        case .none: nil
+        case .single(let level): level
+        case .earbuds(let left, let right, _): [left, right].compactMap { $0 }.min { $0.percent < $1.percent }
+        }
+    }
+
     /// The level a one-number display shows: the earbud that runs out first; the case only when no
     /// earbud reports, because the case does not power playback.
     var lowest: BatteryLevel? {

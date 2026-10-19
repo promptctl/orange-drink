@@ -55,12 +55,13 @@ struct DetectedDevices: Equatable {
     struct Entry: Equatable, Identifiable {
         let row: DeviceRow
         let isHidden: Bool
+        let isAlerting: Bool
         var id: DeviceID { row.id }
     }
 
     let entries: [Entry]
 
     init(_ list: DeviceList, settings: DeviceSettings) {
-        entries = DeviceRanking.rows(list).map { Entry(row: $0, isHidden: settings.hidden.contains($0.id)) }
+        entries = DeviceRanking.rows(list).map { Entry(row: $0, isHidden: settings.hidden.contains($0.id), isAlerting: settings.alerting.contains($0.id)) }
     }
 }

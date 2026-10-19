@@ -72,6 +72,9 @@ private final class PillPanel: OverlayPanel {
         }
     }
 
+    /// The sink an `AlertCenter` delivers a watched device's firing to.
+    func deliver(_ firing: DeviceFiring) { show(PillContent(firing)) }
+
     func show(_ content: PillContent) {
         dismiss()
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost alert is logged.

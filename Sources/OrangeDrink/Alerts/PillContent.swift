@@ -49,6 +49,14 @@ struct PillContent: Equatable, Sendable {
         glow = alert.glow
     }
 
+    /// The pill for a watched device: its name and level, in the alert's severity, position, and glow.
+    init(_ firing: DeviceFiring) {
+        // design-docs/devices.md: an approximate level is "~" wherever it appears.
+        let level = "\(firing.level.approximate ? "~" : "")\(firing.level.percent)%"
+        self.init(headline: "\(firing.name): \(level) Remaining", subline: nil, severity: firing.alert.severity,
+                  progress: Double(firing.level.percent) / 100, position: firing.alert.position, glow: firing.alert.glow)
+    }
+
     /// The pill for a power source alert: it has no threshold or position of its own, so it sits at
     /// the top, tells the event, and counts down or up as the reading does.
     static func power(_ headline: String, severity: Alert.Severity, reading: BatteryReading) -> PillContent {
