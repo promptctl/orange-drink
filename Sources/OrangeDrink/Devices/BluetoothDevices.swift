@@ -11,6 +11,23 @@ enum BluetoothDevices {
     /// followed by one more sweep once the first report has had time to land.
     static let settleInterval = Duration.seconds(5)
 
+    /// The events the app subscribes to at launch. Every build is ad-hoc signed anew, so any launch
+    /// that touches Bluetooth makes macOS ask for permission again. The unit-test host and the
+    /// component gallery that `make test` launches for ax-check hear no devices (and never finish);
+    /// only `make devices-check`, which sets DEVICES_CHECK because the check is about the real ones,
+    /// listens from a test host.
+    static func appEvents() -> AsyncThrowingStream<DeviceEvent, any Error> {
+        let environment = ProcessInfo.processInfo.environment
+        let hostedByTests = environment["XCTestConfigurationFilePath"] != nil && environment["DEVICES_CHECK"] == nil
+        #if DEBUG
+        let forGallery = ProcessInfo.processInfo.arguments.contains(ComponentGallery.launchArgument)
+        #else
+        let forGallery = false
+        #endif
+        guard hostedByTests || forGallery else { return events() }
+        return AsyncThrowingStream { continuation in continuation.onTermination = { [continuation] _ in _ = continuation } }
+    }
+
     /// [LAW:effects-at-boundaries] The one edge that talks to IOBluetooth. Spike
     /// orange-devices-bue.355 measured a sweep of every connected device at under a millisecond of
     /// CPU, so a sweep a minute is far inside PROJECT.md's 0.1% budget.
@@ -156,11 +173,12 @@ enum BluetoothDevicesError: Error, Equatable {
 private extension Device {
     /// [LAW:parse-dont-validate] The crossing from IOBluetooth's untyped device to a `Device`. The
     /// battery properties are private selectors, checked present at the border; a 0 means "not
-    /// reported" and cannot be told from a drained battery, so it reads as no level.
+    /// reported" and cannot be told from a drained battery, so it reads as no level, and so does
+    /// anything else outside 1...100: `BatteryLevel.percent` is always a real percentage.
     init?(_ device: IOBluetoothDevice) {
         guard let id = DeviceID(device) else { return nil }
         func level(_ key: String) -> BatteryLevel? {
-            guard let percent = (device.value(forKey: key) as? NSNumber)?.intValue, percent > 0 else { return nil }
+            guard let percent = (device.value(forKey: key) as? NSNumber)?.intValue, (1...100).contains(percent) else { return nil }
             return BatteryLevel(percent: percent, approximate: false)
         }
         // The name System Settings shows is the user's alias, which only the private getDisplayName

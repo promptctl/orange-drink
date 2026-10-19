@@ -34,7 +34,7 @@ struct ComponentGallery: View {
         .preferredColorScheme(.dark)
     }
 
-    static let launchArgument = "-ComponentGallery"
+    nonisolated static let launchArgument = "-ComponentGallery"
 
     /// Opens the gallery when the app was launched for it.
     @MainActor static func showIfRequested() {

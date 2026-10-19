@@ -33,7 +33,7 @@ struct BatteryInformationView: View {
                     Text("Cycle Count").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Gauge(fraction: info.health.fraction, tint: info.health.condition.color)
+            LevelBar(fraction: info.health.fraction, tint: info.health.condition.color)
         }
     }
 
@@ -157,19 +157,5 @@ private struct CapacityRow: View {
             Spacer()
             Text(value).font(.system(.body, design: .monospaced)).foregroundStyle(color)
         }
-    }
-}
-
-private struct Gauge: View {
-    let fraction: Double, tint: Color
-
-    var body: some View {
-        GeometryReader { bar in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.12))
-                Capsule().fill(tint).frame(width: bar.size.width * min(fraction, 1))
-            }
-        }
-        .frame(height: 8)
     }
 }

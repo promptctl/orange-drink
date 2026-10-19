@@ -3,6 +3,7 @@ import SwiftUI
 /// The panel the status item opens: stacked rounded cards on a dark ground.
 struct PanelView: View {
     let battery: BatteryModel
+    let devices: DevicesModel
     let sections: PanelSections
 
     var body: some View {
@@ -16,6 +17,10 @@ struct PanelView: View {
             CollapsibleCard(title: "Battery Information", symbol: "info.circle.fill", symbolColor: .blue,
                             section: .batteryInformation, sections: sections) {
                 if case .known(let reading?) = battery.state { BatteryInformationView(info: BatteryInformation(reading), reading: reading, battery: battery) }
+            }
+            CollapsibleCard(title: "Connected Devices", symbol: "iphone.gen3.radiowaves.left.and.right", symbolColor: .cyan,
+                            section: .connectedDevices, sections: sections) {
+                ConnectedDevicesView(devices: devices)
             }
             ActionsCard()
         }

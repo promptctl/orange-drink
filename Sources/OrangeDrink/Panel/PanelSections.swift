@@ -8,6 +8,7 @@ import Observation
 @Observable @MainActor final class PanelSections {
     enum Section: String, CaseIterable {
         case batteryInformation
+        case connectedDevices
     }
 
     private(set) var open: Set<Section>
