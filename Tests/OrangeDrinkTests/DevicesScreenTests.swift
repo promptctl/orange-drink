@@ -4,7 +4,10 @@ import Testing
 
 // [LAW:verifiable-goals] The Devices screen's behaviour from simulated devices and a throwaway
 // settings suite: no Bluetooth in the room.
-@MainActor struct DevicesScreenTests {
+@MainActor final class DevicesScreenTests {
+    /// One throwaway suite for each test: the runner makes a fresh instance per test.
+    private let defaults = UserDefaults(suiteName: "DevicesScreenTests.\(UUID().uuidString)")!
+
     private func device(_ address: String, _ percent: Int) -> Device {
         Device(id: DeviceID(address: address), name: "Device \(address)", kind: .accessory,
                levels: .single(BatteryLevel(percent: percent, approximate: false)))
@@ -15,9 +18,7 @@ import Testing
         list.apply(.swept([device("a", 95), device("b", 37), device("c", 54), device("d", 49)]))
         return list
     }
-    private func model() throws -> DeviceSettingsModel {
-        try DeviceSettingsModel(defaults: UserDefaults(suiteName: "DevicesScreenTests.\(UUID().uuidString)")!)
-    }
+    private func model() throws -> DeviceSettingsModel { try DeviceSettingsModel(defaults: defaults) }
 
     @Test func detectedDevicesRunLowestFirst() {
         #expect(DetectedDevices(list, settings: DeviceSettings()).entries.map(\.row.percent) == ["37%", "49%", "54%", "95%"])
@@ -48,16 +49,7 @@ import Testing
         #expect(ConnectedDevices(list, settings: settings.settings).isShown)
     }
 
-    /// A suite no other test or run shares, removed when the test ends however it ends.
-    private func scratchDefaults() -> (UserDefaults, cleanup: () -> Void) {
-        let name = "DevicesScreenTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        return (defaults, { defaults.removePersistentDomain(forName: name) })
-    }
-
     @Test func settingsSurviveARelaunch() throws {
-        let (defaults, cleanup) = scratchDefaults()
-        defer { cleanup() }
         let first = try DeviceSettingsModel(defaults: defaults)
         try first.update { $0.showConnectedDevices = false; $0.toggleHidden(DeviceID(address: "c")) }
         let second = try DeviceSettingsModel(defaults: defaults)
@@ -66,8 +58,6 @@ import Testing
     }
 
     @Test func storedSettingsThatDoNotDecodeFailTheLoad() {
-        let (defaults, cleanup) = scratchDefaults()
-        defer { cleanup() }
         defaults.set(Data("not json".utf8), forKey: DeviceSettingsModel.storageKey)
         #expect(throws: (any Error).self) { try DeviceSettingsModel(defaults: defaults) }
     }
@@ -84,8 +74,6 @@ import Testing
     }
 
     @Test func settingsStoredBeforeAFieldExistedStillLoad() throws {
-        let (defaults, cleanup) = scratchDefaults()
-        defer { cleanup() }
         defaults.set(Data(#"{"showConnectedDevices":false}"#.utf8), forKey: DeviceSettingsModel.storageKey)
         let loaded = try DeviceSettingsModel(defaults: defaults).settings
         #expect(!loaded.showConnectedDevices)
@@ -105,5 +93,9 @@ import Testing
         let card = ConnectedDevices(list, settings: settings.settings)
         #expect(card.rows.isEmpty)
         #expect(card.hiddenCount == 4)
+    }
+
+    @Test func everyHelpLineHasItsOwnIdentity() {
+        #expect(Set(DevicesHelpLine.all.map(\.id)).count == DevicesHelpLine.all.count)
     }
 }
