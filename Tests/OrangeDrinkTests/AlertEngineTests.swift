@@ -13,9 +13,9 @@ import Testing
     }
 
     /// The levels at which `alerts` fire, in order, over the readings.
-    static func firings(_ levels: [Int], _ alerts: [Alert], enabled: Bool = true) -> [Int] {
+    static func firings(_ levels: [Int], _ alerts: [Alert]) -> [Int] {
         var engine = AlertEngine()
-        return levels.filter { !engine.observe(level: $0, alerts: alerts, enabled: enabled).isEmpty }
+        return levels.filter { !engine.observe(level: $0, alerts: alerts).isEmpty }
     }
 
     @Test func aLowAlertHoveringAtItsThresholdFiresOnceAtTheFirstReadingBelow() {
@@ -36,16 +36,33 @@ import Testing
         #expect(Self.firings([79, 80, 90, 70, 80], [Self.charged(80)]) == [80, 80])
     }
 
-    @Test func nothingFiresWithTheMasterSwitchOff() {
-        #expect(Self.firings([21, 20, 19, 20, 19, 20, 21], [Self.low(20)], enabled: false) == [])
+    @Test func anAlertAtTheEndOfTheScaleStillFiresAgain() {
+        #expect(Self.firings([100, 99, 100, 99], [Self.low(100)]) == [99, 99])
+        #expect(Self.firings([2, 3, 0, 3, 0], [Self.charged(3)]) == [3, 3])
     }
 
-    @Test func switchingTheMasterSwitchOnBelowAThresholdDoesNotFireItLate() {
+    @Test func anAlertRearmsExactlyFivePointsBackFromItsThreshold() {
+        #expect(Self.firings([21, 19, 24, 19], [Self.low(20)]) == [19])
+        #expect(Self.firings([21, 19, 25, 19], [Self.low(20)]) == [19, 19])
+        #expect(Self.firings([79, 80, 76, 80], [Self.charged(80)]) == [80])
+        #expect(Self.firings([79, 80, 75, 80], [Self.charged(80)]) == [80, 80])
+    }
+
+    @Test func editingAnArmedAlertPastTheLevelDoesNotFireIt() {
         var engine = AlertEngine()
-        let alerts = [Self.low(20)]
-        _ = engine.observe(level: 21, alerts: alerts, enabled: false)
-        _ = engine.observe(level: 19, alerts: alerts, enabled: false)
-        #expect(engine.observe(level: 18, alerts: alerts, enabled: true) == [])
+        let alert = Self.low(20)
+        _ = engine.observe(level: 40, alerts: [alert])
+        var edited = alert
+        edited.threshold = 50
+        #expect(engine.observe(level: 40, alerts: [edited]) == [])
+    }
+
+    @Test func anAlertRemovedAndAddedBackIsMetAsNew() {
+        var engine = AlertEngine()
+        let alert = Self.low(20)
+        _ = engine.observe(level: 21, alerts: [alert])
+        _ = engine.observe(level: 19, alerts: [])
+        #expect(engine.observe(level: 18, alerts: [alert]) == [])
     }
 
     @Test func launchingBelowAThresholdDoesNotFireIt() {
@@ -55,9 +72,9 @@ import Testing
     @Test func eachAlertFiresOnItsOwnCrossing() {
         var engine = AlertEngine()
         let alerts = [Self.low(20), Self.low(10)]
-        _ = engine.observe(level: 21, alerts: alerts, enabled: true)
-        #expect(engine.observe(level: 19, alerts: alerts, enabled: true) == [alerts[0]])
-        #expect(engine.observe(level: 9, alerts: alerts, enabled: true) == [alerts[1]])
+        _ = engine.observe(level: 21, alerts: alerts)
+        #expect(engine.observe(level: 19, alerts: alerts) == [alerts[0]])
+        #expect(engine.observe(level: 9, alerts: alerts) == [alerts[1]])
     }
 }
 
@@ -106,5 +123,16 @@ import Testing
         center.observe(nil)
         #expect(delivered == [alert])
         #expect(try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _ in }).settings.alerts == [alert])
+    }
+
+    @Test func nothingIsDeliveredWithTheMasterSwitchOffAndNothingFiresLateWhenItComesOn() throws {
+        var delivered: [Alert] = []
+        let center = try AlertCenter(store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()), deliver: { delivered.append($0) })
+        try center.update { $0 = AlertSettings(enabled: false, alerts: [AlertEngineTests.low(20)]) }
+        center.observe(try Self.reading(21))
+        center.observe(try Self.reading(19))
+        try center.update { $0.enabled = true }
+        center.observe(try Self.reading(18))
+        #expect(delivered == [])
     }
 }

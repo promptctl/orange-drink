@@ -36,10 +36,11 @@ struct Alert: Codable, Equatable, Identifiable, Sendable {
     }
 
     /// The level has come far enough back from the threshold that crossing it again is news.
+    /// The distance stops at the ends of the scale, so an alert at 98% or 2% still re-arms.
     func isRearmed(by level: Int) -> Bool {
         switch kind {
-        case .low: level >= threshold + Self.hysteresis
-        case .charged: level <= threshold - Self.hysteresis
+        case .low: level >= min(threshold + Self.hysteresis, 100)
+        case .charged: level <= max(threshold - Self.hysteresis, 0)
         }
     }
 }
