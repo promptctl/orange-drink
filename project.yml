@@ -15,11 +15,17 @@ settings:
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "-"
     DEVELOPMENT_TEAM: ""
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: 7.9.0
 targets:
   OrangeDrink:
     type: application
     platform: macOS
     sources: [Sources/OrangeDrink]
+    dependencies:
+      - package: GRDB
     settings:
       base:
         INFOPLIST_KEY_LSUIElement: YES
