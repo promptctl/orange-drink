@@ -91,6 +91,11 @@ import Testing
         let estimates = try [9, 192].map { PillContent(pillAlert(.low), reading: try PillTests.reading(19, minutes: $0)) }
             + [PillContent(pillAlert(.charged), reading: try MenuBarIconDrawing.charging(19))]
         phrases += estimates.compactMap { $0.subline } + [PillContent.sample.headline, PillContent.sample.subline!]
+        phrases += HistoryRange.allCases.map(\.title) + ["HEALTH", "TEMPERATURE", "CYCLES", "of \(1000) rated", "Today, \("2:00 AM")", "Yesterday, \("2:00 AM")",
+                    "\("Jan 1"), \("2:00 AM")", "Last charged to \(79)%", "Battery Level", "Battery level over the last \("24h")",
+                    "Building your battery-level history — your charge timeline fills in as you use your Mac.",
+                    "The battery history could not be read. Quit and reopen the app.", "This Mac has no battery.", "Reading the battery…",
+                    "Battery readings stopped. Quit and reopen the app."]
         phrases += ["Close", "Plugged In", "On Battery", "Show Glow"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
         phrases += [true, false].flatMap { on in

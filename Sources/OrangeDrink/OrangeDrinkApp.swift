@@ -21,7 +21,7 @@ struct OrangeDrinkApp: App {
     @State private var language: AppLanguageModel
     @State private var sections: PanelSections
     private let keyboard: PanelKeyboard
-    private let history: BatteryHistory?
+    private let history: Result<BatteryHistory, any Error>
 
     init() {
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
@@ -76,21 +76,23 @@ struct OrangeDrinkApp: App {
         _sections = State(initialValue: sections)
         keyboard = PanelKeyboard(sections: sections, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
-        // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it.
-        let history: BatteryHistory?
-        do {
-            history = BatteryHistory(store: try HistoryStore(url: HistoryStore.defaultURL()))
-            history?.follow(screen: ScreenMonitor.changes())
+        // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
+        // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
+        let history = Result { try BatteryHistory(store: HistoryStore(url: HistoryStore.defaultURL())) }
+        switch history {
+        case .success(let recording):
+            recording.follow(screen: ScreenMonitor.changes())
             NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { history?.flush() }
+                MainActor.assumeIsolated { recording.flush() }
             }
-        } catch {
-            log.error("no battery history: \(error)")
-            history = nil
+        case .failure(let error): log.error("no battery history: \(error)")
         }
         self.history = history
         _battery = State(initialValue: BatteryModel(
-            readings: BatteryMonitor.readings(), onReading: { alerts.observe($0); history?.observe($0) }))
+            readings: BatteryMonitor.readings(), onReading: {
+                alerts.observe($0)
+                if case .success(let recording) = history { recording.observe($0) }
+            }))
         #if DEBUG
         ComponentGallery.showIfRequested()
         #endif
@@ -104,7 +106,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, battery: battery, history: history) }
     }
 }
 

@@ -1,16 +1,20 @@
 import Foundation
+import Observation
 import OSLog
 
 /// Records the battery's history as readings and screen changes arrive.
 ///
 /// [LAW:composability] It is handed its store, its clock, and its screen, so a test runs a
 /// simulated day through it and a relaunch is a second store opened on the same file.
-@MainActor final class BatteryHistory {
+@Observable @MainActor final class BatteryHistory {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "history")
 
-    private let store: HistoryStore
-    private let timekeeper: any Timekeeper
-    private var recorder: HistoryRecorder
+    /// Counts the writes that reached the store, so a screen showing the history reloads when it changes
+    /// and not on a schedule of its own.
+    private(set) var revision = 0
+    @ObservationIgnored private let store: HistoryStore
+    @ObservationIgnored private let timekeeper: any Timekeeper
+    @ObservationIgnored private var recorder: HistoryRecorder
     /// [LAW:types-are-the-program] exception: assigned after init by `follow`, which needs `self`.
     @ObservationIgnored nonisolated(unsafe) private var screenTask: Task<Void, Never>?
 
@@ -31,6 +35,13 @@ import OSLog
     /// Credits the open screen interval and what is pending, as the app quits.
     func flush() { persist(recorder.flush(at: timekeeper.now())) }
 
+    /// What the Battery Level card shows for `range`, read from the store as of now.
+    func timeline(range: HistoryRange) throws -> BatteryLevelTimeline {
+        let now = timekeeper.now()
+        return BatteryLevelTimeline(
+            range: range, now: now, samples: try store.samples(since: now.addingTimeInterval(-BatteryLevelTimeline.lookback)))
+    }
+
     func follow<Changes: AsyncSequence & Sendable>(screen changes: Changes) where Changes.Element == Bool {
         screenTask = Task { [weak self] in
             do {
@@ -44,7 +55,10 @@ import OSLog
 
     private func persist(_ write: HistoryWrite) {
         guard !write.isEmpty else { return }
-        do { try store.apply(write) } catch {
+        do {
+            try store.apply(write)
+            revision += 1
+        } catch {
             Self.log.error("history write failed: \(String(describing: error), privacy: .public)")
             recorder.restore(write)
         }
