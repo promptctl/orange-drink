@@ -4,26 +4,40 @@ import Testing
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is the reading each IOKit shape maps to.
-// Fixtures are this Mac's dictionaries, captured on AC held at 80% and not charging.
+// The power-source fixtures are the three shapes powerd publishes (PowerManagement,
+// BatteryTimeRemaining.m, packageKernelPowerSource): "Is Charged" exists only on AC while not
+// charging, and the estimate that does not apply is 0. Values are this Mac's, on AC held at 80%.
 @Suite struct BatteryReadingParse {
     static var registry: [String: Any] { [
         "AppleRawCurrentCapacity": 4646, "AppleRawMaxCapacity": 5934, "DesignCapacity": 6249,
         "CycleCount": 103, "DesignCycleCount9C": 1000,
         "Temperature": 3093, "Voltage": 12510, "Amperage": -252,
     ] }
-    static var onAC: [String: Any] { [
-        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSACPowerValue,
-        kIOPSIsChargingKey: false, kIOPSIsChargedKey: false,
-        kIOPSTimeToEmptyKey: 0, kIOPSTimeToFullChargeKey: 0,
-    ] }
     static var adapter: [String: Any] { [kIOPSPowerAdapterWattsKey: 86] }
+    static var eightySixWatts: Measurement<UnitPower> { .init(value: 86, unit: .watts) }
 
-    static func powerSource(_ overrides: [String: Any]) -> [String: Any] {
-        onAC.merging(overrides) { $1 }
+    static func onACNotCharging(charged: Bool) -> [String: Any] { [
+        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSACPowerValue,
+        kIOPSIsChargingKey: false, kIOPSIsChargedKey: charged,
+        kIOPSTimeToFullChargeKey: 0, kIOPSTimeToEmptyKey: 0,
+    ] }
+    static func charging(timeToFull: Int) -> [String: Any] { [
+        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSACPowerValue,
+        kIOPSIsChargingKey: true, kIOPSIsFinishingChargeKey: false,
+        kIOPSTimeToFullChargeKey: timeToFull, kIOPSTimeToEmptyKey: 0,
+    ] }
+    static func discharging(timeToEmpty: Int) -> [String: Any] { [
+        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSBatteryPowerValue,
+        kIOPSIsChargingKey: false,
+        kIOPSTimeToFullChargeKey: 0, kIOPSTimeToEmptyKey: timeToEmpty,
+    ] }
+
+    static func parse(_ powerSource: [String: Any], adapter: [String: Any] = adapter) throws -> BatteryReading {
+        try BatteryReading(registry: registry, powerSource: powerSource, adapter: adapter)
     }
 
     @Test func hardwareFactsCarryTheirUnits() throws {
-        let reading = try BatteryReading(registry: Self.registry, powerSource: Self.onAC, adapter: Self.adapter)
+        let reading = try Self.parse(Self.onACNotCharging(charged: false))
         #expect(reading.chargePercent == 80)
         #expect(reading.capacity == Capacity(
             current: .init(value: 4646, unit: .milliampereHours),
@@ -36,51 +50,51 @@ import Testing
     }
 
     @Test func onACNotCharging() throws {
-        let reading = try BatteryReading(registry: Self.registry, powerSource: Self.onAC, adapter: Self.adapter)
-        #expect(reading.power == .adapter(.init(value: 86, unit: .watts), .notCharging))
+        let reading = try Self.parse(Self.onACNotCharging(charged: false))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .notCharging))
+    }
+
+    @Test func onACFull() throws {
+        let reading = try Self.parse(Self.onACNotCharging(charged: true))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .full))
     }
 
     @Test func chargingWithEstimate() throws {
-        let source = Self.powerSource([kIOPSIsChargingKey: true, kIOPSTimeToFullChargeKey: 82])
-        let reading = try BatteryReading(registry: Self.registry, powerSource: source, adapter: Self.adapter)
-        #expect(reading.power == .adapter(.init(value: 86, unit: .watts), .charging(timeToFull: .seconds(82 * 60))))
+        let reading = try Self.parse(Self.charging(timeToFull: 82))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(timeToFull: .seconds(82 * 60))))
     }
 
     @Test func chargingWhileStillCalculating() throws {
-        let source = Self.powerSource([kIOPSIsChargingKey: true, kIOPSTimeToFullChargeKey: -1])
-        let reading = try BatteryReading(registry: Self.registry, powerSource: source, adapter: Self.adapter)
-        #expect(reading.power == .adapter(.init(value: 86, unit: .watts), .charging(timeToFull: nil)))
-    }
-
-    @Test func fullWinsOverCharging() throws {
-        let source = Self.powerSource([kIOPSIsChargingKey: true, kIOPSIsChargedKey: true])
-        let reading = try BatteryReading(registry: Self.registry, powerSource: source, adapter: Self.adapter)
-        #expect(reading.power == .adapter(.init(value: 86, unit: .watts), .full))
+        let reading = try Self.parse(Self.charging(timeToFull: -1))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(timeToFull: nil)))
     }
 
     @Test func dischargingWithEstimate() throws {
-        let source = Self.powerSource([kIOPSPowerSourceStateKey: kIOPSBatteryPowerValue, kIOPSTimeToEmptyKey: 192])
-        let reading = try BatteryReading(registry: Self.registry, powerSource: source, adapter: nil)
+        let reading = try Self.parse(Self.discharging(timeToEmpty: 192), adapter: [:])
         #expect(reading.power == .battery(timeToEmpty: .seconds(192 * 60)))
     }
 
     @Test func dischargingWhileStillCalculating() throws {
-        let source = Self.powerSource([kIOPSPowerSourceStateKey: kIOPSBatteryPowerValue, kIOPSTimeToEmptyKey: -1])
-        let reading = try BatteryReading(registry: Self.registry, powerSource: source, adapter: nil)
+        let reading = try Self.parse(Self.discharging(timeToEmpty: -1), adapter: [:])
         #expect(reading.power == .battery(timeToEmpty: nil))
+    }
+
+    @Test func adapterWithoutWattageReadsNone() throws {
+        let reading = try Self.parse(Self.onACNotCharging(charged: false), adapter: [:])
+        #expect(reading.power == .adapter(nil, .notCharging))
     }
 
     @Test func missingRegistryKeyFailsNamingIt() {
         var registry = Self.registry
         registry["Temperature"] = nil
-        #expect(throws: BatteryReadError(key: "Temperature", source: "registry")) {
-            try BatteryReading(registry: registry, powerSource: Self.onAC, adapter: Self.adapter)
+        #expect(throws: BatteryReadError.missing(key: "Temperature", source: "registry")) {
+            try BatteryReading(registry: registry, powerSource: Self.onACNotCharging(charged: false), adapter: Self.adapter)
         }
     }
 
-    @Test func onACWithoutAdapterDetailsFails() {
-        #expect(throws: BatteryReadError(key: kIOPSPowerAdapterWattsKey, source: "adapter")) {
-            try BatteryReading(registry: Self.registry, powerSource: Self.onAC, adapter: nil)
+    @Test func wrongTypeFailsNamingTheKey() {
+        #expect(throws: BatteryReadError.missing(key: kIOPSPowerAdapterWattsKey, source: "adapter")) {
+            try Self.parse(Self.onACNotCharging(charged: false), adapter: [kIOPSPowerAdapterWattsKey: "86"])
         }
     }
 }

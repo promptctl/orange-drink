@@ -21,7 +21,9 @@ struct BatteryReading: Equatable, Sendable {
 enum PowerSource: Equatable, Sendable {
     /// `timeToEmpty` is nil while the system has no estimate yet; pmset prints "(no estimate)".
     case battery(timeToEmpty: Duration?)
-    case adapter(Measurement<UnitPower>, Charging)
+    /// The wattage is nil when the adapter details carry none: IOPSKeys.h says the Watts key
+    /// "might not be defined", and pmset -g ac then prints no Wattage line.
+    case adapter(Measurement<UnitPower>?, Charging)
 }
 
 enum Charging: Equatable, Sendable {
@@ -44,10 +46,13 @@ struct Cycles: Equatable, Sendable {
     let rated: Int
 }
 
-struct BatteryReadError: Error, Equatable {
-    /// The key the source lacked, or held a value of the wrong type or outside its domain.
-    let key: String
-    let source: String
+enum BatteryReadError: Error, Equatable {
+    /// The source lacked the key, or held a value of another type.
+    case missing(key: String, source: String)
+    /// The smart-battery registry entry's properties could not be copied.
+    case registry(status: kern_return_t)
+    /// powerd returned nothing from the named IOPowerSources call.
+    case powerSources(call: String)
 }
 
 extension BatteryReading {
@@ -55,7 +60,7 @@ extension BatteryReading {
     /// registry entry holds the hardware facts; the power-source description and adapter
     /// details are the system's own view of state, estimates, and wattage, which is what
     /// pmset shows. Each fact has exactly one source.
-    init(registry: [String: Any], powerSource: [String: Any], adapter: [String: Any]?) throws {
+    init(registry: [String: Any], powerSource: [String: Any], adapter: [String: Any]) throws {
         chargePercent = try field(kIOPSCurrentCapacityKey, in: powerSource, "power source")
         power = try PowerSource(powerSource: powerSource, adapter: adapter)
         // The registry holds integers: mAh, hundredths of a degree, millivolts, milliamperes.
@@ -74,28 +79,29 @@ extension BatteryReading {
 }
 
 private extension PowerSource {
-    init(powerSource: [String: Any], adapter: [String: Any]?) throws {
+    init(powerSource: [String: Any], adapter: [String: Any]) throws {
         switch try field(kIOPSPowerSourceStateKey, in: powerSource, "power source") as String {
         case kIOPSBatteryPowerValue:
             self = .battery(timeToEmpty: estimate(try field(kIOPSTimeToEmptyKey, in: powerSource, "power source")))
         case kIOPSACPowerValue:
-            guard let adapter else { throw BatteryReadError(key: kIOPSPowerAdapterWattsKey, source: "adapter") }
-            let watts: Int = try field(kIOPSPowerAdapterWattsKey, in: adapter, "adapter")
-            self = .adapter(.init(value: Double(watts), unit: .watts), try Charging(powerSource: powerSource))
+            let watts: Int? = try optionalField(kIOPSPowerAdapterWattsKey, in: adapter, "adapter")
+            self = .adapter(watts.map { .init(value: Double($0), unit: .watts) }, try Charging(powerSource: powerSource))
         default:
-            throw BatteryReadError(key: kIOPSPowerSourceStateKey, source: "power source")
+            throw BatteryReadError.missing(key: kIOPSPowerSourceStateKey, source: "power source")
         }
     }
 }
 
 private extension Charging {
+    /// powerd publishes "Is Charged" only while plugged in and not charging (PowerManagement,
+    /// BatteryTimeRemaining.m, packageKernelPowerSource), so it is read only on that branch.
     init(powerSource: [String: Any]) throws {
-        let charged: Bool = try field(kIOPSIsChargedKey, in: powerSource, "power source")
-        let charging: Bool = try field(kIOPSIsChargingKey, in: powerSource, "power source")
-        switch (charged, charging) {
-        case (true, _): self = .full
-        case (false, true): self = .charging(timeToFull: estimate(try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source")))
-        case (false, false): self = .notCharging
+        if try field(kIOPSIsChargingKey, in: powerSource, "power source") {
+            self = .charging(timeToFull: estimate(try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source")))
+        } else if try field(kIOPSIsChargedKey, in: powerSource, "power source") {
+            self = .full
+        } else {
+            self = .notCharging
         }
     }
 }
@@ -106,6 +112,15 @@ private func estimate(_ minutes: Int) -> Duration? {
 }
 
 private func field<T>(_ key: String, in dictionary: [String: Any], _ source: String) throws -> T {
-    guard let value = dictionary[key] as? T else { throw BatteryReadError(key: key, source: source) }
+    guard let value: T = try optionalField(key, in: dictionary, source) else {
+        throw BatteryReadError.missing(key: key, source: source)
+    }
+    return value
+}
+
+/// nil when the key is absent; a value present under the key but of another type is an error.
+private func optionalField<T>(_ key: String, in dictionary: [String: Any], _ source: String) throws -> T? {
+    guard let raw = dictionary[key] else { return nil }
+    guard let value = raw as? T else { throw BatteryReadError.missing(key: key, source: source) }
     return value
 }

@@ -20,16 +20,23 @@ enum IOKitBattery {
         var properties: Unmanaged<CFMutableDictionary>?
         let status = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0)
         guard status == KERN_SUCCESS, let registry = properties?.takeRetainedValue() as? [String: Any] else {
-            throw BatteryReadError(key: "IORegistryEntryCreateCFProperties \(status)", source: "registry")
+            throw BatteryReadError.registry(status: status)
         }
 
-        let info = IOPSCopyPowerSourcesInfo().takeRetainedValue()
-        let sources = (IOPSCopyPowerSourcesList(info).takeRetainedValue() as [CFTypeRef])
+        // Both calls answer nil, not an error, when powerd is unreachable.
+        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue() else {
+            throw BatteryReadError.powerSources(call: "IOPSCopyPowerSourcesInfo")
+        }
+        guard let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() else {
+            throw BatteryReadError.powerSources(call: "IOPSCopyPowerSourcesList")
+        }
+        let sources = (list as [CFTypeRef])
             .compactMap { IOPSGetPowerSourceDescription(info, $0)?.takeUnretainedValue() as? [String: Any] }
         guard let powerSource = sources.first(where: { $0[kIOPSTypeKey] as? String == kIOPSInternalBatteryType }) else {
-            throw BatteryReadError(key: kIOPSInternalBatteryType, source: "power source")
+            throw BatteryReadError.missing(key: kIOPSInternalBatteryType, source: "power source")
         }
-        let adapter = IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any]
+        // No details dictionary and an empty one say the same thing: nothing known about the adapter.
+        let adapter = IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any] ?? [:]
 
         let reading = try BatteryReading(registry: registry, powerSource: powerSource, adapter: adapter)
         log.info("battery read: \(String(describing: reading), privacy: .public)")

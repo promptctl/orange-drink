@@ -12,7 +12,8 @@ import Testing
         let batt = try run("/usr/bin/pmset", "-g", "batt")
         let ac = try run("/usr/bin/pmset", "-g", "ac")
         let line = try #require(batt.split(separator: "\n").first { $0.contains("InternalBattery") }.map(String.init))
-        let match = try #require(line.wholeMatch(of: /.*\t(\d+)%; ([A-Za-z ;]+?)(?:; (\d+:\d+|\(no estimate\)) remaining)? present: true/))
+        // pmset.m may append " rawExternalConnected: N" and, under a non-Good health, " (Health/Confidence)".
+        let match = try #require(line.wholeMatch(of: /.*\t(\d+)%; ([A-Za-z ;]+?)(?:; (\d+:\d+|\(no estimate\)) remaining)?(?: rawExternalConnected: \d+)?(?: \([^)]*\))? present: true/))
         #expect(reading.chargePercent == Int(match.1))
 
         switch reading.power {
@@ -21,8 +22,8 @@ import Testing
             #expect(ac.contains("No adapter attached."))
             #expect(Self.pmsetDuration(match.3) == timeToEmpty)
         case .adapter(let watts, let charging):
-            let adapterWatts = try #require(ac.firstMatch(of: /Wattage = (\d+)W/)?.1)
-            #expect(watts == .init(value: Double(adapterWatts)!, unit: .watts))
+            let adapterWatts = ac.firstMatch(of: /Wattage = (\d+)W/)?.1
+            #expect(watts == adapterWatts.map { .init(value: Double($0)!, unit: .watts) })
             switch charging {
             case .charging(let timeToFull):
                 #expect(match.2 == "charging" || match.2 == "finishing charge")
