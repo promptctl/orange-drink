@@ -85,8 +85,10 @@ struct HistoryRecorder {
         return write
     }
 
-    /// Takes back a write the store refused, so its counts go out with the next one instead of vanishing.
+    /// Takes back a write the store refused, so its counts go out with the next one instead of vanishing,
+    /// and its sample is due again at the next reading.
     mutating func restore(_ write: HistoryWrite) {
+        if write.sample != nil { lastSample = nil }
         for (day, usage) in write.days { pending[day, default: DayUsage()] += usage }
     }
 
@@ -103,7 +105,8 @@ struct HistoryRecorder {
     private mutating func drain(at: Date, sample: HistorySample?) -> HistoryWrite {
         if let since = screenOnSince {
             creditScreen(from: since, to: at)
-            screenOnSince = at
+            // A clock stepped back must not make the same span count twice.
+            screenOnSince = max(since, at)
         }
         defer { pending = [:] }
         return HistoryWrite(sample: sample, days: pending)
