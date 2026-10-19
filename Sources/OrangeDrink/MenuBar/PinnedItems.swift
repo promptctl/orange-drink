@@ -69,8 +69,9 @@ struct PinnedItem: Equatable, Identifiable {
 @MainActor final class NSPinnedStatusItem: PinnedStatusItem {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
-    /// [LAW:one-source-of-truth] The autosave name is what AppKit keys the item's place in the bar
-    /// by, so a device that drops out and returns gets back the place the user dragged it to.
+    /// [LAW:one-source-of-truth] AppKit keys an item's remembered place in the bar by its autosave
+    /// name, so one name per device lets a device that returns be given the place it had. Not yet
+    /// checked against a running app.
     init(id: DeviceID) { item.autosaveName = "pinned-device-\(id.address)" }
 
     /// The text the item shows, for the check that it shows the device's level.
