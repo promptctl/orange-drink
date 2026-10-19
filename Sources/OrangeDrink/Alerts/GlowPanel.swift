@@ -8,12 +8,13 @@ struct GlowView: View {
     let severity: Alert.Severity
 
     var body: some View {
-        // The stroke is centred on the screen's edge and blurred, so half of it falls off-screen
-        // and what remains is brightest at the edge and fades inward.
+        // A band along the inside of the screen's edge, blurred: light that fades inward. The
+        // panel covers the notch strip too, so the glow wraps the real edge.
         Rectangle()
             .strokeBorder(severity.color, lineWidth: Self.reach)
             .blur(radius: Self.reach / 2)
             .opacity(0.9)
+            .ignoresSafeArea()
             .accessibilityHidden(true)
     }
 }

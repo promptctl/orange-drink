@@ -41,19 +41,27 @@ private final class PillPanel: NSPanel {
 /// The one pill on screen, with the screen glow its alert asks for: a new alert replaces both, and
 /// the close button clears both.
 ///
-/// [LAW:single-enforcer] `shown` is the only record of whether a pill is up; the window follows it.
+/// [LAW:single-enforcer] `up` is the only record of whether a pill is up; its windows live and die together.
 @MainActor final class PillController {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
 
-    private(set) var shown: PillContent?
-    private var panel: PillPanel?
-    private var glowPanel: GlowPanel?
+    @MainActor private struct Up {
+        let content: PillContent
+        let panel: PillPanel
+        /// nil when the alert has Border Glow off.
+        let glow: GlowPanel?
+
+        func close() { panel.close(); glow?.close() }
+    }
+
+    private var up: Up?
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
+    var shown: PillContent? { up?.content }
     /// The panel's frame in screen coordinates while a pill is up.
-    var shownFrame: CGRect? { panel?.frame }
+    var shownFrame: CGRect? { up?.panel.frame }
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
-    var shownGlowFrame: CGRect? { glowPanel?.frame }
+    var shownGlowFrame: CGRect? { up?.glow?.frame }
 
     /// The sink an `AlertCenter` delivers to. Only threshold alerts have a pill so far.
     func deliver(_ firing: Firing, reading: BatteryReading) {
@@ -72,22 +80,19 @@ private final class PillPanel: NSPanel {
             return
         }
         let panel = PillPanel(content, screen: screen, onClose: { [weak self] in self?.close() })
-        panel.orderFrontRegardless()
-        self.panel = panel
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
-        // alert has Border Glow off is a pill with no glow panel, whatever the pill before it had.
-        glowPanel = content.glow ? GlowPanel(severity: content.severity, screen: screen) : nil
-        glowPanel?.orderFrontRegardless()
-        shown = content
+        // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
+        let glow = content.glow ? GlowPanel(severity: content.severity, screen: screen) : nil
+        // Both float at one level, so the later one fronted is on top: the glow goes behind the pill.
+        glow?.orderFrontRegardless()
+        panel.orderFrontRegardless()
+        up = Up(content: content, panel: panel, glow: glow)
     }
 
     /// Takes down the pill showing, if any, without telling waiters: a replacement may follow.
     private func dismiss() {
-        panel?.close()
-        panel = nil
-        glowPanel?.close()
-        glowPanel = nil
-        shown = nil
+        up?.close()
+        up = nil
     }
 
     func close() {
