@@ -9,6 +9,8 @@ struct DeviceSettings: Codable, Equatable, Sendable {
     var hidden: Set<DeviceID> = []
     /// Devices whose bell is on: each is held to the Low Battery alerts.
     var alerting: Set<DeviceID> = []
+    /// Devices pinned into the menu bar as items of their own.
+    var pinned: Set<DeviceID> = []
 
     init() {}
 
@@ -19,6 +21,7 @@ struct DeviceSettings: Codable, Equatable, Sendable {
         showConnectedDevices = try values.decodeIfPresent(Bool.self, forKey: .showConnectedDevices) ?? showConnectedDevices
         hidden = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .hidden) ?? hidden
         alerting = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .alerting) ?? alerting
+        pinned = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .pinned) ?? pinned
     }
 
     mutating func toggleHidden(_ id: DeviceID) {
@@ -27,6 +30,10 @@ struct DeviceSettings: Codable, Equatable, Sendable {
 
     mutating func toggleAlerting(_ id: DeviceID) {
         if alerting.remove(id) == nil { alerting.insert(id) }
+    }
+
+    mutating func togglePinned(_ id: DeviceID) {
+        if pinned.remove(id) == nil { pinned.insert(id) }
     }
 }
 
