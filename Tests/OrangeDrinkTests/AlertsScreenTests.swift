@@ -77,11 +77,14 @@ import Testing
                 if case .threshold = firing { fired.append(reading.chargePercent) }
             })
         try center.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
-        var edited = center.settings.alerts[0]
-        edited.threshold = 12
-        edited.position = .center
-        edited.glow = true
-        try center.update { $0.replace(edited) }
+        let id = center.settings.alerts[0].id
+        try center.update { settings in
+            settings.edit(id) { $0.threshold = 12 }
+            settings.edit(id) { $0.position = .center }
+            settings.edit(id) { $0.glow = true }
+        }
+        let edited = center.settings.alerts[0]
+        #expect(edited.threshold == 12 && edited.position == .center && edited.glow)
         for percent in [21, 19, 15, 11] { center.observe(try PillTests.reading(percent)) }
         #expect(fired == [11])
 
@@ -93,9 +96,38 @@ import Testing
     @Test func anEditedThresholdReSortsItsCard() {
         var settings = AlertSettings.initial
         var fifteen = settings.alerts(.low)[2]
+        settings.edit(fifteen.id) { $0.threshold = 2 }
         fifteen.threshold = 2
-        settings.replace(fifteen)
         #expect(settings.alerts(.low).map(\.threshold) == [2, 3, 5])
         #expect(settings.alerts(.low)[0].id == fifteen.id)
+    }
+
+    @Test func editingAFiredAlertsThresholdMakesItNewAndEditingAGoneAlertChangesNothing() throws {
+        var fired: [Int] = []
+        let center = try AlertCenter(
+            store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()),
+            deliver: { firing, reading in
+                if case .threshold = firing { fired.append(reading.chargePercent) }
+            })
+        try center.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
+        for percent in [25, 19] { center.observe(try PillTests.reading(percent)) }
+        #expect(fired == [19])
+
+        let id = center.settings.alerts[0].id
+        try center.update { $0.edit(id) { $0.threshold = 12 } }
+        for percent in [15, 11] { center.observe(try PillTests.reading(percent)) }
+        #expect(fired == [19, 11])
+
+        let before = center.settings
+        try center.update { $0.edit(UUID()) { $0.threshold = 50 } }
+        #expect(center.settings == before)
+    }
+
+    @Test func alertsAtTheSameThresholdKeepOneOrder() {
+        var settings = AlertSettings.initial
+        settings.add(.low); settings.add(.low)
+        let order = settings.alerts(.low).map(\.id)
+        #expect(settings.alerts(.low).map(\.id) == order)
+        #expect(Set(order).count == 5)
     }
 }

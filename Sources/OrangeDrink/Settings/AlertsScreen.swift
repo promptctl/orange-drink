@@ -86,7 +86,7 @@ private struct ThresholdSection: View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: header.symbol, color: header.color, title: header.title, info: info)
             ForEach(alerts) { alert in
-                AlertCard(alert: alert, onEdit: { edited in perform { $0.replace(edited) } }) {
+                AlertCard(alert: alert, onEdit: { change in perform { $0.edit(alert.id, change) } }) {
                     perform { $0.remove(alert.id) }
                 }
             }
@@ -105,7 +105,7 @@ private struct ThresholdSection: View {
 /// One alert: a battery in its severity colour, its threshold chip, its summary, and a delete button.
 private struct AlertCard: View {
     let alert: Alert
-    let onEdit: (Alert) -> Void
+    let onEdit: (@escaping (inout Alert) -> Void) -> Void
     let onDelete: () -> Void
     @State private var editing = false
 
@@ -143,10 +143,10 @@ private struct AlertCard: View {
 }
 
 /// The editor behind a card's gear: the alert's threshold, position, Border Glow, and Sound.
-/// Each control writes the whole edited alert back at once, so the card follows it as it changes.
+/// Each control changes its one field, so the card follows it as it changes.
 private struct AlertEditor: View {
     let alert: Alert
-    let onEdit: (Alert) -> Void
+    let onEdit: (@escaping (inout Alert) -> Void) -> Void
 
     var body: some View {
         SettingCard {
@@ -168,10 +168,6 @@ private struct AlertEditor: View {
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<Alert, Value>) -> Binding<Value> {
-        Binding(get: { alert[keyPath: keyPath] }, set: { value in
-            var edited = alert
-            edited[keyPath: keyPath] = value
-            onEdit(edited)
-        })
+        Binding(get: { alert[keyPath: keyPath] }, set: { value in onEdit { $0[keyPath: keyPath] = value } })
     }
 }
