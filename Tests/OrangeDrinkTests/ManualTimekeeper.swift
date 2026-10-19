@@ -1,0 +1,52 @@
+import Foundation
+@testable import OrangeDrink
+
+/// A clock a test moves by hand: `advance` is the only thing that makes time pass, and it
+/// wakes every sleeper whose time has come.
+final class ManualTimekeeper: Timekeeper, @unchecked Sendable {
+    private struct Sleeper { let wakes: Date; let continuation: CheckedContinuation<Void, any Error> }
+    private let lock = NSLock()
+    private var current = Date(timeIntervalSince1970: 1_000_000)
+    private var sleepers: [UUID: Sleeper] = [:]
+    private var arrivals: [CheckedContinuation<Void, Never>] = []
+
+    func now() -> Date { lock.withLock { current } }
+
+    func sleep(for duration: Duration) async throws {
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                let waiting = lock.withLock {
+                    sleepers[id] = Sleeper(wakes: current.addingTimeInterval(Double(duration.components.seconds)), continuation: continuation)
+                    defer { arrivals = [] }
+                    return arrivals
+                }
+                waiting.forEach { $0.resume() }
+            }
+        } onCancel: {
+            lock.withLock { sleepers.removeValue(forKey: id) }?.continuation.resume(throwing: CancellationError())
+        }
+    }
+
+    /// Returns once something is asleep on this clock. A test advances time only after this, so
+    /// the sleeper it means to wake is already waiting and the advance cannot slip past it.
+    func asleep() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let ready = lock.withLock {
+                if sleepers.isEmpty { arrivals.append(continuation); return false }
+                return true
+            }
+            if ready { continuation.resume() }
+        }
+    }
+
+    func advance(by duration: Duration) {
+        let due = lock.withLock {
+            current = current.addingTimeInterval(Double(duration.components.seconds))
+            let due = sleepers.filter { $0.value.wakes <= current }
+            due.keys.forEach { sleepers.removeValue(forKey: $0) }
+            return due.values
+        }
+        due.forEach { $0.continuation.resume() }
+    }
+}

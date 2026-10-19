@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// The app's one battery subscription and the state every view reads from it.
@@ -15,16 +16,32 @@ import Observation
         case ended((any Error)?)
     }
 
+    /// How often the readings are refreshed on their own, when nothing has pushed one.
+    nonisolated static let refreshInterval = Duration.seconds(120)
+
     private(set) var state: State = .unknown
+    /// When the latest reading was taken, by this model's clock; nil until there is one.
+    private(set) var readingAt: Date?
+    @ObservationIgnored private let timekeeper: any Timekeeper
+    @ObservationIgnored private let read: @Sendable () throws -> BatteryReading?
     /// [LAW:types-are-the-program] exception: set once, in init, but Swift will not let the
     /// task capture `self` before every stored property holds a value, so it cannot be a let.
     /// Written on the main actor and read only by deinit, which no other access can overlap;
     /// an isolated deinit would say so in the type, and needs macOS 15.
     @ObservationIgnored nonisolated(unsafe) private var subscription: Task<Void, Never>?
+    @ObservationIgnored nonisolated(unsafe) private var refresher: Task<Void, Never>?
 
     /// [LAW:composability] The model mirrors whatever readings it is given: the app hands it
     /// `BatteryMonitor.readings()`, a test a recorded stream with no powerd in the room.
-    init<Readings: AsyncSequence & Sendable>(readings: Readings) where Readings.Element == BatteryReading? {
+    ///
+    /// `read` takes one reading on demand, for the refresh the model does on its own and when asked.
+    init<Readings: AsyncSequence & Sendable>(
+        readings: Readings,
+        read: @escaping @Sendable () throws -> BatteryReading? = IOKitBattery.read,
+        timekeeper: any Timekeeper = SystemTimekeeper()
+    ) where Readings.Element == BatteryReading? {
+        self.read = read
+        self.timekeeper = timekeeper
         // [LAW:no-ambient-temporal-coupling] The model owns the subscription: it lives exactly
         // as long as the model does, and a dropped model cancels it before the next publish
         // rather than letting the task keep the model alive through it.
@@ -33,7 +50,7 @@ import Observation
             do {
                 for try await reading in readings {
                     guard let self else { return }
-                    self.state = .known(reading)
+                    self.take(reading)
                 }
                 ending = nil
             } catch {
@@ -45,7 +62,52 @@ import Observation
             IOKitBattery.log.error("battery subscription ended: \(reason, privacy: .public)")
             self.state = .ended(ending)
         }
+
+        // The refresh waits out the interval since the latest reading, however it arrived, and
+        // takes one if none has: powerd's own publishes keep resetting the wait. Each use of
+        // `self` is its own statement so the wait never holds the model alive.
+        refresher = Task { [weak self] in
+            while let wait = self?.untilRefreshDue() {
+                do { try await timekeeper.sleep(for: wait) } catch { return }
+                self?.refreshIfDue()
+            }
+        }
     }
 
-    deinit { subscription?.cancel() }
+    /// Takes a reading now, as the panel's "Tap to refresh now" asks. A read that fails ends the
+    /// model the way a failed subscription does, so the panel says so instead of going stale.
+    func refresh() {
+        do { take(try read()) } catch {
+            IOKitBattery.log.error("battery refresh failed: \(String(describing: error), privacy: .public)")
+            state = .ended(error)
+        }
+    }
+
+    /// "Updated 3 min ago": the age of the reading on show, whole minutes.
+    func updatedText() -> String? {
+        readingAt.map { UpdatedFooter.text(age: timekeeper.now().timeIntervalSince($0)) }
+    }
+
+    private func take(_ reading: BatteryReading?) {
+        readingAt = timekeeper.now()
+        state = .known(reading)
+    }
+
+    /// nil once the model has ended: nothing refreshes a dead subscription back to life.
+    private func untilRefreshDue() -> Duration? {
+        if case .ended = state { return nil }
+        guard case .known = state, let readingAt else { return Self.refreshInterval }
+        let age = Duration.seconds(timekeeper.now().timeIntervalSince(readingAt))
+        return max(.zero, Self.refreshInterval - age)
+    }
+
+    private func refreshIfDue() {
+        guard untilRefreshDue() == .zero else { return }
+        refresh()
+    }
+
+    deinit {
+        subscription?.cancel()
+        refresher?.cancel()
+    }
 }
