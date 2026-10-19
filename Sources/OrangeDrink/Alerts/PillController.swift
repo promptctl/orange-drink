@@ -64,6 +64,7 @@ private final class PillPanel: NSPanel {
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost alert is logged.
         guard let screen = NSScreen.main ?? NSScreen.screens.first else {
             Self.log.error("no screen to show the pill on: \(content.headline, privacy: .public)")
+            close()
             return
         }
         let panel = PillPanel(content, screen: screen, onClose: { [weak self] in self?.close() })
