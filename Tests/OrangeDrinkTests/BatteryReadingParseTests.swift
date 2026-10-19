@@ -93,6 +93,14 @@ import Testing
         #expect(try BatteryReading(registry: Self.registry, powerSource: Self.notPresent, adapter: Self.adapter) == nil)
     }
 
+    @Test func percentOutsideItsDomainFails() {
+        var source = Self.onACNotCharging(charged: false)
+        source[kIOPSCurrentCapacityKey] = 250
+        #expect(throws: BatteryReadError.invalid(key: kIOPSCurrentCapacityKey, source: "power source")) {
+            try Self.parse(source)
+        }
+    }
+
     @Test func missingRegistryKeyFailsNamingIt() {
         var registry = Self.registry
         registry["Temperature"] = nil

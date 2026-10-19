@@ -6,23 +6,33 @@ import os
 /// [LAW:effects-at-boundaries] The one edge that talks to IOKit. It fetches the three
 /// dictionaries and hands them to the pure parser.
 enum IOKitBattery {
-    static let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "battery")
+    static let logSubsystem = Bundle.main.bundleIdentifier!
+    static let logCategory = "battery"
+    static let log = Logger(subsystem: logSubsystem, category: logCategory)
 
     /// nil when this Mac has no battery: a desktop, or a laptop whose battery is gone, is a
-    /// legal host, not an error.
+    /// legal host, not an error. Every outcome leaves one line in the log.
     static func read() throws -> BatteryReading? {
-        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
-        guard service != 0 else {
-            log.info("battery read: none installed")
-            return nil
+        do {
+            let reading = try fetch()
+            log.info("battery read: \(reading.map { String(describing: $0) } ?? "none", privacy: .public)")
+            return reading
+        } catch {
+            log.error("battery read failed: \(String(describing: error), privacy: .public)")
+            throw error
         }
+    }
+
+    private static func fetch() throws -> BatteryReading? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+        guard service != 0 else { return nil }
         defer { IOObjectRelease(service) }
 
         var properties: Unmanaged<CFMutableDictionary>?
         let status = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0)
-        guard status == KERN_SUCCESS, let registry = properties?.takeRetainedValue() as? [String: Any] else {
-            throw BatteryReadError.registry(status: status)
-        }
+        guard status == KERN_SUCCESS else { throw BatteryReadError.registry(status: status) }
+        // On success IOKit always fills `properties`, and registry keys are always strings.
+        let registry = properties!.takeRetainedValue() as! [String: Any]
 
         // Both calls answer nil, not an error, when powerd is unreachable.
         guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue() else {
@@ -39,11 +49,6 @@ enum IOKitBattery {
         // No details dictionary and an empty one say the same thing: nothing known about the adapter.
         let adapter = IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any] ?? [:]
 
-        guard let reading = try BatteryReading(registry: registry, powerSource: powerSource, adapter: adapter) else {
-            log.info("battery read: not present")
-            return nil
-        }
-        log.info("battery read: \(String(describing: reading), privacy: .public)")
-        return reading
+        return try BatteryReading(registry: registry, powerSource: powerSource, adapter: adapter)
     }
 }

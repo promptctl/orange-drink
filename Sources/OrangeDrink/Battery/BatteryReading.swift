@@ -8,6 +8,9 @@ import IOKit.ps
 /// discharging and a time-to-full cannot exist while not charging, so no reader ever sees them.
 struct BatteryReading: Equatable, Sendable {
     /// The system's own charge figure, 0...100. Not derived from the capacities: the OS smooths it.
+    /// powerd rounds it to a multiple of 5 for callers without com.apple.private.iokit.batterydataprecise
+    /// while its privacy/ImprecisePowerData feature is on (BatteryTimeRemaining.m, envelopeBatteryInformation);
+    /// macOS 26.5 ships no privacy feature-flag plist, so it is off, and pmset and this figure agree.
     let chargePercent: Int
     let power: PowerSource
     let capacity: Capacity
@@ -67,7 +70,11 @@ extension BatteryReading {
     /// the registry entry and a power source, published with "Is Present" false.
     init?(registry: [String: Any], powerSource: [String: Any], adapter: [String: Any]) throws {
         guard try field(kIOPSIsPresentKey, in: powerSource, "power source") else { return nil }
-        chargePercent = try field(kIOPSCurrentCapacityKey, in: powerSource, "power source")
+        let percent: Int = try field(kIOPSCurrentCapacityKey, in: powerSource, "power source")
+        guard (0...100).contains(percent) else {
+            throw BatteryReadError.invalid(key: kIOPSCurrentCapacityKey, source: "power source")
+        }
+        chargePercent = percent
         power = try PowerSource(powerSource: powerSource, adapter: adapter)
         // The registry holds integers: mAh, hundredths of a degree, millivolts, milliamperes.
         func integer(_ key: String) throws -> Double { Double(try field(key, in: registry, "registry") as Int) }

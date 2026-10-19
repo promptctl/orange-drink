@@ -68,7 +68,7 @@ import Testing
         let since = store.position(date: Date())
         let reading = try #require(try IOKitBattery.read())
         let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                                             Bundle.main.bundleIdentifier!, "battery"))
+                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
         #expect(entries.contains { $0.composedMessage == "battery read: \(String(describing: reading))" })
     }
 
