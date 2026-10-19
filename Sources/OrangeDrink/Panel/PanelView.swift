@@ -2,12 +2,12 @@ import SwiftUI
 
 /// The panel the status item opens: stacked rounded cards on a dark ground.
 struct PanelView: View {
-    let state: BatteryModel.State
+    let battery: BatteryModel
     let sections: PanelSections
 
     var body: some View {
         VStack(spacing: 10) {
-            switch state {
+            switch battery.state {
             case .known(let reading?): ChargeCardView(card: ChargeCard(reading))
             case .unknown: PanelNote("Reading the battery…")
             case .known(nil): PanelNote("This Mac has no battery.")
@@ -15,7 +15,7 @@ struct PanelView: View {
             }
             CollapsibleCard(title: "Battery Information", symbol: "info.circle.fill", symbolColor: .blue,
                             section: .batteryInformation, sections: sections) {
-                if case .known(let reading?) = state { BatteryInformationView(info: BatteryInformation(reading)) }
+                if case .known(let reading?) = battery.state { BatteryInformationView(info: BatteryInformation(reading), battery: battery) }
             }
             Button("Quit \(appName)") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")

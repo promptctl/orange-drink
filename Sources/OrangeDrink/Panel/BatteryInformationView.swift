@@ -3,6 +3,7 @@ import SwiftUI
 /// The expanded Battery Information card: four sections under thin dividers.
 struct BatteryInformationView: View {
     let info: BatteryInformation
+    let battery: BatteryModel
 
     var body: some View {
         VStack(spacing: 12) {
@@ -14,6 +15,7 @@ struct BatteryInformationView: View {
             electricalSection
             Divider()
             capacitySection
+            footer
         }
     }
 
@@ -72,6 +74,20 @@ struct BatteryInformationView: View {
                 }
             }
         }
+    }
+
+    /// The age is re-read every 30 s while the card is open, so "Updated" keeps counting between readings.
+    private var footer: some View {
+        VStack(spacing: 4) {
+            Label(UpdatedFooter.explanation, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
+            TimelineView(.periodic(from: .now, by: 30)) { _ in
+                Text(battery.updatedText() ?? "").font(.caption).foregroundStyle(.secondary)
+            }
+            Button { battery.refresh() } label: { Label(UpdatedFooter.action, systemImage: "arrow.clockwise").font(.caption) }
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var capacitySection: some View {
