@@ -98,10 +98,11 @@ import Testing
         defer { controller.apply([]) }
         // What a ⌘-drag of the middle device to the far right leaves behind, in the settings AppKit reads.
         let key = "NSStatusItem Preferred Position pinned-device-\(ids[1].address)"
-        UserDefaults.standard.set(30.0, forKey: key)
         defer { UserDefaults.standard.removeObject(forKey: key) }
 
         for order in [ids, [ids[2], ids[0], ids[1]], [ids[1], ids[2], ids[0]]] {
+            // Set again each time: the first item made over it clears it.
+            UserDefaults.standard.set(30.0, forKey: key)
             controller.apply(PinnedItem.items(devices, pinned: PinnedOrder(order)))
             // An item has no place (x of 0) until the bar has placed it; the wait is on the placement itself.
             func leftToRight() -> [DeviceID]? {

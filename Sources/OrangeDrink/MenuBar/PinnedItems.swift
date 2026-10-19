@@ -73,11 +73,14 @@ struct PinnedItem: Equatable, Identifiable {
     /// [LAW:one-source-of-truth] The order is the user's list. AppKit keeps a place for every item
     /// by its autosave name, written when the user ⌘-drags it, and that place beats the order the
     /// items are made in. A name per device makes the key known, and removing it from the settings
-    /// AppKit reads (the standard ones) before the name is set leaves the list the only say.
-    /// `make position-check` holds this against the real bar.
+    /// AppKit reads (the standard ones) before the name is set leaves the list the only say. The
+    /// same holds for the visibility a ⌘-drag out of the bar saves, which would hide the item for
+    /// good. `make position-check` holds the order against the real bar.
     init(id: DeviceID) {
         let name = "pinned-device-\(id.address)"
-        UserDefaults.standard.removeObject(forKey: "NSStatusItem Preferred Position \(name)")
+        for key in ["Preferred Position", "Visible"] {
+            UserDefaults.standard.removeObject(forKey: "NSStatusItem \(key) \(name)")
+        }
         item.autosaveName = name
     }
 

@@ -48,8 +48,8 @@ struct PinnedDevicesCard: View {
                                 Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer(minLength: 12)
-                            moveButton("chevron.up", "Move \(entry.row.name) left in the menu bar", entry.id, with: entry.above)
-                            moveButton("chevron.down", "Move \(entry.row.name) right in the menu bar", entry.id, with: entry.below)
+                            moveButton("chevron.up", "Move \(entry.row.name) up, toward the left of the menu bar", entry.id, with: entry.above)
+                            moveButton("chevron.down", "Move \(entry.row.name) down, toward the right of the menu bar", entry.id, with: entry.below)
                         }
                         .padding(12)
                         .accessibilityElement(children: .contain)
