@@ -23,7 +23,7 @@ private struct NotificationAppearanceSection: View {
         position: .top, glow: false)
 
     var body: some View {
-        let look = appearance.appearance
+        let look = appearance.value
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "sparkle", color: .pink, title: "Notification Appearance")
             if let saveFailure {
@@ -52,7 +52,7 @@ private struct NotificationAppearanceSection: View {
 
     /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
     private func binding<Value>(_ keyPath: WritableKeyPath<NotificationAppearance, Value>) -> Binding<Value> {
-        Binding(get: { appearance.appearance[keyPath: keyPath] }, set: { value in
+        Binding(get: { appearance.value[keyPath: keyPath] }, set: { value in
             do {
                 try appearance.update { $0[keyPath: keyPath] = value }
                 saveFailure = nil

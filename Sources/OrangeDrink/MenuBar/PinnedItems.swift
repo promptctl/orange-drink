@@ -58,7 +58,7 @@ struct PinnedItem: Equatable, Identifiable {
     /// Follows the model's list and the settings' pins from now on.
     func follow(devices: DevicesModel, settings: DeviceSettingsModel) {
         withObservationTracking {
-            apply(PinnedItem.items(devices.list, pinned: settings.settings.pinned))
+            apply(PinnedItem.items(devices.list, pinned: settings.value.pinned))
         } onChange: { [weak self] in
             Task { @MainActor in self?.follow(devices: devices, settings: settings) }
         }

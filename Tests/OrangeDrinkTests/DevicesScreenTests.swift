@@ -27,8 +27,8 @@ import Testing
     @Test func hidingADeviceRemovesItFromThePanelButNotFromDetectedDevices() throws {
         let settings = try model()
         try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
-        #expect(ConnectedDevices(list, settings: settings.settings).rows.map(\.percent) == ["37%", "49%", "95%"])
-        let detected = DetectedDevices(list, settings: settings.settings).entries
+        #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent) == ["37%", "49%", "95%"])
+        let detected = DetectedDevices(list, settings: settings.value).entries
         #expect(detected.map(\.row.percent) == ["37%", "49%", "54%", "95%"])
         #expect(detected.map(\.isHidden) == [false, false, true, false])
     }
@@ -37,28 +37,28 @@ import Testing
         let settings = try model()
         try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
         try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
-        #expect(ConnectedDevices(list, settings: settings.settings).rows.map(\.percent) == ["37%", "49%", "54%", "95%"])
+        #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent) == ["37%", "49%", "54%", "95%"])
     }
 
     @Test func theSwitchRemovesAndRestoresThePanelSection() throws {
         let settings = try model()
-        #expect(ConnectedDevices(list, settings: settings.settings).isShown)
+        #expect(ConnectedDevices(list, settings: settings.value).isShown)
         try settings.update { $0.showConnectedDevices = false }
-        #expect(!ConnectedDevices(list, settings: settings.settings).isShown)
+        #expect(!ConnectedDevices(list, settings: settings.value).isShown)
         try settings.update { $0.showConnectedDevices = true }
-        #expect(ConnectedDevices(list, settings: settings.settings).isShown)
+        #expect(ConnectedDevices(list, settings: settings.value).isShown)
     }
 
     @Test func settingsSurviveARelaunch() throws {
         let first = try DeviceSettingsModel(defaults: defaults)
         try first.update { $0.showConnectedDevices = false; $0.toggleHidden(DeviceID(address: "c")) }
         let second = try DeviceSettingsModel(defaults: defaults)
-        #expect(second.settings == first.settings)
-        #expect(second.settings.hidden == [DeviceID(address: "c")])
+        #expect(second.value == first.value)
+        #expect(second.value.hidden == [DeviceID(address: "c")])
     }
 
     @Test func storedSettingsThatDoNotDecodeFailTheLoad() {
-        defaults.set(Data("not json".utf8), forKey: DeviceSettingsModel.storageKey)
+        defaults.set(Data("not json".utf8), forKey: DeviceSettings.storageKey)
         #expect(throws: (any Error).self) { try DeviceSettingsModel(defaults: defaults) }
     }
 
@@ -74,8 +74,8 @@ import Testing
     }
 
     @Test func settingsStoredBeforeAFieldExistedStillLoad() throws {
-        defaults.set(Data(#"{"showConnectedDevices":false}"#.utf8), forKey: DeviceSettingsModel.storageKey)
-        let loaded = try DeviceSettingsModel(defaults: defaults).settings
+        defaults.set(Data(#"{"showConnectedDevices":false}"#.utf8), forKey: DeviceSettings.storageKey)
+        let loaded = try DeviceSettingsModel(defaults: defaults).value
         #expect(!loaded.showConnectedDevices)
         #expect(loaded.hidden.isEmpty)
     }
@@ -83,14 +83,14 @@ import Testing
     @Test func aHiddenDeviceThatIsNotConnectedChangesNothing() throws {
         let settings = try model()
         try settings.update { $0.toggleHidden(DeviceID(address: "gone")) }
-        #expect(ConnectedDevices(list, settings: settings.settings).rows.count == 4)
-        #expect(ConnectedDevices(list, settings: settings.settings).hiddenCount == 0)
+        #expect(ConnectedDevices(list, settings: settings.value).rows.count == 4)
+        #expect(ConnectedDevices(list, settings: settings.value).hiddenCount == 0)
     }
 
     @Test func hidingEveryDeviceIsCountedSoTheCardCanSaySo() throws {
         let settings = try model()
         try settings.update { for id in ["a", "b", "c", "d"] { $0.toggleHidden(DeviceID(address: id)) } }
-        let card = ConnectedDevices(list, settings: settings.settings)
+        let card = ConnectedDevices(list, settings: settings.value)
         #expect(card.rows.isEmpty)
         #expect(card.hiddenCount == 4)
     }

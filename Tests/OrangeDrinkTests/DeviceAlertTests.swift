@@ -149,10 +149,10 @@ import Testing
 
     @Test func theBellPersistsAndAnOlderStoredValueWithoutItStillLoads() throws {
         let defaults = UserDefaults(suiteName: "DeviceAlertTests.\(UUID())")!
-        defaults.set(Data(#"{"showConnectedDevices":true,"hidden":[]}"#.utf8), forKey: DeviceSettingsModel.storageKey)
+        defaults.set(Data(#"{"showConnectedDevices":true,"hidden":[]}"#.utf8), forKey: DeviceSettings.storageKey)
         let first = try DeviceSettingsModel(defaults: defaults)
-        #expect(first.settings.alerting.isEmpty)
+        #expect(first.value.alerting.isEmpty)
         try first.update { $0.toggleAlerting(Self.mouse) }
-        #expect(try DeviceSettingsModel(defaults: defaults).settings.alerting == [Self.mouse])
+        #expect(try DeviceSettingsModel(defaults: defaults).value.alerting == [Self.mouse])
     }
 }
