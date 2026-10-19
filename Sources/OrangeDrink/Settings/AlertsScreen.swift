@@ -86,7 +86,9 @@ private struct ThresholdSection: View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: header.symbol, color: header.color, title: header.title, info: info)
             ForEach(alerts) { alert in
-                AlertCard(alert: alert) { perform { $0.remove(alert.id) } }
+                AlertCard(alert: alert, onEdit: { edited in perform { $0.replace(edited) } }) {
+                    perform { $0.remove(alert.id) }
+                }
             }
             Button { perform { $0.add(kind) } } label: {
                 Text("＋ \(addTitle)").fontWeight(.semibold)
@@ -103,7 +105,9 @@ private struct ThresholdSection: View {
 /// One alert: a battery in its severity colour, its threshold chip, its summary, and a delete button.
 private struct AlertCard: View {
     let alert: Alert
+    let onEdit: (Alert) -> Void
     let onDelete: () -> Void
+    @State private var editing = false
 
     var body: some View {
         let color = alert.severity.color
@@ -118,6 +122,13 @@ private struct AlertCard: View {
                     Text(alert.summary).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 12)
+                Button { editing = true } label: {
+                    Image(systemName: "gearshape.fill").foregroundStyle(.secondary)
+                        .frame(width: 30, height: 30).background(Circle().fill(.white.opacity(0.1)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit \(alert.kind.rawValue) \(alert.threshold)% alert")
+                .popover(isPresented: $editing) { AlertEditor(alert: alert, onEdit: onEdit) }
                 Button(action: onDelete) {
                     Image(systemName: "trash.fill").foregroundStyle(.red)
                         .frame(width: 30, height: 30).background(Circle().fill(.red.opacity(0.2)))
@@ -128,5 +139,39 @@ private struct AlertCard: View {
             .padding(12)
             .accessibilityElement(children: .contain)
         }
+    }
+}
+
+/// The editor behind a card's gear: the alert's threshold, position, Border Glow, and Sound.
+/// Each control writes the whole edited alert back at once, so the card follows it as it changes.
+private struct AlertEditor: View {
+    let alert: Alert
+    let onEdit: (Alert) -> Void
+
+    var body: some View {
+        SettingCard {
+            SettingRow(title: "Threshold", description: alert.kind == .low ? "Below this level" : "At this level") {
+                Stepper("\(alert.threshold)%", value: binding(\.threshold), in: 1...100)
+            }
+            SettingRow(title: "Position") {
+                SegmentedPills(selection: binding(\.position), options: Alert.Position.allCases, accent: .green, title: \.title)
+            }
+            SettingRow(title: "Border Glow", description: "Light the screen edges") {
+                AccentSwitch(isOn: binding(\.glow), tint: .green, label: "Border Glow")
+            }
+            SettingRow(title: "Sound", description: "Play a sound") {
+                AccentSwitch(isOn: binding(\.sound), tint: .green, label: "Sound")
+            }
+        }
+        .frame(width: 400)
+        .padding(12)
+    }
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<Alert, Value>) -> Binding<Value> {
+        Binding(get: { alert[keyPath: keyPath] }, set: { value in
+            var edited = alert
+            edited[keyPath: keyPath] = value
+            onEdit(edited)
+        })
     }
 }

@@ -40,6 +40,15 @@ extension AlertSettings {
         alerts.append(Alert(kind: kind, threshold: threshold, position: .top, glow: false, sound: true))
     }
 
+    /// Puts the edited alert where the alert with its id stood. Editing an alert that is not in the
+    /// list is a bug in the caller, not a case: the editor only opens on a card of this list.
+    mutating func replace(_ edited: Alert) {
+        guard let index = alerts.firstIndex(where: { $0.id == edited.id }) else {
+            preconditionFailure("no alert \(edited.id) to replace")
+        }
+        alerts[index] = edited
+    }
+
     mutating func remove(_ id: Alert.ID) {
         alerts.removeAll { $0.id == id }
     }

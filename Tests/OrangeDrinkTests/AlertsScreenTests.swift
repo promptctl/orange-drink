@@ -67,4 +67,35 @@ import Testing
         pills.deliver(.pluggedIn(sound: false), reading: try PowerAndTemperatureAlerts.adapter())
         #expect(pills.shown?.headline == "Plugged In" && pills.shown?.severity == .green)
     }
+
+    @Test func anAlertEditedFrom20To12FiresOnceAt11AndItsCardFollowsTheEdit() throws {
+        var fired: [Int] = []
+        let defaults = AlertSettingsPersistence.suite()
+        let center = try AlertCenter(
+            store: AlertSettingsStore(defaults: defaults),
+            deliver: { firing, reading in
+                if case .threshold = firing { fired.append(reading.chargePercent) }
+            })
+        try center.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
+        var edited = center.settings.alerts[0]
+        edited.threshold = 12
+        edited.position = .center
+        edited.glow = true
+        try center.update { $0.replace(edited) }
+        for percent in [21, 19, 15, 11] { center.observe(try PillTests.reading(percent)) }
+        #expect(fired == [11])
+
+        #expect(center.settings.alerts(.low).map(\.summary) == ["Center of Screen • Border Glow"])
+        let relaunched = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in })
+        #expect(relaunched.settings.alerts == [edited])
+    }
+
+    @Test func anEditedThresholdReSortsItsCard() {
+        var settings = AlertSettings.initial
+        var fifteen = settings.alerts(.low)[2]
+        fifteen.threshold = 2
+        settings.replace(fifteen)
+        #expect(settings.alerts(.low).map(\.threshold) == [2, 3, 5])
+        #expect(settings.alerts(.low)[0].id == fifteen.id)
+    }
 }
