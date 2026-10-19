@@ -30,8 +30,11 @@ import OSLog
 @MainActor struct StatusItemPanel: Panel {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
 
-    var isOpen: Bool {
-        NSApp.windows.contains { String(describing: type(of: $0)).hasPrefix("MenuBarExtraWindow") && $0.isVisible }
+    var isOpen: Bool { NSApp.windows.contains { Self.isPanelWindow($0) && $0.isVisible } }
+
+    /// [LAW:one-source-of-truth] What the panel's window is, for everything that must tell it from the app's other windows.
+    static func isPanelWindow(_ window: NSWindow?) -> Bool {
+        window.map { String(describing: type(of: $0)).hasPrefix("MenuBarExtraWindow") } ?? false
     }
 
     func open() { click() }

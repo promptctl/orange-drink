@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 
 /// A key with no modifier held but Shift, as the panel's single-key shortcuts see it.
 typealias PlainKey = Character
@@ -43,21 +44,27 @@ typealias PlainKey = Character
     }
 }
 
-/// Key presses through an AppKit local monitor, which sees only the keys typed to this app's windows.
+/// Key presses through an AppKit local monitor, which sees only the keys typed to this app's windows;
+/// of those, only the ones typed to the panel's window, so the Settings window's keys are its own.
 @MainActor struct NSKeyEvents: KeyEvents {
+    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
+
     func listen(_ handle: @escaping @MainActor (PlainKey) -> Bool) -> any KeyListening {
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let held = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard held.isDisjoint(with: [.command, .control, .option]),
+            guard StatusItemPanel.isPanelWindow(event.window),
+                  held.isDisjoint(with: [.command, .control, .option]),
                   let typed = event.charactersIgnoringModifiers, typed.count == 1, let key = typed.first else { return event }
             return MainActor.assumeIsolated { handle(key) } ? nil : event
         }
-        return Listener(monitor: monitor as Any)
+        // [LAW:no-silent-failure] A monitor the system would not give is logged; the shortcuts then do nothing.
+        if monitor == nil { Self.log.error("the panel's key shortcuts could not be listened for") }
+        return Listener(monitor: monitor)
     }
 
     private final class Listener: KeyListening {
-        let monitor: Any
-        init(monitor: Any) { self.monitor = monitor }
-        func stop() { NSEvent.removeMonitor(monitor) }
+        let monitor: Any?
+        init(monitor: Any?) { self.monitor = monitor }
+        func stop() { monitor.map(NSEvent.removeMonitor) }
     }
 }
