@@ -1,0 +1,15 @@
+{
+  "sourceLanguage" : "en",
+  "version" : "1.0",
+  "strings" : {
+    "Language" : { "localizations" : {
+      "en" : { "stringUnit" : { "state" : "translated", "value" : "Language" } },
+      "fr" : { "stringUnit" : { "state" : "translated", "value" : "Langue" } } } },
+    "Choose the language the app uses" : { "localizations" : {
+      "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose the language the app uses" } },
+      "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisissez la langue de l’app" } } } },
+    "Battery" : { "localizations" : {
+      "en" : { "stringUnit" : { "state" : "translated", "value" : "Battery" } },
+      "fr" : { "stringUnit" : { "state" : "translated", "value" : "Batterie" } } } }
+  }
+}

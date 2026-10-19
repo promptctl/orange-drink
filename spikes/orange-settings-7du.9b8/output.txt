@@ -1,0 +1,64 @@
+en.lproj
+fr.lproj
+
+################ the real Mac, no argument
+process: Bundle.main.preferredLocalizations = ["en", "en"]  Locale.preferredLanguages = ["en-US"]
+
+== launch   (choice = Match System)
+  hosted SwiftUI, no locale environment  : ["Language", "Choose the language the app uses"]
+  hosted SwiftUI, .environment(\.locale) : ["Language", "Choose the language the app uses"]
+  status item, set once at launch        : Battery
+  fresh NSLocalizedString call           : Battery
+  status item, re-set from .lproj lookup : Battery
+
+== switch to fr, same process   (choice = fr)
+  hosted SwiftUI, no locale environment  : ["Language", "Choose the language the app uses"]
+  hosted SwiftUI, .environment(\.locale) : ["Langue", "Choisissez la langue de l\'app"]
+  status item, set once at launch        : Battery
+  fresh NSLocalizedString call           : Battery
+  status item, re-set from .lproj lookup : Batterie
+
+== switch to en, same process   (choice = en)
+  hosted SwiftUI, no locale environment  : ["Language", "Choose the language the app uses"]
+  hosted SwiftUI, .environment(\.locale) : ["Language", "Choose the language the app uses"]
+  status item, set once at launch        : Battery
+  fresh NSLocalizedString call           : Battery
+  status item, re-set from .lproj lookup : Battery
+
+== Match System   (choice = Match System)
+  hosted SwiftUI, no locale environment  : ["Language", "Choose the language the app uses"]
+  hosted SwiftUI, .environment(\.locale) : ["Language", "Choose the language the app uses"]
+  status item, set once at launch        : Battery
+  fresh NSLocalizedString call           : Battery
+  status item, re-set from .lproj lookup : Battery
+
+################ the Mac forced to fr at launch (command-line -AppleLanguages)
+process: Bundle.main.preferredLocalizations = ["fr", "fr"]  Locale.preferredLanguages = ["fr"]
+
+== launch   (choice = Match System)
+  hosted SwiftUI, no locale environment  : ["Langue", "Choisissez la langue de l\'app"]
+  hosted SwiftUI, .environment(\.locale) : ["Langue", "Choisissez la langue de l\'app"]
+  status item, set once at launch        : Batterie
+  fresh NSLocalizedString call           : Batterie
+  status item, re-set from .lproj lookup : Batterie
+
+== switch to fr, same process   (choice = fr)
+  hosted SwiftUI, no locale environment  : ["Langue", "Choisissez la langue de l\'app"]
+  hosted SwiftUI, .environment(\.locale) : ["Langue", "Choisissez la langue de l\'app"]
+  status item, set once at launch        : Batterie
+  fresh NSLocalizedString call           : Batterie
+  status item, re-set from .lproj lookup : Batterie
+
+== switch to en, same process   (choice = en)
+  hosted SwiftUI, no locale environment  : ["Langue", "Choisissez la langue de l\'app"]
+  hosted SwiftUI, .environment(\.locale) : ["Language", "Choose the language the app uses"]
+  status item, set once at launch        : Batterie
+  fresh NSLocalizedString call           : Batterie
+  status item, re-set from .lproj lookup : Battery
+
+== Match System   (choice = Match System)
+  hosted SwiftUI, no locale environment  : ["Langue", "Choisissez la langue de l\'app"]
+  hosted SwiftUI, .environment(\.locale) : ["Langue", "Choisissez la langue de l\'app"]
+  status item, set once at launch        : Batterie
+  fresh NSLocalizedString call           : Batterie
+  status item, re-set from .lproj lookup : Batterie
