@@ -18,38 +18,39 @@ enum PillPlacement {
     }
 }
 
-/// A borderless panel that floats over every app, full-screen ones included, without taking focus.
-private final class PillPanel: NSPanel {
+/// The pill's window: it takes the close button's clicks without taking focus.
+private final class PillPanel: OverlayPanel {
     init(_ content: PillContent, screen: NSScreen, onClose: @escaping () -> Void) {
         super.init(
-            contentRect: PillPlacement.frame(content.position, on: screen.visibleFrame),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        isReleasedWhenClosed = false
-        // A full-screen app is its own Space: joining all Spaces as a full-screen auxiliary is what
-        // lets a window of an accessory app appear there.
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        level = .screenSaver
-        contentView = NSHostingView(rootView: PillView(content: content, onClose: onClose))
+            frame: PillPlacement.frame(content.position, on: screen.visibleFrame), level: .pill,
+            content: PillView(content: content, onClose: onClose))
     }
-
-    override var canBecomeKey: Bool { false }
 }
 
-/// The one pill on screen: a new alert replaces the one showing, and the close button clears it.
+/// The one pill on screen, with the screen glow its alert asks for: a new alert replaces both, and
+/// the close button clears both.
 ///
-/// [LAW:single-enforcer] `shown` is the only record of whether a pill is up; the window follows it.
+/// [LAW:single-enforcer] `up` is the only record of whether a pill is up; its windows live and die together.
 @MainActor final class PillController {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
 
-    private(set) var shown: PillContent?
-    private var panel: PillPanel?
+    @MainActor private struct Up {
+        let content: PillContent
+        let panel: PillPanel
+        /// nil when the alert has Border Glow off.
+        let glow: GlowPanel?
+
+        func close() { panel.close(); glow?.close() }
+    }
+
+    private var up: Up?
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
+    var shown: PillContent? { up?.content }
     /// The panel's frame in screen coordinates while a pill is up.
-    var shownFrame: CGRect? { panel?.frame }
+    var shownFrame: CGRect? { up?.panel.frame }
+    /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
+    var shownGlowFrame: CGRect? { up?.glow?.frame }
 
     /// The sink an `AlertCenter` delivers to. Only threshold alerts have a pill so far.
     func deliver(_ firing: Firing, reading: BatteryReading) {
@@ -68,16 +69,18 @@ private final class PillPanel: NSPanel {
             return
         }
         let panel = PillPanel(content, screen: screen, onClose: { [weak self] in self?.close() })
+        // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
+        // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
+        let glow = content.glow ? GlowPanel(severity: content.severity, screen: screen) : nil
+        glow?.orderFrontRegardless()
         panel.orderFrontRegardless()
-        self.panel = panel
-        shown = content
+        up = Up(content: content, panel: panel, glow: glow)
     }
 
     /// Takes down the pill showing, if any, without telling waiters: a replacement may follow.
     private func dismiss() {
-        panel?.close()
-        panel = nil
-        shown = nil
+        up?.close()
+        up = nil
     }
 
     func close() {
