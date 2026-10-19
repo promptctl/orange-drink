@@ -13,10 +13,10 @@ import os
     @ObservationIgnored private let store: AlertSettingsStore
     @ObservationIgnored private var engine = AlertEngine()
     /// Where a firing goes to be shown; the pill, glow, and sound subscribe here.
-    @ObservationIgnored private let deliver: @MainActor (Firing) -> Void
+    @ObservationIgnored private let deliver: @MainActor (Firing, BatteryReading) -> Void
 
     /// [LAW:no-silent-failure] Stored settings that do not decode fail the launch loudly.
-    init(store: AlertSettingsStore, deliver: @escaping @MainActor (Firing) -> Void) throws {
+    init(store: AlertSettingsStore, deliver: @escaping @MainActor (Firing, BatteryReading) -> Void) throws {
         self.store = store
         self.deliver = deliver
         settings = try store.load()
@@ -42,6 +42,6 @@ import os
                 \(firing.description, privacy: .public) at \(reading.chargePercent)%
                 """)
         }
-        for firing in delivered { deliver(firing) }
+        for firing in delivered { deliver(firing, reading) }
     }
 }
