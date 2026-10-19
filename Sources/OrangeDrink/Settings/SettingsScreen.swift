@@ -11,6 +11,9 @@ enum SettingsScreen: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// What an unbuilt screen says in place of its controls.
+    var comingSoon: Phrase { "\(title) settings arrive in an upcoming version." }
+
     var title: Phrase {
         switch self {
         case .general: "General"

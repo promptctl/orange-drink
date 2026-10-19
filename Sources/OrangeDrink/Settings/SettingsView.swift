@@ -103,7 +103,7 @@ private struct EmptyState: View {
         VStack(spacing: 8) {
             Image(systemName: screen.glyph).font(.system(size: 40)).foregroundStyle(screen.tileColor)
             Text("Nothing here yet").font(.title3.bold())
-            PhraseText("\(screen.title) settings arrive in an upcoming version.").foregroundStyle(.secondary)
+            PhraseText(screen.comingSoon).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }

@@ -6,8 +6,8 @@ import SwiftUI
 /// [LAW:one-source-of-truth] The key is the English sentence with its holes (`%lld`, `%@`), which is
 /// what Localizable.xcstrings is keyed by; a phrase written in source is `"Charging at \(watts) W"`
 /// exactly as a `LocalizedStringKey` would be.
-struct Phrase: Equatable, Sendable, CustomStringConvertible, ExpressibleByStringInterpolation {
-    indirect enum Value: Equatable, Sendable {
+struct Phrase: Equatable, Sendable, ExpressibleByStringInterpolation {
+    enum Value: Equatable, Sendable {
         case number(Int)
         case text(String)
         case phrase(Phrase)
@@ -50,8 +50,6 @@ struct Phrase: Equatable, Sendable, CustomStringConvertible, ExpressibleByString
     /// The sentence as the code that wrote it reads it: the key filled in.
     var english: String { fill(key, language: .matchSystem, bundle: .main, translating: false) }
 
-    var description: String { english }
-
     private func fill(_ format: String, language: AppLanguage, bundle: Bundle, translating: Bool = true) -> String {
         let arguments: [CVarArg] = values.map {
             switch $0 {
@@ -62,6 +60,13 @@ struct Phrase: Equatable, Sendable, CustomStringConvertible, ExpressibleByString
         }
         return String(format: format, locale: translating ? language.locale : Locale(identifier: "en_US"), arguments: arguments)
     }
+}
+
+extension DefaultStringInterpolation {
+    /// [LAW:types-are-the-program] A phrase interpolated into a String says itself in English whatever
+    /// the app's language is, so the compiler refuses it: say `.english`, or show it with `PhraseText`.
+    @available(*, unavailable, message: "a Phrase in a String is English whatever the app's language; use .english or PhraseText")
+    mutating func appendInterpolation(_ phrase: Phrase) {}
 }
 
 private struct AppLanguageKey: EnvironmentKey {

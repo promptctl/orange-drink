@@ -42,8 +42,11 @@ import Testing
         let catalog = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/OrangeDrink/Localizable.xcstrings")
         let strings = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: catalog)) as? [String: Any])["strings"] as? [String: [String: Any]]
+        /// The holes a text fills, in the order of the values; a `%` that is neither `%%` nor a hole would
+        /// make `String(format:)` read the text after it as a conversion, so it is a hole of its own kind.
         func holes(_ text: String) -> [String] {
-            text.matches(of: /%(?:lld|@)/).map { String($0.output) }
+            text.matches(of: /%(?:\d+\$)?(?:%|lld|@)|%/).map { String($0.output) }.filter { $0 != "%%" }
+                .map { $0.replacing(/\d+\$/, with: "") }
         }
         for (key, entry) in try #require(strings) {
             let localizations = try #require(entry["localizations"] as? [String: [String: [String: String]]], "\(key)")
@@ -58,14 +61,17 @@ import Testing
     /// A phrase the app says that the catalog has no entry for is said in English whatever the language, so each
     /// phrase the panel and the window's chrome can show is looked for in French and Spanish.
     @Test func everyPhraseThePanelAndTheWindowChromeCanShowIsInTheCatalog() throws {
-        func hasTranslation(_ phrase: Phrase, _ code: String) throws -> Bool {
+        func hasTranslation(_ phrase: Phrase, _ code: String) -> Bool {
             let sentinel = "\u{0}missing"
-            let lproj = try #require(Self.app.path(forResource: code, ofType: "lproj").flatMap(Bundle.init(path:)))
+            guard let lproj = Self.app.path(forResource: code, ofType: "lproj").flatMap(Bundle.init(path:)) else {
+                Issue.record("the app carries no \(code) localization"); return false
+            }
             return lproj.localizedString(forKey: phrase.key, value: sentinel, table: nil) != sentinel
         }
         typealias Words = BatteryInformationWords
         var phrases: [Phrase] = [UpdatedFooter.explanation, UpdatedFooter.action, UpdatedFooter.text(age: 0), UpdatedFooter.text(age: 300)]
         phrases += [ChargeCard.Status.charging, .onBattery, .notCharging, .charged].map(\.title)
+        phrases += SettingsScreen.allCases.map(\.comingSoon)
         phrases += PanelAction.allCases.map { $0.title(appName: "App") }
         phrases += SettingsScreen.allCases.flatMap { [$0.title] + ($0.subtitle(appName: "App").map { [$0] } ?? []) }
         phrases += [3, 15, 40, 80].map { PowerFlow.workload(watts: Double($0)) }
@@ -76,7 +82,7 @@ import Testing
             phrases += [info.health.label, info.temperature.status, info.temperature.caption, info.electrical.voltageNote]
         }
         for phrase in phrases {
-            for code in ["fr", "es"] { #expect(try hasTranslation(phrase, code), "\(phrase.key) has no \(code) in the catalog") }
+            for code in ["fr", "es"] { #expect(hasTranslation(phrase, code), "\(phrase.key) has no \(code) in the catalog") }
         }
     }
 }
