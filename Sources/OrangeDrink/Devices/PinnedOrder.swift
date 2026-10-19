@@ -3,7 +3,7 @@ import Foundation
 /// The devices pinned into the menu bar, in the order their items sit there, left to right.
 ///
 /// [LAW:types-are-the-program] Unique by construction: the only ways to change it are `toggle` and
-/// `move`, and every way to make one drops repeats, so no edit of the settings can hold a device
+/// `swap`, and every way to make one drops repeats, so no edit of the settings can hold a device
 /// twice or reorder it into a place it was not.
 /// [LAW:one-source-of-truth] The one place the bar's order is kept; the Menu Bar screen edits it
 /// and the status items are made from it.
