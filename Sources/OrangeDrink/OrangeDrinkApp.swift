@@ -10,6 +10,12 @@ struct OrangeDrinkApp: App {
     @State private var battery = BatteryModel(readings: BatteryMonitor.readings())
     @State private var sections = PanelSections()
 
+    init() {
+        #if DEBUG
+        ComponentGallery.showIfRequested()
+        #endif
+    }
+
     var body: some Scene {
         MenuBarExtra {
             PanelView(battery: battery, sections: sections)

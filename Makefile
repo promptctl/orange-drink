@@ -2,7 +2,7 @@ APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
 
-.PHONY: generate build test unplug-check cpu-check
+.PHONY: generate build test unplug-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -33,3 +33,14 @@ rm -rf build/$(1).xcresult
 $(XCB) -resultBundlePath build/$(1).xcresult $(1) $(2)
 xcrun xcresulttool get build-results --path build/$(1).xcresult | python3 -c 'import json, sys; n = json.load(sys.stdin)["warningCount"]; print(f"build warnings: {n}"); sys.exit(n != 0)'
 endef
+
+# The shared settings components through the accessibility tree of the running app's component
+# gallery (a Debug-only window). Outside `test` because only a client of the running app sees
+# SwiftUI's tree; the invoking process must be trusted for Accessibility.
+ax-check: generate
+	$(call gated,build)
+	@set -e; app=build/DerivedData/Build/Products/Debug/$(APP).app; \
+	open -n "$$app" --args -ComponentGallery; sleep 3; \
+	pid=$$(pgrep -x $(APP)); \
+	status=0; swift scripts/ax-check.swift $$pid || status=$$?; \
+	kill $$pid; exit $$status
