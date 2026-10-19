@@ -52,6 +52,8 @@ extension MenuBarIconConfig.Size {
 /// design-docs/menu-bar.md: the icon's style and dressing, and a live preview of the result.
 struct MenuBarScreen: View {
     let model: MenuBarIconModel
+    let devices: DevicesModel
+    let deviceSettings: DeviceSettingsModel
     @State private var saveFailure: String?
 
     var body: some View {
@@ -86,6 +88,7 @@ struct MenuBarScreen: View {
             }
             Text("Preview").font(.callout).foregroundStyle(.secondary).padding(.top, 8)
             MenuBarPreview(config: config).frame(maxWidth: .infinity)
+            PinnedDevicesCard(devices: devices, settings: deviceSettings).padding(.top, 16)
         }
         .padding(24)
         .background(SettingsBackground())

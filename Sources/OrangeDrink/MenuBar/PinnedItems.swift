@@ -7,17 +7,14 @@ struct PinnedItem: Equatable, Identifiable {
     let row: DeviceRow
     var id: DeviceID { row.id }
 
-    /// One item for each pinned device that is connected and reports a level, by name then address
-    /// so an item never reshuffles as levels change. The Menu Bar screen's ordering
-    /// (orange-devices-bue.2af) replaces that order.
+    /// One item for each pinned device that is connected and reports a level, in the order the
+    /// user arranged them on the Menu Bar screen.
     ///
-    /// [LAW:one-source-of-truth] Derived from the live list and the pinned set on every call; no
+    /// [LAW:one-source-of-truth] Derived from the live list and the pinned order on every call; no
     /// item outlives the facts it shows.
-    static func items(_ list: DeviceList, pinned: Set<DeviceID>) -> [PinnedItem] {
-        DeviceRanking.rows(list)
-            .filter { pinned.contains($0.id) }
-            .sorted { ($0.name, $0.id.address) < ($1.name, $1.id.address) }
-            .map(PinnedItem.init)
+    static func items(_ list: DeviceList, pinned: PinnedOrder) -> [PinnedItem] {
+        let rows = DeviceRanking.rows(list)
+        return pinned.ids.compactMap { id in rows.first { $0.id == id } }.map(PinnedItem.init)
     }
 }
 
@@ -34,24 +31,28 @@ struct PinnedItem: Equatable, Identifiable {
 /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list or the
 /// pins, so the items follow both with no timer and no polling.
 @MainActor final class PinnedItemsController {
-    /// Makes the status item for a device; the same device always gets the same place in the bar.
+    /// Makes the status item for a device. The bar places the first item made rightmost and each
+    /// later one to its left, so the items are made right to left.
     private let makeItem: @MainActor (DeviceID) -> any PinnedStatusItem
-    /// Each item with what it last showed, so an unchanged one is not redrawn.
-    private var statusItems: [DeviceID: (item: any PinnedStatusItem, shown: PinnedItem)] = [:]
+    /// The items in the bar, left to right, each with what it last showed so an unchanged one is
+    /// not redrawn.
+    private var held: [(id: DeviceID, item: any PinnedStatusItem, shown: PinnedItem?)] = []
 
     init(makeItem: @escaping @MainActor (DeviceID) -> any PinnedStatusItem = { NSPinnedStatusItem(id: $0) }) {
         self.makeItem = makeItem
     }
 
-    /// Makes the status items equal to `items`: the missing added, the rest updated, the stale removed.
+    /// Makes the status items equal to `items`, in that order. A change in which devices have an
+    /// item, or in their order, makes them all again, since the bar's order is the order they were
+    /// made in; a change only in a level redraws that item.
     func apply(_ items: [PinnedItem]) {
-        let wanted = Set(items.map(\.id))
-        for (id, held) in statusItems where !wanted.contains(id) { held.item.remove() }
-        statusItems = statusItems.filter { wanted.contains($0.key) }
-        for pinned in items {
-            let item = statusItems[pinned.id]?.item ?? makeItem(pinned.id)
-            if statusItems[pinned.id]?.shown != pinned { item.show(pinned) }
-            statusItems[pinned.id] = (item, pinned)
+        if items.map(\.id) != held.map(\.id) {
+            held.forEach { $0.item.remove() }
+            held = items.reversed().map { (id: $0.id, item: makeItem($0.id), shown: nil) }.reversed()
+        }
+        for index in held.indices where held[index].shown != items[index] {
+            held[index].item.show(items[index])
+            held[index].shown = items[index]
         }
     }
 
@@ -69,13 +70,25 @@ struct PinnedItem: Equatable, Identifiable {
 @MainActor final class NSPinnedStatusItem: PinnedStatusItem {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
-    /// [LAW:one-source-of-truth] AppKit keys an item's remembered place in the bar by its autosave
-    /// name, so one name per device lets a device that returns be given the place it had. Not yet
-    /// checked against a running app.
-    init(id: DeviceID) { item.autosaveName = "pinned-device-\(id.address)" }
+    /// [LAW:one-source-of-truth] The order is the user's list. AppKit keeps a place for every item
+    /// by its autosave name, written when the user ⌘-drags it, and that place beats the order the
+    /// items are made in. A name per device makes the key known, and removing it from the settings
+    /// AppKit reads (the standard ones) before the name is set leaves the list the only say. The
+    /// same holds for the visibility a ⌘-drag out of the bar saves, which would hide the item for
+    /// good. `make position-check` holds the order against the real bar.
+    init(id: DeviceID) {
+        let name = "pinned-device-\(id.address)"
+        for key in ["Preferred Position", "Visible"] {
+            UserDefaults.standard.removeObject(forKey: "NSStatusItem \(key) \(name)")
+        }
+        item.autosaveName = name
+    }
 
     /// The text the item shows, for the check that it shows the device's level.
     var title: String { item.button?.title ?? "" }
+
+    /// Where the item sits on screen, for the check that the bar follows the list.
+    var left: CGFloat? { item.button?.window?.frame.minX }
 
     func show(_ pinned: PinnedItem) {
         guard let button = item.button else {

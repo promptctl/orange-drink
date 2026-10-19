@@ -110,7 +110,7 @@ import Testing
         let defaults = UserDefaults(suiteName: "PinnedItemsTests.\(UUID())")!
         defaults.set(Data(#"{"showConnectedDevices":true}"#.utf8), forKey: DeviceSettings.storageKey)
         let first = try DeviceSettingsModel(defaults: defaults)
-        #expect(first.value.pinned.isEmpty)
+        #expect(first.value.pinned.ids.isEmpty)
         try first.update { $0.togglePinned(Self.mouse) }
         #expect(try DeviceSettingsModel(defaults: defaults).value.pinned == [Self.mouse])
     }

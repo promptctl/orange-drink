@@ -11,7 +11,7 @@ struct DeviceSettings: Stored {
     /// Devices whose bell is on: each is held to the Low Battery alerts.
     var alerting: Set<DeviceID> = []
     /// Devices pinned into the menu bar as items of their own.
-    var pinned: Set<DeviceID> = []
+    var pinned = PinnedOrder()
 
     init() {}
 
@@ -22,7 +22,7 @@ struct DeviceSettings: Stored {
         showConnectedDevices = try values.decodeIfPresent(Bool.self, forKey: .showConnectedDevices) ?? showConnectedDevices
         hidden = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .hidden) ?? hidden
         alerting = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .alerting) ?? alerting
-        pinned = try values.decodeIfPresent(Set<DeviceID>.self, forKey: .pinned) ?? pinned
+        pinned = try values.decodeIfPresent(PinnedOrder.self, forKey: .pinned) ?? pinned
     }
 
     mutating func toggleHidden(_ id: DeviceID) {
@@ -34,7 +34,7 @@ struct DeviceSettings: Stored {
     }
 
     mutating func togglePinned(_ id: DeviceID) {
-        if pinned.remove(id) == nil { pinned.insert(id) }
+        pinned.toggle(id)
     }
 }
 
