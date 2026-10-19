@@ -61,11 +61,13 @@ final class HistoryStore: Sendable {
     func samples(since: Date) throws -> [HistorySample] {
         try queue.read { db in
             try Row.fetchAll(db, sql: "SELECT * FROM batterySample WHERE at >= ? ORDER BY at", arguments: [since.timeIntervalSince1970])
-                .map { row in
-                    HistorySample(at: Date(timeIntervalSince1970: row["at"]), level: row["level"], charging: row["charging"],
-                                  health: row["health"], temperature: .init(value: row["celsius"], unit: .celsius))
-                }
+                .map(Self.sample)
         }
+    }
+
+    private static func sample(_ row: Row) -> HistorySample {
+        HistorySample(at: Date(timeIntervalSince1970: row["at"]), level: row["level"], charging: row["charging"],
+                      health: row["health"], temperature: .init(value: row["celsius"], unit: .celsius))
     }
 
     /// Every recorded day, keyed by the start of the local day it was recorded for.
