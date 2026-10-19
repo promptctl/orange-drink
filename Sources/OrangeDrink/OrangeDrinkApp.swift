@@ -10,9 +10,11 @@ struct OrangeDrinkApp: App {
     @State private var battery = BatteryModel(readings: BatteryMonitor.readings())
 
     var body: some Scene {
-        MenuBarExtra(appName, systemImage: "cup.and.saucer.fill") {
+        MenuBarExtra {
             Button("Quit \(appName)") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
+        } label: {
+            StatusItemLabel(state: battery.state)
         }
     }
 }
