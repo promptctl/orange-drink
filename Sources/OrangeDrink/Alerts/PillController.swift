@@ -38,7 +38,8 @@ private final class PillPanel: NSPanel {
     override var canBecomeKey: Bool { false }
 }
 
-/// The one pill on screen: a new alert replaces the one showing, and the close button clears it.
+/// The one pill on screen, with the screen glow its alert asks for: a new alert replaces both, and
+/// the close button clears both.
 ///
 /// [LAW:single-enforcer] `shown` is the only record of whether a pill is up; the window follows it.
 @MainActor final class PillController {
@@ -46,10 +47,13 @@ private final class PillPanel: NSPanel {
 
     private(set) var shown: PillContent?
     private var panel: PillPanel?
+    private var glowPanel: GlowPanel?
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     /// The panel's frame in screen coordinates while a pill is up.
     var shownFrame: CGRect? { panel?.frame }
+    /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
+    var shownGlowFrame: CGRect? { glowPanel?.frame }
 
     /// The sink an `AlertCenter` delivers to. Only threshold alerts have a pill so far.
     func deliver(_ firing: Firing, reading: BatteryReading) {
@@ -70,6 +74,10 @@ private final class PillPanel: NSPanel {
         let panel = PillPanel(content, screen: screen, onClose: { [weak self] in self?.close() })
         panel.orderFrontRegardless()
         self.panel = panel
+        // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
+        // alert has Border Glow off is a pill with no glow panel, whatever the pill before it had.
+        glowPanel = content.glow ? GlowPanel(severity: content.severity, screen: screen) : nil
+        glowPanel?.orderFrontRegardless()
         shown = content
     }
 
@@ -77,6 +85,8 @@ private final class PillPanel: NSPanel {
     private func dismiss() {
         panel?.close()
         panel = nil
+        glowPanel?.close()
+        glowPanel = nil
         shown = nil
     }
 

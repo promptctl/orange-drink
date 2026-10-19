@@ -26,10 +26,31 @@ import Testing
         for percent in [16, 15, 14] { center.observe(try Self.reading(percent)) }
 
         #expect(pills.shown == PillContent(
-            headline: "14% Remaining", subline: "9min until empty", severity: .orange, progress: 0.14, position: .top))
+            headline: "14% Remaining", subline: "9min until empty", severity: .orange, progress: 0.14, position: .top, glow: false))
         let screen = try #require(NSScreen.main ?? NSScreen.screens.first).visibleFrame
         #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen))
         #expect(try #require(pills.shownFrame).maxY > screen.midY)
+    }
+
+    @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {
+        let pills = PillController()
+        defer { pills.close() }
+        let center = try Self.center(pills, alerts: [
+            Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
+            Alert(kind: .low, threshold: 10, position: .top, glow: false, sound: false),
+        ])
+        let screen = try #require(NSScreen.main ?? NSScreen.screens.first).frame
+        for percent in [21, 19] { center.observe(try Self.reading(percent)) }
+        #expect(pills.shown?.glow == true && pills.shownGlowFrame == screen)
+
+        center.observe(try Self.reading(9))
+        #expect(pills.shown?.headline == "9% Remaining" && pills.shownGlowFrame == nil)
+
+        pills.show(PillContent(Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
+                               reading: try Self.reading(19)))
+        #expect(pills.shownGlowFrame == screen)
+        pills.close()
+        #expect(pills.shownGlowFrame == nil)
     }
 
     @Test func aCenterAlertSitsAtTheMiddleOfTheScreen() throws {
@@ -83,12 +104,14 @@ import Testing
     func pillsShowOverAFullScreenApp() async throws {
         let pills = PillController()
         defer { pills.close() }
-        for position in Alert.Position.allCases {
+        let steps: [(position: Alert.Position, glow: Bool)] = [(.center, false), (.top, false), (.center, true)]
+        for (position, glow) in steps {
             pills.show(PillContent(
-                Alert(kind: .low, threshold: 15, position: position, glow: false, sound: false),
+                Alert(kind: .low, threshold: 15, position: position, glow: glow, sound: false),
                 reading: try Self.reading(15)))
             FileHandle.standardError.write(Data(
-                "\n>>> With an app full screen, find the pill at the \(position) of the screen and click its ×.\n".utf8))
+                ("\n>>> With an app full screen, find the pill at the \(position) of the screen"
+                    + (glow ? ", with an orange glow around the screen edges," : "") + " and click its ×.\n").utf8))
             // [LAW:no-ambient-temporal-coupling] The wait is on the close itself; the deadline only bounds an absent person.
             let deadline = Task { try await Task.sleep(for: .seconds(120)); pills.close() }
             await pills.untilClosed()

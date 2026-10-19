@@ -27,10 +27,13 @@ struct PillContent: Equatable, Sendable {
     /// The share of the border the severity stroke covers: the remaining charge, 0...1.
     let progress: Double
     let position: Alert.Position
+    /// The alert's Border Glow: light the screen edges alongside the pill.
+    let glow: Bool
 
-    init(headline: String, subline: String?, severity: Alert.Severity, progress: Double, position: Alert.Position) {
+    init(headline: String, subline: String?, severity: Alert.Severity, progress: Double,
+         position: Alert.Position, glow: Bool) {
         self.headline = headline; self.subline = subline; self.severity = severity
-        self.progress = progress; self.position = position
+        self.progress = progress; self.position = position; self.glow = glow
     }
 
     init(_ alert: Alert, reading: BatteryReading) {
@@ -43,6 +46,7 @@ struct PillContent: Equatable, Sendable {
         severity = alert.severity
         progress = Double(percent) / 100
         position = alert.position
+        glow = alert.glow
     }
 
     private static func subline(_ reading: BatteryReading) -> String? {

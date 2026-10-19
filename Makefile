@@ -24,7 +24,7 @@ unplug-check: export TEST_RUNNER_UNPLUG_CHECK = 1
 unplug-check: test
 
 # Same shape for the alert pill: put an app full screen, then click the × of the pill that appears
-# at the centre of the screen and again at the top.
+# at the centre of the screen and again at the top, then once more at the centre with the screen glow.
 pill-check: export TEST_RUNNER_PILL_CHECK = 1
 pill-check: test
 
