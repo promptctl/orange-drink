@@ -149,6 +149,7 @@ struct MenuBarPreview: View {
             .padding(10)
         }
         .frame(width: Self.size.width, height: Self.size.height)
+        .environment(\.colorScheme, .dark) // the mockup is a fixed dark scene, whatever the app looks like
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Menu bar preview")
