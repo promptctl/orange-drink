@@ -6,6 +6,7 @@ struct PanelView: View {
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
     let sections: PanelSections
+    let keyboard: PanelKeyboard
     let look: AppAppearanceModel
     let language: AppLanguageModel
 
@@ -34,6 +35,13 @@ struct PanelView: View {
         .frame(width: 330)
         .background(AdaptiveColor(light: .white.opacity(0.85), dark: .black.opacity(0.85)))
         .appLook(look, language)
+        .onAppear { keyboard.panelDidOpen(shown: { [devices, deviceSettings] in Self.shown(devices: devices, settings: deviceSettings) }) }
+        .onDisappear { keyboard.panelDidClose() }
+    }
+
+    /// The collapsible sections the panel draws: Connected Devices only when there is something to say.
+    private static func shown(devices: DevicesModel, settings: DeviceSettingsModel) -> Set<PanelSections.Section> {
+        ConnectedDevices(devices.list, settings: settings.value).isShown ? [.batteryInformation, .connectedDevices] : [.batteryInformation]
     }
 }
 
