@@ -16,8 +16,9 @@ enum BluetoothDevices {
     /// CPU, so a sweep a minute is far inside PROJECT.md's 0.1% budget.
     ///
     /// [LAW:no-ambient-temporal-coupling] The registration, every sweep, and the unregistering are
-    /// one task's business: IOBluetooth answers its first call with a synchronous XPC round trip
-    /// and posts its notifications on a queue of its own, so none of it belongs on the main actor.
+    /// one task's business. IOBluetooth refuses a registration from a pool thread, which has no run
+    /// loop for it, so that one call runs on the main thread; its notifications then post on a queue
+    /// of its own, which is why the watcher is not main-actor isolated.
     static func events(
         timekeeper: any Timekeeper = SystemTimekeeper()
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
@@ -26,7 +27,7 @@ enum BluetoothDevices {
                 let watcher = Watcher(continuation: continuation, timekeeper: timekeeper)
                 defer { watcher.stop() }
                 do {
-                    try watcher.start()
+                    try await MainActor.run { try watcher.start() }
                     while true {
                         try await timekeeper.sleep(for: pollInterval)
                         watcher.sweep()
@@ -58,6 +59,8 @@ enum BluetoothDevices {
             var connect: IOBluetoothUserNotification?
             /// Keyed by address: registering for a connect replays it for devices already connected.
             var disconnects: [String: IOBluetoothUserNotification] = [:]
+            /// A settle sweep can outlive the stream; once stopped, nothing registers again.
+            var stopped = false
         }
         private let registrations = OSAllocatedUnfairLock(uncheckedState: Registrations())
 
@@ -80,7 +83,7 @@ enum BluetoothDevices {
 
         func stop() {
             let held = registrations.withLockUnchecked { state in
-                defer { state = Registrations() }
+                defer { state = Registrations(stopped: true) }
                 return state
             }
             held.connect?.unregister()
@@ -97,7 +100,7 @@ enum BluetoothDevices {
         }
 
         @objc private func disconnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
-            let id = DeviceID(address: device.addressString)
+            guard let id = DeviceID(device) else { return }
             registrations.withLockUnchecked { $0.disconnects.removeValue(forKey: id.address) }?.unregister()
             BluetoothDevices.log.info("device gone: \(id.address, privacy: .private)")
             continuation.yield(.gone(id))
@@ -105,15 +108,15 @@ enum BluetoothDevices {
 
         func sweep() {
             let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
+            let devices = connected.compactMap(Device.init)
             connected.forEach(register)
-            let devices = connected.map(Device.init)
             BluetoothDevices.log.info("device sweep: \(devices.count, privacy: .public) connected")
             continuation.yield(.swept(devices))
         }
 
         private func register(_ device: IOBluetoothDevice) {
-            let address = device.addressString!
-            guard registrations.withLockUnchecked({ $0.disconnects[address] == nil }),
+            guard let address = DeviceID(device)?.address else { return }
+            guard registrations.withLockUnchecked({ !$0.stopped && $0.disconnects[address] == nil }),
                   let notification = device.register(forDisconnectNotification: self, selector: #selector(disconnected(_:device:)))
             else { return }
             registrations.withLockUnchecked { $0.disconnects[address] = notification }
@@ -121,7 +124,7 @@ enum BluetoothDevices {
 
         private func observe(_ device: IOBluetoothDevice) {
             register(device)
-            let reading = Device(device)
+            guard let reading = Device(device) else { return }
             BluetoothDevices.log.info("device reported: \(String(describing: reading), privacy: .private)")
             continuation.yield(.reported(reading))
         }
@@ -138,7 +141,8 @@ private extension Device {
     /// [LAW:parse-dont-validate] The crossing from IOBluetooth's untyped device to a `Device`. The
     /// battery properties are private selectors, checked present at the border; a 0 means "not
     /// reported" and cannot be told from a drained battery, so it reads as no level.
-    init(_ device: IOBluetoothDevice) {
+    init?(_ device: IOBluetoothDevice) {
+        guard let id = DeviceID(device) else { return nil }
         func level(_ key: String) -> BatteryLevel? {
             guard let percent = (device.value(forKey: key) as? NSNumber)?.intValue, percent > 0 else { return nil }
             return BatteryLevel(percent: percent, approximate: false)
@@ -146,7 +150,7 @@ private extension Device {
         // The name System Settings shows is the user's alias, which only the private getDisplayName
         // returns; `name` is the name the device broadcasts ("Beats Studio Buds +", not "Brandon’s Beats Studio Buds +").
         let name = device.perform(Selector(("getDisplayName")))?.takeUnretainedValue() as? String
-            ?? device.name ?? device.addressString!
+            ?? device.name ?? id.address
         let (left, right, `case`) = (level("batteryPercentLeft"), level("batteryPercentRight"), level("batteryPercentCase"))
         let levels: DeviceLevels
         if left != nil || right != nil || `case` != nil {
@@ -157,10 +161,22 @@ private extension Device {
             levels = .none
         }
         self.init(
-            // A paired device always has an address.
-            id: DeviceID(address: device.addressString!),
+            id: id,
             name: name,
             kind: .classify(majorClass: device.deviceClassMajor, name: name),
             levels: levels)
+    }
+}
+
+private extension DeviceID {
+    /// [LAW:parse-dont-validate] A connect notification can name a peer IOBluetooth has no address
+    /// for yet ("No name or address"); such a peer cannot be told from another, so it is not a
+    /// device. The next sweep sees it once it can be identified.
+    init?(_ device: IOBluetoothDevice) {
+        guard let address = device.addressString else {
+            BluetoothDevices.log.info("device skipped: no address yet")
+            return nil
+        }
+        self.init(address: address)
     }
 }
