@@ -13,7 +13,8 @@ final class Watcher: NSObject {
 }
 let w = Watcher()
 let reg = IOBluetoothDevice.register(forConnectNotifications: w, selector: #selector(Watcher.connected(_:device:)))
-// Already-connected devices don't replay as connect events: seed from pairedDevices().
+// Observed: registering replays a connect event for already-connected devices (twice for one device), so the
+// connect handler is the only place disconnect registration is needed; this seeding is redundant but harmless.
 for d in (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? [] where d.isConnected() {
     w.disconnects.append(d.register(forDisconnectNotification: w, selector: #selector(Watcher.gone(_:device:))))
 }
