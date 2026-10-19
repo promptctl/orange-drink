@@ -10,10 +10,10 @@ struct ConnectedDevicesTests {
     private func single(_ percent: Int, approximate: Bool = false) -> DeviceLevels {
         .single(BatteryLevel(percent: percent, approximate: approximate))
     }
-    private func rows(_ devices: [Device]) -> [ConnectedDevices.Row] {
+    private func rows(_ devices: [Device]) -> [DeviceRow] {
         var list = DeviceList()
         list.apply(.swept(devices))
-        return ConnectedDevices(list).rows
+        return ConnectedDevices(list, settings: DeviceSettings()).rows
     }
 
     private var fleet: [Device] {

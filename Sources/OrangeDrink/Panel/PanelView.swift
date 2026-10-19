@@ -4,6 +4,7 @@ import SwiftUI
 struct PanelView: View {
     let battery: BatteryModel
     let devices: DevicesModel
+    let deviceSettings: DeviceSettingsModel
     let sections: PanelSections
 
     var body: some View {
@@ -18,9 +19,11 @@ struct PanelView: View {
                             section: .batteryInformation, sections: sections) {
                 if case .known(let reading?) = battery.state { BatteryInformationView(info: BatteryInformation(reading), reading: reading, battery: battery) }
             }
-            CollapsibleCard(title: "Connected Devices", symbol: "iphone.gen3.radiowaves.left.and.right", symbolColor: .cyan,
-                            section: .connectedDevices, sections: sections) {
-                ConnectedDevicesView(devices: devices)
+            if ConnectedDevices(devices.list, settings: deviceSettings.settings).isShown {
+                CollapsibleCard(title: "Connected Devices", symbol: "iphone.gen3.radiowaves.left.and.right", symbolColor: .cyan,
+                                section: .connectedDevices, sections: sections) {
+                    ConnectedDevicesView(devices: devices, settings: deviceSettings.settings)
+                }
             }
             ActionsCard()
         }

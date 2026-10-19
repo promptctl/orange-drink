@@ -148,11 +148,12 @@ struct SegmentedPills<Value: Hashable>: View {
 /// Near-black with large, soft, low-opacity glows of colour: decoration that tracks no data.
 struct SettingsBackground: View {
     var glow: Color = .green
+    var glowCenter: UnitPoint = .topTrailing
 
     var body: some View {
         ZStack {
             Color(white: 0.06)
-            RadialGradient(colors: [glow.opacity(0.18), .clear], center: .topTrailing, startRadius: 0, endRadius: 420)
+            RadialGradient(colors: [glow.opacity(0.18), .clear], center: glowCenter, startRadius: 0, endRadius: 420)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
