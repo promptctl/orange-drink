@@ -23,3 +23,14 @@ enum Firing: Equatable, Sendable, CustomStringConvertible {
         }
     }
 }
+
+extension Firing {
+    /// Whether the alert that fired asks to be heard.
+    var sound: Bool {
+        switch self {
+        case .threshold(let alert): alert.sound
+        case .pluggedIn(let sound), .unplugged(let sound): sound
+        case .temperatureWarning: false
+        }
+    }
+}

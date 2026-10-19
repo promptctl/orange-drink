@@ -104,14 +104,17 @@ import Testing
     func pillsShowOverAFullScreenApp() async throws {
         let pills = PillController()
         defer { pills.close() }
-        let steps: [(position: Alert.Position, glow: Bool)] = [(.center, false), (.top, false), (.center, true)]
-        for (position, glow) in steps {
-            pills.show(PillContent(
-                Alert(kind: .low, threshold: 15, position: position, glow: glow, sound: false),
-                reading: try Self.reading(15)))
+        let sounds = AlertSounds()
+        let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
+            (.center, false, false), (.top, false, false), (.center, true, true)]
+        for (position, glow, sound) in steps {
+            let alert = Alert(kind: .low, threshold: 15, position: position, glow: glow, sound: sound)
+            pills.deliver(.threshold(alert), reading: try Self.reading(15))
+            sounds.deliver(.threshold(alert))
             FileHandle.standardError.write(Data(
                 ("\n>>> With an app full screen, find the pill at the \(position) of the screen"
-                    + (glow ? ", with an orange glow around the screen edges," : "") + " and click its ×.\n").utf8))
+                    + (glow ? ", with an orange glow around the screen edges," : "")
+                    + (sound ? " and a chime," : "") + " and click its ×.\n").utf8))
             // [LAW:no-ambient-temporal-coupling] The wait is on the close itself; the deadline only bounds an absent person.
             let deadline = Task { try await Task.sleep(for: .seconds(120)); pills.close() }
             await pills.untilClosed()
