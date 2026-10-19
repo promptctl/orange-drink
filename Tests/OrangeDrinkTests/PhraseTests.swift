@@ -91,7 +91,7 @@ import Testing
         let estimates = try [9, 192].map { PillContent(pillAlert(.low), reading: try PillTests.reading(19, minutes: $0)) }
             + [PillContent(pillAlert(.charged), reading: try MenuBarIconDrawing.charging(19))]
         phrases += estimates.compactMap { $0.subline } + [PillContent.sample.headline, PillContent.sample.subline!]
-        phrases += ["Close", "Plugged In", "On Battery"]
+        phrases += ["Close", "Plugged In", "On Battery", "Show Glow"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
         phrases += [true, false].flatMap { on in
             let entry = DetectedDevices.Entry(row: DeviceRow(id: DeviceID(address: "d"), name: "D", kind: .accessory, percent: "50%", fraction: 0.5, tone: .normal), isHidden: on, isAlerting: on, isPinned: on)
