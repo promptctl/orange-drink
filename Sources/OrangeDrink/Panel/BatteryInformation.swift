@@ -11,7 +11,7 @@ struct BatteryInformation: Equatable {
     struct Health: Equatable {
         let percent: String
         let fraction: Double
-        let label: String
+        let label: Phrase
         let condition: Condition
         let cycles: String
     }
@@ -19,8 +19,8 @@ struct BatteryInformation: Equatable {
     struct Temperature: Equatable {
         let celsius: String
         let fahrenheit: String
-        let status: String
-        let caption: String
+        let status: Phrase
+        let caption: Phrase
         let condition: Condition
     }
 
@@ -30,8 +30,8 @@ struct BatteryInformation: Equatable {
         /// The direction current is flowing; nil at rest.
         let flow: Flow?
         let voltage: String
-        let voltageStatus: String
-        let voltageNote: String
+        let voltageStatus: Phrase
+        let voltageNote: Phrase
         let voltageCondition: Condition
         let charging: Bool
     }
@@ -61,7 +61,7 @@ struct BatteryInformation: Equatable {
             cycles: "\(reading.cycles.count)/\(reading.cycles.rated)")
 
         let celsius = reading.temperature.converted(to: .celsius).value
-        let (status, caption, condition): (String, String, Condition) = switch TemperatureState(reading.temperature) {
+        let (status, caption, condition): (Phrase, Phrase, Condition) = switch TemperatureState(reading.temperature) {
         case .normal: ("Normal", "Optimal performance", .good)
         case .warm: ("Warm", "Charging may slow down", .warning)
         case .hot: ("Hot", "Let the Mac cool down", .bad)

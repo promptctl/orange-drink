@@ -6,12 +6,12 @@ import Testing
 // row says about this build.
 @Suite struct PanelActions {
     @Test func listsTheFiveActionsInOrder() {
-        let titles = PanelAction.allCases.map { $0.title(appName: "OrangeDrink") }
+        let titles = PanelAction.allCases.map { $0.title(appName: "OrangeDrink").english }
         #expect(titles == ["Settings…", "Battery Settings…", "Low Power Mode", "Check for Updates…", "Quit OrangeDrink"])
     }
 
     @Test func quitNamesTheAppAndShowsItsVersion() {
-        #expect(PanelAction.quit.title(appName: "Orange") == "Quit Orange")
+        #expect(PanelAction.quit.title(appName: "Orange").english == "Quit Orange")
         #expect(PanelAction.versionText(shortVersion: "1.2.0") == "v1.2.0")
     }
 

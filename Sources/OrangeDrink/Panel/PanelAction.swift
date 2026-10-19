@@ -7,7 +7,7 @@ import Foundation
 enum PanelAction: CaseIterable {
     case settings, batterySettings, lowPowerMode, checkForUpdates, quit
 
-    func title(appName: String) -> String {
+    func title(appName: String) -> Phrase {
         switch self {
         case .settings: "Settings…"
         case .batterySettings: "Battery Settings…"

@@ -17,7 +17,7 @@ extension Duration {
     var wholeMinutes: Int { Int(components.seconds / 60) }
 
     /// "1h 22m": the panel's form for an estimate.
-    var hoursAndMinutes: String {
+    var hoursAndMinutes: Phrase {
         let minutes = wholeMinutes
         return "\(minutes / 60)h \(minutes % 60)m"
     }

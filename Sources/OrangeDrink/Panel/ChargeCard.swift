@@ -7,7 +7,7 @@ import Foundation
 struct ChargeCard: Equatable {
     enum Status: Equatable {
         case charging, onBattery, notCharging, charged
-        var title: String {
+        var title: Phrase {
             switch self {
             case .charging: "Charging"
             case .onBattery: "On Battery"
@@ -21,9 +21,9 @@ struct ChargeCard: Equatable {
     let unit = "%"
     let status: Status
     /// Names the estimate under it: time until full while charging, until empty on battery.
-    let estimateCaption: String
+    let estimateCaption: Phrase
     /// "1h 22m", or an en dash while the system has no estimate or nothing is being counted.
-    let estimate: String
+    let estimate: Phrase
     let progress: Double
     let tint: BatteryIndicator.Tint
 

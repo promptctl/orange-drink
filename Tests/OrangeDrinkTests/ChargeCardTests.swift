@@ -12,7 +12,7 @@ import Testing
         #expect(card.unit == "%")
         #expect(card.status.title == "Charging")
         #expect(card.estimateCaption == "UNTIL FULL")
-        #expect(card.estimate == "1h 22m")
+        #expect(card.estimate.english == "1h 22m")
         #expect(card.progress == 0.78)
     }
 
@@ -20,7 +20,7 @@ import Testing
         let card = ChargeCard(try Events.reading(Events.Fixtures.discharging(timeToEmpty: 200), percent: 60))
         #expect(card.status.title == "On Battery")
         #expect(card.estimateCaption == "UNTIL EMPTY")
-        #expect(card.estimate == "3h 20m")
+        #expect(card.estimate.english == "3h 20m")
     }
 
     @Test func noEstimateIsADashNotAZero() throws {
