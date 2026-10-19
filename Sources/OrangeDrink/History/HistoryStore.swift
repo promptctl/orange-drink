@@ -70,6 +70,18 @@ final class HistoryStore: Sendable {
                       health: row["health"], temperature: .init(value: row["celsius"], unit: .celsius))
     }
 
+    /// The latest sample's time, which says how fresh the history is; nil before the first sample.
+    func latestSampleTime() throws -> Date? {
+        try queue.read { db in try Double.fetchOne(db, sql: "SELECT max(at) FROM batterySample").map(Date.init(timeIntervalSince1970:)) }
+    }
+
+    /// Every sample's health, oldest first: two columns, so years of history stay cheap to read.
+    func healthSamples() throws -> [(at: Date, health: Double)] {
+        try queue.read { db in
+            try Row.fetchAll(db, sql: "SELECT at, health FROM batterySample ORDER BY at").map { (Date(timeIntervalSince1970: $0["at"]), $0["health"]) }
+        }
+    }
+
     /// Every recorded day, keyed by the start of the local day it was recorded for.
     func dailyUsage() throws -> [Date: DayUsage] {
         try queue.read { db in
