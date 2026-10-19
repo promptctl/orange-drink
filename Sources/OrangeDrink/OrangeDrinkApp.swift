@@ -8,6 +8,7 @@ let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as! Strin
 @main
 struct OrangeDrinkApp: App {
     @State private var battery: BatteryModel
+    @State private var devices: DevicesModel
     @State private var alerts: AlertCenter
     @State private var appearance: NotificationAppearanceModel
     @State private var sections = PanelSections()
@@ -28,6 +29,7 @@ struct OrangeDrinkApp: App {
         } catch {
             fatalError("stored alert or appearance settings do not decode: \(error)")
         }
+        _devices = State(initialValue: DevicesModel(events: BluetoothDevices.events()))
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)
         _battery = State(initialValue: BatteryModel(
