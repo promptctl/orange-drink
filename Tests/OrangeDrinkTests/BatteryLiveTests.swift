@@ -88,6 +88,20 @@ import Testing
         #expect(try log.messages().contains { $0.hasPrefix("battery notifications: registered token ") })
     }
 
+    /// The app holds its subscription from launch, which is what `make cpu-check` measures.
+    @Test func appModelHoldsTheCurrentReading() async throws {
+        let model = await BatteryModel()
+        let direct = try #require(try IOKitBattery.read())
+        for _ in 0..<20 {
+            if case .known(let reading?) = await model.state {
+                #expect(reading.cycles == direct.cycles)
+                return
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        Issue.record("no reading reached the model within 2 s")
+    }
+
     /// The ticket's step on a real Mac, run by `make unplug-check` with a person at the cable.
     /// Each event is checked against pmset at the moment it arrives, and against powerd's own
     /// source-change post for the one-second bound.
