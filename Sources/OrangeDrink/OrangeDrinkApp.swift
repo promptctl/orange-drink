@@ -15,9 +15,12 @@ struct OrangeDrinkApp: App {
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
         let alerts: AlertCenter
         let pills = PillController()
+        let sounds = AlertSounds()
         do {
-            // The glow and sound tickets join the pill at this sink.
-            alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: { pills.deliver($0, reading: $1) })
+            alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
+                pills.deliver($0, reading: $1)
+                sounds.deliver($0)
+            })
         } catch {
             fatalError("stored alert settings do not decode: \(error)")
         }
