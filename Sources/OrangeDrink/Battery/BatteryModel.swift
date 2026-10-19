@@ -24,6 +24,8 @@ import Observation
     private(set) var readingAt: Date?
     @ObservationIgnored private let timekeeper: any Timekeeper
     @ObservationIgnored private let read: @Sendable () throws -> BatteryReading?
+    /// Told of every reading the model takes, so what acts on readings (alerts) never watches `state`.
+    @ObservationIgnored private let onReading: @MainActor (BatteryReading?) -> Void
     /// [LAW:types-are-the-program] exception: set once, in init, but Swift will not let the
     /// task capture `self` before every stored property holds a value, so it cannot be a let.
     /// Written on the main actor and read only by deinit, which no other access can overlap;
@@ -38,10 +40,12 @@ import Observation
     init<Readings: AsyncSequence & Sendable>(
         readings: Readings,
         read: @escaping @Sendable () throws -> BatteryReading? = IOKitBattery.read,
-        timekeeper: any Timekeeper = SystemTimekeeper()
+        timekeeper: any Timekeeper = SystemTimekeeper(),
+        onReading: @escaping @MainActor (BatteryReading?) -> Void = { _ in }
     ) where Readings.Element == BatteryReading? {
         self.read = read
         self.timekeeper = timekeeper
+        self.onReading = onReading
         // [LAW:no-ambient-temporal-coupling] The model owns the subscription: it lives exactly
         // as long as the model does, and a dropped model cancels it before the next publish
         // rather than letting the task keep the model alive through it.
@@ -94,6 +98,7 @@ import Observation
     private func take(_ reading: BatteryReading?) {
         readingAt = timekeeper.now()
         state = .known(reading)
+        onReading(reading)
     }
 
     /// How long until a reading is due: the interval less the age of the one held. The refresher
