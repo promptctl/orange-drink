@@ -14,7 +14,7 @@ struct OrangeDrinkApp: App {
             Button("Quit \(appName)") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
         } label: {
-            StatusItemLabel(state: battery.state)
+            StatusItemLabel(state: battery.state, config: MenuBarIconConfig())
         }
     }
 }

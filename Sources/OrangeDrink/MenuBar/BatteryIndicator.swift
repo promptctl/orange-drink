@@ -1,10 +1,10 @@
-import AppKit
+import Foundation
 
-/// What the Battery Indicator status item shows for one reading: how full the outline is,
-/// the number printed in it, and its colour.
+/// What a battery glyph shows for one reading: how full it is, the text that goes with it,
+/// and its tint.
 ///
-/// [LAW:one-source-of-truth] The image is drawn from these three facts and nothing else, so
-/// what the tests assert about them is what the menu bar shows.
+/// [LAW:one-source-of-truth] The image is drawn from these facts and nothing else, so what
+/// the tests assert about them is what the menu bar shows.
 struct BatteryIndicator: Equatable {
     enum Tint: Equatable { case neutral, green, orange, red }
 
@@ -14,21 +14,38 @@ struct BatteryIndicator: Equatable {
     static let lowPercent = 20, criticalPercent = 5
 
     let fill: Double
-    let label: String
+    /// nil when the display is icon only.
+    let text: String?
     let tint: Tint
 
-    init(_ reading: BatteryReading) {
+    init(_ reading: BatteryReading, display: MenuBarIconConfig.Display = .percentage, statusColors: Bool = true) {
         fill = Double(reading.chargePercent) / 100
-        label = String(reading.chargePercent)
-        // Charging is green whatever the level; otherwise the level decides.
-        tint = switch reading.power {
-        case .adapter(_, .charging): .green
-        default:
-            switch reading.chargePercent {
-            case ...Self.criticalPercent: .red
-            case ...Self.lowPercent: .orange
-            default: .neutral
-            }
+        text = switch display {
+        case .percentage: String(reading.chargePercent)
+        case .timeRemaining: Self.clock(reading.power)
+        case .iconOnly: nil
+        }
+        tint = switch (reading.power, reading.chargePercent) {
+        case (_, ...Self.criticalPercent) where !charging(reading.power): .red
+        case _ where !statusColors: .neutral
+        case (.adapter(_, .charging), _): .green
+        case (_, ...Self.lowPercent): .orange
+        default: .neutral
         }
     }
+
+    /// The estimate as h:mm; an en dash while the system has none or there is nothing to count.
+    private static func clock(_ power: PowerSource) -> String {
+        let estimate: Duration? = switch power {
+        case .battery(let timeToEmpty): timeToEmpty
+        case .adapter(_, .charging(let timeToFull)): timeToFull
+        case .adapter: nil
+        }
+        guard let minutes = estimate.map({ Int($0.components.seconds / 60) }) else { return "–" }
+        return "\(minutes / 60):" + String(format: "%02d", minutes % 60)
+    }
+}
+
+private func charging(_ power: PowerSource) -> Bool {
+    if case .adapter(_, .charging) = power { true } else { false }
 }
