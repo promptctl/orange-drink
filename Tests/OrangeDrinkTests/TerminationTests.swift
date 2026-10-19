@@ -5,16 +5,16 @@ import Testing
 // [LAW:behavior-not-structure] The contract is what the log says about a quit: who asked, and from where.
 @MainActor struct TerminationTests {
     @Test func aQuitAppleEventNamesItsSender() {
-        let sentence = TerminationRequest.quitEvent(senderPID: 412, senderName: "osascript").sentence(stack: ["delegate", "b"])
+        let sentence = TerminationRequest.quitEvent(sender: .init(pid: 412, name: "osascript")).sentence(stack: ["delegate", "b"])
         #expect(sentence == "quit Apple event from pid 412 (osascript); stack: b")
     }
 
     @Test func aSenderWithoutANameIsStillNamedByItsPid() {
-        #expect(TerminationRequest.quitEvent(senderPID: 7, senderName: nil).sentence(stack: []).hasPrefix("quit Apple event from pid 7 (unknown)"))
+        #expect(TerminationRequest.quitEvent(sender: .init(pid: 7, name: nil)).sentence(stack: []).hasPrefix("quit Apple event from pid 7 (unknown)"))
     }
 
     @Test func aQuitEventWithoutAReadableSenderIsNotTakenForAQuitFromInside() {
-        let sentence = TerminationRequest.quitEvent(senderPID: nil, senderName: nil).sentence(stack: [])
+        let sentence = TerminationRequest.quitEvent(sender: nil).sentence(stack: [])
         #expect(sentence.hasPrefix("quit Apple event with no readable sender pid"))
     }
 
@@ -38,10 +38,10 @@ import Testing
     @Test func aQuitEventIsRecognisedAsOne() {
         let quit = NSAppleEventDescriptor(eventClass: AEEventClass(kCoreEventClass), eventID: AEEventID(kAEQuitApplication),
                                           targetDescriptor: nil, returnID: AEReturnID(kAutoGenerateReturnID), transactionID: AETransactionID(kAnyTransactionID))
-        #expect(TerminationRequest.current(event: quit) == .quitEvent(senderPID: nil, senderName: nil))
+        #expect(TerminationRequest.current(event: quit) == .quitEvent(sender: nil))
     }
 
     @Test func loggingARequestNeverStopsTheQuit() {
-        #expect(TerminationLog().applicationShouldTerminate(NSApp) == .terminateNow)
+        #expect(TerminationLog().applicationShouldTerminate(NSApplication.shared) == .terminateNow)
     }
 }

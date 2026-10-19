@@ -8,8 +8,14 @@ import OSLog
 /// know: a quit Apple event has a sender; a `terminate:` from inside the app has none, and its call
 /// stack says which code asked.
 enum TerminationRequest: Equatable {
-    case quitEvent(senderPID: Int32?, senderName: String?)
+    /// The sender is nil when the event carries no readable pid; a name needs a pid to have been looked up.
+    case quitEvent(sender: Sender?)
     case inApp
+
+    struct Sender: Equatable {
+        let pid: Int32
+        let name: String?
+    }
 
     /// The frames kept: past the delegate's own and AppKit's terminate internals, to the code that asked.
     static let stackDepth = 30
@@ -19,8 +25,8 @@ enum TerminationRequest: Equatable {
     func sentence(stack: [String]) -> String {
         let origin: String
         switch self {
-        case .quitEvent(let pid?, let name): origin = "quit Apple event from pid \(pid) (\(name ?? "unknown"))"
-        case .quitEvent(nil, _): origin = "quit Apple event with no readable sender pid"
+        case .quitEvent(let sender?): origin = "quit Apple event from pid \(sender.pid) (\(sender.name ?? "unknown"))"
+        case .quitEvent(nil): origin = "quit Apple event with no readable sender pid"
         case .inApp: origin = "quit request from inside the app"
         }
         return "\(origin); stack: \(stack.dropFirst().prefix(Self.stackDepth).joined(separator: " <- "))"
@@ -31,7 +37,7 @@ enum TerminationRequest: Equatable {
     static func current(event: NSAppleEventDescriptor?) -> TerminationRequest {
         guard let event, event.eventClass == AEEventClass(kCoreEventClass), event.eventID == AEEventID(kAEQuitApplication) else { return .inApp }
         let pid = event.attributeDescriptor(forKeyword: AEKeyword(keySenderPIDAttr))?.int32Value
-        return .quitEvent(senderPID: pid, senderName: pid.flatMap(processName))
+        return .quitEvent(sender: pid.flatMap { $0 > 0 ? Sender(pid: $0, name: processName($0)) : nil })
     }
 
     /// Any process's name, a command-line sender's included: `NSRunningApplication` knows only apps.
