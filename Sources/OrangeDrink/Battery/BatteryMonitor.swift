@@ -15,27 +15,28 @@ enum BatteryMonitor {
     /// power-source changes. The price is powerd's periodic republish, measured at one post a
     /// minute while held steady at 80% on AC, so one read a minute against the 60 ms a minute
     /// the CPU budget allows.
-    ///
-    /// [LAW:types-are-the-program] A reading is state, not history: a subscriber that falls
-    /// behind gets the newest one, never a replay, so the buffer holds exactly one.
     static func readings() -> AsyncThrowingStream<BatteryReading?, any Error> {
-        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+        AsyncThrowingStream { continuation in
             // [LAW:no-ambient-temporal-coupling] One serial queue owns every read for this
-            // subscription, so the initial read and the notification reads cannot interleave.
+            // subscription, and the registration, the cancellation hook, and the first read
+            // all happen in one block on it, so no publish can land before the hook is armed
+            // and the first read cannot interleave with a notification read.
             let queue = DispatchQueue(label: "\(IOKitBattery.logSubsystem).battery-monitor")
-            var token: Int32 = 0
-            let status = notify_register_dispatch(kIOPSNotifyAnyPowerSource, &token, queue) { _ in
+            queue.sync {
+                var token: Int32 = 0
+                let status = notify_register_dispatch(kIOPSNotifyAnyPowerSource, &token, queue) { _ in
+                    publish(into: continuation)
+                }
+                guard status == NOTIFY_STATUS_OK else {
+                    IOKitBattery.log.error("battery notifications: notify_register_dispatch failed with \(status, privacy: .public)")
+                    continuation.finish(throwing: BatteryMonitorError.notifyRegistration(status: status))
+                    return
+                }
+                let registered = token
+                IOKitBattery.log.info("battery notifications: registered token \(registered, privacy: .public)")
+                continuation.onTermination = { _ in notify_cancel(registered) }
                 publish(into: continuation)
             }
-            guard status == NOTIFY_STATUS_OK else {
-                IOKitBattery.log.error("battery notifications: notify_register_dispatch failed with \(status, privacy: .public)")
-                continuation.finish(throwing: BatteryMonitorError.notifyRegistration(status: status))
-                return
-            }
-            let registered = token
-            IOKitBattery.log.info("battery notifications: registered token \(registered, privacy: .public)")
-            continuation.onTermination = { _ in notify_cancel(registered) }
-            queue.async { publish(into: continuation) }
         }
     }
 

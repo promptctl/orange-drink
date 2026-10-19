@@ -2,7 +2,6 @@ import Foundation
 import IOKit.ps
 import notify
 import os
-import OSLog
 import Testing
 @testable import OrangeDrink
 
@@ -73,26 +72,20 @@ import Testing
     }
 
     @Test func everyReadIsLogged() throws {
-        let store = try OSLogStore(scope: .currentProcessIdentifier)
-        let since = store.position(date: Date())
+        let log = try BatteryLog()
         let reading = try #require(try IOKitBattery.read())
-        let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
-        #expect(entries.contains { $0.composedMessage == "battery read: \(String(describing: reading))" })
+        #expect(try log.messages().contains("battery read: \(String(describing: reading))"))
     }
 
     @Test func subscriptionStartsWithTheCurrentReading() async throws {
-        let store = try OSLogStore(scope: .currentProcessIdentifier)
-        let since = store.position(date: Date())
+        let log = try BatteryLog()
         var readings = BatteryMonitor.readings().makeAsyncIterator()
         let published = try #require(try await readings.next(), "the stream ended before its first reading")
         let first = try #require(published, "this check needs a Mac with a battery")
         let direct = try #require(try IOKitBattery.read())
         #expect(first.capacity.design == direct.capacity.design)
         #expect(first.cycles == direct.cycles)
-        let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
-        #expect(entries.contains { $0.composedMessage.hasPrefix("battery notifications: registered token ") })
+        #expect(try log.messages().contains { $0.hasPrefix("battery notifications: registered token ") })
     }
 
     /// The ticket's step on a real Mac, run by `make unplug-check` with a person at the cable.
@@ -100,11 +93,17 @@ import Testing
     /// source-change post for the one-second bound.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["UNPLUG_CHECK"] != nil, "run by make unplug-check with a person at the cable"))
     func plugAndUnplug() async throws {
-        struct Arrival { let reading: BatteryReading; let pmset: PmsetBattery; let at: ContinuousClock.Instant }
+        struct Arrival {
+            let reading: BatteryReading; let at: ContinuousClock.Instant; let pmset: PmsetBattery; let after: BatteryReading
+            /// [LAW:no-ambient-temporal-coupling] Stamped first, then pmset, then a second read, so
+            /// the stamp predates the pmset spawn and pmset's percent is bracketed by two readings.
+            init(_ reading: BatteryReading, pmset: () throws -> PmsetBattery, read: () throws -> BatteryReading) rethrows {
+                self.reading = reading; at = .now; self.pmset = try pmset(); after = try read()
+            }
+        }
         let start = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
         guard case .adapter = start.power else { Issue.record("start with the adapter plugged in"); return }
-        let store = try OSLogStore(scope: .currentProcessIdentifier)
-        let since = store.position(date: Date())
+        let log = try BatteryLog()
         let posts = OSAllocatedUnfairLock<[ContinuousClock.Instant]>(initialState: [])
         var token: Int32 = 0
         let status = notify_register_dispatch(kIOPSNotifyPowerSource, &token, DispatchQueue(label: "posts")) { _ in
@@ -118,10 +117,10 @@ import Testing
             for try await event in BatteryMonitor.events() {
                 switch (event, unplugged) {
                 case (.unplugged(let reading), nil):
-                    unplugged = Arrival(reading: reading, pmset: try pmsetBattery(), at: .now)
+                    unplugged = try Arrival(reading, pmset: pmsetBattery, read: readBattery)
                     FileHandle.standardError.write(Data("\n>>> Plug it back in now.\n".utf8))
                 case (.plugged(let reading), let unplugged?):
-                    return (unplugged, Arrival(reading: reading, pmset: try pmsetBattery(), at: .now))
+                    return (unplugged, try Arrival(reading, pmset: pmsetBattery, read: readBattery))
                 default:
                     continue
                 }
@@ -143,17 +142,17 @@ import Testing
         #expect(arrivals.unplugged.pmset.state == Self.pmsetDischarging)
         #expect(arrivals.plugged.pmset.state != Self.pmsetDischarging)
         for arrival in [arrivals.unplugged, arrivals.plugged] {
-            #expect(arrival.pmset.percent == arrival.reading.chargePercent)
-            let gap = posts.withLock { $0 }.map { $0 < arrival.at ? arrival.at - $0 : $0 - arrival.at }.min()
-            #expect(try #require(gap, "powerd posted no source change") <= .seconds(1))
+            #expect([arrival.reading.chargePercent, arrival.after.chargePercent].contains(arrival.pmset.percent))
+            let gap = posts.withLock { $0 }.filter { $0 <= arrival.at }.map { arrival.at - $0 }.min()
+            #expect(try #require(gap, "powerd posted no source change before the event") <= .seconds(1))
         }
 
-        let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
-        let messages = entries.map(\.composedMessage)
+        let messages = try log.messages()
         #expect(messages.contains("battery event: \(String(describing: BatteryEvent.unplugged(arrivals.unplugged.reading)))"))
         #expect(messages.contains("battery event: \(String(describing: BatteryEvent.plugged(arrivals.plugged.reading)))"))
     }
+
+    func readBattery() throws -> BatteryReading { try #require(try IOKitBattery.read()) }
 
     func run(_ command: String, _ arguments: String...) throws -> String {
         let process = Process()
