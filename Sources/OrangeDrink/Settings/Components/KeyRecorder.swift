@@ -14,47 +14,61 @@ extension RecordedKey {
     }
 }
 
-/// A dark rounded field showing a shortcut. Clicking it listens for the next key press, which goes to
-/// `record`; Escape, or clicking it again, stops without recording.
+/// A dark rounded field showing a shortcut; while it is recording it asks for the next key press.
+/// Which recorder is recording is the screen's to say, so two can never be at once.
 struct KeyRecorder: View {
     let display: String
     let label: LocalizedStringKey
-    let record: (RecordedKey) -> Void
-    @State private var recording = false
-    @State private var monitor: Any?
+    let isRecording: Bool
+    let toggle: () -> Void
 
     var body: some View {
-        Button { recording.toggle() } label: {
-            Text(recording ? "Type shortcut…" : display)
+        Button(action: toggle) {
+            Text(isRecording ? "Type shortcut…" : display)
                 .font(.system(.body, design: .rounded).weight(.semibold))
-                .foregroundStyle(recording ? Color.accentColor : Color.primary)
+                .foregroundStyle(isRecording ? Color.accentColor : Color.primary)
                 .frame(width: 130)
                 .padding(.vertical, 5)
                 .background(Color.veil(0.1), in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(recording ? Color.accentColor : .clear, lineWidth: 1.5))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(isRecording ? Color.accentColor : .clear, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .accessibilityValue(display)
         .accessibilityHint("Click, then press the new shortcut")
-        .onChange(of: recording) { _, listening in listening ? listen() : stopListening() }
-        .onDisappear { recording = false }
+    }
+}
+
+/// While active, the next key press goes to `onKey` instead of the window, and Escape to `onCancel`.
+private struct KeyCapture: ViewModifier {
+    let isActive: Bool
+    let onKey: (RecordedKey) -> Void
+    let onCancel: () -> Void
+    @State private var monitor: Any?
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: isActive) { _, active in active ? listen() : stop() }
+            .onDisappear(perform: stop)
     }
 
     private func listen() {
+        stop()
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             // Escape (key code 53) gives up; any other key is the shortcut, and is not typed into the window.
-            let escape = event.keyCode == 53
-            MainActor.assumeIsolated {
-                if !escape { record(RecordedKey(event)) }
-                recording = false
-            }
+            MainActor.assumeIsolated { event.keyCode == 53 ? onCancel() : onKey(RecordedKey(event)) }
             return nil
         }
     }
 
-    private func stopListening() {
+    private func stop() {
         monitor.map(NSEvent.removeMonitor)
         monitor = nil
+    }
+}
+
+extension View {
+    func keyCapture(isActive: Bool, onKey: @escaping (RecordedKey) -> Void, onCancel: @escaping () -> Void) -> some View {
+        modifier(KeyCapture(isActive: isActive, onKey: onKey, onCancel: onCancel))
     }
 }

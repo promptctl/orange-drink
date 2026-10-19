@@ -1145,6 +1145,94 @@
           }
         }
       }
+    },
+    "Use a letter with at least two of Control, Option, and Command.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a letter with at least two of Control, Option, and Command."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisez une lettre avec au moins deux touches parmi Contrôle, Option et Commande."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa una letra con al menos dos de Control, Opción y Comando."
+          }
+        }
+      }
+    },
+    "Use a letter from A to Z.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a letter from A to Z."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisez une lettre de A à Z."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa una letra de la A a la Z."
+          }
+        }
+      }
+    },
+    "%@ is already used by another shortcut.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is already used by another shortcut."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est déjà utilisé par un autre raccourci."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ya lo usa otro atajo."
+          }
+        }
+      }
+    },
+    "%@ could not be used. Another app may be using it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ could not be used. Another app may be using it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n’a pas pu être utilisé. Une autre app l’utilise peut-être."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo usar %@. Puede que otra app lo esté usando."
+          }
+        }
+      }
     }
   }
 }

@@ -10,9 +10,11 @@ import OSLog
 
 /// The global shortcut that shows the menu bar panel when it is closed and hides it when it is open.
 @MainActor final class OpenPanelHotKey {
+    let combo: KeyCombo
     private let registration: any HotKeyRegistration
 
     init(_ combo: KeyCombo = .openPanel, hotKeys: any HotKeys, panel: any Panel) throws {
+        self.combo = combo
         registration = try hotKeys.register(combo) {
             if panel.isOpen { panel.close() } else { panel.open() }
         }

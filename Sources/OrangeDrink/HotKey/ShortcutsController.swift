@@ -1,18 +1,20 @@
 import Foundation
+import SwiftUI
 
 /// Why a recording was not kept.
-enum ShortcutError: Error, CustomStringConvertible {
-    case needsModifier
+enum ShortcutError: Error {
+    case needsModifiers
     case notALetter
     case taken(Shortcuts.Conflict)
     case refused(HotKeyError)
 
-    var description: String {
+    /// What the Shortcuts screen tells the user, as literal catalog keys.
+    var message: LocalizedStringKey {
         switch self {
-        case .needsModifier: "Use a letter with Control, Option, or Command."
+        case .needsModifiers: "Use a letter with at least two of Control, Option, and Command."
         case .notALetter: "Use a letter from A to Z."
         case .taken(let conflict): "\(conflict.letter.display) is already used by another shortcut."
-        case .refused(let error): "\(error)."
+        case .refused(let error): "\(error.combo?.display ?? "That shortcut") could not be used. Another app may be using it."
         }
     }
 }
@@ -25,7 +27,7 @@ struct RecordedKey: Equatable {
 
     /// [LAW:parse-dont-validate] The global combination this press is, or why it is not one.
     func globalCombo() throws -> KeyCombo {
-        guard let combo = KeyCombo(keyCode: keyCode, modifiers: modifiers) else { throw ShortcutError.needsModifier }
+        guard let combo = KeyCombo(keyCode: keyCode, label: character.map(String.init), modifiers: modifiers) else { throw ShortcutError.needsModifiers }
         return combo
     }
 
@@ -46,6 +48,7 @@ struct RecordedKey: Equatable {
     let model: ShortcutsModel
     private let hotKeys: any HotKeys
     private let panel: any Panel
+    /// What the system holds for the global shortcut now; nil while it holds none (suspended, or refused at launch).
     private var openPanel: OpenPanelHotKey?
 
     init(model: ShortcutsModel, hotKeys: any HotKeys, panel: any Panel) {
@@ -54,30 +57,39 @@ struct RecordedKey: Equatable {
         self.panel = panel
     }
 
-    /// Registers the saved global combination, as at launch.
+    /// Registers the saved global combination, as at launch and when a recording ends.
     func start() throws {
+        guard openPanel == nil else { return }
         openPanel = try OpenPanelHotKey(model.value.openPanel, hotKeys: hotKeys, panel: panel)
     }
 
+    /// Lets go of the global combination while the user is recording one, so pressing it is a recording and not the shortcut.
+    func suspend() {
+        openPanel?.cancel()
+        openPanel = nil
+    }
+
     func record(openPanel combo: KeyCombo) throws {
-        try change { $0.set(openPanel: combo) }
+        try change(registering: combo) { $0.set(openPanel: combo) }
     }
 
     func record(_ letter: ShortcutLetter, for shortcut: MenuShortcut) throws {
-        try change { try $0.assign(letter, to: shortcut) }
+        try change(registering: nil) { try $0.assign(letter, to: shortcut) }
     }
 
-    /// Reset to default shortcuts: ⌃⌥J and a letter per row as the screen first shows them.
+    /// Reset to default shortcuts: ⌃⌥J and a letter per row as the screen first shows them. The letters are
+    /// reset whatever the system says about the combination.
     func reset() throws {
-        try change { $0 = Shortcuts() }
+        try change(registering: nil) { $0.resetLetters() }
+        try record(openPanel: Shortcuts().openPanel)
     }
 
-    private func change(_ edit: (inout Shortcuts) throws -> Void) throws {
+    private func change(registering combo: KeyCombo?, _ edit: (inout Shortcuts) throws -> Void) throws {
         var next = model.value
         do { try edit(&next) } catch let conflict as Shortcuts.Conflict { throw ShortcutError.taken(conflict) }
         var registered: OpenPanelHotKey?
-        if next.openPanel != model.value.openPanel {
-            do { registered = try OpenPanelHotKey(next.openPanel, hotKeys: hotKeys, panel: panel) } catch let error as HotKeyError {
+        if let combo, combo != openPanel?.combo {
+            do { registered = try OpenPanelHotKey(combo, hotKeys: hotKeys, panel: panel) } catch let error as HotKeyError {
                 throw ShortcutError.refused(error)
             }
         }

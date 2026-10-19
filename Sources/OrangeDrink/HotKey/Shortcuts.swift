@@ -6,7 +6,7 @@ struct ShortcutLetter: Hashable, Codable, Sendable, ExpressibleByUnicodeScalarLi
 
     /// [LAW:parse-dont-validate] Letters only, whatever the case it was typed in.
     init?(_ typed: Character) {
-        guard let lower = typed.lowercased().first, lower.isASCII, lower.isLetter else { return nil }
+        guard typed.isASCII, typed.isLetter, let lower = typed.lowercased().first else { return nil }
         character = lower
     }
 
@@ -82,6 +82,8 @@ struct Shortcuts: Stored {
 
     mutating func set(openPanel combo: KeyCombo) { openPanel = combo }
 
+    mutating func resetLetters() { letters = Self().letters }
+
     /// A letter belongs to one row: taking one another row holds is refused rather than leaving two rows to race for it.
     mutating func assign(_ letter: ShortcutLetter, to shortcut: MenuShortcut) throws {
         if let holder = self.shortcut(for: letter), holder != shortcut { throw Conflict(letter: letter, heldBy: holder) }
@@ -93,8 +95,10 @@ struct Shortcuts: Stored {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         openPanel = try values.decode(KeyCombo.self, forKey: .openPanel)
-        letters = try values.decode([MenuShortcut: ShortcutLetter].self, forKey: .letters)
-        guard Set(letters.keys) == Set(MenuShortcut.allCases), Set(letters.values).count == letters.count else {
+        // A row added by a later release has no stored letter yet and starts at its default; a row since removed is dropped.
+        let stored = try values.decode([String: ShortcutLetter].self, forKey: .letters)
+        letters = Dictionary(uniqueKeysWithValues: MenuShortcut.allCases.map { ($0, stored[$0.rawValue] ?? $0.defaultLetter) })
+        guard Set(letters.values).count == letters.count else {
             throw DecodingError.dataCorruptedError(forKey: .letters, in: values, debugDescription: "every row needs its own letter")
         }
     }

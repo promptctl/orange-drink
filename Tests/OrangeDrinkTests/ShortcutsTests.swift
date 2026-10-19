@@ -100,15 +100,64 @@ import Testing
         #expect(rig.keys.combos == [.openPanel])
     }
 
-    @Test func aPressIsAGlobalCombinationOnlyAsALetterHeldWithControlOptionOrCommand() throws {
+    @Test func aPressIsAGlobalCombinationOnlyAsALetterHeldWithTwoOfControlOptionAndCommand() throws {
         func press(_ code: UInt32, _ modifiers: KeyCombo.Modifiers, _ character: Character?) -> RecordedKey {
             RecordedKey(keyCode: code, character: character, modifiers: modifiers)
         }
         #expect(try press(40, [.control, .option], "k").globalCombo() == Self.k)
-        #expect(try press(40, [.command], "k").globalCombo().display == "⌘K")
-        #expect(throws: ShortcutError.self) { try press(40, [], "k").globalCombo() }
-        #expect(throws: ShortcutError.self) { try press(40, [.shift], "K").globalCombo() }
-        #expect(throws: ShortcutError.self) { try press(18, [.control], "1").globalCombo() }
+        #expect(try press(40, [.option, .command], "k").globalCombo().display == "⌥⌘K")
+        for refused: KeyCombo.Modifiers in [[], [.shift], [.command], [.option], [.control], [.shift, .command]] {
+            #expect(throws: ShortcutError.self) { try press(40, refused, "k").globalCombo() }
+        }
+        #expect(throws: ShortcutError.self) { try press(18, [.control, .option], "1").globalCombo() }
+    }
+
+    @Test func aCombinationIsShownAsItsKeycapReadsOnTheLayoutItWasRecordedOn() throws {
+        // The key at the ANSI A position reads Q on an AZERTY keyboard.
+        let key = RecordedKey(keyCode: 0, character: "q", modifiers: [.control, .option])
+        #expect(try key.globalCombo().display == "⌃⌥Q")
+        #expect(try key.globalCombo() == KeyCombo(keyCode: 0, modifiers: [.control, .option]))
+    }
+
+    @Test func whileRecordingTheCurrentCombinationIsNotTheShortcutAndCanBeRecordedAgain() throws {
+        let rig = try Rig()
+        rig.controller.suspend()
+        rig.keys.press(.openPanel)
+        #expect(!rig.panel.isOpen)
+        try rig.controller.record(openPanel: .openPanel)
+        rig.keys.press(.openPanel)
+        #expect(rig.panel.isOpen)
+    }
+
+    @Test func endingARecordingHasTheSystemHoldTheSavedShortcutAgain() throws {
+        let rig = try Rig()
+        rig.controller.suspend()
+        #expect(rig.keys.combos.isEmpty)
+        try rig.controller.start()
+        #expect(rig.keys.combos == [.openPanel])
+    }
+
+    @Test func aShortcutRefusedAtLaunchIsRegisteredWhenRecordedAgainOrReset() throws {
+        let defaults = scratchDefaults()
+        let model = try ShortcutsModel(defaults: defaults)
+        let keys = FakeHotKeys()
+        keys.refused = [.openPanel]
+        let controller = ShortcutsController(model: model, hotKeys: keys, panel: FakePanel())
+        #expect(throws: HotKeyError.self) { try controller.start() }
+        keys.refused = []
+        try controller.record(openPanel: .openPanel)
+        #expect(keys.combos == [.openPanel])
+    }
+
+    @Test func resetRestoresTheLettersEvenWhenTheSystemRefusesTheDefaultCombination() throws {
+        let rig = try Rig()
+        try rig.controller.record(openPanel: Self.k)
+        try rig.controller.record("b", for: .batteryInformation)
+        rig.keys.refused = [.openPanel]
+        #expect(throws: ShortcutError.self) { try rig.controller.reset() }
+        #expect(rig.shortcuts.letter(for: .batteryInformation) == "i")
+        #expect(rig.shortcuts.openPanel == Self.k)
+        #expect(rig.keys.combos == [Self.k])
     }
 
     @Test func aPressIsAMenuLetterOnlyAsALetterOnItsOwn() throws {
@@ -120,6 +169,7 @@ import Testing
         #expect(throws: ShortcutError.self) { try press([.command], "k").menuLetter() }
         #expect(throws: ShortcutError.self) { try press([], "1").menuLetter() }
         #expect(throws: ShortcutError.self) { try press([], nil).menuLetter() }
+        #expect(throws: ShortcutError.self) { try press([], "İ").menuLetter() }
     }
 
     @Test func storedShortcutsThatDoNotMakeSenseFailTheLaunchInsteadOfBeingReplaced() throws {
@@ -130,5 +180,15 @@ import Testing
         let bare = #"{"openPanel":{"keyCode":38,"modifiers":0},"letters":{"batteryInformation":"i","appsUsingSignificantEnergy":"u","connectedDevices":"d","lowPowerMode":"l"}}"#
         defaults.set(Data(bare.utf8), forKey: Shortcuts.storageKey)
         #expect(throws: (any Error).self) { try ShortcutsModel(defaults: defaults) }
+    }
+
+    @Test func aRowAddedOrRemovedByAnotherReleaseDoesNotBreakTheSavedShortcuts() throws {
+        let defaults = scratchDefaults()
+        let older = #"{"openPanel":{"keyCode":40,"modifiers":3},"letters":{"batteryInformation":"b","connectedDevices":"d","lowPowerMode":"l","retired":"z"}}"#
+        defaults.set(Data(older.utf8), forKey: Shortcuts.storageKey)
+        let shortcuts = try ShortcutsModel(defaults: defaults).value
+        #expect(shortcuts.openPanel == Self.k)
+        #expect(shortcuts.letter(for: .batteryInformation) == "b")
+        #expect(shortcuts.letter(for: .appsUsingSignificantEnergy) == "u")
     }
 }
