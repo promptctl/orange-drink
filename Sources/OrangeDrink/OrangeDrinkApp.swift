@@ -7,6 +7,8 @@ private let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") a
 
 @main
 struct OrangeDrinkApp: App {
+    @State private var battery = BatteryModel(readings: BatteryMonitor.readings())
+
     var body: some Scene {
         MenuBarExtra(appName, systemImage: "cup.and.saucer.fill") {
             Button("Quit \(appName)") { NSApplication.shared.terminate(nil) }
