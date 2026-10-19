@@ -22,8 +22,8 @@ for d in (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? [] where
 let t0 = CFAbsoluteTimeGetCurrent(), cpu0 = clock()
 for _ in 0..<200 {
     for d in (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? [] where d.isConnected() {
-        _ = d.value(forKey: "batteryPercentSingle"); _ = d.value(forKey: "batteryPercentLeft")
-        _ = d.value(forKey: "batteryPercentRight"); _ = d.value(forKey: "batteryPercentCase")
+        for k in ["batteryPercentSingle", "batteryPercentLeft", "batteryPercentRight", "batteryPercentCombined", "batteryPercentCase"]
+        where d.responds(to: Selector(k)) { _ = d.value(forKey: k) }
     }
 }
 let per = (CFAbsoluteTimeGetCurrent() - t0) / 200

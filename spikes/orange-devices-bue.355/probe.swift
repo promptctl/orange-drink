@@ -4,7 +4,8 @@ import Foundation
 import IOBluetooth
 import IOKit
 
-// Private IOBluetoothDevice battery properties (KVC; absent => nil, not 0).
+// Private IOBluetoothDevice battery properties (KVC). The OS reports 0 for both "not reported" and
+// a drained battery, so 0 is read as not-reported (nil); a truly empty device is indistinguishable.
 let batteryKeys = ["batteryPercentSingle", "batteryPercentLeft", "batteryPercentRight", "batteryPercentCombined", "batteryPercentCase"]
 
 func kvc(_ d: IOBluetoothDevice, _ key: String) -> Int? {
@@ -17,7 +18,7 @@ func kind(_ d: IOBluetoothDevice) -> String {
     switch (d.deviceClassMajor, d.deviceClassMinor) {
     case (0x02, _): return "phone"
     case (0x04, _): return "audio"
-    case (0x05, 0x10...0x1F), (0x05, _): return "peripheral"
+    case (0x05, _): return "peripheral"
     default: return "other(major=\(d.deviceClassMajor),minor=\(d.deviceClassMinor))"
     }
 }
