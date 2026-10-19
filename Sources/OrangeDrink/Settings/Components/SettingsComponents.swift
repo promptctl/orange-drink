@@ -71,16 +71,49 @@ struct SettingRow<Control: View>: View {
     }
 }
 
-/// A grey circled "i" that shows an explanation of the setting.
+/// A grey circled "i" (or other glyph) that shows an explanation of the setting.
 struct InfoButton: View {
     let text: String
+    var glyph = "info.circle"
+    var label = "Info"
     @State private var showing = false
 
     var body: some View {
-        Button { showing.toggle() } label: { Image(systemName: "info.circle").foregroundStyle(.secondary) }
+        Button { showing.toggle() } label: { Image(systemName: glyph).foregroundStyle(.secondary) }
             .buttonStyle(.plain)
-            .accessibilityLabel("Info")
+            .accessibilityLabel(label)
             .popover(isPresented: $showing) { Text(text).padding(12).frame(width: 240) }
+    }
+}
+
+/// One option of a pick-one list: a bold title over a grey description, and on the far right a green
+/// check when chosen or an empty ring when not.
+struct RadioRow: View {
+    let title: String
+    let description: String
+    let isSelected: Bool
+    let choose: () -> Void
+
+    var body: some View {
+        Button(action: choose) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).fontWeight(.bold)
+                    Text(description).font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+            }
+            .padding(12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottom) { Divider() }
+        .accessibilityLabel(title)
+        .accessibilityHint(description)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

@@ -44,13 +44,13 @@ import Testing
         let defaults = AlertSettingsPersistence.suite()
         try NotificationAppearanceModel.scratch(defaults).update { $0.bubbleSize = .large; $0.glowStrength = .subtle }
         let relaunched = NotificationAppearanceModel.scratch(defaults)
-        #expect(relaunched.appearance == NotificationAppearance(bubbleSize: .large, glowStrength: .subtle))
-        #expect(NotificationAppearanceModel.scratch().appearance == NotificationAppearance())
+        #expect(relaunched.value == NotificationAppearance(bubbleSize: .large, glowStrength: .subtle))
+        #expect(NotificationAppearanceModel.scratch().value == NotificationAppearance())
     }
 
     @Test func storedAppearanceThatDoesNotDecodeFailsLoudly() {
         let defaults = AlertSettingsPersistence.suite()
-        defaults.set(Data("not json".utf8), forKey: NotificationAppearanceModel.storageKey)
+        defaults.set(Data("not json".utf8), forKey: NotificationAppearance.storageKey)
         #expect(throws: DecodingError.self) { try NotificationAppearanceModel(defaults: defaults) }
     }
 }

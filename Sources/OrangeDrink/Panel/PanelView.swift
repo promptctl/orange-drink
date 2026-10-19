@@ -19,7 +19,7 @@ struct PanelView: View {
                             section: .batteryInformation, sections: sections) {
                 if case .known(let reading?) = battery.state { BatteryInformationView(info: BatteryInformation(reading), reading: reading, battery: battery) }
             }
-            let connected = ConnectedDevices(devices.list, settings: deviceSettings.settings)
+            let connected = ConnectedDevices(devices.list, settings: deviceSettings.value)
             if connected.isShown {
                 CollapsibleCard(title: "Connected Devices", symbol: "iphone.gen3.radiowaves.left.and.right", symbolColor: .cyan,
                                 section: .connectedDevices, sections: sections) {

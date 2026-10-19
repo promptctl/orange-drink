@@ -21,9 +21,16 @@ import Testing
     static func icon(_ reading: BatteryReading, _ edit: (inout MenuBarIconConfig) -> Void = { _ in }) -> MenuBarIcon {
         var config = MenuBarIconConfig()
         edit(&config)
-        return MenuBarIcon(reading, config)
+        return MenuBarIcon(reading, config, on: .dark)
     }
     static func pixels(_ icon: MenuBarIcon) -> Pixels { Pixels(icon.image, scale: icon.size.scale) }
+
+    @Test func timeRemainingInsideTheOutlineIsNeverWiderThanTheCharge() throws {
+        let long = try Self.reading(Events.Fixtures.discharging(timeToEmpty: 630), percent: 40)
+        let icon = Self.icon(long) { $0.display = .timeRemaining }
+        #expect(icon.battery?.text == "10:30")
+        #expect(try #require(icon.text).size().width <= MenuBarIcon.interior.width)
+    }
 
     @Test func indicatorPrintsThePercentInsideAnOutlineFilledToIt() throws {
         let battery = try #require(Self.icon(try Self.discharging(40)).battery)

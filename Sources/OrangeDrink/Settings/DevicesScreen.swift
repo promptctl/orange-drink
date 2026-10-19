@@ -61,7 +61,7 @@ struct DevicesScreen: View {
     @State private var saveFailure: String?
 
     var body: some View {
-        let current = settings.settings
+        let current = settings.value
         VStack(alignment: .leading, spacing: 24) {
             if let saveFailure {
                 Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
@@ -144,7 +144,7 @@ struct DevicesScreen: View {
     }
 
     private var showBinding: Binding<Bool> {
-        Binding(get: { settings.settings.showConnectedDevices }, set: { show in perform { $0.showConnectedDevices = show } })
+        Binding(get: { settings.value.showConnectedDevices }, set: { show in perform { $0.showConnectedDevices = show } })
     }
 
     private func toggleHidden(_ id: DeviceID) { perform { $0.toggleHidden(id) } }

@@ -14,18 +14,22 @@ extension MenuBarIcon {
         }
     }
 
-    private var text: NSAttributedString? {
-        let points: CGFloat
-        switch shape {
-        case .indicator: points = 8
-        case .minimal: points = 11
-        case .logo: return nil
+    var text: NSAttributedString? {
+        guard let string = battery?.text else { return nil }
+        let points: CGFloat = switch shape {
+        case .indicator: 8
+        case .minimal: 11
+        case .logo: 0
         }
-        return battery?.text.map {
-            NSAttributedString(string: $0, attributes: [
+        func set(_ points: CGFloat) -> NSAttributedString {
+            NSAttributedString(string: string, attributes: [
                 .font: NSFont.systemFont(ofSize: points, weight: .bold), .foregroundColor: ink.glyph,
             ])
         }
+        // Text inside the outline shrinks to fit it: "10:30" is wider than the charge area at 8pt.
+        guard case .indicator = shape else { return set(points) }
+        let candidates = stride(from: points, through: 5, by: -0.5).lazy.map(set)
+        return candidates.first { $0.size().width <= Self.interior.width } ?? set(5)
     }
 
     /// Where the battery outline starts: after the text that sits beside it, if any.

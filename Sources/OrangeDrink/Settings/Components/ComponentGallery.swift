@@ -11,6 +11,7 @@ struct ComponentGallery: View {
     @State private var enabled = false
     @State private var size = "Default"
     @State private var range = Range.week
+    @State private var radio = "First"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -26,6 +27,9 @@ struct ComponentGallery: View {
                 SettingRow(title: "Pills Row", description: "Pills description") {
                     SegmentedPills(selection: $range, options: Range.allCases, accent: .indigo, title: \.rawValue)
                 }
+                ForEach(["First", "Second"], id: \.self) { option in
+                    RadioRow(title: "\(option) Radio", description: "\(option) radio description", isSelected: radio == option) { radio = option }
+                }
             }
         }
         .padding()
@@ -39,7 +43,7 @@ struct ComponentGallery: View {
     /// Opens the gallery when the app was launched for it.
     @MainActor static func showIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains(launchArgument) else { return }
-        let window = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 520, height: 420), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 520, height: 520), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Component Gallery"
         window.contentView = NSHostingView(rootView: ComponentGallery())
         window.isReleasedWhenClosed = false

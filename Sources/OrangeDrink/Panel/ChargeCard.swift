@@ -36,7 +36,7 @@ struct ChargeCard: Equatable {
         case .adapter(_, .notCharging): (.notCharging, "UNTIL FULL")
         case .adapter(_, .full): (.charged, "UNTIL FULL")
         }
-        estimate = reading.estimate?.hoursAndMinutes ?? "–"
+        estimate = reading.power.estimate?.hoursAndMinutes ?? "–"
         tint = BatteryIndicator(reading).tint
     }
 }

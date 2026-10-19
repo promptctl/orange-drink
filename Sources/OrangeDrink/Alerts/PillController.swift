@@ -83,7 +83,7 @@ private final class PillPanel: OverlayPanel {
             close()
             return
         }
-        let look = appearance.appearance
+        let look = appearance.value
         let panel = PillPanel(content, scale: look.bubbleSize.scale, screen: screen, onClose: { [weak self] in self?.close() })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.

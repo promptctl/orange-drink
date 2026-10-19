@@ -13,6 +13,7 @@ struct OrangeDrinkApp: App {
     private let pinnedItems: PinnedItemsController
     @State private var alerts: AlertCenter
     @State private var appearance: NotificationAppearanceModel
+    @State private var menuBarIcon: MenuBarIconModel
     @State private var sections = PanelSections()
 
     init() {
@@ -20,11 +21,13 @@ struct OrangeDrinkApp: App {
         let alerts: AlertCenter
         let appearance: NotificationAppearanceModel
         let deviceSettings: DeviceSettingsModel
+        let menuBarIcon: MenuBarIconModel
         let pills: PillController
         let sounds = AlertSounds()
         do {
             appearance = try NotificationAppearanceModel(defaults: .standard)
             deviceSettings = try DeviceSettingsModel(defaults: .standard)
+            menuBarIcon = try MenuBarIconModel(defaults: .standard)
             pills = PillController(appearance: appearance)
             alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
                 pills.deliver($0, reading: $1)
@@ -34,10 +37,10 @@ struct OrangeDrinkApp: App {
                 sounds.deliver($0)
             })
         } catch {
-            fatalError("stored alert, appearance, or device settings do not decode: \(error)")
+            fatalError("stored alert, appearance, device, or menu bar settings do not decode: \(error)")
         }
         let devices = DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
-            alerts.observe(devices: $0, watching: deviceSettings.settings.alerting)
+            alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
         })
         _devices = State(initialValue: devices)
         pinnedItems = PinnedItemsController()
@@ -45,6 +48,7 @@ struct OrangeDrinkApp: App {
         _deviceSettings = State(initialValue: deviceSettings)
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)
+        _menuBarIcon = State(initialValue: menuBarIcon)
         _battery = State(initialValue: BatteryModel(
             readings: BatteryMonitor.readings(), onReading: { alerts.observe($0) }))
         #if DEBUG
@@ -56,11 +60,11 @@ struct OrangeDrinkApp: App {
         MenuBarExtra {
             PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, sections: sections)
         } label: {
-            StatusItemLabel(state: battery.state)
+            StatusItemLabel(state: battery.state, icon: menuBarIcon)
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, devices: devices, deviceSettings: deviceSettings) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings) }
     }
 }
 
