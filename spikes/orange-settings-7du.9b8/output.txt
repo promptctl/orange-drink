@@ -1,0 +1,56 @@
+en.lproj
+fr.lproj
+
+################ the Mac is set to: en
+process: Bundle.main.preferredLocalizations = ["en", "en"]  Locale.preferredLanguages = ["en"]
+
+== launch   (choice = Match System)
+  SwiftUI, no locale environment : ["Language", "Choose the language the app uses"]
+  SwiftUI, .environment(\.locale): ["Language", "Choose the language the app uses"]
+  status item, NSLocalizedString : Battery
+  status item, lproj lookup      : Battery
+
+== switch to fr, same process   (choice = fr)
+  SwiftUI, no locale environment : ["Language", "Choose the language the app uses"]
+  SwiftUI, .environment(\.locale): ["Langue", "Choisissez la langue de l\'app"]
+  status item, NSLocalizedString : Battery
+  status item, lproj lookup      : Batterie
+
+== switch to en, same process   (choice = en)
+  SwiftUI, no locale environment : ["Language", "Choose the language the app uses"]
+  SwiftUI, .environment(\.locale): ["Language", "Choose the language the app uses"]
+  status item, NSLocalizedString : Battery
+  status item, lproj lookup      : Battery
+
+== Match System   (choice = Match System)
+  SwiftUI, no locale environment : ["Language", "Choose the language the app uses"]
+  SwiftUI, .environment(\.locale): ["Language", "Choose the language the app uses"]
+  status item, NSLocalizedString : Battery
+  status item, lproj lookup      : Battery
+
+################ the Mac is set to: fr
+process: Bundle.main.preferredLocalizations = ["fr", "fr"]  Locale.preferredLanguages = ["fr"]
+
+== launch   (choice = Match System)
+  SwiftUI, no locale environment : ["Langue", "Choisissez la langue de l\'app"]
+  SwiftUI, .environment(\.locale): ["Langue", "Choisissez la langue de l\'app"]
+  status item, NSLocalizedString : Batterie
+  status item, lproj lookup      : Batterie
+
+== switch to fr, same process   (choice = fr)
+  SwiftUI, no locale environment : ["Langue", "Choisissez la langue de l\'app"]
+  SwiftUI, .environment(\.locale): ["Langue", "Choisissez la langue de l\'app"]
+  status item, NSLocalizedString : Batterie
+  status item, lproj lookup      : Batterie
+
+== switch to en, same process   (choice = en)
+  SwiftUI, no locale environment : ["Langue", "Choisissez la langue de l\'app"]
+  SwiftUI, .environment(\.locale): ["Language", "Choose the language the app uses"]
+  status item, NSLocalizedString : Batterie
+  status item, lproj lookup      : Battery
+
+== Match System   (choice = Match System)
+  SwiftUI, no locale environment : ["Langue", "Choisissez la langue de l\'app"]
+  SwiftUI, .environment(\.locale): ["Langue", "Choisissez la langue de l\'app"]
+  status item, NSLocalizedString : Batterie
+  status item, lproj lookup      : Batterie
