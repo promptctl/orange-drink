@@ -1,4 +1,5 @@
 import Foundation
+import IOKit.ps
 import Testing
 @testable import OrangeDrink
 
@@ -88,7 +89,7 @@ import Testing
 
     @Test func aRelaunchGetsTheSameAlertsAndSwitchBack() throws {
         let defaults = Self.suite()
-        let saved = AlertSettings(enabled: false, alerts: [
+        let saved = AlertSettings(enabled: false, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: false), alerts: [
             Alert(kind: .low, threshold: 7, position: .center, glow: true, sound: false),
             Alert(kind: .charged, threshold: 90, position: .top, glow: false, sound: true),
         ])
@@ -114,25 +115,122 @@ import Testing
 
     @Test func aReadingCrossingAThresholdDeliversItsAlertAndAnEditSurvivesARelaunch() throws {
         let defaults = AlertSettingsPersistence.suite()
-        var delivered: [Alert] = []
+        var delivered: [Firing] = []
         let center = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { delivered.append($0) })
         let alert = AlertEngineTests.low(20)
         try center.update { $0.alerts = [alert] }
         center.observe(try Self.reading(21))
         center.observe(try Self.reading(19))
         center.observe(nil)
-        #expect(delivered == [alert])
+        #expect(delivered == [.threshold(alert)])
         #expect(try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _ in }).settings.alerts == [alert])
     }
 
     @Test func nothingIsDeliveredWithTheMasterSwitchOffAndNothingFiresLateWhenItComesOn() throws {
-        var delivered: [Alert] = []
+        var delivered: [Firing] = []
         let center = try AlertCenter(store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()), deliver: { delivered.append($0) })
-        try center.update { $0 = AlertSettings(enabled: false, alerts: [AlertEngineTests.low(20)]) }
+        try center.update { $0 = AlertSettings(enabled: false, power: $0.power, alerts: [AlertEngineTests.low(20)]) }
         center.observe(try Self.reading(21))
         center.observe(try Self.reading(19))
         try center.update { $0.enabled = true }
         center.observe(try Self.reading(18))
         #expect(delivered == [])
+    }
+}
+
+// [LAW:behavior-not-structure] The contract is which firings a run of readings produces and what
+// a relaunch gets back, as the Done-when of the plug, unplug, and temperature alerts states it.
+@MainActor @Suite struct PowerAndTemperatureAlerts {
+    static let both = PowerSourceAlerts(pluggedIn: true, unplugged: true, sound: true)
+
+    static func reading(_ source: [String: Any], celsius: Double = 30.93) throws -> BatteryReading {
+        var registry = BatteryReadingParse.registry
+        registry["Temperature"] = Int((celsius * 100).rounded())
+        return try #require(try BatteryReading(
+            registry: registry, powerSource: source, adapter: BatteryReadingParse.adapter))
+    }
+    static func battery(celsius: Double = 30.93) throws -> BatteryReading {
+        try reading(BatteryReadingParse.discharging(timeToEmpty: 192), celsius: celsius)
+    }
+    static func adapter(celsius: Double = 30.93) throws -> BatteryReading {
+        try reading(BatteryReadingParse.onACNotCharging(charged: false), celsius: celsius)
+    }
+
+    /// Every firing the readings set off, in order, with no threshold alerts configured.
+    static func firings(_ readings: [BatteryReading], power: PowerSourceAlerts = both) -> [Firing] {
+        var engine = AlertEngine()
+        return readings.flatMap { engine.observe($0, alerts: [], power: power) }
+    }
+
+    @Test func pluggingAndUnpluggingEachFireOnce() throws {
+        let (battery, adapter) = (try Self.battery(), try Self.adapter())
+        #expect(Self.firings([battery, adapter, adapter, battery, battery])
+            == [.pluggedIn(sound: true), .unplugged(sound: true)])
+    }
+
+    @Test func eachPowerAlertHasItsOwnSwitchAndTheCardsSound() throws {
+        let (battery, adapter) = (try Self.battery(), try Self.adapter())
+        let run = [battery, adapter, adapter, battery, battery]
+        #expect(Self.firings(run, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: true))
+            == [.unplugged(sound: true)])
+        #expect(Self.firings(run, power: PowerSourceAlerts(pluggedIn: true, unplugged: false, sound: false))
+            == [.pluggedIn(sound: false)])
+    }
+
+    @Test func theMasterSwitchSilencesEveryPowerAndTemperatureAlert() throws {
+        var delivered: [Firing] = []
+        let center = try AlertCenter(
+            store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()), deliver: { delivered.append($0) })
+        try center.update { $0.enabled = false }
+        for reading in [try Self.battery(), try Self.adapter(), try Self.battery(celsius: 41)] { center.observe(reading) }
+        #expect(delivered == [])
+    }
+
+    @Test func theTemperatureWarningFiresOncePerMoveOutOfNormal() throws {
+        let (normal, hot) = (try Self.battery(), try Self.battery(celsius: 41))
+        #expect(Self.firings([normal, hot, hot, normal, hot]) == [.temperatureWarning, .temperatureWarning])
+    }
+
+    @Test func warmIsAsFarAsNormalGoesAndStaysOneWarning() throws {
+        let (normal, warm, hot) = (try Self.battery(), try Self.battery(celsius: 36), try Self.battery(celsius: 41))
+        #expect(Self.firings([normal, warm, hot, warm]) == [.temperatureWarning])
+    }
+
+    @Test func theWarningFiresAtExactlyTheWarmBoundaryAndNotJustBelowIt() throws {
+        let below = try Self.battery(celsius: TemperatureState.warmCelsius - 0.01)
+        let boundary = try Self.battery(celsius: TemperatureState.warmCelsius)
+        #expect(Self.firings([try Self.battery(), below]) == [])
+        #expect(Self.firings([try Self.battery(), boundary]) == [.temperatureWarning])
+    }
+
+    @Test func oneReadingCanSetOffThresholdPowerAndTemperatureTogetherInThatOrder() throws {
+        let alert = AlertEngineTests.low(50)
+        var plugged = BatteryReadingParse.onACNotCharging(charged: false)
+        plugged[kIOPSCurrentCapacityKey] = 49
+        var engine = AlertEngine()
+        _ = engine.observe(try Self.battery(), alerts: [alert], power: Self.both)
+        #expect(engine.observe(try Self.reading(plugged, celsius: 41), alerts: [alert], power: Self.both)
+            == [.threshold(alert), .pluggedIn(sound: true), .temperatureWarning])
+    }
+
+    @Test func theLogWordsEveryFiringByItsFacts() {
+        let alert = Alert(kind: .low, threshold: 5, position: .center, glow: true, sound: false)
+        #expect(Firing.threshold(alert).description == "low 5% position center glow true sound false")
+        #expect(Firing.pluggedIn(sound: true).description == "plugged in sound true")
+        #expect(Firing.unplugged(sound: false).description == "unplugged sound false")
+        #expect(Firing.temperatureWarning.description == "temperature warning")
+    }
+
+    @Test func aMacLaunchedHotIsNotWarnedAboutAtLaunch() throws {
+        #expect(Self.firings([try Self.battery(celsius: 41), try Self.battery(celsius: 42)]) == [])
+    }
+
+    @Test func theSwitchesAndSoundComeBackFromARelaunch() throws {
+        let defaults = AlertSettingsPersistence.suite()
+        let power = PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: false)
+        let center = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _ in })
+        try center.update { $0.power = power }
+        let relaunched = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _ in })
+        #expect(relaunched.settings.power == power)
     }
 }

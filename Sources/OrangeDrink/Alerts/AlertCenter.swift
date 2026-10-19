@@ -13,10 +13,10 @@ import os
     @ObservationIgnored private let store: AlertSettingsStore
     @ObservationIgnored private var engine = AlertEngine()
     /// Where a firing goes to be shown; the pill, glow, and sound subscribe here.
-    @ObservationIgnored private let deliver: @MainActor (Alert) -> Void
+    @ObservationIgnored private let deliver: @MainActor (Firing) -> Void
 
     /// [LAW:no-silent-failure] Stored settings that do not decode fail the launch loudly.
-    init(store: AlertSettingsStore, deliver: @escaping @MainActor (Alert) -> Void) throws {
+    init(store: AlertSettingsStore, deliver: @escaping @MainActor (Firing) -> Void) throws {
         self.store = store
         self.deliver = deliver
         settings = try store.load()
@@ -32,17 +32,16 @@ import os
     /// A Mac with no battery has no level to cross.
     func observe(_ reading: BatteryReading?) {
         guard let reading else { return }
-        let crossed = engine.observe(level: reading.chargePercent, alerts: settings.alerts)
+        let fired = engine.observe(reading, alerts: settings.alerts, power: settings.power)
         // [LAW:dataflow-not-control-flow] The engine tracks crossings with the switch off too, so
         // switching it on at 15% does not fire a stale 20% alert; the switch only empties delivery.
-        let delivered = settings.enabled ? crossed : []
-        for alert in crossed {
+        let delivered = settings.enabled ? fired : []
+        for firing in fired {
             Self.log.info("""
                 alert \(delivered.isEmpty ? "suppressed by master switch" : "fired", privacy: .public): \
-                \(alert.kind.rawValue, privacy: .public) \(alert.threshold)% at \(reading.chargePercent)% \
-                position \(alert.position.rawValue, privacy: .public) glow \(alert.glow) sound \(alert.sound)
+                \(firing.description, privacy: .public) at \(reading.chargePercent)%
                 """)
         }
-        for alert in delivered { deliver(alert) }
+        for firing in delivered { deliver(firing) }
     }
 }

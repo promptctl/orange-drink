@@ -49,8 +49,6 @@ struct BatteryInformation: Equatable {
 
     /// A health fraction under this is a battery Apple would call service-worthy.
     static let serviceHealth = 0.8
-    /// Temperatures from which a battery is called warm and hot, in °C.
-    static let warmCelsius = 35.0, hotCelsius = 40.0
     /// What a MacBook's cell stack sits inside, in volts. Outside it is worth saying so.
     static let normalVolts = 9.0...13.5
 
@@ -63,10 +61,10 @@ struct BatteryInformation: Equatable {
             cycles: "\(reading.cycles.count)/\(reading.cycles.rated)")
 
         let celsius = reading.temperature.converted(to: .celsius).value
-        let (status, caption, condition): (String, String, Condition) = switch celsius {
-        case ..<Self.warmCelsius: ("Normal", "Optimal performance", .good)
-        case ..<Self.hotCelsius: ("Warm", "Charging may slow down", .warning)
-        default: ("Hot", "Let the Mac cool down", .bad)
+        let (status, caption, condition): (String, String, Condition) = switch TemperatureState(reading.temperature) {
+        case .normal: ("Normal", "Optimal performance", .good)
+        case .warm: ("Warm", "Charging may slow down", .warning)
+        case .hot: ("Hot", "Let the Mac cool down", .bad)
         }
         temperature = Temperature(
             celsius: Self.one(celsius, "°C"), fahrenheit: Self.one(reading.temperature.converted(to: .fahrenheit).value, "°F"),
