@@ -16,14 +16,21 @@ import Observation
     }
 
     private(set) var state: State = .unknown
+    /// [LAW:types-are-the-program] exception: set once, in init, but Swift will not let the
+    /// task capture `self` before every stored property holds a value, so it cannot be a let.
+    /// Written on the main actor and read only by deinit, which no other access can overlap;
+    /// an isolated deinit would say so in the type, and needs macOS 15.
+    @ObservationIgnored nonisolated(unsafe) private var subscription: Task<Void, Never>?
 
-    init() {
-        // [LAW:no-ambient-temporal-coupling] The app owns the model for the process lifetime.
-        // The task holds the model weakly, so a model that is dropped (a test's) ends its
-        // stream at the next publish instead of keeping itself alive through it.
-        Task { [weak self] in
+    /// [LAW:composability] The model mirrors whatever readings it is given: the app hands it
+    /// `BatteryMonitor.readings()`, a test a recorded stream with no powerd in the room.
+    init<Readings: AsyncSequence & Sendable>(readings: Readings) where Readings.Element == BatteryReading? {
+        // [LAW:no-ambient-temporal-coupling] The model owns the subscription: it lives exactly
+        // as long as the model does, and a dropped model cancels it before the next publish
+        // rather than letting the task keep the model alive through it.
+        subscription = Task { [weak self] in
             do {
-                for try await reading in BatteryMonitor.readings() {
+                for try await reading in readings {
                     guard let self else { return }
                     self.state = .known(reading)
                 }
@@ -34,4 +41,5 @@ import Observation
         }
     }
 
+    deinit { subscription?.cancel() }
 }

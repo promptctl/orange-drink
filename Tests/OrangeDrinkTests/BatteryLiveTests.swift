@@ -89,17 +89,15 @@ import Testing
     }
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.
-    @Test func appModelHoldsTheCurrentReading() async throws {
-        let model = await BatteryModel()
+    @MainActor @Test func appModelHoldsTheCurrentReading() async throws {
+        let model = BatteryModel(readings: BatteryMonitor.readings())
         let direct = try #require(try IOKitBattery.read())
-        for _ in 0..<20 {
-            if case .known(let reading?) = await model.state {
-                #expect(reading.cycles == direct.cycles)
-                return
-            }
-            try await Task.sleep(for: .milliseconds(100))
+        switch await model.state(once: { if case .unknown = $0 { false } else { true } }) {
+        case .known(let reading?): #expect(reading.cycles == direct.cycles)
+        case .known(nil): Issue.record("the subscription saw no battery where a direct read saw one")
+        case .unavailable(let error): Issue.record("the subscription ended: \(error)")
+        case .unknown: Issue.record("state(once:) returned before the state settled")
         }
-        Issue.record("no reading reached the model within 2 s")
     }
 
     /// The ticket's step on a real Mac, run by `make unplug-check` with a person at the cable.
