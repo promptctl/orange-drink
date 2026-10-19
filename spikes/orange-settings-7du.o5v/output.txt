@@ -1,0 +1,4 @@
+open before press 1: false
+open after press 1: true
+open before press 2: true
+open after press 2: false

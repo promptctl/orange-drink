@@ -70,6 +70,9 @@ struct PinnedItem: Equatable, Identifiable {
 @MainActor final class NSPinnedStatusItem: PinnedStatusItem {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
+    /// Marks a pinned device's button, so the one status item that is not a device's can be told apart.
+    static let buttonID = NSUserInterfaceItemIdentifier("pinned-device")
+
     /// [LAW:one-source-of-truth] The order is the user's list. AppKit keeps a place for every item
     /// by its autosave name, written when the user ⌘-drags it, and that place beats the order the
     /// items are made in. A name per device makes the key known, and removing it from the settings
@@ -82,6 +85,7 @@ struct PinnedItem: Equatable, Identifiable {
             UserDefaults.standard.removeObject(forKey: "NSStatusItem \(key) \(name)")
         }
         item.autosaveName = name
+        item.button?.identifier = Self.buttonID
     }
 
     /// The text the item shows, for the check that it shows the device's level.
