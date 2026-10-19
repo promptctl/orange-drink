@@ -2,7 +2,6 @@ import SwiftUI
 
 /// The panel the status item opens: stacked rounded cards on a dark ground.
 struct PanelView: View {
-    @Environment(\.openWindow) private var openWindow
     let battery: BatteryModel
     let sections: PanelSections
 
@@ -18,18 +17,7 @@ struct PanelView: View {
                             section: .batteryInformation, sections: sections) {
                 if case .known(let reading?) = battery.state { BatteryInformationView(info: BatteryInformation(reading), reading: reading, battery: battery) }
             }
-            Button {
-                // An accessory app is never frontmost on its own; the window would open behind.
-                NSApplication.shared.activate()
-                openWindow(id: SettingsWindow.id)
-            } label: {
-                HStack { Image(systemName: "gearshape"); Text("Settings…"); Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .card()
-            Button("Quit \(appName)") { NSApplication.shared.terminate(nil) }
-                .keyboardShortcut("q")
+            ActionsCard()
         }
         .padding(12)
         .frame(width: 330)
@@ -134,5 +122,71 @@ struct CollapsibleCard<Content: View>: View {
             if sections.isOpen(section) { content() }
         }
         .card()
+    }
+}
+
+/// The actions card: one card of rows under hairlines, in `PanelAction` order.
+private struct ActionsCard: View {
+    @Environment(\.openWindow) private var openWindow
+    @State private var lowPowerMode = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(PanelAction.allCases.enumerated()), id: \.element) { index, action in
+                if index > 0 { Divider().padding(.leading, 40) }
+                row(action)
+            }
+        }
+        .card()
+    }
+
+    @ViewBuilder private func row(_ action: PanelAction) -> some View {
+        switch action {
+        case .settings:
+            ActionRow(action: action) {
+                // An accessory app is never frontmost on its own; the window would open behind.
+                NSApplication.shared.activate()
+                openWindow(id: SettingsWindow.id)
+            } trailing: { Chevron() }
+        case .batterySettings:
+            ActionRow(action: action) { NSWorkspace.shared.open(PanelAction.batteryPane) } trailing: { Chevron() }
+        case .lowPowerMode:
+            // A placeholder until the admin helper epic can toggle it (orange-admin-helper-b2q.0ld).
+            ActionRow(action: action, run: nil) { Toggle("Low Power Mode", isOn: $lowPowerMode).labelsHidden().toggleStyle(.switch).disabled(true) }
+        case .checkForUpdates:
+            // A placeholder until the update check exists (orange-distribution-kg2.l9x).
+            ActionRow(action: action, run: nil) { EmptyView() }
+        case .quit:
+            ActionRow(action: action, tint: .red) { NSApplication.shared.terminate(nil) } trailing: {
+                Text(PanelAction.versionText(of: .main)).font(.caption.monospaced()).foregroundStyle(.secondary)
+            }
+            .keyboardShortcut("q")
+        }
+    }
+}
+
+private struct Chevron: View {
+    var body: some View { Image(systemName: "chevron.right").foregroundStyle(.secondary) }
+}
+
+private struct ActionRow<Trailing: View>: View {
+    let action: PanelAction
+    var tint: Color = .primary
+    let run: (() -> Void)?
+    @ViewBuilder let trailing: () -> Trailing
+
+    var body: some View {
+        Button { run?() } label: {
+            HStack(spacing: 10) {
+                Image(systemName: action.symbol).foregroundStyle(tint).frame(width: 20)
+                Text(action.title(appName: appName))
+                Spacer()
+                trailing()
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(run == nil)
     }
 }
