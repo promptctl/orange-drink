@@ -15,7 +15,7 @@ struct PanelView: View {
             }
             CollapsibleCard(title: "Battery Information", symbol: "info.circle.fill", symbolColor: .blue,
                             section: .batteryInformation, sections: sections) {
-                EmptyView()
+                if case .known(let reading?) = state { BatteryInformationView(info: BatteryInformation(reading)) }
             }
             Button("Quit \(appName)") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
