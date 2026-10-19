@@ -114,6 +114,7 @@ struct MenuBarScreen: View {
 /// choices exactly as the status item draws them, and the two tips for finding and clearing icons.
 struct MenuBarPreview: View {
     let config: MenuBarIconConfig
+    @Environment(\.appLanguage) private var language
 
     /// The sample the preview shows: 75% and charging with 1:22 to go, so every Display value has
     /// something to print and the Status colors switch has a colour to turn on and off.
@@ -153,7 +154,7 @@ struct MenuBarPreview: View {
         .environment(\.colorScheme, .dark) // the mockup is a fixed dark scene, whatever the app looks like
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Menu bar preview"))
+        .accessibilityLabel(("Menu bar preview" as Phrase).text(in: language))
     }
 
     static let overflowHelp: Phrase = "If you can't find the icon, your menu bar may be full: macOS hides the icons that don't fit, or that land behind the notch. Quit or move other menu bar apps to make room, or hold ⌘ and drag icons you don't need out of the bar."
