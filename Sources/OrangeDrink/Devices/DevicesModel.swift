@@ -7,7 +7,7 @@ import Observation
 /// this and never read IOBluetooth themselves.
 @Observable @MainActor final class DevicesModel {
     private(set) var list = DeviceList()
-    /// Set when the stream ends with an error: no event will follow, and the list is emptied rather than left stale.
+    /// Set when the stream ends, by error or by finishing: no event will follow, and the list is emptied rather than left stale.
     private(set) var failure: (any Error)?
     /// [LAW:types-are-the-program] exception: see BatteryModel.subscription; same reason.
     @ObservationIgnored nonisolated(unsafe) private var subscription: Task<Void, Never>?
@@ -16,18 +16,26 @@ import Observation
     /// `BluetoothDevices.events()`, a test a recorded stream with no Bluetooth in the room.
     init<Events: AsyncSequence & Sendable>(events: Events) where Events.Element == DeviceEvent {
         subscription = Task { [weak self] in
+            let ending: any Error
             do {
                 for try await event in events {
                     guard let self else { return }
                     self.list.apply(event)
                 }
+                ending = DevicesModelError.streamFinished
             } catch {
-                BluetoothDevices.log.error("device subscription ended: \(String(describing: error), privacy: .public)")
-                self?.list = DeviceList()
-                self?.failure = error
+                ending = error
             }
+            BluetoothDevices.log.error("device subscription ended: \(String(describing: ending), privacy: .public)")
+            self?.list = DeviceList()
+            self?.failure = ending
         }
     }
 
     deinit { subscription?.cancel() }
+}
+
+enum DevicesModelError: Error, Equatable {
+    /// The event stream finished; a live device source never does.
+    case streamFinished
 }

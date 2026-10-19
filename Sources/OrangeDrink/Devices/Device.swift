@@ -34,12 +34,13 @@ enum DeviceLevels: Equatable, Sendable {
     case single(BatteryLevel)
     case earbuds(left: BatteryLevel?, right: BatteryLevel?, case: BatteryLevel?)
 
-    /// The level a one-number display shows: the one that runs out first.
+    /// The level a one-number display shows: the earbud that runs out first; the case only when no
+    /// earbud reports, because the case does not power playback.
     var lowest: BatteryLevel? {
         switch self {
         case .none: nil
         case .single(let level): level
-        case .earbuds(let left, let right, let `case`): [left, right, `case`].compactMap { $0 }.min { $0.percent < $1.percent }
+        case .earbuds(let left, let right, let `case`): [left, right].compactMap { $0 }.min { $0.percent < $1.percent } ?? `case`
         }
     }
 }
@@ -73,7 +74,7 @@ struct DeviceList: Equatable, Sendable {
         switch event {
         case .reported(let device): byID[device.id] = device
         case .gone(let id): byID[id] = nil
-        case .swept(let devices): byID = Dictionary(uniqueKeysWithValues: devices.map { ($0.id, $0) })
+        case .swept(let devices): byID = Dictionary(devices.map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
         }
     }
 

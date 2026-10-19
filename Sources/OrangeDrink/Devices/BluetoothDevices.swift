@@ -59,10 +59,16 @@ enum BluetoothDevices {
             var connect: IOBluetoothUserNotification?
             /// Keyed by address: registering for a connect replays it for devices already connected.
             var disconnects: [String: IOBluetoothUserNotification] = [:]
-            /// A settle sweep can outlive the stream; once stopped, nothing registers again.
+            /// A settle sweep can outlive the stream; once stopped, nothing registers or sweeps again.
             var stopped = false
+            /// One settle sweep serves every connect that arrives before it runs.
+            var settlePending = false
         }
         private let registrations = OSAllocatedUnfairLock(uncheckedState: Registrations())
+        /// [LAW:no-ambient-temporal-coupling] A sweep and a connect both read IOBluetooth and then
+        /// yield, from different threads. Taking this around each whole read-register-yield keeps their
+        /// events in the order the reads happened, and makes a registration check-then-set atomic.
+        private let serial = NSLock()
 
         private let timekeeper: any Timekeeper
 
@@ -92,9 +98,14 @@ enum BluetoothDevices {
 
         @objc private func connected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
             observe(device)
-            // The stream's end makes this sweep's yield a no-op, so it needs no cancelling.
+            let schedule = registrations.withLockUnchecked { state in
+                defer { state.settlePending = true }
+                return !state.settlePending && !state.stopped
+            }
+            guard schedule else { return }
             Task { [timekeeper] in
                 try? await timekeeper.sleep(for: BluetoothDevices.settleInterval)
+                registrations.withLockUnchecked { $0.settlePending = false }
                 sweep()
             }
         }
@@ -107,6 +118,9 @@ enum BluetoothDevices {
         }
 
         func sweep() {
+            serial.lock()
+            defer { serial.unlock() }
+            guard !registrations.withLockUnchecked({ $0.stopped }) else { return }
             let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
             let devices = connected.compactMap(Device.init)
             connected.forEach(register)
@@ -123,6 +137,8 @@ enum BluetoothDevices {
         }
 
         private func observe(_ device: IOBluetoothDevice) {
+            serial.lock()
+            defer { serial.unlock() }
             register(device)
             guard let reading = Device(device) else { return }
             BluetoothDevices.log.info("device reported: \(String(describing: reading), privacy: .private)")

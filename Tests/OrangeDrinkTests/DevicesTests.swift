@@ -46,6 +46,13 @@ struct DeviceListTests {
         #expect(list.devices == [Self.pods])
     }
 
+    @Test func aSweepNamingADeviceTwiceKeepsTheLaterOne() {
+        var list = DeviceList()
+        let renamed = Device(id: Self.mouse.id, name: "Renamed", kind: .accessory, levels: .none)
+        list.apply(.swept([Self.mouse, renamed]))
+        #expect(list.devices == [renamed])
+    }
+
     @Test func aReplayedReportChangesNothing() {
         var list = DeviceList()
         list.apply(.reported(Self.mouse))
@@ -55,7 +62,10 @@ struct DeviceListTests {
     }
 
     @Test func lowestIsTheLevelThatRunsOutFirst() {
+        // The case at 80% and a bud at 50%: the bud runs out first. With no bud reporting, the case is all there is.
         #expect(Self.pods.levels.lowest == BatteryLevel(percent: 50, approximate: true))
+        #expect(DeviceLevels.earbuds(left: nil, right: nil, case: BatteryLevel(percent: 10, approximate: false)).lowest == BatteryLevel(percent: 10, approximate: false))
+        #expect(DeviceLevels.earbuds(left: BatteryLevel(percent: 60, approximate: false), right: nil, case: BatteryLevel(percent: 10, approximate: false)).lowest == BatteryLevel(percent: 60, approximate: false))
         #expect(Self.mouse.levels.lowest == BatteryLevel(percent: 37, approximate: false))
         #expect(DeviceLevels.none.lowest == nil)
     }
@@ -90,6 +100,22 @@ struct DeviceListTests {
         #expect(await list(of: model) { $0.devices.count == 2 }.devices == [DeviceListTests.pods, DeviceListTests.mouse])
         send.yield(.gone(DeviceListTests.mouse.id))
         #expect(await list(of: model) { $0.devices.count == 1 }.devices == [DeviceListTests.pods])
+    }
+
+    @Test func aFinishedStreamIsAFailureNotAFrozenList() async {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let model = DevicesModel(events: events)
+        send.yield(.reported(DeviceListTests.mouse))
+        _ = await list(of: model) { $0.devices.count == 1 }
+        send.finish()
+        let (changes, change) = AsyncStream.makeStream(of: Void.self)
+        var next = changes.makeAsyncIterator()
+        while model.failure == nil {
+            withObservationTracking { _ = model.failure } onChange: { change.yield() }
+            guard await next.next() != nil else { break }
+        }
+        #expect(model.failure as? DevicesModelError == .streamFinished)
+        #expect(model.list.devices.isEmpty)
     }
 
     @Test func aFailedSubscriptionIsOnTheModel() async {
