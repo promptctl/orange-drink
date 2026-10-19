@@ -108,6 +108,7 @@ import Testing
         func said(_ code: String, _ phrases: [Phrase?]) -> [String] { phrases.compactMap { $0?.resolve(in: AppLanguage(code: code), bundle: app) } }
         #expect(said("fr", [content.headline, content.subline, charged.headline, short.subline])
             == ["14 % restant", "3 h 12 min avant épuisement", "80 % chargé", "9 min avant épuisement"])
+        #expect(said("fr", [PillContent.sample.headline, PillContent.sample.subline]) == ["15 % restant", "9 min avant épuisement"])
         #expect(said("es", [content.headline, content.subline, charged.headline, short.subline])
             == ["14 % restante", "3 h 12 min hasta agotarse", "80 % cargado", "9 min hasta agotarse"])
     }

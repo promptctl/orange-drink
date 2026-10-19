@@ -90,7 +90,7 @@ import Testing
         phrases += try [Alert.Kind.low, .charged].map { PillContent(pillAlert($0), reading: try PillTests.reading(19)).headline }
         let estimates = try [9, 192].map { PillContent(pillAlert(.low), reading: try PillTests.reading(19, minutes: $0)) }
             + [PillContent(pillAlert(.charged), reading: try MenuBarIconDrawing.charging(19))]
-        phrases += estimates.compactMap { $0.subline }
+        phrases += estimates.compactMap { $0.subline } + [PillContent.sample.headline, PillContent.sample.subline!]
         phrases += ["Close", "Plugged In", "On Battery"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
         phrases += [true, false].flatMap { on in

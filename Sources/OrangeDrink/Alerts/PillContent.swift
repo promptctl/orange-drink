@@ -39,7 +39,7 @@ struct PillContent: Equatable, Sendable {
     init(_ alert: Alert, reading: BatteryReading) {
         let percent = reading.chargePercent
         switch alert.kind {
-        case .low: headline = "\(percent)% Remaining"
+        case .low: headline = Self.remaining(percent)
         case .charged: headline = "\(percent)% Charged"
         }
         subline = Self.subline(reading)
@@ -65,13 +65,24 @@ struct PillContent: Equatable, Sendable {
                     progress: Double(reading.chargePercent) / 100, position: .top, glow: false)
     }
 
+    // [LAW:one-source-of-truth] The pill's sentences are said here once; the real pill and the
+    // General screen's sample both build theirs from these, so the sample is translated as the pill is.
+    static func remaining(_ percent: Int) -> Phrase { "\(percent)% Remaining" }
+    static func untilEmpty(_ amount: Phrase) -> Phrase { "\(amount) until empty" }
+    static func untilFull(_ amount: Phrase) -> Phrase { "\(amount) until full" }
+
+    /// The sample alert of design-docs/general.md: 15% remaining with 9 minutes to go.
+    static let sample = PillContent(
+        headline: remaining(15), subline: untilEmpty("\(9)min"), severity: .orange, progress: 0.15,
+        position: .top, glow: false)
+
     private static func subline(_ reading: BatteryReading) -> Phrase? {
         guard let estimate = reading.power.estimate else { return nil }
         let minutes = estimate.wholeMinutes
         let amount: Phrase = minutes < 60 ? "\(minutes)min" : estimate.hoursAndMinutes
         switch reading.power {
-        case .battery: return "\(amount) until empty"
-        case .adapter: return "\(amount) until full"
+        case .battery: return untilEmpty(amount)
+        case .adapter: return untilFull(amount)
         }
     }
 }
