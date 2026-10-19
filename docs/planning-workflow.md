@@ -10,26 +10,26 @@ The setup is also meant as a worked example of lit workflows. The [last section]
 flowchart TB
     subgraph C["Campaign: plan-campaign.md (temporary)"]
         direction TB
-        C1{"Any epic still<br/>labelled decompose?"}
+        C1{"Any epic still<br/>labelled needs-decomposition?"}
         C1 -- yes --> D
         C1 -- no --> CEnd["Delete plan-campaign.md,<br/>commit, suggest a groom"]
     end
 
     subgraph D["Decompose an epic: decompose.md"]
         direction TB
-        D1["File one rough child per<br/>PR-sized outcome, label refine"]
+        D1["File one rough child per<br/>PR-sized outcome, label needs-refinement"]
         D2["Unknown method? File a spike first"]
         D3["Comment: scope item to child ids"]
         D4(["Human approves the breakdown"])
         D1 --> D2 --> D3 --> D4
     end
-    D4 -- "remove decompose" --> C1
+    D4 -- "remove needs-decomposition" --> C1
 
     CEnd --> N["lit next"]
 
     subgraph B["Build loop"]
         direction TB
-        N --> R{"Pulled ticket<br/>labelled refine?"}
+        N --> R{"Pulled ticket<br/>labelled needs-refinement?"}
         R -- yes --> RF
         R -- no --> W["Build it: branch, PR, review cycle"]
         W --> Done["lit done"]
@@ -38,18 +38,18 @@ flowchart TB
     subgraph RF["Refine a ticket: refine.md"]
         direction TB
         RF1{"Fits in one PR?"}
-        RF1 -- no --> Split["Replaced by sibling pieces,<br/>each labelled refine;<br/>closed as superseded"]
+        RF1 -- no --> Split["Replaced by sibling pieces,<br/>each labelled needs-refinement;<br/>closed as superseded"]
         RF1 -- yes --> RF2{"Open question<br/>about how?"}
         RF2 -- yes --> Spike["File a spike ranked above it;<br/>description says Waits on spike"]
-        RF2 -- no --> Ready["All six lines hold:<br/>remove refine"]
+        RF2 -- no --> Ready["All six lines hold:<br/>remove needs-refinement"]
     end
     Split -- "pieces reach the top later" --> N
     Spike --> N
     Ready --> W
 
-    Done --> DN["done.md: did this make a refined<br/>ticket wrong? Re-label it refine"]
+    Done --> DN["done.md: did this make a refined<br/>ticket wrong? Re-label it needs-refinement"]
     DN --> SF{"Was it a spike?"}
-    SF -- yes --> SFin["spike-finish.md also runs: write the finding<br/>into waiting tickets, re-label refine"]
+    SF -- yes --> SFin["spike-finish.md also runs: write the finding<br/>into waiting tickets, re-label needs-refinement"]
     SF -- no --> N
     SFin --> N
     SFin -. "finding breaks the plan" .-> H(["Human decides"])
@@ -64,18 +64,18 @@ A label is a ticket's position in the process. A ticket follows the workflow whi
 ```mermaid
 stateDiagram-v2
     direction LR
-    [*] --> decompose: epic filed
-    decompose --> [*]: children filed, approved
+    [*] --> needs_decomposition: epic filed
+    needs_decomposition --> [*]: children filed, approved
 
-    [*] --> refine: child filed by decompose
-    refine --> ready: all six lines hold
-    refine --> split: too big for one PR
-    split --> refine: each piece starts here
-    refine --> waiting: open question
-    waiting --> refine: spike closes, finding lands
+    [*] --> needs_refinement: child filed by decompose
+    needs_refinement --> ready: all six lines hold
+    needs_refinement --> split: too big for one PR
+    split --> needs_refinement: each piece starts here
+    needs_refinement --> waiting: open question
+    waiting --> needs_refinement: spike closes, finding lands
     ready --> building: lit start
     building --> closed: lit done
-    ready --> refine: later work proved it wrong
+    ready --> needs_refinement: later work proved it wrong
     closed --> [*]
 
     note right of ready
@@ -84,24 +84,24 @@ stateDiagram-v2
     end note
 ```
 
-A spike is a ticket with both `spike` and `refine`. It goes through the same path, gets its own guidance while it's worked (`spike-start.md`), and triggers `spike-finish.md` when it closes.
+A spike is a ticket with both `spike` and `needs-refinement`. It goes through the same path, gets its own guidance while it's worked (`spike-start.md`), and triggers `spike-finish.md` when it closes.
 
 ## What each file does
 
 | File | Fires when | Stop condition the agent checks |
 | --- | --- | --- |
-| `plan-campaign.md` | Any backlog view, or `lit next` when it hands out a ticket | `lit ls --labels decompose --status open` is empty. The agent then deletes the file. |
-| `decompose.md` | An epic labelled `decompose` is shown or started | Every Scope item maps to a child in a comment on the epic, and the user approved the breakdown. |
-| `refine.md` | A ticket labelled `refine` is shown, pulled, or started | Six lines hold: what and why, a runnable "Done when", a doc reference, dependencies wired, fits one PR, no open question. |
+| `plan-campaign.md` | Any backlog view, or `lit next` when it hands out a ticket | `lit ls --labels needs-decomposition --status open` is empty. The agent then deletes the file. |
+| `decompose.md` | An epic labelled `needs-decomposition` is shown or started | Every Scope item maps to a child in a comment on the epic, and the user approved the breakdown. |
+| `refine.md` | A ticket labelled `needs-refinement` is shown, pulled, or started | Six lines hold: what and why, a runnable "Done when", a doc reference, dependencies wired, fits one PR, no open question. |
 | `spike-start.md` | A `spike` ticket is started | A comment answers the question, with pasted prototype output as evidence. |
 | `spike-finish.md` | A `spike` ticket closes, by `lit done` or `lit close` | No open ticket still says "Waits on" that spike. |
-| `done.md` | A ticket is finished with `lit done` | Tickets the work made wrong carry `refine` again; new work is filed as follow-ups. |
+| `done.md` | A ticket is finished with `lit done` | Tickets the work made wrong carry `needs-refinement` again; new work is filed as follow-ups. |
 
 ## How the workflow files are built
 
 lit workflows only add text to a command's output. They don't block, gate, loop, or keep state. Everything here is built from three properties of that mechanism.
 
-**Labels are state.** A definition with `labels: ["refine"]` fires only for tickets carrying `refine`, so adding the label starts the workflow for that ticket and removing it stops it. No per-ticket state lives anywhere except the label. Running `lit ls --labels refine` shows every ticket currently in that cycle.
+**Labels are state.** A definition with `labels: ["needs-refinement"]` fires only for tickets carrying `needs-refinement`, so adding the label starts the workflow for that ticket and removing it stops it. No per-ticket state lives anywhere except the label. Running `lit ls --labels needs-refinement` shows every ticket currently in that cycle.
 
 **Pin the events, not just the label.** A definition bound only to a label fires on every event touching the ticket: backlog listings, comments, even the `lit label add` that applied it. Each definition here also lists `events:`, the moments when the agent is actually working on that ticket: `show_ticket`, `next_pulled`, `work_started`. The guidance then reaches the agent doing the work, not the one applying the label.
 
