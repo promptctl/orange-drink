@@ -17,5 +17,9 @@ struct OrangeDrinkApp: App {
             StatusItemLabel(state: battery.state, config: MenuBarIconConfig())
         }
         .menuBarExtraStyle(.window)
+
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView() }
     }
 }
+
+enum SettingsWindow { static let id = "settings" }

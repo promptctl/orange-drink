@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The panel the status item opens: stacked rounded cards on a dark ground.
 struct PanelView: View {
+    @Environment(\.openWindow) private var openWindow
     let battery: BatteryModel
     let sections: PanelSections
 
@@ -17,6 +18,16 @@ struct PanelView: View {
                             section: .batteryInformation, sections: sections) {
                 if case .known(let reading?) = battery.state { BatteryInformationView(info: BatteryInformation(reading), reading: reading, battery: battery) }
             }
+            Button {
+                // An accessory app is never frontmost on its own; the window would open behind.
+                NSApplication.shared.activate()
+                openWindow(id: SettingsWindow.id)
+            } label: {
+                HStack { Image(systemName: "gearshape"); Text("Settings…"); Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .card()
             Button("Quit \(appName)") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
         }
