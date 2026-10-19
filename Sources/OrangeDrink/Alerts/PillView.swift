@@ -72,7 +72,7 @@ struct PillView: View {
         }
         // The pill is laid out at the standard size and scaled whole, so every part keeps its proportion.
         .scaleEffect(scale)
-        .frame(width: PillPlacement.size.width * scale, height: PillPlacement.size.height * scale)
+        .frame(width: PillPlacement.size(scale: scale).width, height: PillPlacement.size(scale: scale).height)
     }
 }
 

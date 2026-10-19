@@ -46,12 +46,14 @@ struct NotificationAppearance: Codable, Equatable, Sendable {
 ///
 /// [LAW:one-source-of-truth] `appearance` is the live copy; this is the only writer.
 @Observable @MainActor final class NotificationAppearanceModel {
+    static let storageKey = "notification.appearance"
+
     private(set) var appearance: NotificationAppearance
     @ObservationIgnored private let store: DefaultsStore<NotificationAppearance>
 
     /// [LAW:no-silent-failure] Stored appearance that does not decode fails the launch loudly.
     init(defaults: UserDefaults) throws {
-        store = DefaultsStore(key: "notification.appearance", initial: NotificationAppearance(), defaults: defaults)
+        store = DefaultsStore(key: Self.storageKey, initial: NotificationAppearance(), defaults: defaults)
         appearance = try store.load()
     }
 

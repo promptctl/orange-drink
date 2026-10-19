@@ -8,6 +8,7 @@ struct DefaultsStore<Value: Codable & Sendable>: Sendable {
     let key: String
     /// What a first launch, with nothing stored, starts from.
     let initial: Value
+    // UserDefaults is documented thread-safe but not declared Sendable.
     nonisolated(unsafe) let defaults: UserDefaults
 
     /// [LAW:parse-dont-validate] The one place stored bytes become the value. Nothing stored is a

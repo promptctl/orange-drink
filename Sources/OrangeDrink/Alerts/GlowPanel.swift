@@ -20,7 +20,10 @@ struct GlowView: View {
 
 /// A borderless panel over a whole screen that lets every click through to what is beneath.
 final class GlowPanel: OverlayPanel {
+    let strength: NotificationAppearance.GlowStrength
+
     init(severity: Alert.Severity, strength: NotificationAppearance.GlowStrength, screen: NSScreen) {
+        self.strength = strength
         super.init(frame: screen.frame, level: .glow, content: GlowView(severity: severity, strength: strength))
         ignoresMouseEvents = true
         hasShadow = false

@@ -26,7 +26,7 @@ struct OrangeDrinkApp: App {
                 sounds.deliver($0)
             })
         } catch {
-            fatalError("stored alert settings do not decode: \(error)")
+            fatalError("stored alert or appearance settings do not decode: \(error)")
         }
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)

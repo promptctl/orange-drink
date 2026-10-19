@@ -28,7 +28,7 @@ import Testing
         #expect(pills.shown == PillContent(
             headline: "14% Remaining", subline: "9min until empty", severity: .orange, progress: 0.14, position: .top, glow: false))
         let screen = try #require(NSScreen.main ?? NSScreen.screens.first).visibleFrame
-        #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen))
+        #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen, scale: 1))
         #expect(try #require(pills.shownFrame).maxY > screen.midY)
     }
 

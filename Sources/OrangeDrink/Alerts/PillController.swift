@@ -8,8 +8,13 @@ enum PillPlacement {
     nonisolated static let size = CGSize(width: 280, height: 64)
     private static let topGap: CGFloat = 12
 
-    static func frame(_ position: Alert.Position, on screen: CGRect, scale: Double = 1) -> CGRect {
-        let size = CGSize(width: Self.size.width * scale, height: Self.size.height * scale)
+    /// The pill's size at a multiple of the standard: the window and the drawn pill both read it.
+    static func size(scale: Double) -> CGSize {
+        CGSize(width: size.width * scale, height: size.height * scale)
+    }
+
+    static func frame(_ position: Alert.Position, on screen: CGRect, scale: Double) -> CGRect {
+        let size = Self.size(scale: scale)
         let x = screen.midX - size.width / 2
         switch position {
         case .center: return CGRect(x: x, y: screen.midY - size.height / 2, width: size.width, height: size.height)
@@ -54,6 +59,8 @@ private final class PillPanel: OverlayPanel {
     var shownFrame: CGRect? { up?.panel.frame }
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
     var shownGlowFrame: CGRect? { up?.glow?.frame }
+    /// The strength the shown glow was built at.
+    var shownGlowStrength: NotificationAppearance.GlowStrength? { up?.glow?.strength }
 
     /// The sink an `AlertCenter` delivers to. The temperature warning has no pill so far.
     func deliver(_ firing: Firing, reading: BatteryReading) {

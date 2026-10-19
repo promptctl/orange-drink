@@ -8,11 +8,12 @@ import Testing
 @MainActor @Suite(.serialized) struct NotificationAppearanceTests {
     static let alert = Alert(kind: .low, threshold: 15, position: .top, glow: true, sound: false)
 
-    static func shownPill(_ appearance: NotificationAppearanceModel) throws -> (size: CGSize, glowReach: Double?) {
+    static func shownPill(_ appearance: NotificationAppearanceModel) throws
+        -> (size: CGSize, glow: NotificationAppearance.GlowStrength?) {
         let pills = PillController(appearance: appearance)
         defer { pills.close() }
         pills.deliver(.threshold(alert), reading: try PillTests.reading(14))
-        return (try #require(pills.shownFrame).size, pills.shownGlowFrame == nil ? nil : appearance.appearance.glowStrength.reach)
+        return (try #require(pills.shownFrame).size, pills.shownGlowStrength)
     }
 
     @Test func aBubbleSizeAwayFromDefaultMakesTheNextPillADifferentSize() throws {
@@ -31,9 +32,11 @@ import Testing
 
     @Test func aGlowStrengthChangesHowFarTheGlowReaches() throws {
         let appearance = NotificationAppearanceModel.scratch()
-        let standard = try #require(try Self.shownPill(appearance).glowReach)
+        let standard = try #require(try Self.shownPill(appearance).glow)
+        #expect(standard == .default)
         try appearance.update { $0.glowStrength = .strong }
-        #expect(try #require(try Self.shownPill(appearance).glowReach) > standard)
+        let strong = try #require(try Self.shownPill(appearance).glow)
+        #expect(strong == .strong && strong.reach > standard.reach)
         #expect(NotificationAppearance.GlowStrength.strong.opacity > NotificationAppearance.GlowStrength.default.opacity)
     }
 
@@ -47,7 +50,7 @@ import Testing
 
     @Test func storedAppearanceThatDoesNotDecodeFailsLoudly() {
         let defaults = AlertSettingsPersistence.suite()
-        defaults.set(Data("not json".utf8), forKey: "notification.appearance")
+        defaults.set(Data("not json".utf8), forKey: NotificationAppearanceModel.storageKey)
         #expect(throws: DecodingError.self) { try NotificationAppearanceModel(defaults: defaults) }
     }
 }
