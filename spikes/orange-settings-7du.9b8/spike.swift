@@ -5,8 +5,8 @@
 //   hosted SwiftUI  a live NSHostingView in a window never shown (the settings window and the MenuBarExtra
 //                   panel are both SwiftUI hosting views), drawn offscreen and read back by OCR
 //   status item     an NSStatusItem whose title the app sets from code
-// Args: `mac=fr` launches with the Mac's language forced to fr; no arg is the real Mac. Note that a
-// command-line -AppleLanguages sits in the argument domain, which no runtime write can outrank.
+// With no arguments the process runs in the real Mac's language. `-AppleLanguages "(fr)"` forces the
+// Mac's language at launch; it sits in the argument domain, which no runtime write can outrank.
 import AppKit
 import SwiftUI
 import Vision
@@ -96,8 +96,8 @@ func localized(_ key: String, language: String?) -> String {
         print("  hosted SwiftUI, .environment(\\.locale) : \(drawn(withLocale))")
         print("  status item, set once at launch        : \(setOnce.button!.title)")
         print("  fresh NSLocalizedString call           : \(NSLocalizedString("Battery", comment: ""))")
-        print("  fresh lproj lookup (set on the item)   : \(localized("Battery", language: choice.language))")
         item.button?.title = localized("Battery", language: choice.language)
+        print("  status item, re-set from .lproj lookup : \(item.button!.title)")
     }
     show("launch")
     choice.language = "fr"; UserDefaults.standard.set(["fr"], forKey: "AppleLanguages")

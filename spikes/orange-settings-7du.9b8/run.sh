@@ -21,4 +21,5 @@ swiftc -parse-as-library -o $out/Contents/MacOS/spike spike.swift
   $out/Contents/MacOS/spike
   echo; echo "################ the Mac forced to fr at launch (command-line -AppleLanguages)"
   $out/Contents/MacOS/spike -AppleLanguages "(fr)" -AppleLocale "fr_FR"
-} 2>&1 | tee output.txt
+} > output.txt 2>&1   # set -e: a crashing run stops here, not after a half-written record
+cat output.txt
