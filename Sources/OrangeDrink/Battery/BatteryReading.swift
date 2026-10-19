@@ -47,12 +47,14 @@ struct Cycles: Equatable, Sendable {
 }
 
 enum BatteryReadError: Error, Equatable {
-    /// The source lacked the key, or held a value of another type.
-    case missing(key: String, source: String)
+    /// The source lacked the key, or held a value of another type or outside the key's domain.
+    case invalid(key: String, source: String)
     /// The smart-battery registry entry's properties could not be copied.
     case registry(status: kern_return_t)
     /// powerd returned nothing from the named IOPowerSources call.
     case powerSources(call: String)
+    /// powerd's list of power sources holds no internal battery.
+    case noInternalBatterySource
 }
 
 extension BatteryReading {
@@ -60,7 +62,11 @@ extension BatteryReading {
     /// registry entry holds the hardware facts; the power-source description and adapter
     /// details are the system's own view of state, estimates, and wattage, which is what
     /// pmset shows. Each fact has exactly one source.
-    init(registry: [String: Any], powerSource: [String: Any], adapter: [String: Any]) throws {
+    ///
+    /// nil when powerd says no battery is present: a laptop whose battery is gone still has
+    /// the registry entry and a power source, published with "Is Present" false.
+    init?(registry: [String: Any], powerSource: [String: Any], adapter: [String: Any]) throws {
+        guard try field(kIOPSIsPresentKey, in: powerSource, "power source") else { return nil }
         chargePercent = try field(kIOPSCurrentCapacityKey, in: powerSource, "power source")
         power = try PowerSource(powerSource: powerSource, adapter: adapter)
         // The registry holds integers: mAh, hundredths of a degree, millivolts, milliamperes.
@@ -87,7 +93,7 @@ private extension PowerSource {
             let watts: Int? = try optionalField(kIOPSPowerAdapterWattsKey, in: adapter, "adapter")
             self = .adapter(watts.map { .init(value: Double($0), unit: .watts) }, try Charging(powerSource: powerSource))
         default:
-            throw BatteryReadError.missing(key: kIOPSPowerSourceStateKey, source: "power source")
+            throw BatteryReadError.invalid(key: kIOPSPowerSourceStateKey, source: "power source")
         }
     }
 }
@@ -113,7 +119,7 @@ private func estimate(_ minutes: Int) -> Duration? {
 
 private func field<T>(_ key: String, in dictionary: [String: Any], _ source: String) throws -> T {
     guard let value: T = try optionalField(key, in: dictionary, source) else {
-        throw BatteryReadError.missing(key: key, source: source)
+        throw BatteryReadError.invalid(key: key, source: source)
     }
     return value
 }
@@ -121,6 +127,6 @@ private func field<T>(_ key: String, in dictionary: [String: Any], _ source: Str
 /// nil when the key is absent; a value present under the key but of another type is an error.
 private func optionalField<T>(_ key: String, in dictionary: [String: Any], _ source: String) throws -> T? {
     guard let raw = dictionary[key] else { return nil }
-    guard let value = raw as? T else { throw BatteryReadError.missing(key: key, source: source) }
+    guard let value = raw as? T else { throw BatteryReadError.invalid(key: key, source: source) }
     return value
 }

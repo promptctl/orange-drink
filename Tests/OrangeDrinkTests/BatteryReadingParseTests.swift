@@ -4,9 +4,10 @@ import Testing
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is the reading each IOKit shape maps to.
-// The power-source fixtures are the three shapes powerd publishes (PowerManagement,
+// The power-source fixtures are the four shapes powerd publishes (PowerManagement,
 // BatteryTimeRemaining.m, packageKernelPowerSource): "Is Charged" exists only on AC while not
-// charging, and the estimate that does not apply is 0. Values are this Mac's, on AC held at 80%.
+// charging, a battery that is not present has neither estimate nor "Is Charged", and the
+// estimate that does not apply is 0. Values are this Mac's, on AC held at 80%.
 @Suite struct BatteryReadingParse {
     static var registry: [String: Any] { [
         "AppleRawCurrentCapacity": 4646, "AppleRawMaxCapacity": 5934, "DesignCapacity": 6249,
@@ -17,23 +18,27 @@ import Testing
     static var eightySixWatts: Measurement<UnitPower> { .init(value: 86, unit: .watts) }
 
     static func onACNotCharging(charged: Bool) -> [String: Any] { [
-        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSACPowerValue,
+        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSACPowerValue, kIOPSIsPresentKey: true,
         kIOPSIsChargingKey: false, kIOPSIsChargedKey: charged,
         kIOPSTimeToFullChargeKey: 0, kIOPSTimeToEmptyKey: 0,
     ] }
     static func charging(timeToFull: Int) -> [String: Any] { [
-        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSACPowerValue,
+        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSACPowerValue, kIOPSIsPresentKey: true,
         kIOPSIsChargingKey: true, kIOPSIsFinishingChargeKey: false,
         kIOPSTimeToFullChargeKey: timeToFull, kIOPSTimeToEmptyKey: 0,
     ] }
     static func discharging(timeToEmpty: Int) -> [String: Any] { [
-        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSBatteryPowerValue,
+        kIOPSCurrentCapacityKey: 80, kIOPSPowerSourceStateKey: kIOPSBatteryPowerValue, kIOPSIsPresentKey: true,
         kIOPSIsChargingKey: false,
         kIOPSTimeToFullChargeKey: 0, kIOPSTimeToEmptyKey: timeToEmpty,
     ] }
+    static var notPresent: [String: Any] { [
+        kIOPSCurrentCapacityKey: 0, kIOPSPowerSourceStateKey: kIOPSACPowerValue, kIOPSIsPresentKey: false,
+        kIOPSIsChargingKey: false, kIOPSTimeToFullChargeKey: 0, kIOPSTimeToEmptyKey: 0,
+    ] }
 
     static func parse(_ powerSource: [String: Any], adapter: [String: Any] = adapter) throws -> BatteryReading {
-        try BatteryReading(registry: registry, powerSource: powerSource, adapter: adapter)
+        try #require(try BatteryReading(registry: registry, powerSource: powerSource, adapter: adapter))
     }
 
     @Test func hardwareFactsCarryTheirUnits() throws {
@@ -84,16 +89,20 @@ import Testing
         #expect(reading.power == .adapter(nil, .notCharging))
     }
 
+    @Test func batteryNotPresentReadsNil() throws {
+        #expect(try BatteryReading(registry: Self.registry, powerSource: Self.notPresent, adapter: Self.adapter) == nil)
+    }
+
     @Test func missingRegistryKeyFailsNamingIt() {
         var registry = Self.registry
         registry["Temperature"] = nil
-        #expect(throws: BatteryReadError.missing(key: "Temperature", source: "registry")) {
+        #expect(throws: BatteryReadError.invalid(key: "Temperature", source: "registry")) {
             try BatteryReading(registry: registry, powerSource: Self.onACNotCharging(charged: false), adapter: Self.adapter)
         }
     }
 
     @Test func wrongTypeFailsNamingTheKey() {
-        #expect(throws: BatteryReadError.missing(key: kIOPSPowerAdapterWattsKey, source: "adapter")) {
+        #expect(throws: BatteryReadError.invalid(key: kIOPSPowerAdapterWattsKey, source: "adapter")) {
             try Self.parse(Self.onACNotCharging(charged: false), adapter: [kIOPSPowerAdapterWattsKey: "86"])
         }
     }

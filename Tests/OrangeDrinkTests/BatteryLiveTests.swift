@@ -8,36 +8,44 @@ import Testing
 // equal; the live electrical readings may drift by what a moment of load changes.
 @Suite(.serialized) struct BatteryLive {
     @Test func matchesPmset() throws {
+        // [LAW:no-ambient-temporal-coupling] powerd may publish between two reads, so the
+        // reading is bracketed: a value sampled between two pmset samples equals one of them.
+        let before = try pmsetBattery()
         let reading = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
-        let batt = try run("/usr/bin/pmset", "-g", "batt")
+        let after = try pmsetBattery()
         let ac = try run("/usr/bin/pmset", "-g", "ac")
-        let line = try #require(batt.split(separator: "\n").first { $0.contains("InternalBattery") }.map(String.init))
-        // pmset.m may append " rawExternalConnected: N" and, under a non-Good health, " (Health/Confidence)".
-        let match = try #require(line.wholeMatch(of: /.*\t(\d+)%; ([A-Za-z ;]+?)(?:; (\d+:\d+|\(no estimate\)) remaining)?(?: rawExternalConnected: \d+)?(?: \([^)]*\))? present: true/))
-        #expect(reading.chargePercent == Int(match.1))
+        #expect([before.percent, after.percent].contains(reading.chargePercent))
+        let estimates = [before.estimate, after.estimate]
 
         switch reading.power {
         case .battery(let timeToEmpty):
-            #expect(match.2 == "discharging")
+            #expect(after.state == "discharging")
             #expect(ac.contains("No adapter attached."))
-            #expect(Self.pmsetDuration(match.3) == timeToEmpty)
+            #expect(estimates.contains(timeToEmpty))
         case .adapter(let watts, let charging):
             let adapterWatts = ac.firstMatch(of: /Wattage = (\d+)W/)?.1
             #expect(watts == adapterWatts.map { .init(value: Double($0)!, unit: .watts) })
             switch charging {
             case .charging(let timeToFull):
-                #expect(match.2 == "charging" || match.2 == "finishing charge")
-                #expect(Self.pmsetDuration(match.3) == timeToFull)
-            case .notCharging: #expect(match.2 == "AC attached; not charging")
-            case .full: #expect(match.2 == "charged")
+                #expect(after.state == "charging" || after.state == "finishing charge")
+                #expect(estimates.contains(timeToFull))
+            case .notCharging: #expect(after.state == "AC attached; not charging")
+            case .full: #expect(after.state == "charged")
             }
         }
     }
 
-    /// pmset prints "h:mm" for an estimate and "(no estimate)" while the system has none.
-    static func pmsetDuration(_ text: Substring?) -> Duration? {
-        guard let text, let parts = text.wholeMatch(of: /(\d+):(\d+)/) else { return nil }
-        return .seconds((Int(parts.1)! * 60 + Int(parts.2)!) * 60)
+    struct PmsetBattery { let percent: Int; let state: String; let estimate: Duration? }
+
+    /// The InternalBattery line of `pmset -g batt`. pmset.m prints "; h:mm remaining", or
+    /// "; (no estimate)" while the system has none, then may append " rawExternalConnected: N"
+    /// and, under a non-Good health, " (Health/Confidence)".
+    func pmsetBattery() throws -> PmsetBattery {
+        let batt = try run("/usr/bin/pmset", "-g", "batt")
+        let line = try #require(batt.split(separator: "\n").first { $0.contains("InternalBattery") })
+        let match = try #require(line.wholeMatch(of: /.*\t(\d+)%; ([A-Za-z ;]+?)(?:; (?:(\d+):(\d+) remaining|\(no estimate\)))?(?: rawExternalConnected: \d+)?(?: \([^)]*\))? present: true/))
+        let estimate: Duration? = match.3.map { .seconds((Int($0)! * 60 + Int(match.4!)!) * 60) }
+        return PmsetBattery(percent: Int(match.1)!, state: String(match.2), estimate: estimate)
     }
 
     @Test func matchesIoreg() throws {
