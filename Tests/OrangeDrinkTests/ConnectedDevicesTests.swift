@@ -1,0 +1,52 @@
+import Testing
+@testable import OrangeDrink
+
+// [LAW:verifiable-goals] The card's rows from simulated devices: no Bluetooth in the room.
+struct ConnectedDevicesTests {
+    private func device(_ address: String, _ name: String, kind: DeviceKind = .accessory,
+                        _ levels: DeviceLevels) -> Device {
+        Device(id: DeviceID(address: address), name: name, kind: kind, levels: levels)
+    }
+    private func single(_ percent: Int, approximate: Bool = false) -> DeviceLevels {
+        .single(BatteryLevel(percent: percent, approximate: approximate))
+    }
+    private func rows(_ devices: [Device]) -> [ConnectedDevices.Row] {
+        var list = DeviceList()
+        list.apply(.swept(devices))
+        return ConnectedDevices(list).rows
+    }
+
+    private var fleet: [Device] {
+        [device("1", "Keyboard", single(54)), device("2", "iPad", kind: .tablet, single(95)),
+         device("3", "iPhone", kind: .phone, single(37)), device("4", "AirPods", single(50, approximate: true))]
+    }
+
+    @Test func rowsRunLowestFirstWithApproximateLevelsMarked() {
+        #expect(rows(fleet).map(\.percent) == ["37%", "~50%", "54%", "95%"])
+    }
+
+    @Test func onlyANearlyFullDeviceIsGreen() {
+        #expect(rows(fleet).map(\.tone) == [.normal, .normal, .normal, .nearlyFull])
+    }
+
+    @Test func eachKindHasItsIcon() {
+        #expect(rows(fleet).map(\.kind.symbol) == ["iphone", "dot.radiowaves.left.and.right", "dot.radiowaves.left.and.right", "ipad"])
+    }
+
+    @Test func aDeviceDroppingToTwentyPercentMovesToTheTop() {
+        var devices = fleet
+        devices[1] = device("2", "iPad", kind: .tablet, single(20))
+        #expect(rows(devices).map(\.name) == ["iPad", "iPhone", "AirPods", "Keyboard"])
+    }
+
+    @Test func aDeviceReportingNoLevelHasNoRow() {
+        #expect(rows([device("1", "Speaker", .none)]).isEmpty)
+    }
+
+    @Test func earbudsShowTheirLowestBudNotTheCase() {
+        let pods = device("1", "AirPods", .earbuds(left: BatteryLevel(percent: 60, approximate: false), right: nil,
+                                                    case: BatteryLevel(percent: 5, approximate: false)))
+        #expect(rows([pods]).map(\.percent) == ["60%"])
+        #expect(rows([pods]).map(\.fraction) == [0.6])
+    }
+}

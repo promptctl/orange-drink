@@ -160,7 +160,7 @@ private struct CapacityRow: View {
     }
 }
 
-private struct Gauge: View {
+struct Gauge: View {
     let fraction: Double, tint: Color
 
     var body: some View {

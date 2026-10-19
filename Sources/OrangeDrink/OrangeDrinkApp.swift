@@ -29,7 +29,7 @@ struct OrangeDrinkApp: App {
         } catch {
             fatalError("stored alert or appearance settings do not decode: \(error)")
         }
-        _devices = State(initialValue: DevicesModel(events: BluetoothDevices.events()))
+        _devices = State(initialValue: DevicesModel(events: BluetoothDevices.appEvents()))
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)
         _battery = State(initialValue: BatteryModel(
@@ -41,7 +41,7 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, sections: sections)
+            PanelView(battery: battery, devices: devices, sections: sections)
         } label: {
             StatusItemLabel(state: battery.state)
         }
