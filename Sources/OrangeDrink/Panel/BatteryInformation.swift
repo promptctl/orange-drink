@@ -74,7 +74,7 @@ struct BatteryInformation: Equatable {
 
         let milliamps = reading.current.converted(to: .milliamperes).value
         let volts = reading.voltage.converted(to: .volts).value
-        let watts = abs(volts * milliamps / 1000)
+        let watts = abs(reading.batteryPower.value)
         let normal = Self.normalVolts.contains(volts)
         let charging: Bool
         if case .adapter(_, .charging) = reading.power { charging = true } else { charging = false }
