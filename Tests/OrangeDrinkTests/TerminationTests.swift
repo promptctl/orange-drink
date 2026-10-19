@@ -5,24 +5,25 @@ import Testing
 // [LAW:behavior-not-structure] The contract is what the log says about a quit: who asked, and from where.
 @MainActor struct TerminationTests {
     @Test func aQuitAppleEventNamesItsSender() {
-        let sentence = TerminationRequest.quitEvent(sender: .init(pid: 412, name: "osascript")).sentence(stack: ["delegate", "b"])
-        #expect(sentence == "quit Apple event from pid 412 (osascript); stack: b")
+        let lines = TerminationRequest.quitEvent(sender: .init(pid: 412, name: "osascript")).lines(stack: ["delegate", "b"])
+        #expect(lines == ["quit Apple event from pid 412 (osascript)", "  b"])
     }
 
     @Test func aSenderWithoutANameIsStillNamedByItsPid() {
-        #expect(TerminationRequest.quitEvent(sender: .init(pid: 7, name: nil)).sentence(stack: []).hasPrefix("quit Apple event from pid 7 (unknown)"))
+        #expect(TerminationRequest.quitEvent(sender: .init(pid: 7, name: nil)).lines(stack: []) == ["quit Apple event from pid 7 (unknown)"])
     }
 
     @Test func aQuitEventWithoutAReadableSenderIsNotTakenForAQuitFromInside() {
-        let sentence = TerminationRequest.quitEvent(sender: nil).sentence(stack: [])
-        #expect(sentence.hasPrefix("quit Apple event with no readable sender pid"))
+        #expect(TerminationRequest.quitEvent(sender: nil).lines(stack: []) == ["quit Apple event with no readable sender pid"])
     }
 
-    @Test func aQuitFromInsideTheAppSaysSoAndCarriesTheStackThatAskedForIt() {
-        let stack = (0..<50).map { "frame\($0)" }
-        let sentence = TerminationRequest.inApp.sentence(stack: stack)
-        #expect(sentence.hasPrefix("quit request from inside the app; stack: frame1 <- frame2"))
-        #expect(sentence.hasSuffix("frame30") && !sentence.contains("frame31") && !sentence.contains("frame0 "))
+    @Test func aQuitFromInsideTheAppSaysSoAndCarriesTheFramesThatAskedForItOnePerLine() {
+        let stack = (0..<50).map { "\($0)   Image   0x0000000100  frame\($0) + 4" }
+        let lines = TerminationRequest.inApp.lines(stack: stack)
+        #expect(lines.first == "quit request from inside the app")
+        #expect(lines.count == 1 + TerminationRequest.stackDepth)
+        #expect(lines[1] == "  1 Image 0x0000000100 frame1 + 4" && lines.last == "  30 Image 0x0000000100 frame30 + 4")
+        #expect(lines.allSatisfy { $0.utf8.count < 1000 })
     }
 
     @Test func noEventAtAllIsAQuitFromInside() {

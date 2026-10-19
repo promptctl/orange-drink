@@ -22,14 +22,18 @@ enum TerminationRequest: Equatable {
 
     /// [LAW:effects-at-boundaries] A pure function of what the delegate read from AppKit, so the wording
     /// is asserted with no app running.
-    func sentence(stack: [String]) -> String {
+    ///
+    /// One log line for the origin and one per stack frame: the unified log cuts a message at about a
+    /// kilobyte, and a whole stack in one message loses the frames that name the code that asked.
+    func lines(stack: [String]) -> [String] {
         let origin: String
         switch self {
         case .quitEvent(let sender?): origin = "quit Apple event from pid \(sender.pid) (\(sender.name ?? "unknown"))"
         case .quitEvent(nil): origin = "quit Apple event with no readable sender pid"
         case .inApp: origin = "quit request from inside the app"
         }
-        return "\(origin); stack: \(stack.dropFirst().prefix(Self.stackDepth).joined(separator: " <- "))"
+        let frames = stack.dropFirst().prefix(Self.stackDepth).map { "  " + $0.split(separator: " ").joined(separator: " ") }
+        return [origin] + frames
     }
 
     /// The request being handled, as the current Apple event says: only a quit event names a sender,
@@ -54,7 +58,7 @@ enum TerminationRequest: Equatable {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let request = TerminationRequest.current(event: NSAppleEventManager.shared().currentAppleEvent)
-        Self.log.notice("\(request.sentence(stack: Thread.callStackSymbols), privacy: .public)")
+        for line in request.lines(stack: Thread.callStackSymbols) { Self.log.notice("\(line, privacy: .public)") }
         return .terminateNow
     }
 }
