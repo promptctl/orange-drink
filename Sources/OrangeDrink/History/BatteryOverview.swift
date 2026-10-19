@@ -17,7 +17,6 @@ struct BatteryOverview: Equatable, Sendable {
         let health: Double
     }
 
-    let now: Date
     /// Oldest first, one per stored day.
     let days: [Day]
     /// Oldest first, one per day that has a sample.
@@ -26,8 +25,7 @@ struct BatteryOverview: Equatable, Sendable {
 
     /// `healthSamples` are oldest first; each day keeps the health of its latest one, the days being
     /// the calendar's, which are also the keys of `usage`.
-    init(now: Date, usage: [Date: DayUsage], healthSamples: [(at: Date, health: Double)], calendar: Calendar, collectedAt: Date?) {
-        self.now = now
+    init(usage: [Date: DayUsage], healthSamples: [(at: Date, health: Double)], calendar: Calendar, collectedAt: Date?) {
         days = usage.sorted { $0.key < $1.key }.map { Day(day: $0.key, usage: $0.value) }
         let latestPerDay = Dictionary(healthSamples.map { (calendar.startOfDay(for: $0.at), $0.health) }) { _, later in later }
         health = latestPerDay.sorted { $0.key < $1.key }.map { HealthPoint(day: $0.key, health: $0.value) }
@@ -41,8 +39,8 @@ struct BatteryOverview: Equatable, Sendable {
     /// "1 day collected so far", "2 days collected so far".
     var daysCollected: Phrase { days.count == 1 ? "\(days.count) day collected so far" : "\(days.count) days collected so far" }
 
-    /// "Collected 2m ago": the age of the newest sample; nil before there is one.
-    var collectedAge: Phrase? { collectedAt.map { Self.age(now.timeIntervalSince($0)) } }
+    /// "Collected 2m ago": the age of the newest sample as of `now`; nil before there is one.
+    func collectedAge(now: Date) -> Phrase? { collectedAt.map { Self.age(now.timeIntervalSince($0)) } }
 
     static func age(_ seconds: TimeInterval) -> Phrase {
         let minutes = Int(max(seconds, 0) / 60)

@@ -5,6 +5,8 @@ import SwiftUI
 /// time, or the empty state until enough days are collected.
 struct DailyUsageCard: View {
     let overview: BatteryOverview
+    @Environment(\.appLanguage) private var language
+
 
     var body: some View {
         SettingCard {
@@ -13,9 +15,12 @@ struct DailyUsageCard: View {
                     Label { PhraseText("DAILY USAGE").font(.caption.weight(.semibold)).foregroundStyle(.secondary) } icon: {
                         Image(systemName: "chart.bar.fill").foregroundStyle(.green)
                     }
-                    if let age = overview.collectedAge {
+                    if overview.collectedAt != nil {
                         Circle().fill(.yellow).frame(width: 7, height: 7).accessibilityHidden(true)
-                        PhraseText(age).font(.caption).foregroundStyle(.secondary)
+                        // The age moves with the clock, not with the writes, so it is drawn from the minute.
+                        TimelineView(.everyMinute) { context in
+                            if let age = overview.collectedAge(now: context.date) { PhraseText(age).font(.caption).foregroundStyle(.secondary) }
+                        }
                     }
                 }
                 if overview.isBuildingUsage { building } else { charts }
@@ -42,14 +47,16 @@ struct DailyUsageCard: View {
             Chart(overview.shownDays, id: \.day) {
                 BarMark(x: .value("Day", $0.day, unit: .day), y: .value("Used", $0.usage.dischargedPercent)).foregroundStyle(.green)
             }
-            .chartYAxis { AxisMarks { AxisGridLine(); AxisValueLabel("\($0.as(Int.self) ?? 0)%") } }
+            .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, suffix: "%") } } }
             .frame(height: 110)
+            .accessibilityLabel(Phrase("Battery used").text(in: language))
             PhraseText("Screen on").font(.caption).foregroundStyle(.secondary)
             Chart(overview.shownDays, id: \.day) {
                 BarMark(x: .value("Day", $0.day, unit: .day), y: .value("Hours", $0.usage.screenOn / 3600)).foregroundStyle(.blue)
             }
-            .chartYAxis { AxisMarks { AxisGridLine(); AxisValueLabel("\($0.as(Double.self).map { Int($0) } ?? 0)h") } }
+            .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, suffix: "h") } } }
             .frame(height: 110)
+            .accessibilityLabel(Phrase("Screen on").text(in: language))
         }
     }
 }
@@ -97,8 +104,20 @@ struct BatteryHealthCard: View {
             PointMark(x: .value("Day", $0.day, unit: .day), y: .value("Health", $0.health * 100)).symbolSize(16).foregroundStyle(color)
         }
         .chartYScale(domain: .automatic(includesZero: false))
-        .chartYAxis { AxisMarks { AxisGridLine(); AxisValueLabel("\($0.as(Int.self) ?? 0)%") } }
+        .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, suffix: "%") } } }
         .frame(height: 140)
         .accessibilityLabel(Phrase("Battery health over time").text(in: language))
+    }
+}
+
+/// A tick's number as it is, so a quarter-hour tick is not "0h", and its unit.
+private struct TickLabel: View {
+    let value: AxisValue
+    let suffix: String
+
+    var body: some View {
+        if let number = value.as(Double.self) {
+            Text(verbatim: number.formatted(.number.precision(.fractionLength(0...1)).grouping(.never)) + suffix)
+        }
     }
 }

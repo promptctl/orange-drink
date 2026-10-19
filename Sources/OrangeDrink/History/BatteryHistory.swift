@@ -46,7 +46,7 @@ import OSLog
 
     /// What the Daily Usage and Battery Health cards show, read from the store as of now.
     func overview() throws -> BatteryOverview {
-        BatteryOverview(now: timekeeper.now(), usage: try store.dailyUsage(), healthSamples: try store.healthSamples(), calendar: calendar, collectedAt: try store.latestSampleTime())
+        BatteryOverview(usage: try store.dailyUsage(), healthSamples: try store.healthSamples(), calendar: calendar, collectedAt: try store.latestSampleTime())
     }
 
     func follow<Changes: AsyncSequence & Sendable>(screen changes: Changes) where Changes.Element == Bool {

@@ -42,23 +42,38 @@ import Testing
         func pill(_ days: Int) -> String {
             var usage: [Date: DayUsage] = [:]
             for n in 0..<days { usage[Self.day(n)] = DayUsage() }
-            return BatteryOverview(now: Self.day(days), usage: usage, healthSamples: [], calendar: BatteryHistoryTests.utc, collectedAt: nil).daysCollected.english
+            return BatteryOverview(usage: usage, healthSamples: [], calendar: BatteryHistoryTests.utc, collectedAt: nil).daysCollected.english
         }
         #expect(pill(1) == "1 day collected so far")
         #expect(pill(2) == "2 days collected so far")
     }
 
     @Test func usageIsBuildingUntilThreeDaysAndHealthUntilTwo() {
-        let one = BatteryOverview(now: Self.day(1), usage: [Self.day(0): DayUsage()], healthSamples: [(Self.day(0), 0.9)], calendar: BatteryHistoryTests.utc, collectedAt: nil)
+        let one = BatteryOverview(usage: [Self.day(0): DayUsage()], healthSamples: [(Self.day(0), 0.9)], calendar: BatteryHistoryTests.utc, collectedAt: nil)
         #expect(one.isBuildingUsage && one.isBuildingHealth)
     }
 
     @Test func theCollectedAgeIsTheNewestSamplesAge() throws {
         let overview = try Self.storedThreeDays().overview()
-        #expect(overview.collectedAge?.english == "Collected 2m ago")
+        #expect(overview.collectedAge(now: Self.day(2).addingTimeInterval(9 * 3600 + 120))?.english == "Collected 2m ago")
         #expect(BatteryOverview.age(10).english == "Collected just now")
         #expect(BatteryOverview.age(3 * 3600).english == "Collected 3h ago")
         #expect(BatteryOverview.age(2 * 86_400).english == "Collected 2d ago")
+    }
+
+    @Test func onlyTheLastFourteenDaysAreDrawnAndTwoDaysEndTheHealthWait() {
+        var usage: [Date: DayUsage] = [:]
+        for n in 0..<20 { usage[Self.day(n)] = DayUsage() }
+        let overview = BatteryOverview(usage: usage, healthSamples: [(Self.day(0), 0.9), (Self.day(1), 0.9)], calendar: BatteryHistoryTests.utc, collectedAt: nil)
+        #expect(overview.shownDays.map(\.day) == (6..<20).map { Self.day($0) })
+        #expect(!overview.isBuildingHealth)
+    }
+
+    @Test func theAgeChangesUnitAtTheHourAndTheDay() {
+        #expect(BatteryOverview.age(59 * 60).english == "Collected 59m ago")
+        #expect(BatteryOverview.age(60 * 60).english == "Collected 1h ago")
+        #expect(BatteryOverview.age(24 * 3600 - 60).english == "Collected 23h ago")
+        #expect(BatteryOverview.age(24 * 3600).english == "Collected 1d ago")
     }
 
     @Test func theCapacityReadsFullOverDesign() throws {

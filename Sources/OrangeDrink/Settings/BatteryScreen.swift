@@ -27,17 +27,25 @@ struct BatteryScreen: View {
         .padding(24)
         .background(SettingsBackground(glow: .green, glowCenter: .top))
         // The timeline is read again when the range changes and whenever the history is written.
-        .task(id: Refresh(range: range, revision: (try? history.get())?.revision)) { load() }
+        .task(id: Refresh(range: range, revision: (try? history.get())?.revision)) { loadTimeline() }
+        // The overview does not depend on the range, so switching it reads nothing more.
+        .task(id: (try? history.get())?.revision) { loadOverview() }
     }
 
     private struct Refresh: Equatable { let range: HistoryRange; let revision: Int? }
 
-    private func load() {
+    private func loadTimeline() {
         loaded = Result { try history.get().timeline(range: range) }
+        report(loaded?.error)
+    }
+
+    private func loadOverview() {
         overview = Result { try history.get().overview() }
-        for failure in [loaded?.error, overview?.error].compactMap({ $0 }) {
-            Self.log.error("battery history unreadable: \(String(describing: failure), privacy: .public)")
-        }
+        report(overview?.error)
+    }
+
+    private func report(_ failure: (any Error)?) {
+        if let failure { Self.log.error("battery history unreadable: \(String(describing: failure), privacy: .public)") }
     }
 
     @ViewBuilder private var tiles: some View {
