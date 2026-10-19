@@ -1,4 +1,6 @@
+import Foundation
 import IOKit.ps
+import OSLog
 import Testing
 @testable import OrangeDrink
 
@@ -48,5 +50,23 @@ import Testing
     @Test func chargingStateAloneIsNotAnEvent() throws {
         let charging = try Self.reading(Fixtures.charging(timeToFull: 82))
         #expect(BatteryEvent.changes(from: try Self.onAdapter, to: charging) == [])
+    }
+
+    /// The loop over a recorded stream: an absent battery and an unchanged reading are not
+    /// states to compare, and every event it yields is also the log's.
+    @Test func eventsDiffConsecutiveReadingsAndLogEach() async throws {
+        let battery = try Self.onBattery, adapter = try Self.onAdapter
+        let store = try OSLogStore(scope: .currentProcessIdentifier)
+        let since = store.position(date: Date())
+        let recorded = AsyncStream<BatteryReading?> { continuation in
+            for reading in [nil, battery, battery, adapter] { continuation.yield(reading) }
+            continuation.finish()
+        }
+        var events: [BatteryEvent] = []
+        for try await event in BatteryMonitor.events(from: recorded) { events.append(event) }
+        #expect(events == [.plugged(adapter)])
+        let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
+                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
+        #expect(entries.contains { $0.composedMessage == "battery event: \(String(describing: BatteryEvent.plugged(adapter)))" })
     }
 }

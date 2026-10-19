@@ -15,8 +15,11 @@ enum BatteryMonitor {
     /// power-source changes. The price is powerd's periodic republish, measured at one post a
     /// minute while held steady at 80% on AC, so one read a minute against the 60 ms a minute
     /// the CPU budget allows.
+    ///
+    /// [LAW:types-are-the-program] A reading is state, not history: a subscriber that falls
+    /// behind gets the newest one, never a replay, so the buffer holds exactly one.
     static func readings() -> AsyncThrowingStream<BatteryReading?, any Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             // [LAW:no-ambient-temporal-coupling] One serial queue owns every read for this
             // subscription, so the initial read and the notification reads cannot interleave.
             let queue = DispatchQueue(label: "\(IOKitBattery.logSubsystem).battery-monitor")
@@ -41,15 +44,24 @@ enum BatteryMonitor {
     }
 
     /// Plug, unplug, and level changes, each within a second of powerd publishing it. A
-    /// subscriber that subscribes while the state is steady gets nothing until it changes.
+    /// subscriber that subscribes while the state is steady gets nothing until it changes;
+    /// the state itself, battery or none, is `readings()`' first element.
     static func events() -> AsyncThrowingStream<BatteryEvent, any Error> {
+        events(from: readings())
+    }
+
+    /// [LAW:composability] The deltas between consecutive readings of any stream, so the
+    /// loop is checked from recorded readings with no powerd in the room. Events are never
+    /// dropped: a delta a subscriber has not pulled yet is still owed to it.
+    static func events<Readings: AsyncSequence & Sendable>(from readings: Readings) -> AsyncThrowingStream<BatteryEvent, any Error>
+    where Readings.Element == BatteryReading? {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
                     // A battery that is absent takes part in no plug, unplug, or level change,
                     // so those readings are not consecutive states to compare.
                     var previous: BatteryReading?
-                    for try await reading in readings().compactMap({ $0 }) {
+                    for try await reading in readings.compactMap({ $0 }) {
                         for event in previous.map({ BatteryEvent.changes(from: $0, to: reading) }) ?? [] {
                             IOKitBattery.log.info("battery event: \(String(describing: event), privacy: .public)")
                             continuation.yield(event)
