@@ -11,12 +11,16 @@ private struct AppLook: ViewModifier {
     func body(content: Content) -> some View {
         content
             .preferredColorScheme(look.value.colorScheme)
-            .environment(\.locale, language.value.locale)
-            .environment(\.appLanguage, language.value)
+            .speaking(language.value)
     }
 }
 
 extension View {
+    /// [LAW:single-enforcer] How a language reaches a SwiftUI root, for the roots that have no `appLook`.
+    func speaking(_ language: AppLanguage) -> some View {
+        environment(\.locale, language.locale).environment(\.appLanguage, language)
+    }
+
     func appLook(_ look: AppAppearanceModel, _ language: AppLanguageModel) -> some View {
         modifier(AppLook(look: look, language: language))
     }

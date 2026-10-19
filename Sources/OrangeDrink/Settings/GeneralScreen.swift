@@ -79,11 +79,6 @@ private struct NotificationAppearanceSection: View {
     @State private var showGlow = false
     @State private var saveFailure: String?
 
-    /// The sample alert of design-docs/general.md: 15% remaining with 9 minutes to go.
-    private static let sample = PillContent(
-        headline: "15% Remaining", subline: "9min until empty", severity: .orange, progress: 0.15,
-        position: .top, glow: false)
-
     var body: some View {
         let look = appearance.value
         VStack(alignment: .leading, spacing: 8) {
@@ -104,8 +99,8 @@ private struct NotificationAppearanceSection: View {
             }
             ZStack {
                 RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.03))
-                if showGlow { GlowView(severity: Self.sample.severity, strength: look.glowStrength) }
-                PillView(content: Self.sample, scale: look.bubbleSize.scale, onClose: {})
+                if showGlow { GlowView(severity: PillContent.sample.severity, strength: look.glowStrength) }
+                PillView(content: PillContent.sample, scale: look.bubbleSize.scale, onClose: {})
             }
             .frame(height: 200)
             .clipShape(RoundedRectangle(cornerRadius: 12))

@@ -19,21 +19,22 @@ import Testing
     }
 
     @Test func aLowAlertAtTopOfScreenShowsOnePillForTheReadingThatCrossedIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
         defer { pills.close() }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)])
         for percent in [16, 15, 14] { center.observe(try Self.reading(percent)) }
 
-        #expect(pills.shown == PillContent(
-            headline: "14% Remaining", subline: "9min until empty", severity: .orange, progress: 0.14, position: .top, glow: false))
+        let shown = try #require(pills.shown)
+        #expect(shown.headline.english == "14% Remaining" && shown.subline?.english == "9min until empty")
+        #expect(shown.severity == .orange && shown.progress == 0.14 && shown.position == .top && !shown.glow)
         let screen = try #require(NSScreen.main ?? NSScreen.screens.first).visibleFrame
         #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen, scale: 1))
         #expect(try #require(pills.shownFrame).maxY > screen.midY)
     }
 
     @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
         defer { pills.close() }
         let center = try Self.center(pills, alerts: [
             Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
@@ -44,7 +45,7 @@ import Testing
         #expect(pills.shown?.glow == true && pills.shownGlowFrame == screen)
 
         center.observe(try Self.reading(9))
-        #expect(pills.shown?.headline == "9% Remaining" && pills.shownGlowFrame == nil)
+        #expect(pills.shown?.headline.english == "9% Remaining" && pills.shownGlowFrame == nil)
 
         pills.show(PillContent(Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
                                reading: try Self.reading(19)))
@@ -54,7 +55,7 @@ import Testing
     }
 
     @Test func aCenterAlertSitsAtTheMiddleOfTheScreen() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
         defer { pills.close() }
         pills.show(PillContent(Alert(kind: .low, threshold: 5, position: .center, glow: false, sound: false),
                                reading: try Self.reading(4)))
@@ -64,17 +65,17 @@ import Testing
     }
 
     @Test func aNewPillReplacesTheOneShowingAndClosingClearsIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         pills.show(PillContent(low, reading: try Self.reading(13)))
-        #expect(pills.shown?.headline == "13% Remaining")
+        #expect(pills.shown?.headline.english == "13% Remaining")
         pills.close()
         #expect(pills.shown == nil && pills.shownFrame == nil)
     }
 
     @Test func replacingAPillDoesNotReleaseWhoeverWaitsForNoPill() async throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         var released = false
@@ -92,10 +93,36 @@ import Testing
         let low = { (threshold: Int) in Alert(kind: .low, threshold: threshold, position: .top, glow: false, sound: false) }
         #expect(PillContent(low(5), reading: try Self.reading(4)).severity == .red)
         #expect(PillContent(low(6), reading: try Self.reading(5)).severity == .orange)
-        #expect(PillContent(low(15), reading: try Self.reading(14, minutes: 192)).subline == "3h 12m until empty")
+        #expect(PillContent(low(15), reading: try Self.reading(14, minutes: 192)).subline?.english == "3h 12m until empty")
         let charged = Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false)
         let content = PillContent(charged, reading: try Self.reading(80))
-        #expect(content.headline == "80% Charged" && content.severity == .green)
+        #expect(content.headline.english == "80% Charged" && content.severity == .green)
+    }
+
+    @Test func aPillSaysItsWordingInFrenchAndSpanish() throws {
+        let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
+        let content = PillContent(low, reading: try Self.reading(14, minutes: 192))
+        let charged = PillContent(Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false), reading: try Self.reading(80))
+        let short = PillContent(low, reading: try Self.reading(14))
+        let app = PhraseTests.app
+        func said(_ code: String, _ phrases: [Phrase?]) -> [String] { phrases.compactMap { $0?.resolve(in: AppLanguage(code: code), bundle: app) } }
+        #expect(said("fr", [content.headline, content.subline, charged.headline, short.subline])
+            == ["14 % restant", "3 h 12 min avant épuisement", "80 % chargé", "9 min avant épuisement"])
+        #expect(said("fr", [PillContent.sample.headline, PillContent.sample.subline]) == ["15 % restant", "9 min avant épuisement"])
+        #expect(said("es", [content.headline, content.subline, charged.headline, short.subline])
+            == ["14 % restante", "3 h 12 min hasta agotarse", "80 % cargado", "9 min hasta agotarse"])
+    }
+
+    @Test func theOverlayIsHandedTheLanguageTheAppSpeaksWhenThePillComesUp() throws {
+        let language = AppLanguageTests.scratch()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language)
+        defer { pills.close() }
+        try language.update { $0 = AppLanguage(code: "fr") }
+        pills.show(.power("On Battery", severity: .orange, reading: try Self.reading(14)))
+        #expect(pills.shownLanguage == AppLanguage(code: "fr"))
+        try language.update { $0 = AppLanguage(code: "es") }
+        pills.show(.power("On Battery", severity: .orange, reading: try Self.reading(14)))
+        #expect(pills.shownLanguage == AppLanguage(code: "es"))
     }
 
     /// The ticket's step on a real Mac, run by `make pill-check` with a person at the screen: a
@@ -103,7 +130,7 @@ import Testing
     @Test(.enabled(if: ProcessInfo.processInfo.environment["PILL_CHECK"] != nil, "run by make pill-check with a person at the screen"))
     func pillsShowOverAFullScreenApp() async throws {
         // The appearance a person set on the General screen, as the app itself loads it.
-        let pills = PillController(appearance: try NotificationAppearanceModel(defaults: .standard))
+        let pills = PillController(appearance: try NotificationAppearanceModel(defaults: .standard), language: try AppLanguageModel(defaults: .standard))
         defer { pills.close() }
         let sounds = AlertSounds()
         let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
