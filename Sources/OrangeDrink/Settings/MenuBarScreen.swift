@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension MenuBarIconConfig.Style {
-    func title(appName: String) -> String {
+    func title(appName: String) -> Phrase {
         switch self {
         case .batteryIndicator: "Battery Indicator"
         case .minimal: "Minimal"
@@ -10,7 +10,7 @@ extension MenuBarIconConfig.Style {
     }
 
     /// design-docs/menu-bar.md's descriptions.
-    func description(appName: String) -> String {
+    func description(appName: String) -> Phrase {
         switch self {
         case .batteryIndicator: "Shows battery level and charging status – \(appName)'s opinionated design"
         case .minimal: "Minimalistic iPhone-style battery indicator"
@@ -20,7 +20,7 @@ extension MenuBarIconConfig.Style {
 }
 
 extension MenuBarIconConfig.Display {
-    var title: String {
+    var title: Phrase {
         switch self {
         case .percentage: "Percentage"
         case .timeRemaining: "Time Remaining"
@@ -30,7 +30,7 @@ extension MenuBarIconConfig.Display {
 }
 
 extension MenuBarIconConfig.Color {
-    var title: String {
+    var title: Phrase {
         switch self {
         case .automatic: "Automatic"
         case .light: "Light"
@@ -40,7 +40,7 @@ extension MenuBarIconConfig.Color {
 }
 
 extension MenuBarIconConfig.Size {
-    var title: String {
+    var title: Phrase {
         switch self {
         case .standard: "Default"
         case .large: "Large"
@@ -55,6 +55,7 @@ struct MenuBarScreen: View {
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
     @State private var saveFailure: String?
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         let config = model.value
@@ -71,13 +72,13 @@ struct MenuBarScreen: View {
                 }
                 Group {
                     SettingRow(icon: ("checklist", .purple), title: "Display", description: "Choose what to display in the menu bar icon") {
-                        PopUpButton(selection: Binding(get: { config.renderedDisplay }, set: { display in perform { $0.display = display } }), options: config.style.displays, title: { Text(LocalizedStringKey($0.title)) })
+                        PopUpButton(selection: Binding(get: { config.renderedDisplay }, set: { display in perform { $0.display = display } }), options: config.style.displays, title: { $0.title.text(in: language) })
                     }
                     SettingRow(icon: ("circle.lefthalf.filled", .orange), title: "Color", description: "Match your menu bar style") {
-                        PopUpButton(selection: binding(\.color), options: MenuBarIconConfig.Color.allCases, title: { Text(LocalizedStringKey($0.title)) })
+                        PopUpButton(selection: binding(\.color), options: MenuBarIconConfig.Color.allCases, title: { $0.title.text(in: language) })
                     }
                     SettingRow(icon: ("textformat.size", .blue), title: "Size", description: "Make the icon and its text larger and easier to read") {
-                        PopUpButton(selection: binding(\.size), options: MenuBarIconConfig.Size.allCases, title: { Text(LocalizedStringKey($0.title)) })
+                        PopUpButton(selection: binding(\.size), options: MenuBarIconConfig.Size.allCases, title: { $0.title.text(in: language) })
                     }
                     SettingRow(icon: ("paintpalette.fill", .green), title: "Status colors",
                                description: "Green when charging, orange for low battery. Off keeps the icon neutral and only turns it red when critical.") {
@@ -152,20 +153,20 @@ struct MenuBarPreview: View {
         .environment(\.colorScheme, .dark) // the mockup is a fixed dark scene, whatever the app looks like
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Menu bar preview")
+        .accessibilityLabel(Text("Menu bar preview"))
     }
 
-    static let overflowHelp = "If you can't find the icon, your menu bar may be full: macOS hides the icons that don't fit, or that land behind the notch. Quit or move other menu bar apps to make room, or hold ⌘ and drag icons you don't need out of the bar."
-    static let tutorialHelp = "Open System Settings → Control Center, find Battery, and turn off “Show in Menu Bar” to remove the system's own battery icon."
+    static let overflowHelp: Phrase = "If you can't find the icon, your menu bar may be full: macOS hides the icons that don't fit, or that land behind the notch. Quit or move other menu bar apps to make room, or hold ⌘ and drag icons you don't need out of the bar."
+    static let tutorialHelp: Phrase = "Open System Settings → Control Center, find Battery, and turn off “Show in Menu Bar” to remove the system's own battery icon."
 
-    private func tip(_ number: Int, _ title: String, _ hint: String, glyph: String, help: String) -> some View {
+    private func tip(_ number: Int, _ title: Phrase, _ hint: Phrase, glyph: String, help: Phrase) -> some View {
         HStack(alignment: .top, spacing: 6) {
             Text("\(number)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
                 .frame(width: 14, height: 14).overlay(Circle().stroke(.white, lineWidth: 1))
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white)
+                PhraseText(title).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white)
                 HStack(spacing: 3) {
-                    Text(hint).font(.system(size: 9)).foregroundStyle(.secondary)
+                    PhraseText(hint).font(.system(size: 9)).foregroundStyle(.secondary)
                     InfoButton(text: help, glyph: glyph, label: hint).font(.system(size: 9))
                 }
             }

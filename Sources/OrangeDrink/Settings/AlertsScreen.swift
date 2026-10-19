@@ -76,27 +76,28 @@ struct AlertsScreen: View {
 /// One kind's section: its cards, lowest threshold first, and the button that adds another.
 private struct ThresholdSection: View {
     let kind: Alert.Kind
-    let header: (symbol: String, color: Color, title: String)
-    let info: String
-    let addTitle: String
+    let header: (symbol: String, color: Color, title: LocalizedStringKey)
+    let info: LocalizedStringKey
+    let addTitle: Phrase
     let alerts: [Alert]
     let perform: (@escaping (inout AlertSettings) -> Void) -> Void
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SettingsSectionHeader(symbol: header.symbol, color: header.color, title: LocalizedStringKey(header.title), info: LocalizedStringKey(info))
+            SettingsSectionHeader(symbol: header.symbol, color: header.color, title: header.title, info: info)
             ForEach(alerts) { alert in
                 AlertCard(alert: alert, onEdit: { change in perform { $0.edit(alert.id, change) } }) {
                     perform { $0.remove(alert.id) }
                 }
             }
             Button { perform { $0.add(kind) } } label: {
-                Text("＋ \(addTitle)").fontWeight(.semibold)
+                PhraseText("＋ \(addTitle)").fontWeight(.semibold)
                     .padding(.horizontal, 16).padding(.vertical, 8)
                     .background(Color.veil(0.1), in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(addTitle)
+            .accessibilityLabel(addTitle.text(in: language))
             .frame(maxWidth: .infinity)
         }
     }
@@ -111,6 +112,7 @@ private struct AlertCard: View {
     /// The threshold the editor's stepper shows while it is open. Landing a threshold re-sorts the
     /// card, and the popover rides its card, so it is kept here and lands when the popover closes.
     @State private var draftThreshold: Int?
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         let color = alert.severity.color
@@ -122,7 +124,7 @@ private struct AlertCard: View {
                     Text("\(alert.threshold)%").fontWeight(.bold).foregroundStyle(.primary)
                         .padding(.horizontal, 10).padding(.vertical, 2)
                         .background(color.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
-                    Text(alert.summary).font(.callout).foregroundStyle(.secondary)
+                    PhraseText(alert.summary).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 12)
                 Button { editing = true } label: {
@@ -130,7 +132,7 @@ private struct AlertCard: View {
                         .frame(width: 30, height: 30).background(Circle().fill(Color.veil(0.1)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Edit \(alert.kind.rawValue) \(alert.threshold)% alert")
+                .accessibilityLabel(alert.buttonName(.edit).text(in: language))
                 .popover(isPresented: $editing) {
                     AlertEditor(alert: alert, draftThreshold: $draftThreshold, onEdit: onEdit)
                 }
@@ -145,7 +147,7 @@ private struct AlertCard: View {
                         .frame(width: 30, height: 30).background(Circle().fill(.red.opacity(0.2)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Delete \(alert.kind.rawValue) \(alert.threshold)% alert")
+                .accessibilityLabel(alert.buttonName(.delete).text(in: language))
             }
             .padding(12)
             .accessibilityElement(children: .contain)

@@ -147,8 +147,8 @@ import Testing
     }
 
     @Test func theStyleRowsCarryTheDesignDocsWords() {
-        #expect(Config.Style.allCases.map { $0.title(appName: "Orange") } == ["Battery Indicator", "Minimal", "Orange Logo"])
-        #expect(Config.Style.logo.description(appName: "Orange") == "Static Orange logo icon")
-        #expect(Config.Size.standard.title == "Default")
+        #expect(Config.Style.allCases.map { $0.title(appName: "Orange").english } == ["Battery Indicator", "Minimal", "Orange Logo"])
+        #expect(Config.Style.logo.description(appName: "Orange").english == "Static Orange logo icon")
+        #expect(Config.Size.standard.title.english == "Default")
     }
 }

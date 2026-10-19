@@ -25,7 +25,7 @@ struct ComponentGallery: View {
                 }
                 SettingRow(title: "Info Row", description: "Info description") { InfoButton(text: "Explains it") }
                 SettingRow(title: "Pills Row", description: "Pills description") {
-                    SegmentedPills(selection: $range, options: Range.allCases, accent: .indigo, title: \.rawValue)
+                    SegmentedPills(selection: $range, options: Range.allCases, accent: .indigo, title: { "\($0.rawValue)" })
                 }
                 ForEach(["First", "Second"], id: \.self) { option in
                     RadioRow(title: "\(option) Radio", description: "\(option) radio description", isSelected: radio == option) { radio = option }

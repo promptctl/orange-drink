@@ -4,7 +4,7 @@ import SwiftUI
 /// link to another screen.
 struct DevicesHelpLine: Equatable, Identifiable {
     struct Link: Equatable {
-        let title: String
+        let title: Phrase
         let screen: SettingsScreen
     }
 
@@ -13,14 +13,14 @@ struct DevicesHelpLine: Equatable, Identifiable {
 
     let symbol: String
     let color: Color
-    let text: String
+    let text: Phrase
     let link: Link?
 
     /// The text with its link as a run that opens `screen` inside the app.
-    var attributed: AttributedString {
-        var text = AttributedString(self.text)
+    func attributed(in language: AppLanguage) -> AttributedString {
+        var text = AttributedString(self.text.resolve(in: language))
         guard let link else { return text }
-        var title = AttributedString(link.title)
+        var title = AttributedString(link.title.resolve(in: language))
         title.link = Self.url(for: link.screen)
         text.append(title)
         return text
@@ -59,6 +59,7 @@ struct DevicesScreen: View {
     /// Switches the settings window to another screen.
     let select: (SettingsScreen) -> Void
     @State private var saveFailure: String?
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         let current = settings.value
@@ -108,19 +109,19 @@ struct DevicesScreen: View {
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(entry.isAlerting ? "Turn off battery alerts for \(entry.row.name)" : "Turn on battery alerts for \(entry.row.name)")
+                        .accessibilityLabel((entry.isAlerting ? ("Turn off battery alerts for \(entry.row.name)" as Phrase) : "Turn on battery alerts for \(entry.row.name)").text(in: language))
                         Button { togglePinned(entry.id) } label: {
                             Image(systemName: entry.isPinned ? "pin.fill" : "pin").frame(width: 32, height: 32)
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(entry.isPinned ? "Unpin \(entry.row.name) from the menu bar" : "Pin \(entry.row.name) to the menu bar")
+                        .accessibilityLabel((entry.isPinned ? ("Unpin \(entry.row.name) from the menu bar" as Phrase) : "Pin \(entry.row.name) to the menu bar").text(in: language))
                         Button { toggleHidden(entry.id) } label: {
                             Image(systemName: entry.isHidden ? "eye.slash" : "eye").frame(width: 32, height: 32)
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(entry.isHidden ? "Show \(entry.row.name) in the menu bar panel" : "Hide \(entry.row.name) from the menu bar panel")
+                        .accessibilityLabel((entry.isHidden ? ("Show \(entry.row.name) in the menu bar panel" as Phrase) : "Hide \(entry.row.name) from the menu bar panel").text(in: language))
                     }
                     .padding(12)
                     .accessibilityElement(children: .contain)
@@ -134,7 +135,7 @@ struct DevicesScreen: View {
             RoundedRectangle(cornerRadius: 6).fill(line.color.opacity(0.9)).frame(width: 24, height: 24)
                 .overlay { Image(systemName: line.symbol).font(.system(size: 12)).foregroundStyle(.white) }
                 .accessibilityHidden(true)
-            Text(line.attributed).font(.callout).foregroundStyle(.secondary)
+            Text(line.attributed(in: language)).font(.callout).foregroundStyle(.secondary)
                 .environment(\.openURL, OpenURLAction { url in
                     guard let screen = DevicesHelpLine.screen(for: url) else { return .systemAction }
                     select(screen)

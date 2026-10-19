@@ -6,10 +6,10 @@ import Testing
 // its buttons do to them, and what a relaunch gets back.
 @MainActor @Suite struct AlertsScreenTests {
     @Test func theSummaryListsThePositionThenOnlyTheOptionsThatAreOn() {
-        #expect(Alert(kind: .low, threshold: 3, position: .center, glow: true, sound: true).summary
+        #expect(Alert(kind: .low, threshold: 3, position: .center, glow: true, sound: true).summary.english
             == "Center of Screen • Border Glow • Sound")
-        #expect(Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false).summary == "Top of Screen")
-        #expect(Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: true).summary
+        #expect(Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false).summary.english == "Top of Screen")
+        #expect(Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: true).summary.english
             == "Top of Screen • Sound")
     }
 
@@ -88,7 +88,7 @@ import Testing
         for percent in [21, 19, 15, 11] { center.observe(try PillTests.reading(percent)) }
         #expect(fired == [11])
 
-        #expect(center.settings.alerts(.low).map(\.summary) == ["Center of Screen • Border Glow"])
+        #expect(center.settings.alerts(.low).map(\.summary.english) == ["Center of Screen • Border Glow"])
         let relaunched = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in })
         #expect(relaunched.settings.alerts == [edited])
     }

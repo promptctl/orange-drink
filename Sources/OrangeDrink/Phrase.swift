@@ -47,6 +47,9 @@ struct Phrase: Equatable, Sendable, ExpressibleByStringInterpolation {
         fill(language.resolve(key, in: bundle), locale: language.locale) { $0.resolve(in: language, bundle: bundle) }
     }
 
+    /// The sentence in `language`, as the one `Text` that accessibility labels and views both take.
+    func text(in language: AppLanguage) -> Text { Text(verbatim: resolve(in: language)) }
+
     /// The sentence as the code that wrote it reads it: the key filled in.
     var english: String { fill(key, locale: Locale(identifier: "en_US")) { $0.english } }
 
@@ -88,5 +91,5 @@ struct PhraseText: View {
 
     init(_ phrase: Phrase) { self.phrase = phrase }
 
-    var body: some View { Text(verbatim: phrase.resolve(in: language)) }
+    var body: some View { phrase.text(in: language) }
 }
