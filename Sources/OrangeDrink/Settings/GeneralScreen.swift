@@ -66,7 +66,7 @@ private struct AppAppearanceSection: View {
                         } catch {
                             saveFailure = error.localizedDescription
                         }
-                    }), options: AppAppearance.allCases, title: { LocalizedStringKey($0.rawValue) })
+                    }), options: AppAppearance.allCases, title: \.label)
                 }
             }
         }
@@ -93,10 +93,10 @@ private struct NotificationAppearanceSection: View {
             }
             SettingCard {
                 SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {
-                    PopUpButton(selection: binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: { LocalizedStringKey($0.rawValue) })
+                    PopUpButton(selection: binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: \.label)
                 }
                 SettingRow(title: "Screen Edge Glow", description: "Strength of the glow around the screen edge") {
-                    PopUpButton(selection: binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: { LocalizedStringKey($0.rawValue) })
+                    PopUpButton(selection: binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: \.label)
                 }
                 SettingRow(title: "Preview") {
                     AccentSwitch(isOn: $showGlow, tint: .green, label: "Show Glow")
@@ -122,5 +122,37 @@ private struct NotificationAppearanceSection: View {
                 saveFailure = error.localizedDescription
             }
         })
+    }
+}
+
+// The pop-ups' words, as literal catalog keys: the raw values are what is stored, and a key built from one
+// at runtime would be invisible to the catalog's extraction.
+extension AppAppearance {
+    var label: LocalizedStringKey {
+        switch self {
+        case .auto: "Auto"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+}
+
+extension NotificationAppearance.BubbleSize {
+    var label: LocalizedStringKey {
+        switch self {
+        case .small: "Small"
+        case .default: "Default"
+        case .large: "Large"
+        }
+    }
+}
+
+extension NotificationAppearance.GlowStrength {
+    var label: LocalizedStringKey {
+        switch self {
+        case .subtle: "Subtle"
+        case .default: "Default"
+        case .strong: "Strong"
+        }
     }
 }

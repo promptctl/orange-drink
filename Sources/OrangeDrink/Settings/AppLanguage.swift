@@ -30,6 +30,7 @@ struct AppLanguage: Stored, Hashable {
         guard let code else { return .autoupdatingCurrent }
         var parts = Locale.Components(locale: .current)
         parts.languageComponents.languageCode = Locale.LanguageCode(code)
+        parts.languageComponents.script = nil   // the Mac's script belongs to the Mac's language, not this one
         return Locale(components: parts)
     }
 
@@ -45,7 +46,8 @@ struct AppLanguage: Stored, Hashable {
     func menuTitle(speaking current: AppLanguage, in bundle: Bundle = .main) -> String {
         guard let code else { return current.resolve("Match System", in: bundle) }
         let own = Locale(identifier: code)
-        return own.localizedString(forLanguageCode: code)?.capitalized(with: own) ?? code
+        guard let name = own.localizedString(forLanguageCode: code) else { return code }
+        return name.prefix(1).uppercased(with: own) + name.dropFirst()
     }
 }
 
