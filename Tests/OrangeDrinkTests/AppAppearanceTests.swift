@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import Testing
 @testable import OrangeDrink
@@ -18,6 +19,25 @@ import Testing
         #expect(look.value.colorScheme == .dark)
         try look.update { $0 = .auto }
         #expect(look.value.colorScheme == nil)
+    }
+
+    /// The window itself, not the model: what AppKit says a real window wearing `appLook` looks like.
+    @Test func aWindowWearingTheAppLookTakesOnTheChosenAppearance() throws {
+        let look = Self.scratch()
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: Text("sample").appLook(look, AppLanguageTests.scratch()))
+        func looks() -> NSAppearance.Name? {
+            window.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+            return window.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
+        }
+        try look.update { $0 = .light }
+        #expect(looks() == .aqua)
+        try look.update { $0 = .dark }
+        #expect(looks() == .darkAqua)
+        try look.update { $0 = .light }
+        #expect(looks() == .aqua)
     }
 
     @Test func theLastChoiceComesBackWhenLoadedAsARelaunchWould() throws {
