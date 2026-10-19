@@ -77,7 +77,10 @@ import Observation
     /// Takes a reading now, as the panel's "Tap to refresh now" asks. A read that fails ends the
     /// model the way a failed subscription does, so the panel says so instead of going stale.
     func refresh() {
-        do { take(try read()) } catch {
+        do {
+            take(try read())
+            IOKitBattery.log.info("battery refresh: reading taken")
+        } catch {
             IOKitBattery.log.error("battery refresh failed: \(String(describing: error), privacy: .public)")
             state = .ended(error)
         }
