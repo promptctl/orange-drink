@@ -21,7 +21,7 @@ struct ComponentGallery: View {
                     AccentSwitch(isOn: $enabled, tint: .green, label: "Switch Row")
                 }
                 SettingRow(title: "Popup Row", description: "Popup description") {
-                    PopUpButton(selection: $size, options: ["Default", "Large"], title: { LocalizedStringKey($0) })
+                    PopUpButton(selection: $size, options: ["Default", "Large"], title: { Text($0) })
                 }
                 SettingRow(title: "Info Row", description: "Info description") { InfoButton(text: "Explains it") }
                 SettingRow(title: "Pills Row", description: "Pills description") {

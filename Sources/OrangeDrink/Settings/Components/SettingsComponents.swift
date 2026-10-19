@@ -121,16 +121,16 @@ struct RadioRow: View {
 struct PopUpButton<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [Value]
-    let title: (Value) -> LocalizedStringKey
+    let title: (Value) -> Text
 
     var body: some View {
         Menu {
             ForEach(options, id: \.self) { option in
-                Button(title(option)) { selection = option }
+                Button { selection = option } label: { title(option) }
             }
         } label: {
             HStack(spacing: 6) {
-                Text(title(selection))
+                title(selection)
                 Image(systemName: "chevron.up.chevron.down").font(.caption2)
             }
         }

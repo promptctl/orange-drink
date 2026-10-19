@@ -38,7 +38,7 @@ private struct LanguageSection: View {
                         } catch {
                             saveFailure = error.localizedDescription
                         }
-                    }), options: AppLanguage.choices(), title: { LocalizedStringKey($0.menuTitle(speaking: language.value)) })
+                    }), options: AppLanguage.choices(), title: { Text(verbatim: $0.menuTitle(speaking: language.value)) })
                 }
             }
         }
@@ -66,7 +66,7 @@ private struct AppAppearanceSection: View {
                         } catch {
                             saveFailure = error.localizedDescription
                         }
-                    }), options: AppAppearance.allCases, title: \.label)
+                    }), options: AppAppearance.allCases, title: { Text($0.label) })
                 }
             }
         }
@@ -93,10 +93,10 @@ private struct NotificationAppearanceSection: View {
             }
             SettingCard {
                 SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {
-                    PopUpButton(selection: binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: \.label)
+                    PopUpButton(selection: binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: { Text($0.label) })
                 }
                 SettingRow(title: "Screen Edge Glow", description: "Strength of the glow around the screen edge") {
-                    PopUpButton(selection: binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: \.label)
+                    PopUpButton(selection: binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: { Text($0.label) })
                 }
                 SettingRow(title: "Preview") {
                     AccentSwitch(isOn: $showGlow, tint: .green, label: "Show Glow")

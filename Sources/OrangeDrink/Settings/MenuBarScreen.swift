@@ -71,13 +71,13 @@ struct MenuBarScreen: View {
                 }
                 Group {
                     SettingRow(icon: ("checklist", .purple), title: "Display", description: "Choose what to display in the menu bar icon") {
-                        PopUpButton(selection: Binding(get: { config.renderedDisplay }, set: { display in perform { $0.display = display } }), options: config.style.displays, title: { LocalizedStringKey($0.title) })
+                        PopUpButton(selection: Binding(get: { config.renderedDisplay }, set: { display in perform { $0.display = display } }), options: config.style.displays, title: { Text(LocalizedStringKey($0.title)) })
                     }
                     SettingRow(icon: ("circle.lefthalf.filled", .orange), title: "Color", description: "Match your menu bar style") {
-                        PopUpButton(selection: binding(\.color), options: MenuBarIconConfig.Color.allCases, title: { LocalizedStringKey($0.title) })
+                        PopUpButton(selection: binding(\.color), options: MenuBarIconConfig.Color.allCases, title: { Text(LocalizedStringKey($0.title)) })
                     }
                     SettingRow(icon: ("textformat.size", .blue), title: "Size", description: "Make the icon and its text larger and easier to read") {
-                        PopUpButton(selection: binding(\.size), options: MenuBarIconConfig.Size.allCases, title: { LocalizedStringKey($0.title) })
+                        PopUpButton(selection: binding(\.size), options: MenuBarIconConfig.Size.allCases, title: { Text(LocalizedStringKey($0.title)) })
                     }
                     SettingRow(icon: ("paintpalette.fill", .green), title: "Status colors",
                                description: "Green when charging, orange for low battery. Off keeps the icon neutral and only turns it red when critical.") {
