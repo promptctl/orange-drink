@@ -3,6 +3,7 @@ import SwiftUI
 /// The settings window: the sidebar on the left, the chosen screen on the right.
 struct SettingsView: View {
     let alerts: AlertCenter
+    let appearance: NotificationAppearanceModel
     @State private var selection: SettingsScreen = .general
 
     var body: some View {
@@ -17,7 +18,7 @@ struct SettingsView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            ScreenView(screen: selection, alerts: alerts)
+            ScreenView(screen: selection, alerts: alerts, appearance: appearance)
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 760, minHeight: 640)
@@ -54,6 +55,7 @@ private struct SidebarRow: View {
 private struct ScreenView: View {
     let screen: SettingsScreen
     let alerts: AlertCenter
+    let appearance: NotificationAppearanceModel
 
     var body: some View {
         ScrollView {
@@ -68,6 +70,7 @@ private struct ScreenView: View {
                     Text(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
                 switch screen {
+                case .general: GeneralScreen(appearance: appearance)
                 case .alerts: AlertsScreen(center: alerts)
                 default: EmptyState(screen: screen).padding(.top, 60)
                 }

@@ -35,6 +35,8 @@ struct PillView: View {
     private static let border: CGFloat = 6
 
     let content: PillContent
+    /// The multiple of the standard size the whole pill is drawn at.
+    let scale: Double
     let onClose: () -> Void
 
     var body: some View {
@@ -68,6 +70,9 @@ struct PillView: View {
             }
             .padding(inset)
         }
+        // The pill is laid out at the standard size and scaled whole, so every part keeps its proportion.
+        .scaleEffect(scale)
+        .frame(width: PillPlacement.size.width * scale, height: PillPlacement.size.height * scale)
     }
 }
 
