@@ -51,8 +51,8 @@ struct DevicesHelpLine: Equatable, Identifiable {
 }
 
 /// design-docs/devices.md: the switch for the panel's Connected Devices card, every detected device
-/// with its bell and eye buttons, and the help list. The pin buttons and the Apple Watch section
-/// come with their own features.
+/// with its bell, pin, and eye buttons, and the help list. The Apple Watch section comes with its
+/// own feature.
 struct DevicesScreen: View {
     let devices: DevicesModel
     let settings: DeviceSettingsModel
@@ -109,6 +109,12 @@ struct DevicesScreen: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(entry.isAlerting ? "Turn off battery alerts for \(entry.row.name)" : "Turn on battery alerts for \(entry.row.name)")
+                        Button { togglePinned(entry.id) } label: {
+                            Image(systemName: entry.isPinned ? "pin.fill" : "pin").frame(width: 32, height: 32)
+                                .background(.white.opacity(0.1), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(entry.isPinned ? "Unpin \(entry.row.name) from the menu bar" : "Pin \(entry.row.name) to the menu bar")
                         Button { toggleHidden(entry.id) } label: {
                             Image(systemName: entry.isHidden ? "eye.slash" : "eye").frame(width: 32, height: 32)
                                 .background(.white.opacity(0.1), in: Circle())
@@ -143,6 +149,7 @@ struct DevicesScreen: View {
 
     private func toggleHidden(_ id: DeviceID) { perform { $0.toggleHidden(id) } }
     private func toggleAlerting(_ id: DeviceID) { perform { $0.toggleAlerting(id) } }
+    private func togglePinned(_ id: DeviceID) { perform { $0.togglePinned(id) } }
 
     /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
     private func perform(_ edit: (inout DeviceSettings) -> Void) {

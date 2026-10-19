@@ -10,6 +10,7 @@ struct OrangeDrinkApp: App {
     @State private var battery: BatteryModel
     @State private var devices: DevicesModel
     @State private var deviceSettings: DeviceSettingsModel
+    private let pinnedItems: PinnedItemsController
     @State private var alerts: AlertCenter
     @State private var appearance: NotificationAppearanceModel
     @State private var sections = PanelSections()
@@ -35,9 +36,12 @@ struct OrangeDrinkApp: App {
         } catch {
             fatalError("stored alert, appearance, or device settings do not decode: \(error)")
         }
-        _devices = State(initialValue: DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
+        let devices = DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.settings.alerting)
-        }))
+        })
+        _devices = State(initialValue: devices)
+        pinnedItems = PinnedItemsController()
+        pinnedItems.follow(devices: devices, settings: deviceSettings)
         _deviceSettings = State(initialValue: deviceSettings)
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)
