@@ -9,14 +9,6 @@ import Observation
     enum Section: String, CaseIterable {
         case batteryInformation
         case connectedDevices
-
-        /// The letter that flips this section while the panel is open (design-docs/shortcuts.md, Menu Shortcuts).
-        var key: Character {
-            switch self {
-            case .batteryInformation: "i"
-            case .connectedDevices: "d"
-            }
-        }
     }
 
     private(set) var open: Set<Section>
@@ -30,14 +22,6 @@ import Observation
     }
 
     func isOpen(_ section: Section) -> Bool { open.contains(section) }
-
-    /// A single key's shortcut: it flips its section as clicking the section's header does, when the panel is
-    /// drawing that section. True when the key was a shortcut and was used.
-    func press(_ key: Character, shown: Set<Section>) -> Bool {
-        guard let section = Section.allCases.first(where: { $0.key == key.lowercased().first }), shown.contains(section) else { return false }
-        toggle(section)
-        return true
-    }
 
     func toggle(_ section: Section) {
         if open.remove(section) == nil { open.insert(section) }

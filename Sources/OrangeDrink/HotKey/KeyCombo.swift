@@ -21,14 +21,50 @@ struct KeyCombo: Equatable, Codable, Sendable {
     }
 
     /// The key's place on the keyboard (a virtual key code), which is what a hot key is registered by.
-    var keyCode: UInt32
-    var modifiers: Modifiers
+    let keyCode: UInt32
+    /// The key as its keycap reads on the layout it was recorded on, which is how the Shortcuts screen shows it.
+    let label: String
+    let modifiers: Modifiers
+
+    /// [LAW:parse-dont-validate] The one way a combination is made from what was pressed or stored: a letter
+    /// held with at least two of Control, Option, and Command, so a global shortcut can never take a plain
+    /// key, ⌘Q, or an Option-typed character from every app.
+    init?(keyCode: UInt32, label: String? = nil, modifiers: Modifiers) {
+        guard let letter = Self.letters[keyCode], Self.hasEnoughModifiers(modifiers) else { return nil }
+        self.keyCode = keyCode
+        // A keycap is one letter; anything else a layout reports (a control character, nothing) is the key's ANSI letter.
+        self.label = label.flatMap { $0.count == 1 && $0.first!.isLetter ? $0.uppercased() : nil } ?? letter
+        self.modifiers = modifiers
+    }
+
+    /// Whether a key can be a global shortcut at all, whatever it is held with.
+    static func isSupportedKey(_ keyCode: UInt32) -> Bool { letters[keyCode] != nil }
+
+    static func hasEnoughModifiers(_ modifiers: Modifiers) -> Bool {
+        modifiers.intersection([.control, .option, .command]).rawValue.nonzeroBitCount >= 2
+    }
+
+    /// The same shortcut whatever its keycap says: the system knows a key by its code.
+    static func == (a: KeyCombo, b: KeyCombo) -> Bool { a.keyCode == b.keyCode && a.modifiers == b.modifiers }
 
     /// Control-Option-J: the shortcut that opens the panel until the user records another.
-    static let openPanel = KeyCombo(keyCode: UInt32(kVK_ANSI_J), modifiers: [.control, .option])
+    static let openPanel = KeyCombo(keyCode: UInt32(kVK_ANSI_J), modifiers: [.control, .option])!
+
+    private enum CodingKeys: String, CodingKey { case keyCode, label, modifiers }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let keyCode = try values.decode(UInt32.self, forKey: .keyCode)
+        let label = try values.decodeIfPresent(String.self, forKey: .label)
+        let modifiers = try values.decode(Modifiers.self, forKey: .modifiers)
+        guard let combo = KeyCombo(keyCode: keyCode, label: label, modifiers: modifiers) else {
+            throw DecodingError.dataCorruptedError(forKey: .keyCode, in: values, debugDescription: "not a letter held with two of Control, Option, and Command")
+        }
+        self = combo
+    }
 
     /// "⌃⌥J".
-    var display: String { modifiers.glyphs + (Self.letters[keyCode] ?? "?") }
+    var display: String { modifiers.glyphs + label }
 
     private static let letters: [UInt32: String] = Dictionary(uniqueKeysWithValues: [
         (kVK_ANSI_A, "A"), (kVK_ANSI_B, "B"), (kVK_ANSI_C, "C"), (kVK_ANSI_D, "D"), (kVK_ANSI_E, "E"), (kVK_ANSI_F, "F"),
