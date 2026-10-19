@@ -48,11 +48,26 @@ struct BatteryLevelTimeline: Equatable, Sendable {
     /// A line needs two points; fewer is a history still being collected.
     var isBuilding: Bool { points.count < 2 }
 
-    /// Where the latest charge session ended: the first sample after the last one that was charging,
-    /// which is the unplug or the full battery, or that charging sample itself while the session goes on.
+    /// Where the latest charge session ended: the sample right after the last charging one, which is the
+    /// unplug or the full battery. When the app was not running then, the next sample is a later,
+    /// unrelated state, so the last charging sample itself is the end; it is also the end while the session goes on.
     static func chargeEnd(in samples: [HistorySample]) -> HistorySample? {
         guard let last = samples.lastIndex(where: \.charging) else { return nil }
-        return samples.indices.contains(last + 1) ? samples[last + 1] : samples[last]
+        let charging = samples[last]
+        guard samples.indices.contains(last + 1), samples[last + 1].at.timeIntervalSince(charging.at) <= HistoryRecorder.sampleInterval else { return charging }
+        return samples[last + 1]
+    }
+
+    /// A longer silence than this between samples is time the app was not recording.
+    static let gap = HistoryRecorder.sampleInterval * 3
+
+    /// The points as unbroken runs, numbered, so a chart draws no line through time nobody measured.
+    var runs: [(run: Int, sample: HistorySample)] {
+        var run = 0
+        return points.enumerated().map { index, sample in
+            if index > 0, sample.at.timeIntervalSince(points[index - 1].at) > Self.gap { run += 1 }
+            return (run, sample)
+        }
     }
 }
 

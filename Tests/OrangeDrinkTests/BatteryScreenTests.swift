@@ -10,24 +10,34 @@ import Testing
         HistorySample(at: now.addingTimeInterval(-hoursAgo * 3600), level: level, charging: charging, health: 0.95, temperature: .init(value: 30, unit: .celsius))
     }
 
-    /// Two charge sessions, the second ending at 79% two hours ago, with samples 3 days and 10 days back too.
+    /// Two charge sessions, the second ending at 79% just after its last charging sample, with samples 3 days and 10 days back too.
     static let twoSessions = [
         sample(hoursAgo: 240, level: 40, charging: true), sample(hoursAgo: 239, level: 60),
         sample(hoursAgo: 72, level: 50),
         sample(hoursAgo: 30, level: 20, charging: true), sample(hoursAgo: 29, level: 90),
         sample(hoursAgo: 5, level: 30, charging: true), sample(hoursAgo: 4, level: 55, charging: true),
-        sample(hoursAgo: 2, level: 79), sample(hoursAgo: 1, level: 77),
+        sample(hoursAgo: 3.95, level: 79), sample(hoursAgo: 1, level: 77),
     ]
 
     @Test func theTimelineReportsWhereTheLastChargeSessionEnded() {
         let timeline = BatteryLevelTimeline(range: .day, now: Self.now, samples: Self.twoSessions)
         #expect(timeline.lastCharged?.level == 79)
-        #expect(timeline.lastCharged?.at == Self.now.addingTimeInterval(-2 * 3600))
+        #expect(timeline.lastCharged?.at == Self.now.addingTimeInterval(-3.95 * 3600))
     }
 
     @Test func aSessionStillChargingEndsAtItsLatestSample() {
         let samples = [Self.sample(hoursAgo: 2, level: 50), Self.sample(hoursAgo: 1, level: 60, charging: true)]
         #expect(BatteryLevelTimeline.chargeEnd(in: samples)?.level == 60)
+    }
+
+    @Test func aChargeThatEndedWhileTheAppWasNotRunningEndsAtItsLastChargingSample() {
+        let samples = [Self.sample(hoursAgo: 8, level: 99, charging: true), Self.sample(hoursAgo: 2, level: 92)]
+        #expect(BatteryLevelTimeline.chargeEnd(in: samples)?.level == 99)
+    }
+
+    @Test func aSilenceBetweenSamplesBreaksTheLine() {
+        let samples = [Self.sample(hoursAgo: 12, level: 90), Self.sample(hoursAgo: 11.95, level: 89), Self.sample(hoursAgo: 2, level: 40), Self.sample(hoursAgo: 1.95, level: 39)]
+        #expect(BatteryLevelTimeline(range: .day, now: Self.now, samples: samples).runs.map(\.run) == [0, 0, 1, 1])
     }
 
     @Test func noChargingMeansNoLastCharge() {

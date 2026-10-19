@@ -1,4 +1,5 @@
 import Charts
+import OSLog
 import SwiftUI
 
 /// design-docs/battery.md: the stat tiles and the Battery Level card. Daily usage and health over
@@ -9,11 +10,13 @@ struct BatteryScreen: View {
     @State private var range = HistoryRange.day
     @State private var loaded: Result<BatteryLevelTimeline, any Error>?
     @Environment(\.appLanguage) private var language
+    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "history")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             tiles
-            levelCard
+            // A Mac with no battery records nothing, so a card promising a filling history would never fill.
+            if case .known(nil) = battery.state {} else { levelCard }
         }
         .padding(24)
         .background(SettingsBackground(glow: .green, glowCenter: .top))
@@ -25,6 +28,7 @@ struct BatteryScreen: View {
 
     private func load() {
         loaded = Result { try history.get().timeline(range: range) }
+        if case .failure(let error) = loaded { Self.log.error("battery timeline unreadable: \(String(describing: error), privacy: .public)") }
     }
 
     @ViewBuilder private var tiles: some View {
@@ -76,15 +80,17 @@ struct BatteryScreen: View {
             }
             .frame(maxWidth: .infinity, minHeight: 160)
         } else {
-            Chart(timeline.points, id: \.at) { point in
-                AreaMark(x: .value("Time", point.at), y: .value("Level", point.level)).foregroundStyle(.green.opacity(0.2))
-                LineMark(x: .value("Time", point.at), y: .value("Level", point.level)).foregroundStyle(.green)
+            Chart(timeline.runs, id: \.sample.at) { point in
+                AreaMark(x: .value("Time", point.sample.at), y: .value("Level", point.sample.level), series: .value("Run", point.run))
+                    .foregroundStyle(.green.opacity(0.2))
+                LineMark(x: .value("Time", point.sample.at), y: .value("Level", point.sample.level), series: .value("Run", point.run))
+                    .foregroundStyle(.green)
             }
             .chartXScale(domain: timeline.now.addingTimeInterval(-timeline.range.duration)...timeline.now)
             .chartYScale(domain: 0...100)
             .chartYAxis { AxisMarks(values: [0, 50, 100]) { AxisGridLine(); AxisValueLabel("\($0.as(Int.self) ?? 0)%") } }
             .frame(height: 160)
-            .accessibilityLabel(Text(verbatim: Phrase("Battery level over the last \(timeline.range.title)").resolve(in: language)))
+            .accessibilityLabel(Phrase("Battery level over the last \(timeline.range.title)").text(in: language))
         }
     }
 }
