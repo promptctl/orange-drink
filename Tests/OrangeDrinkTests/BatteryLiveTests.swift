@@ -1,5 +1,7 @@
 import Foundation
-import OSLog
+import IOKit.ps
+import notify
+import os
 import Testing
 @testable import OrangeDrink
 
@@ -16,22 +18,28 @@ import Testing
         let ac = try run("/usr/bin/pmset", "-g", "ac")
         #expect([before.percent, after.percent].contains(reading.chargePercent))
         let estimates = [before.estimate, after.estimate]
+        #expect(Self.pmsetStates(for: reading.power).contains(after.state))
 
         switch reading.power {
         case .battery(let timeToEmpty):
-            #expect(after.state == "discharging")
             #expect(ac.contains("No adapter attached."))
             #expect(estimates.contains(timeToEmpty))
         case .adapter(let watts, let charging):
             let adapterWatts = ac.firstMatch(of: /Wattage = (\d+)W/)?.1
             #expect(watts == adapterWatts.map { .init(value: Double($0)!, unit: .watts) })
-            switch charging {
-            case .charging(let timeToFull):
-                #expect(after.state == "charging" || after.state == "finishing charge")
-                #expect(estimates.contains(timeToFull))
-            case .notCharging: #expect(after.state == "AC attached; not charging")
-            case .full: #expect(after.state == "charged")
-            }
+            if case .charging(let timeToFull) = charging { #expect(estimates.contains(timeToFull)) }
+        }
+    }
+
+    /// pmset.m's five state words: one for a battery, four for an adapter. [LAW:one-source-of-truth]
+    /// The one map from a reading's power to those words; every pmset check reads it.
+    static let pmsetDischarging = "discharging"
+    static func pmsetStates(for power: PowerSource) -> [String] {
+        switch power {
+        case .battery: [pmsetDischarging]
+        case .adapter(_, .charging): ["charging", "finishing charge"]
+        case .adapter(_, .notCharging): ["AC attached; not charging"]
+        case .adapter(_, .full): ["charged"]
         }
     }
 
@@ -64,13 +72,87 @@ import Testing
     }
 
     @Test func everyReadIsLogged() throws {
-        let store = try OSLogStore(scope: .currentProcessIdentifier)
-        let since = store.position(date: Date())
+        let log = try BatteryLog()
         let reading = try #require(try IOKitBattery.read())
-        let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
-        #expect(entries.contains { $0.composedMessage == "battery read: \(String(describing: reading))" })
+        #expect(try log.messages().contains("battery read: \(String(describing: reading))"))
     }
+
+    @Test func subscriptionStartsWithTheCurrentReading() async throws {
+        let log = try BatteryLog()
+        var readings = BatteryMonitor.readings().makeAsyncIterator()
+        let published = try #require(try await readings.next(), "the stream ended before its first reading")
+        let first = try #require(published, "this check needs a Mac with a battery")
+        let direct = try #require(try IOKitBattery.read())
+        #expect(first.capacity.design == direct.capacity.design)
+        #expect(first.cycles == direct.cycles)
+        #expect(try log.messages().contains { $0.hasPrefix("battery notifications: registered token ") })
+    }
+
+    /// The ticket's step on a real Mac, run by `make unplug-check` with a person at the cable.
+    /// Each event is checked against pmset at the moment it arrives, and against powerd's own
+    /// source-change post for the one-second bound.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["UNPLUG_CHECK"] != nil, "run by make unplug-check with a person at the cable"))
+    func plugAndUnplug() async throws {
+        struct Arrival {
+            let reading: BatteryReading; let at: ContinuousClock.Instant; let pmset: PmsetBattery; let after: BatteryReading
+            /// [LAW:no-ambient-temporal-coupling] Stamped first, then pmset, then a second read, so
+            /// the stamp predates the pmset spawn and pmset's percent is bracketed by two readings.
+            init(_ reading: BatteryReading, pmset: () throws -> PmsetBattery, read: () throws -> BatteryReading) rethrows {
+                self.reading = reading; at = .now; self.pmset = try pmset(); after = try read()
+            }
+        }
+        let start = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
+        guard case .adapter = start.power else { Issue.record("start with the adapter plugged in"); return }
+        let log = try BatteryLog()
+        let posts = OSAllocatedUnfairLock<[ContinuousClock.Instant]>(initialState: [])
+        var token: Int32 = 0
+        let status = notify_register_dispatch(kIOPSNotifyPowerSource, &token, DispatchQueue(label: "posts")) { _ in
+            posts.withLock { $0.append(.now) }
+        }
+        try #require(status == NOTIFY_STATUS_OK)
+        defer { notify_cancel(token) }
+        let run = Task { () -> (unplugged: Arrival, plugged: Arrival)? in
+            var unplugged: Arrival?
+            FileHandle.standardError.write(Data("\n>>> Unplug the adapter now.\n".utf8))
+            for try await event in BatteryMonitor.events() {
+                switch (event, unplugged) {
+                case (.unplugged(let reading), nil):
+                    unplugged = try Arrival(reading, pmset: pmsetBattery, read: readBattery)
+                    FileHandle.standardError.write(Data("\n>>> Plug it back in now.\n".utf8))
+                case (.plugged(let reading), let unplugged?):
+                    return (unplugged, try Arrival(reading, pmset: pmsetBattery, read: readBattery))
+                default:
+                    continue
+                }
+            }
+            return nil
+        }
+        let deadline = Task { try await Task.sleep(for: .seconds(120)); run.cancel() }
+        defer { deadline.cancel() }
+        let arrivals = try #require(try await run.value, "no unplug followed by a plug within 120 s")
+
+        guard case .battery = arrivals.unplugged.reading.power else {
+            Issue.record("unplug event carried \(arrivals.unplugged.reading.power)"); return
+        }
+        guard case .adapter = arrivals.plugged.reading.power else {
+            Issue.record("plug event carried \(arrivals.plugged.reading.power)"); return
+        }
+        // The kind, not the charging detail: powerd publishes "not charging" and then "charging"
+        // within the time a pmset sample takes, so the detail is bracketed in matchesPmset instead.
+        #expect(arrivals.unplugged.pmset.state == Self.pmsetDischarging)
+        #expect(arrivals.plugged.pmset.state != Self.pmsetDischarging)
+        for arrival in [arrivals.unplugged, arrivals.plugged] {
+            #expect([arrival.reading.chargePercent, arrival.after.chargePercent].contains(arrival.pmset.percent))
+            let gap = posts.withLock { $0 }.filter { $0 <= arrival.at }.map { arrival.at - $0 }.min()
+            #expect(try #require(gap, "powerd posted no source change before the event") <= .seconds(1))
+        }
+
+        let messages = try log.messages()
+        #expect(messages.contains("battery event: \(String(describing: BatteryEvent.unplugged(arrivals.unplugged.reading)))"))
+        #expect(messages.contains("battery event: \(String(describing: BatteryEvent.plugged(arrivals.plugged.reading)))"))
+    }
+
+    func readBattery() throws -> BatteryReading { try #require(try IOKitBattery.read()) }
 
     func run(_ command: String, _ arguments: String...) throws -> String {
         let process = Process()
