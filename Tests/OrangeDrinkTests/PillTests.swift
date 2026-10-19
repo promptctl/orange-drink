@@ -52,6 +52,21 @@ import Testing
         #expect(pills.shown == nil && pills.shownFrame == nil)
     }
 
+    @Test func replacingAPillDoesNotReleaseWhoeverWaitsForNoPill() async throws {
+        let pills = PillController()
+        let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
+        pills.show(PillContent(low, reading: try Self.reading(14)))
+        var released = false
+        let waiter = Task { await pills.untilClosed(); released = true }
+        await Task.yield()
+        pills.show(PillContent(low, reading: try Self.reading(13)))
+        await Task.yield()
+        #expect(!released)
+        pills.close()
+        await waiter.value
+        #expect(released)
+    }
+
     @Test func pillWordingAndSeverityFollowTheAlertAndTheReading() throws {
         let low = { (threshold: Int) in Alert(kind: .low, threshold: threshold, position: .top, glow: false, sound: false) }
         #expect(PillContent(low(5), reading: try Self.reading(4)).severity == .red)

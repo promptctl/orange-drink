@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import os
 
 /// Where a pill sits on a screen, as the alert's position says.
 enum PillPlacement {
@@ -41,6 +42,8 @@ private final class PillPanel: NSPanel {
 ///
 /// [LAW:single-enforcer] `shown` is the only record of whether a pill is up; the window follows it.
 @MainActor final class PillController {
+    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
+
     private(set) var shown: PillContent?
     private var panel: PillPanel?
     private var waiters: [CheckedContinuation<Void, Never>] = []
@@ -57,19 +60,27 @@ private final class PillPanel: NSPanel {
     }
 
     func show(_ content: PillContent) {
-        close()
-        // [LAW:no-silent-failure] A Mac running the app has a screen; none is a broken session, not an empty case.
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { fatalError("no screen to show a pill on") }
+        dismiss()
+        // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost alert is logged.
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else {
+            Self.log.error("no screen to show the pill on: \(content.headline, privacy: .public)")
+            return
+        }
         let panel = PillPanel(content, screen: screen, onClose: { [weak self] in self?.close() })
         panel.orderFrontRegardless()
         self.panel = panel
         shown = content
     }
 
-    func close() {
+    /// Takes down the pill showing, if any, without telling waiters: a replacement may follow.
+    private func dismiss() {
         panel?.close()
         panel = nil
         shown = nil
+    }
+
+    func close() {
+        dismiss()
         let released = waiters
         waiters = []
         for waiter in released { waiter.resume() }

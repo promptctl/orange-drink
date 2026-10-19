@@ -47,7 +47,7 @@ struct PillContent: Equatable, Sendable {
 
     private static func subline(_ reading: BatteryReading) -> String? {
         guard let estimate = reading.estimate else { return nil }
-        let minutes = Int(estimate.components.seconds / 60)
+        let minutes = estimate.wholeMinutes
         let amount = minutes < 60 ? "\(minutes)min" : estimate.hoursAndMinutes
         switch reading.power {
         case .battery: return "\(amount) until empty"

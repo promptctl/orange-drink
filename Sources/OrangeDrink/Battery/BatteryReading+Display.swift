@@ -13,9 +13,12 @@ extension BatteryReading {
 }
 
 extension Duration {
-    /// "1h 22m": the panel's form for an estimate; minutes are floored, as pmset's are.
+    /// Whole minutes, floored, as pmset's are.
+    var wholeMinutes: Int { Int(components.seconds / 60) }
+
+    /// "1h 22m": the panel's form for an estimate.
     var hoursAndMinutes: String {
-        let minutes = Int(components.seconds / 60)
+        let minutes = wholeMinutes
         return "\(minutes / 60)h \(minutes % 60)m"
     }
 }
