@@ -54,7 +54,7 @@ struct OrangeDrinkApp: App {
         pinnedItems = PinnedItemsController()
         // [LAW:no-silent-failure] A shortcut the system will not give us is logged, and the app runs without it.
         do {
-            openPanelHotKey = try OpenPanelHotKey(hotKeys: CarbonHotKeys(), panel: StatusItemPanel())
+            openPanelHotKey = try OpenPanelHotKey(hotKeys: CarbonHotKeys.shared(), panel: StatusItemPanel())
         } catch {
             Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey").error("no global shortcut to open the panel: \(error)")
             openPanelHotKey = nil

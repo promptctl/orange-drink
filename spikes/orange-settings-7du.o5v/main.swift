@@ -11,7 +11,7 @@ enum NSPinnedStatusItem { static let buttonID = NSUserInterfaceItemIdentifier("p
         MenuBarExtra("hk") { Text("panel").padding(40) }.menuBarExtraStyle(.window)
     }
     init() {
-        hk = try! OpenPanelHotKey(hotKeys: CarbonHotKeys(), panel: StatusItemPanel())
+        hk = try! OpenPanelHotKey(hotKeys: CarbonHotKeys.shared(), panel: StatusItemPanel())
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { MainActor.assumeIsolated { press(1) } }
     }
 }

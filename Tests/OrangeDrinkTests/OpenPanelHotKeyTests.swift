@@ -53,7 +53,7 @@ import Testing
     private static let spare = KeyCombo(keyCode: KeyCombo.openPanel.keyCode, modifiers: [.control, .option, .shift, .command])
 
     @Test func theSystemRegistersACombinationAndLetsGoOfIt() throws {
-        let carbon = try CarbonHotKeys()
+        let carbon = try CarbonHotKeys.shared()
         let registration = try carbon.register(Self.spare, fire: {})
         #expect(throws: HotKeyError.self) { try carbon.register(Self.spare, fire: {}) }
         registration.cancel()
@@ -62,6 +62,6 @@ import Testing
 
     // The test host is the app itself, which registers ⌃⌥J as it launches: the system now refuses it to anyone else.
     @Test func theLaunchedAppHoldsTheDefaultCombination() throws {
-        #expect(throws: HotKeyError.self) { try CarbonHotKeys().register(.openPanel, fire: {}) }
+        #expect(throws: HotKeyError.self) { try CarbonHotKeys.shared().register(.openPanel, fire: {}) }
     }
 }

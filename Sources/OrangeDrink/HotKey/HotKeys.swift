@@ -29,13 +29,22 @@ struct HotKeyError: Error, CustomStringConvertible {
 @MainActor final class CarbonHotKeys: HotKeys {
     private static let signature: OSType = 0x4F44484B   // 'ODHK'
 
-    /// Hot key ids are the process's, not an instance's, so every instance's handler can tell its own presses.
-    private static var nextID: UInt32 = 1
+    /// [LAW:no-shared-mutable-globals] The system delivers every hot key press to one application
+    /// handler, so the process has one registrar, made on first use; this is its only owner.
+    private static var installed: CarbonHotKeys?
+
+    static func shared() throws -> CarbonHotKeys {
+        if let installed { return installed }
+        let made = try CarbonHotKeys()
+        installed = made
+        return made
+    }
 
     private var fires: [UInt32: @MainActor () -> Void] = [:]
+    private var nextID: UInt32 = 1
     private var handler: EventHandlerRef?
 
-    init() throws {
+    private init() throws {
         var pressed = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
             guard let event, let userData else { return OSStatus(eventNotHandledErr) }
@@ -50,14 +59,13 @@ struct HotKeyError: Error, CustomStringConvertible {
                 fire()
                 return noErr
             }
-        // The handler is the system's for as long as the process lives, so it holds its registrar for as long.
-        }, 1, &pressed, Unmanaged.passRetained(self).toOpaque(), &handler)
+        }, 1, &pressed, Unmanaged.passUnretained(self).toOpaque(), &handler)
         guard status == noErr else { throw HotKeyError(combo: nil, status: status) }
     }
 
     func register(_ combo: KeyCombo, fire: @escaping @MainActor () -> Void) throws -> any HotKeyRegistration {
-        let id = Self.nextID
-        Self.nextID += 1
+        let id = nextID
+        nextID += 1
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(combo.keyCode, combo.modifiers.carbon, EventHotKeyID(signature: Self.signature, id: id),
                                          GetApplicationEventTarget(), 0, &ref)
