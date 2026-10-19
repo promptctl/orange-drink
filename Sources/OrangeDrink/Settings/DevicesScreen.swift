@@ -109,19 +109,19 @@ struct DevicesScreen: View {
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel((entry.isAlerting ? ("Turn off battery alerts for \(entry.row.name)" as Phrase) : "Turn on battery alerts for \(entry.row.name)").text(in: language))
+                        .accessibilityLabel(entry.alertingLabel.text(in: language))
                         Button { togglePinned(entry.id) } label: {
                             Image(systemName: entry.isPinned ? "pin.fill" : "pin").frame(width: 32, height: 32)
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel((entry.isPinned ? ("Unpin \(entry.row.name) from the menu bar" as Phrase) : "Pin \(entry.row.name) to the menu bar").text(in: language))
+                        .accessibilityLabel(entry.pinnedLabel.text(in: language))
                         Button { toggleHidden(entry.id) } label: {
                             Image(systemName: entry.isHidden ? "eye.slash" : "eye").frame(width: 32, height: 32)
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel((entry.isHidden ? ("Show \(entry.row.name) in the menu bar panel" as Phrase) : "Hide \(entry.row.name) from the menu bar panel").text(in: language))
+                        .accessibilityLabel(entry.hiddenLabel.text(in: language))
                     }
                     .padding(12)
                     .accessibilityElement(children: .contain)

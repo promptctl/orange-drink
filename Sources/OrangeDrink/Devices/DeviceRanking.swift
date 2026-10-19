@@ -58,6 +58,11 @@ struct DetectedDevices: Equatable {
         let isAlerting: Bool
         let isPinned: Bool
         var id: DeviceID { row.id }
+
+        /// What each of the row's toggle buttons does when pressed, said for the state the row is in.
+        var alertingLabel: Phrase { isAlerting ? "Turn off battery alerts for \(row.name)" : "Turn on battery alerts for \(row.name)" }
+        var pinnedLabel: Phrase { isPinned ? "Unpin \(row.name) from the menu bar" : "Pin \(row.name) to the menu bar" }
+        var hiddenLabel: Phrase { isHidden ? "Show \(row.name) in the menu bar panel" : "Hide \(row.name) from the menu bar panel" }
     }
 
     let entries: [Entry]

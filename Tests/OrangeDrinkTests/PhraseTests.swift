@@ -86,9 +86,11 @@ import Testing
         phrases += [MenuBarPreview.overflowHelp, MenuBarPreview.tutorialHelp, "Control \("App") from the menu bar", "Don't see it?",
                     "Remove default battery icon from menu bar", "Click to see quick tutorial", "Menu bar preview", "Info"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
-        phrases += ["Turn off battery alerts for \("D")", "Turn on battery alerts for \("D")", "Unpin \("D") from the menu bar", "Pin \("D") to the menu bar",
-                    "Show \("D") in the menu bar panel", "Hide \("D") from the menu bar panel",
-                    "Move \("D") up, toward the left of the menu bar", "Move \("D") down, toward the right of the menu bar"]
+        phrases += [true, false].flatMap { on in
+            let entry = DetectedDevices.Entry(row: DeviceRow(id: DeviceID(address: "d"), name: "D", kind: .accessory, percent: "50%", fraction: 0.5, tone: .normal), isHidden: on, isAlerting: on, isPinned: on)
+            return [entry.alertingLabel, entry.pinnedLabel, entry.hiddenLabel]
+        }
+        phrases += ["Move \("D") up, toward the left of the menu bar", "Move \("D") down, toward the right of the menu bar"]
         phrases += ["＋ \("Add Low Battery Alert")", "Add Low Battery Alert", "Add Charged Alert", "Enable Notifications", "Show battery alerts and notifications",
                     "Low Battery Alerts", "Notify when battery goes below percentage", "Charged Alerts", "Notify when battery reaches percentage",
                     "Power Source Alerts", "Plugged In", "Notify when power adapter is connected", "Unplugged", "Notify when power adapter is disconnected",
