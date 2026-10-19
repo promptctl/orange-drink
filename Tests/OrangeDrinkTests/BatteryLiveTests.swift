@@ -72,6 +72,58 @@ import Testing
         #expect(entries.contains { $0.composedMessage == "battery read: \(String(describing: reading))" })
     }
 
+    @Test func subscriptionStartsWithTheCurrentReading() async throws {
+        var readings = BatteryMonitor.readings().makeAsyncIterator()
+        let published = try #require(try await readings.next(), "the stream ended before its first reading")
+        let first = try #require(published, "this check needs a Mac with a battery")
+        let direct = try #require(try IOKitBattery.read())
+        #expect(first.capacity.design == direct.capacity.design)
+        #expect(first.cycles == direct.cycles)
+    }
+
+    /// The ticket's step on a real Mac, run by `make unplug-check` with a person at the cable;
+    /// `make test` skips it. Each event is checked against pmset at the moment it arrives.
+    @Test func plugAndUnplug() async throws {
+        struct Arrival { let reading: BatteryReading; let pmsetState: String }
+        let store = try OSLogStore(scope: .currentProcessIdentifier)
+        let since = store.position(date: Date())
+        let run = Task { () -> (unplugged: Arrival, plugged: Arrival)? in
+            var unplugged: Arrival?
+            FileHandle.standardError.write(Data("\n>>> Unplug the adapter now.\n".utf8))
+            for try await event in BatteryMonitor.events() {
+                switch (event, unplugged) {
+                case (.unplugged(let reading), nil):
+                    unplugged = Arrival(reading: reading, pmsetState: try pmsetBattery().state)
+                    FileHandle.standardError.write(Data("\n>>> Plug it back in now.\n".utf8))
+                case (.plugged(let reading), let unplugged?):
+                    return (unplugged, Arrival(reading: reading, pmsetState: try pmsetBattery().state))
+                default:
+                    continue
+                }
+            }
+            return nil
+        }
+        let deadline = Task { try await Task.sleep(for: .seconds(120)); run.cancel() }
+        let arrivals = try #require(try await run.value, "no unplug followed by a plug within 120 s")
+        deadline.cancel()
+
+        guard case .battery = arrivals.unplugged.reading.power else {
+            Issue.record("unplug event carried \(arrivals.unplugged.reading.power)"); return
+        }
+        #expect(arrivals.unplugged.pmsetState == "discharging")
+        guard case .adapter = arrivals.plugged.reading.power else {
+            Issue.record("plug event carried \(arrivals.plugged.reading.power)"); return
+        }
+        #expect(arrivals.plugged.pmsetState.hasPrefix("AC attached") || arrivals.plugged.pmsetState == "charging"
+                || arrivals.plugged.pmsetState == "charged")
+
+        let entries = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
+                                                                             IOKitBattery.logSubsystem, IOKitBattery.logCategory))
+        let messages = entries.map(\.composedMessage)
+        #expect(messages.contains("battery event: \(String(describing: BatteryEvent.unplugged(arrivals.unplugged.reading)))"))
+        #expect(messages.contains("battery event: \(String(describing: BatteryEvent.plugged(arrivals.plugged.reading)))"))
+    }
+
     func run(_ command: String, _ arguments: String...) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: command)
