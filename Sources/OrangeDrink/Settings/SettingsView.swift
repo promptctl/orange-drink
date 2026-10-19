@@ -6,6 +6,7 @@ struct SettingsView: View {
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
     let language: AppLanguageModel
+    let shortcuts: ShortcutsController
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
@@ -23,7 +24,7 @@ struct SettingsView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, menuBarIcon: menuBarIcon, devices: devices,
+            ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
                        deviceSettings: deviceSettings, select: { selection = $0 })
         }
         .appLook(look, language)
@@ -64,6 +65,7 @@ private struct ScreenView: View {
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
     let language: AppLanguageModel
+    let shortcuts: ShortcutsController
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
@@ -85,6 +87,7 @@ private struct ScreenView: View {
                 case .general: GeneralScreen(appearance: appearance, look: look, language: language)
                 case .alerts: AlertsScreen(center: alerts)
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
+                case .shortcuts: ShortcutsScreen(controller: shortcuts)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
                 default: EmptyState(screen: screen).padding(.top, 60)
                 }

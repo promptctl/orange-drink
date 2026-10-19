@@ -24,6 +24,16 @@ struct HotKeyError: Error, CustomStringConvertible {
     }
 }
 
+/// The hot keys of a Mac whose system would not take the handler: every registration is refused the same way,
+/// so the Shortcuts screen can say so instead of there being no screen.
+struct UnavailableHotKeys: HotKeys {
+    let cause: HotKeyError
+
+    func register(_ combo: KeyCombo, fire: @escaping @MainActor () -> Void) throws -> any HotKeyRegistration {
+        throw HotKeyError(combo: combo, status: cause.status)
+    }
+}
+
 /// Hot keys through Carbon's RegisterEventHotKey: no Accessibility permission, and the press is
 /// delivered to this app whichever app is frontmost.
 @MainActor final class CarbonHotKeys: HotKeys {

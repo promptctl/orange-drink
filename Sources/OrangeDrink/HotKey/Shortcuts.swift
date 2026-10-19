@@ -1,0 +1,103 @@
+import Foundation
+
+/// One letter, a to z: what a menu shortcut is pressed as.
+struct ShortcutLetter: Hashable, Codable, Sendable, ExpressibleByUnicodeScalarLiteral {
+    let character: Character
+
+    /// [LAW:parse-dont-validate] Letters only, whatever the case it was typed in.
+    init?(_ typed: Character) {
+        guard let lower = typed.lowercased().first, lower.isASCII, lower.isLetter else { return nil }
+        character = lower
+    }
+
+    /// A literal in the source is a programmer's letter: anything else is a bug, not input.
+    init(unicodeScalarLiteral scalar: Character) {
+        guard let letter = ShortcutLetter(scalar) else { preconditionFailure("\(scalar) is not a letter a to z") }
+        self = letter
+    }
+
+    var display: String { character.uppercased() }
+
+    init(from decoder: Decoder) throws {
+        let text = try decoder.singleValueContainer().decode(String.self)
+        guard text.count == 1, let letter = ShortcutLetter(text.first!) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "not one letter a to z"))
+        }
+        self = letter
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(String(character))
+    }
+}
+
+/// The rows of the Shortcuts screen's Menu Shortcuts card, in the order it lists them.
+enum MenuShortcut: String, CaseIterable, Codable, Sendable, CodingKeyRepresentable {
+    case batteryInformation, appsUsingSignificantEnergy, connectedDevices, lowPowerMode
+
+    var defaultLetter: ShortcutLetter {
+        switch self {
+        case .batteryInformation: "i"
+        case .appsUsingSignificantEnergy: "u"
+        case .connectedDevices: "d"
+        case .lowPowerMode: "l"
+        }
+    }
+
+    /// The panel section the letter expands or collapses; nil for a row whose target does not exist yet
+    /// (orange-history-4y3.s4l, orange-admin-helper-b2q.0ld).
+    var section: PanelSections.Section? {
+        switch self {
+        case .batteryInformation: .batteryInformation
+        case .connectedDevices: .connectedDevices
+        case .appsUsingSignificantEnergy, .lowPowerMode: nil
+        }
+    }
+}
+
+/// Every keyboard shortcut the user can set: the global one that opens the panel and a letter per menu row.
+///
+/// [LAW:one-source-of-truth] This is the only place a shortcut's key is kept; the hot key, the panel's
+/// keyboard, and the Shortcuts screen all read it.
+struct Shortcuts: Stored {
+    static let storageKey = "shortcuts"
+
+    struct Conflict: Error, Equatable {
+        let letter: ShortcutLetter
+        let heldBy: MenuShortcut
+    }
+
+    private(set) var openPanel: KeyCombo
+    private(set) var letters: [MenuShortcut: ShortcutLetter]
+
+    init() {
+        openPanel = .openPanel
+        letters = Dictionary(uniqueKeysWithValues: MenuShortcut.allCases.map { ($0, $0.defaultLetter) })
+    }
+
+    func letter(for shortcut: MenuShortcut) -> ShortcutLetter { letters[shortcut]! }
+
+    func shortcut(for letter: ShortcutLetter) -> MenuShortcut? { letters.first { $0.value == letter }?.key }
+
+    mutating func set(openPanel combo: KeyCombo) { openPanel = combo }
+
+    /// A letter belongs to one row: taking one another row holds is refused rather than leaving two rows to race for it.
+    mutating func assign(_ letter: ShortcutLetter, to shortcut: MenuShortcut) throws {
+        if let holder = self.shortcut(for: letter), holder != shortcut { throw Conflict(letter: letter, heldBy: holder) }
+        letters[shortcut] = letter
+    }
+
+    private enum CodingKeys: String, CodingKey { case openPanel, letters }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        openPanel = try values.decode(KeyCombo.self, forKey: .openPanel)
+        letters = try values.decode([MenuShortcut: ShortcutLetter].self, forKey: .letters)
+        guard Set(letters.keys) == Set(MenuShortcut.allCases), Set(letters.values).count == letters.count else {
+            throw DecodingError.dataCorruptedError(forKey: .letters, in: values, debugDescription: "every row needs its own letter")
+        }
+    }
+}
+
+typealias ShortcutsModel = StoredModel<Shortcuts>

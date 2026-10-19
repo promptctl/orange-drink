@@ -21,11 +21,31 @@ struct KeyCombo: Equatable, Codable, Sendable {
     }
 
     /// The key's place on the keyboard (a virtual key code), which is what a hot key is registered by.
-    var keyCode: UInt32
-    var modifiers: Modifiers
+    let keyCode: UInt32
+    let modifiers: Modifiers
+
+    /// [LAW:parse-dont-validate] The one way a combination is made from what was pressed or stored: a letter
+    /// held with Control, Option, or Command, so a global shortcut can never take a plain key from every app.
+    init?(keyCode: UInt32, modifiers: Modifiers) {
+        guard Self.letters[keyCode] != nil, !modifiers.isDisjoint(with: [.control, .option, .command]) else { return nil }
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+    }
 
     /// Control-Option-J: the shortcut that opens the panel until the user records another.
-    static let openPanel = KeyCombo(keyCode: UInt32(kVK_ANSI_J), modifiers: [.control, .option])
+    static let openPanel = KeyCombo(keyCode: UInt32(kVK_ANSI_J), modifiers: [.control, .option])!
+
+    private enum CodingKeys: String, CodingKey { case keyCode, modifiers }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let keyCode = try values.decode(UInt32.self, forKey: .keyCode)
+        let modifiers = try values.decode(Modifiers.self, forKey: .modifiers)
+        guard let combo = KeyCombo(keyCode: keyCode, modifiers: modifiers) else {
+            throw DecodingError.dataCorruptedError(forKey: .keyCode, in: values, debugDescription: "not a letter held with Control, Option, or Command")
+        }
+        self = combo
+    }
 
     /// "⌃⌥J".
     var display: String { modifiers.glyphs + (Self.letters[keyCode] ?? "?") }

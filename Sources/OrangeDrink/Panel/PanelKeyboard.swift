@@ -18,24 +18,31 @@ typealias PlainKey = Character
     func stop()
 }
 
-/// The panel's single-key shortcuts: listening exactly while the panel is open.
+/// The panel's single-key shortcuts, as the user set them: listening exactly while the panel is open.
 ///
 /// [LAW:no-ambient-temporal-coupling] The listener's life is the panel's: started as it opens, stopped as
 /// it closes. The system delivers keys typed in other apps to those apps, so closed means untouched.
 @MainActor final class PanelKeyboard {
     private let sections: PanelSections
+    private let shortcuts: ShortcutsModel
     private let events: any KeyEvents
     private var listening: (any KeyListening)?
 
-    init(sections: PanelSections, events: any KeyEvents) {
+    init(sections: PanelSections, shortcuts: ShortcutsModel, events: any KeyEvents) {
         self.sections = sections
+        self.shortcuts = shortcuts
         self.events = events
     }
 
     /// `shown` is asked at each press which sections the panel is drawing now.
     func panelDidOpen(shown: @escaping @MainActor () -> Set<PanelSections.Section>) {
         listening?.stop()
-        listening = events.listen { [sections] key in sections.press(key, shown: shown()) }
+        listening = events.listen { [sections, shortcuts] key in
+            // A letter flips its section as clicking the section's header does, when the panel is drawing that section.
+            guard let letter = ShortcutLetter(key), let section = shortcuts.value.shortcut(for: letter)?.section, shown().contains(section) else { return false }
+            sections.toggle(section)
+            return true
+        }
     }
 
     func panelDidClose() {
