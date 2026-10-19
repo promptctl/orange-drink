@@ -7,7 +7,6 @@ struct DailyUsageCard: View {
     let overview: BatteryOverview
     @Environment(\.appLanguage) private var language
 
-
     var body: some View {
         SettingCard {
             VStack(alignment: .leading, spacing: 16) {
@@ -114,10 +113,11 @@ struct BatteryHealthCard: View {
 private struct TickLabel: View {
     let value: AxisValue
     let suffix: String
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         if let number = value.as(Double.self) {
-            Text(verbatim: number.formatted(.number.precision(.fractionLength(0...1)).grouping(.never)) + suffix)
+            Text(verbatim: number.formatted(.number.precision(.fractionLength(0...1)).grouping(.never).locale(language.locale)) + suffix)
         }
     }
 }

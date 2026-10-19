@@ -76,6 +76,13 @@ import Testing
         #expect(BatteryOverview.age(24 * 3600).english == "Collected 1d ago")
     }
 
+    @Test func aNewHistoryIsAnEmptyOverviewThatIsBuilding() throws {
+        let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
+        let overview = try BatteryHistory(store: store, timekeeper: BatteryHistoryTests.Clock(Self.day(0)), calendar: BatteryHistoryTests.utc).overview()
+        #expect(overview.days.isEmpty && overview.health.isEmpty && overview.collectedAt == nil)
+        #expect(overview.isBuildingUsage && overview.isBuildingHealth)
+    }
+
     @Test func theCapacityReadsFullOverDesign() throws {
         var registry = BatteryReadingParse.registry
         registry.merge(["AppleRawMaxCapacity": 5942, "DesignCapacity": 6249]) { $1 }
