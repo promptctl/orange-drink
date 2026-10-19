@@ -6,6 +6,7 @@ struct PanelView: View {
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
     let sections: PanelSections
+    let look: AppAppearanceModel
 
     var body: some View {
         VStack(spacing: 10) {
@@ -30,8 +31,8 @@ struct PanelView: View {
         }
         .padding(12)
         .frame(width: 330)
-        .background(.black.opacity(0.85))
-        .preferredColorScheme(.dark)
+        .background(AdaptiveColor(light: .white.opacity(0.85), dark: .black.opacity(0.85)))
+        .preferredColorScheme(look.value.colorScheme)
     }
 }
 
@@ -45,8 +46,8 @@ extension View {
     /// The panel's card: a rounded surface with a thin border.
     func card() -> some View {
         padding(12)
-            .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.1)))
+            .background(Color.veil(0.06), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.veil(0.1)))
     }
 }
 
@@ -96,10 +97,10 @@ private struct ProgressBar: View {
     var body: some View {
         GeometryReader { bar in
             ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.12))
+                Capsule().fill(Color.veil(0.12))
                 Capsule().fill(tint).frame(width: bar.size.width * fraction)
                 ForEach([0.25, 0.5], id: \.self) { mark in
-                    Rectangle().fill(.white.opacity(0.25)).frame(width: 1).offset(x: bar.size.width * mark)
+                    Rectangle().fill(Color.veil(0.25)).frame(width: 1).offset(x: bar.size.width * mark)
                 }
             }
         }

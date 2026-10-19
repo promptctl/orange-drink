@@ -31,7 +31,7 @@ struct ConnectedDevicesView: View {
 struct DeviceRowView: View {
     let row: DeviceRow
 
-    private var tint: Color { row.tone == .nearlyFull ? .green : .white.opacity(0.7) }
+    private var tint: Color { row.tone == .nearlyFull ? .green : Color.veil(0.7) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {

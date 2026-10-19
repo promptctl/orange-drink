@@ -7,7 +7,7 @@ struct LevelBar: View {
     var body: some View {
         GeometryReader { bar in
             ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.12))
+                Capsule().fill(Color.veil(0.12))
                 Capsule().fill(tint).frame(width: bar.size.width * min(fraction, 1))
             }
         }

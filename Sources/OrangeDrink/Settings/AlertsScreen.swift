@@ -93,7 +93,7 @@ private struct ThresholdSection: View {
             Button { perform { $0.add(kind) } } label: {
                 Text("＋ \(addTitle)").fontWeight(.semibold)
                     .padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    .background(Color.veil(0.1), in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(addTitle)
@@ -119,7 +119,7 @@ private struct AlertCard: View {
                 Image(systemName: alert.kind.symbol)
                     .font(.system(size: 22)).foregroundStyle(color).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(alert.threshold)%").fontWeight(.bold).foregroundStyle(.white)
+                    Text("\(alert.threshold)%").fontWeight(.bold).foregroundStyle(.primary)
                         .padding(.horizontal, 10).padding(.vertical, 2)
                         .background(color.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
                     Text(alert.summary).font(.callout).foregroundStyle(.secondary)
@@ -127,7 +127,7 @@ private struct AlertCard: View {
                 Spacer(minLength: 12)
                 Button { editing = true } label: {
                     Image(systemName: "gearshape.fill").foregroundStyle(.secondary)
-                        .frame(width: 30, height: 30).background(Circle().fill(.white.opacity(0.1)))
+                        .frame(width: 30, height: 30).background(Circle().fill(Color.veil(0.1)))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Edit \(alert.kind.rawValue) \(alert.threshold)% alert")
