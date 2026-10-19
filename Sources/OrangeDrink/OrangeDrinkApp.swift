@@ -39,7 +39,7 @@ struct OrangeDrinkApp: App {
             look = try AppAppearanceModel(defaults: .standard)
             language = try AppLanguageModel(defaults: .standard)
             shortcutsModel = try ShortcutsModel(defaults: .standard)
-            pills = PillController(appearance: appearance)
+            pills = PillController(appearance: appearance, language: language)
             alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
                 pills.deliver($0, reading: $1)
                 sounds.deliver($0)

@@ -25,10 +25,13 @@ enum PillPlacement {
 
 /// The pill's window: it takes the close button's clicks without taking focus.
 private final class PillPanel: OverlayPanel {
-    init(_ content: PillContent, scale: Double, screen: NSScreen, onClose: @escaping () -> Void) {
+    let language: AppLanguage
+
+    init(_ content: PillContent, scale: Double, language: AppLanguage, screen: NSScreen, onClose: @escaping () -> Void) {
+        self.language = language
         super.init(
             frame: PillPlacement.frame(content.position, on: screen.visibleFrame, scale: scale), level: .pill,
-            content: PillView(content: content, scale: scale, onClose: onClose))
+            content: PillView(content: content, scale: scale, onClose: onClose).speaking(language))
     }
 }
 
@@ -49,16 +52,22 @@ private final class PillPanel: OverlayPanel {
     }
 
     private let appearance: NotificationAppearanceModel
+    private let language: AppLanguageModel
     private var up: Up?
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
-    init(appearance: NotificationAppearanceModel) { self.appearance = appearance }
+    init(appearance: NotificationAppearanceModel, language: AppLanguageModel) {
+        self.appearance = appearance
+        self.language = language
+    }
 
     var shown: PillContent? { up?.content }
     /// The panel's frame in screen coordinates while a pill is up.
     var shownFrame: CGRect? { up?.panel.frame }
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
     var shownGlowFrame: CGRect? { up?.glow?.frame }
+    /// The language the shown pill was handed: the app's at the moment it came up.
+    var shownLanguage: AppLanguage? { up?.panel.language }
     /// The strength the shown glow was built at.
     var shownGlowStrength: NotificationAppearance.GlowStrength? { up?.glow?.strength }
 
@@ -79,12 +88,12 @@ private final class PillPanel: OverlayPanel {
         dismiss()
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost alert is logged.
         guard let screen = NSScreen.main ?? NSScreen.screens.first else {
-            Self.log.error("no screen to show the pill on: \(content.headline, privacy: .public)")
+            Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .public)")
             close()
             return
         }
         let look = appearance.value
-        let panel = PillPanel(content, scale: look.bubbleSize.scale, screen: screen, onClose: { [weak self] in self?.close() })
+        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, screen: screen, onClose: { [weak self] in self?.close() })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, screen: screen) : nil

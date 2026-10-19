@@ -10,7 +10,7 @@ import Testing
 
     static func shownPill(_ appearance: NotificationAppearanceModel) throws
         -> (size: CGSize, glow: NotificationAppearance.GlowStrength?) {
-        let pills = PillController(appearance: appearance)
+        let pills = PillController(appearance: appearance, language: AppLanguageTests.scratch())
         defer { pills.close() }
         pills.deliver(.threshold(alert), reading: try PillTests.reading(14))
         return (try #require(pills.shownFrame).size, pills.shownGlowStrength)

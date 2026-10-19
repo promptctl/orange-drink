@@ -81,7 +81,7 @@ private struct NotificationAppearanceSection: View {
 
     /// The sample alert of design-docs/general.md: 15% remaining with 9 minutes to go.
     private static let sample = PillContent(
-        headline: "15% Remaining", subline: "9min until empty", severity: .orange, progress: 0.15,
+        headline: "\(15)% Remaining", subline: "\(9)min until empty", severity: .orange, progress: 0.15,
         position: .top, glow: false)
 
     var body: some View {

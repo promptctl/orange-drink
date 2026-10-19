@@ -78,7 +78,7 @@ import Testing
 
     @Test func anApproximateLevelIsMarkedOnThePill() {
         let firing = DeviceFiring(alert: alert, name: "AirPods", level: BatteryLevel(percent: 19, approximate: true))
-        #expect(PillContent(firing).headline == "AirPods: ~19% Remaining")
+        #expect(PillContent(firing).headline.english == "AirPods: ~19% Remaining")
     }
 
     @Test func theModelTellsItsCallbackTheListAfterEveryEvent() async {
@@ -142,7 +142,7 @@ import Testing
     @Test func aDeviceFiringsPillNamesTheDeviceItsLevelAndTheAlertsLook() {
         let firing = DeviceFiring(alert: AlertEngineTests.low(5), name: "Magic Mouse", level: BatteryLevel(percent: 4, approximate: false))
         let pill = PillContent(firing)
-        #expect(pill.headline == "Magic Mouse: 4% Remaining")
+        #expect(pill.headline.english == "Magic Mouse: 4% Remaining")
         #expect(pill.severity == .red)
         #expect(pill.progress == 0.04)
     }

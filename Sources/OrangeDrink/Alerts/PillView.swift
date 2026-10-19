@@ -38,15 +38,16 @@ struct PillView: View {
     /// The multiple of the standard size the whole pill is drawn at.
     let scale: Double
     let onClose: () -> Void
+    @Environment(\.appLanguage) private var language
 
     var body: some View {
         let color = content.severity.color
         HStack(spacing: 12) {
             PillBattery(color: color, level: content.progress)
             VStack(alignment: .leading, spacing: 1) {
-                Text(content.headline).font(.system(size: 19, weight: .bold)).foregroundStyle(.white)
+                content.headline.text(in: language).font(.system(size: 19, weight: .bold)).foregroundStyle(.white)
                 if let subline = content.subline {
-                    Text(subline).font(.system(size: 12)).foregroundStyle(.white.opacity(0.65))
+                    subline.text(in: language).font(.system(size: 12)).foregroundStyle(.white.opacity(0.65))
                 }
             }
             .lineLimit(1).minimumScaleFactor(0.7)
@@ -56,7 +57,7 @@ struct PillView: View {
                     .frame(width: 28, height: 28).background(Circle().fill(Color(white: 0.25)))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Close")
+            .accessibilityLabel(("Close" as Phrase).text(in: language))
         }
         .padding(.horizontal, 18)
         .frame(width: PillPlacement.size.width, height: PillPlacement.size.height)
