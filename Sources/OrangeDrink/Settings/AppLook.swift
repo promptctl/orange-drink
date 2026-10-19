@@ -12,6 +12,7 @@ private struct AppLook: ViewModifier {
         content
             .preferredColorScheme(look.value.colorScheme)
             .environment(\.locale, language.value.locale)
+            .environment(\.appLanguage, language.value)
     }
 }
 

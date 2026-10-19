@@ -17,9 +17,9 @@ struct PowerFlow: Equatable {
     let battery: Band
     let system: Band
     /// "Charging at 10 W" while charge flows into the battery.
-    let caption: String
+    let caption: Phrase
     /// A plain-language class for the system's draw.
-    let workload: String
+    let workload: Phrase
 
     init?(_ reading: BatteryReading) {
         guard case .adapter(let rating, let charging) = reading.power, let input = reading.systemPowerIn else { return nil }
@@ -40,7 +40,7 @@ struct PowerFlow: Equatable {
     }
 
     /// Where the system's draw falls, from a Mac at rest to one working flat out.
-    static func workload(watts: Double) -> String {
+    static func workload(watts: Double) -> Phrase {
         switch watts {
         case ..<8: "Idle: little running"
         case ..<25: "Light workload: browsing or documents"

@@ -91,7 +91,7 @@ import Observation
     }
 
     /// "Updated 3 min ago": the age of the reading on show, whole minutes.
-    func updatedText() -> String? {
+    func updatedText() -> Phrase? {
         readingAt.map { UpdatedFooter.text(age: timekeeper.now().timeIntervalSince($0)) }
     }
 

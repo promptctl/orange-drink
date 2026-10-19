@@ -23,7 +23,7 @@ import Testing
         #expect(flow.charger == "59W")
         #expect(flow.battery.label == "10.4 W")
         #expect(flow.system.label == "46.8 W")
-        #expect(flow.caption == "Charging at 10 W")
+        #expect(flow.caption.english == "Charging at 10 W")
         #expect(flow.workload == "Active workload: multitasking or media")
     }
 
@@ -44,9 +44,9 @@ import Testing
     }
 
     @Test func workloadClassesRiseWithTheDraw() {
-        #expect(PowerFlow.workload(watts: 3).hasPrefix("Idle"))
-        #expect(PowerFlow.workload(watts: 15).hasPrefix("Light"))
-        #expect(PowerFlow.workload(watts: 46.8).hasPrefix("Active"))
-        #expect(PowerFlow.workload(watts: 80).hasPrefix("Heavy"))
+        #expect(PowerFlow.workload(watts: 3).english.hasPrefix("Idle"))
+        #expect(PowerFlow.workload(watts: 15).english.hasPrefix("Light"))
+        #expect(PowerFlow.workload(watts: 46.8).english.hasPrefix("Active"))
+        #expect(PowerFlow.workload(watts: 80).english.hasPrefix("Heavy"))
     }
 }

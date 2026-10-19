@@ -26,7 +26,7 @@ struct BatteryInformationView: View {
                           help: "How much charge the battery holds today compared with when it was new.")
             HStack(alignment: .firstTextBaseline) {
                 Text(info.health.percent).font(.system(size: 28, weight: .bold)).foregroundStyle(info.health.condition.color)
-                Text(info.health.label).foregroundStyle(info.health.condition.color)
+                PhraseText(info.health.label).foregroundStyle(info.health.condition.color)
                 Spacer()
                 VStack(alignment: .trailing) {
                     Text(info.health.cycles).font(.system(.body, design: .monospaced).bold())
@@ -48,8 +48,8 @@ struct BatteryInformationView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing) {
-                    Label(info.temperature.status, systemImage: info.temperature.condition.markSymbol).foregroundStyle(info.temperature.condition.color)
-                    Text(info.temperature.caption).font(.caption).foregroundStyle(.secondary)
+                    Label { PhraseText(info.temperature.status) } icon: { Image(systemName: info.temperature.condition.markSymbol) }.foregroundStyle(info.temperature.condition.color)
+                    PhraseText(info.temperature.caption).font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
@@ -68,9 +68,9 @@ struct BatteryInformationView: View {
                 GridRow {
                     Reading(label: "Current", value: e.current, badge: e.flow == .intoBattery ? "arrow.up.circle.fill" : e.flow == .outOfBattery ? "arrow.down.circle.fill" : nil)
                     VStack(alignment: .leading, spacing: 2) {
-                        Label(e.voltageStatus, systemImage: e.charging ? "bolt.fill" : "battery.50")
+                        Label { PhraseText(e.voltageStatus) } icon: { Image(systemName: e.charging ? "bolt.fill" : "battery.50") }
                             .foregroundStyle(e.charging ? .green : .primary)
-                        Text(e.voltageNote).font(.caption).foregroundStyle(e.voltageCondition.color)
+                        PhraseText(e.voltageNote).font(.caption).foregroundStyle(e.voltageCondition.color)
                     }
                 }
             }
@@ -81,11 +81,11 @@ struct BatteryInformationView: View {
     /// The age is re-read every 10 s while the card is open, so "Updated" keeps counting between readings.
     private var footer: some View {
         VStack(spacing: 4) {
-            Label(UpdatedFooter.explanation, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
+            Label { PhraseText(UpdatedFooter.explanation) } icon: { Image(systemName: "info.circle") }.font(.caption).foregroundStyle(.secondary)
             TimelineView(.periodic(from: .now, by: 10)) { _ in
-                Text(battery.updatedText() ?? "").font(.caption).foregroundStyle(.secondary)
+                PhraseText(battery.updatedText() ?? "").font(.caption).foregroundStyle(.secondary)
             }
-            Button { battery.refresh() } label: { Label(UpdatedFooter.action, systemImage: "arrow.clockwise").font(.caption) }
+            Button { battery.refresh() } label: { Label { PhraseText(UpdatedFooter.action) } icon: { Image(systemName: "arrow.clockwise") }.font(.caption) }
                 .buttonStyle(.plain)
                 .foregroundStyle(.blue)
         }

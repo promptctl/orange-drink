@@ -11,7 +11,10 @@ enum SettingsScreen: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    /// What an unbuilt screen says in place of its controls.
+    var comingSoon: Phrase { "\(title) settings arrive in an upcoming version." }
+
+    var title: Phrase {
         switch self {
         case .general: "General"
         case .alerts: "Alerts"
@@ -58,7 +61,7 @@ enum SettingsScreen: String, CaseIterable, Identifiable {
     static let firstHue = 80.0, lastHue = 255.0
 
     /// The line under the header, from the screen's design doc; App Usage has none.
-    func subtitle(appName: String) -> String? {
+    func subtitle(appName: String) -> Phrase? {
         switch self {
         case .general: "Basic app settings and preferences"
         case .alerts: "Configure battery notifications and visual effects"

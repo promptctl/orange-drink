@@ -38,24 +38,24 @@ final class Reads: @unchecked Sendable {
         clock.advance(by: .seconds(1))
         await clock.asleep()
         #expect(reads.taken == 1)
-        #expect(model.updatedText() == "Updated just now")
+        #expect(model.updatedText()?.english == "Updated just now")
         #expect(try log.messages().contains("battery refresh: reading taken"))
     }
 
     @Test func updatedCountsWholeMinutesSinceTheReading() async throws {
         let (model, clock, _, _) = try await model()
-        #expect(model.updatedText() == "Updated just now")
+        #expect(model.updatedText()?.english == "Updated just now")
         clock.advance(by: .seconds(60))
-        #expect(model.updatedText() == "Updated 1 min ago")
+        #expect(model.updatedText()?.english == "Updated 1 min ago")
     }
 
     @Test func tappingRefreshTakesAReadingAtOnceAndUpdatedReflectsIt() async throws {
         let (model, clock, reads, _) = try await model()
         clock.advance(by: .seconds(90))
-        #expect(model.updatedText() == "Updated 1 min ago")
+        #expect(model.updatedText()?.english == "Updated 1 min ago")
         model.refresh()
         #expect(reads.taken == 1)
-        #expect(model.updatedText() == "Updated just now")
+        #expect(model.updatedText()?.english == "Updated just now")
     }
 
     @Test func aReadingThePowerdPushedPostponesTheRefresh() async throws {

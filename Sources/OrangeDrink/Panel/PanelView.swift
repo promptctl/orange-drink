@@ -46,8 +46,8 @@ struct PanelView: View {
 }
 
 private struct PanelNote: View {
-    let text: String
-    init(_ text: String) { self.text = text }
+    let text: LocalizedStringKey
+    init(_ text: LocalizedStringKey) { self.text = text }
     var body: some View { Text(text).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).card() }
 }
 
@@ -82,14 +82,14 @@ struct ChargeCardView: View {
                     .foregroundStyle(tint)
                     HStack(spacing: 4) {
                         if card.status == .charging { Image(systemName: "bolt.fill").foregroundStyle(.yellow) }
-                        Text(card.status.title)
+                        PhraseText(card.status.title)
                     }
                     .font(.callout)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(card.estimateCaption).font(.caption2).foregroundStyle(.secondary)
-                    Text(card.estimate).font(.title3.bold())
+                    PhraseText(card.estimateCaption).font(.caption2).foregroundStyle(.secondary)
+                    PhraseText(card.estimate).font(.title3.bold())
                 }
             }
             ProgressBar(fraction: card.progress, tint: tint)
@@ -198,7 +198,7 @@ private struct ActionRow<Trailing: View>: View {
         Button { run?() } label: {
             HStack(spacing: 10) {
                 Image(systemName: action.symbol).foregroundStyle(tint).frame(width: 20)
-                Text(action.title(appName: appName))
+                PhraseText(action.title(appName: appName))
                 Spacer()
                 trailing()
             }

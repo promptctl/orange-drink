@@ -30,7 +30,7 @@ import Testing
 
     @Test func everyScreenHasItsDocsSubtitleExceptAppUsage() {
         #expect(SettingsScreen.general.subtitle(appName: "App") == "Basic app settings and preferences")
-        #expect(SettingsScreen.menuBar.subtitle(appName: "OrangeDrink") == "Customize how OrangeDrink appears in your menu bar")
+        #expect(SettingsScreen.menuBar.subtitle(appName: "OrangeDrink")?.english == "Customize how OrangeDrink appears in your menu bar")
         #expect(SettingsScreen.appUsage.subtitle(appName: "App") == nil)
         #expect(SettingsScreen.allCases.filter { $0.subtitle(appName: "App") == nil } == [.appUsage])
     }

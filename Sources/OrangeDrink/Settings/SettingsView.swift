@@ -52,7 +52,7 @@ private struct SidebarRow: View {
     let screen: SettingsScreen
 
     var body: some View {
-        Label { Text(screen.title).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary) } icon: { ScreenTile(screen: screen, size: 28) }
+        Label { PhraseText(screen.title).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary) } icon: { ScreenTile(screen: screen, size: 28) }
             .padding(.vertical, 6)
             .tag(screen)
     }
@@ -76,12 +76,12 @@ private struct ScreenView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 12) {
                     ScreenTile(screen: screen, size: 32)
-                    Text(screen.title).font(.system(size: 20, weight: .bold))
+                    PhraseText(screen.title).font(.system(size: 20, weight: .bold))
                 }
                 .padding(.horizontal, 24).padding(.vertical, 16)
                 Divider()
                 if let subtitle = screen.subtitle(appName: appName) {
-                    Text(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
+                    PhraseText(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
                 switch screen {
                 case .general: GeneralScreen(appearance: appearance, look: look, language: language)
@@ -103,7 +103,7 @@ private struct EmptyState: View {
         VStack(spacing: 8) {
             Image(systemName: screen.glyph).font(.system(size: 40)).foregroundStyle(screen.tileColor)
             Text("Nothing here yet").font(.title3.bold())
-            Text("\(screen.title) settings arrive in an upcoming version.").foregroundStyle(.secondary)
+            PhraseText(screen.comingSoon).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }

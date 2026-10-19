@@ -24,8 +24,8 @@ struct PowerFlowView: View {
                 }
             }
             VStack(spacing: 2) {
-                Label(flow.caption, systemImage: "bolt.fill").font(.callout).foregroundStyle(.green)
-                Text(flow.workload).font(.caption).foregroundStyle(.secondary)
+                Label { PhraseText(flow.caption) } icon: { Image(systemName: "bolt.fill") }.font(.callout).foregroundStyle(.green)
+                PhraseText(flow.workload).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
