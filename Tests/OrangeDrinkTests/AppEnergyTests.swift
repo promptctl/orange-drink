@@ -22,13 +22,14 @@ import Testing
     @Test func thePanelSectionListsTheNewestStoredIntervalInTheRightNowCardsOrder() throws {
         let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
         let history = AppEnergyHistory(store: store, changes: HistoryChanges(), source: Scripted([]), timekeeper: ManualTimekeeper(), interval: .seconds(120))
-        #expect(try history.rightNow().isEmpty)
+        #expect(try history.rightNow() == RightNow(shares: [], at: nil))
         let older = AppEnergyInterval(at: Self.t0.addingTimeInterval(-120), seconds: 120, totalNanojoules: 9_000_000_000, entries: [.init(app: Self.tool, nanojoules: 9_000_000_000)])
         let newest = AppEnergyInterval(at: Self.t0, seconds: 120, totalNanojoules: 10_000_000_000, entries: [
             .init(app: Self.tool, nanojoules: 1_000_000_000), .init(app: Self.browser, nanojoules: 3_000_000_000), .init(app: Self.editor, nanojoules: 6_000_000_000)])
         try store.record(older)
         try store.record(newest)
-        let section = try history.rightNow()
+        let section = try history.rightNow().shares
+        #expect(try history.rightNow().age(now: Self.t0.addingTimeInterval(120))?.english == "2m ago")
         let screen = AppUsageRanking(intervals: try store.appEnergy(since: .distantPast), firstInterval: older.at, now: Self.t0, range: .day)
         #expect(section == screen.rightNow)
         #expect(section.map(\.app.name) == ["Editor", "Browser", "tool"])

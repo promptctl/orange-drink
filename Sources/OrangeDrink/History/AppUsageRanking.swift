@@ -131,12 +131,23 @@ struct AppUsageRanking: Equatable, Sendable {
     var statusText: Phrase { "\(historyText) • \(trackedText)" }
 
     /// "2m ago": the age of the newest interval as of `now`, in whole minutes; nil before any.
-    func rightNowAge(now: Date) -> Phrase? {
-        lastSampleAt.map { at in
+    func rightNowAge(now: Date) -> Phrase? { Self.age(of: lastSampleAt, now: now) }
+
+    static func age(of sample: Date?, now: Date) -> Phrase? {
+        sample.map { at in
             let minutes = Int(max(now.timeIntervalSince(at), 0) / 60)
             return minutes == 0 ? "just now" : minutes < 60 ? "\(minutes)m ago" : "\(minutes / 60)h ago"
         }
     }
+}
+
+/// The Right Now list and when it was sampled, as the panel's section reads it from the newest stored interval.
+struct RightNow: Equatable, Sendable {
+    let shares: [AppShare]
+    /// When the newest interval ended; nil before any.
+    let at: Date?
+
+    func age(now: Date) -> Phrase? { AppUsageRanking.age(of: at, now: now) }
 }
 
 /// How a share reads: whole numbers from 10% up, two significant figures below.
