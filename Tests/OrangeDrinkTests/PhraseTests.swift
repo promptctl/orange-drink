@@ -101,6 +101,11 @@ import Testing
                     "\(1) day collected so far", "\(2) days collected so far", "Battery used", "Screen on", "Battery Health",
                     "How much charge the battery holds today compared with when it was new.",
                     "Building your battery-health history — your health trend fills in as you use your Mac.", "Battery health over time"]
+        let usage = AppUsageRanking(intervals: [], now: AppUsageTests.t0, range: .day)
+        phrases += AppUsageRange.allCases.map(\.title) + ["RIGHT NOW", "TOP DRAINERS · \("24H")", "just now", "\(2)m ago", "\(3)h ago",
+                    usage.historyText, "1 day of history collected", "\(3) days of history collected", usage.trackedText, "1 app tracked in the last \("24h")",
+                    "\(usage.historyText) • \(usage.trackedText)", "App energy history is unavailable. Quit and reopen the app.",
+                    "Collecting app energy — rankings appear after a few minutes of use."]
         phrases += ["Close", "Plugged In", "On Battery", "Show Glow"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
         phrases += [true, false].flatMap { on in

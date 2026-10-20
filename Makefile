@@ -39,14 +39,18 @@ position-check: export TEST_RUNNER_POSITION_CHECK = 1
 position-check: test
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
-# and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab. Same TEST_RUNNER_ shape.
+# and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle
+# Mac (another busy app, such as a terminal hosting builds and agents, outranks it there too). Same TEST_RUNNER_ shape.
 app-energy-check: export TEST_RUNNER_APP_ENERGY_CHECK = 1
+# The window is kept quiet: the app and tests are built first, since a compiler running under the invoking terminal
+# would out-draw the `yes` in Terminal, and only the live test runs while it samples.
 app-energy-check: generate
+	$(XCB) build-for-testing
 	@set -e; \
 	started=$$(osascript -e 'tell application "Terminal" to set started to do script "yes > /dev/null"' \
 	  -e 'tell application "Terminal" to return ((id of (first window whose tabs contains started)) as text) & " " & (tty of started)'); \
 	window=$${started%% *}; tty=$${started##*/dev/}; \
-	status=0; $(MAKE) test || status=$$?; \
+	status=0; $(XCB) -only-testing:OrangeDrinkTests/AppEnergyLive test-without-building || status=$$?; \
 	kill $$(ps -t "$$tty" -o pid=,comm= | awk '$$2 == "yes" { print $$1 }'); \
 	osascript -e "tell application \"Terminal\" to close (first window whose id is $$window) saving no"; \
 	exit $$status

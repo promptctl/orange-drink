@@ -42,9 +42,7 @@ final class RusageEnergySource: ProcessEnergySource, @unchecked Sendable {
         guard count > 0 else { throw ProcessEnergyError.processList }
         return pids.prefix(Int(count)).compactMap { pid -> ProcessEnergy? in
             guard pid > 0, let usage = Self.usage(pid) else { return nil }
-            let owner = responsible(pid)
-            // launchd is responsible for the processes nothing else claims; those stand for themselves.
-            guard let identity = identity(ofProcess: owner > 1 ? owner : pid) ?? identity(ofProcess: pid) else { return nil }
+            guard let identity = owner(of: pid) else { return nil }
             return ProcessEnergy(key: .init(pid: pid, started: usage.ri_proc_start_abstime), age: Self.seconds(since: usage.ri_proc_start_abstime),
                                  nanojoules: usage.ri_energy_nj, owner: identity)
         }
@@ -60,6 +58,13 @@ final class RusageEnergySource: ProcessEnergySource, @unchecked Sendable {
     private static func seconds(since started: UInt64) -> TimeInterval {
         let ticks = mach_absolute_time() &- started
         return Double(ticks) * Double(timebase.numer) / Double(timebase.denom) / 1e9
+    }
+
+    /// The app a process belongs to: the one the system holds responsible for it. launchd is responsible for
+    /// the processes nothing else claims; those stand for themselves.
+    func owner(of pid: pid_t) -> AppIdentity? {
+        let responsible = responsible(pid)
+        return identity(ofProcess: responsible > 1 ? responsible : pid) ?? identity(ofProcess: pid)
     }
 
     private static func usage(_ pid: pid_t) -> rusage_info_v6? {
