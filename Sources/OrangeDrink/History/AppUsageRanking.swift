@@ -74,9 +74,7 @@ struct AppUsageRanking: Equatable, Sendable {
         let inRange = intervals.filter { $0.at >= now.addingTimeInterval(-range.duration) }
         let latest = intervals.last
         lastSampleAt = latest?.at
-        self.latest = latest.map { latest in
-            latest.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }.map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
-        } ?? []
+        self.latest = latest.map(Self.shares(of:)) ?? []
         let total = inRange.reduce(0) { $0 + $1.totalNanojoules }
         // An app's range energy is the sum of its slices, so the share and the sparkline cannot disagree.
         apps = Self.slices(of: inRange, now: now, range: range)
@@ -87,9 +85,18 @@ struct AppUsageRanking: Equatable, Sendable {
         historyDepth = firstInterval.map { now.timeIntervalSince($0) }
     }
 
-    var rightNow: [AppShare] { Array(latest.prefix(Self.shown)) }
+    var rightNow: [AppShare] { Self.rightNow(of: latest) }
     var drainers: [AppShare] { apps.prefix(Self.shown).map(\.share) }
     var appsTracked: Int { apps.count }
+
+    /// Every app in one interval against that interval's total, most first.
+    static func shares(of interval: AppEnergyInterval) -> [AppShare] {
+        interval.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }
+            .map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: fraction($0.nanojoules, of: interval.totalNanojoules)) }
+    }
+
+    /// The Right Now card's list, which the panel's Apps Using Significant Energy section shows too.
+    static func rightNow(of latest: [AppShare]) -> [AppShare] { Array(latest.prefix(shown)) }
 
     /// Each app's energy per equal slice of the range, oldest first. An interval lands in the slice holding its end;
     /// one ending exactly now, or stamped after it by a clock step back, is the newest slice's.
@@ -124,12 +131,23 @@ struct AppUsageRanking: Equatable, Sendable {
     var statusText: Phrase { "\(historyText) • \(trackedText)" }
 
     /// "2m ago": the age of the newest interval as of `now`, in whole minutes; nil before any.
-    func rightNowAge(now: Date) -> Phrase? {
-        lastSampleAt.map { at in
+    func rightNowAge(now: Date) -> Phrase? { Self.age(of: lastSampleAt, now: now) }
+
+    static func age(of sample: Date?, now: Date) -> Phrase? {
+        sample.map { at in
             let minutes = Int(max(now.timeIntervalSince(at), 0) / 60)
             return minutes == 0 ? "just now" : minutes < 60 ? "\(minutes)m ago" : "\(minutes / 60)h ago"
         }
     }
+}
+
+/// The Right Now list and when it was sampled, as the panel's section reads it from the newest stored interval.
+struct RightNow: Equatable, Sendable {
+    let shares: [AppShare]
+    /// When the newest interval ended; nil before any.
+    let at: Date?
+
+    func age(now: Date) -> Phrase? { AppUsageRanking.age(of: at, now: now) }
 }
 
 /// How a share reads: whole numbers from 10% up, two significant figures below.

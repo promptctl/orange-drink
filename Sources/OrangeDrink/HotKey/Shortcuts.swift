@@ -48,12 +48,13 @@ enum MenuShortcut: String, CaseIterable, Codable, Sendable, CodingKeyRepresentab
     }
 
     /// The panel section the letter expands or collapses; nil for a row whose target does not exist yet
-    /// (orange-history-4y3.s4l, orange-admin-helper-b2q.0ld).
+    /// (orange-admin-helper-b2q.0ld).
     var section: PanelSections.Section? {
         switch self {
         case .batteryInformation: .batteryInformation
+        case .appsUsingSignificantEnergy: .appsUsingSignificantEnergy
         case .connectedDevices: .connectedDevices
-        case .appsUsingSignificantEnergy, .lowPowerMode: nil
+        case .lowPowerMode: nil
         }
     }
 }
