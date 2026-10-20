@@ -30,7 +30,10 @@ struct AppUsageScreen: View {
         .padding(24)
         .background(SettingsBackground(glow: .indigo, glowCenter: .top))
         .task(id: Refresh(range: range, revision: (try? appEnergy.get())?.changes.revision)) {
-            loaded = Result { try appEnergy.get().ranking(range: range) }
+            let ranking = Result { try appEnergy.get().ranking(range: range) }
+            // A pill tapped again while this ran has cancelled it; its range is no longer the one selected.
+            guard !Task.isCancelled else { return }
+            loaded = ranking
             if case .failure(let error)? = loaded { Self.log.error("app usage unreadable: \(String(describing: error), privacy: .public)") }
         }
     }

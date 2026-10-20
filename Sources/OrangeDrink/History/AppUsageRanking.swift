@@ -64,7 +64,7 @@ struct AppUsageRanking: Equatable, Sendable {
         let latest = intervals.last
         lastSampleAt = latest?.at
         rightNow = latest.map { latest in
-            latest.entries.sorted { $0.nanojoules > $1.nanojoules }.prefix(Self.shown).map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
+            latest.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }.prefix(Self.shown).map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
         } ?? []
         var byApp: [AppIdentity: UInt64] = [:]
         for entry in inRange.flatMap(\.entries) { byApp[entry.app, default: 0] += entry.nanojoules }
@@ -79,7 +79,7 @@ struct AppUsageRanking: Equatable, Sendable {
 
     /// "Less than a day of history collected", "3 days of history collected".
     var historyText: Phrase {
-        let days = Int((historyDepth ?? 0) / 86_400)
+        let days = Int(max(historyDepth ?? 0, 0) / 86_400)
         switch days {
         case 0: return "Less than a day of history collected"
         case 1: return "1 day of history collected"
