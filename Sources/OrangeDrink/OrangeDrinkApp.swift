@@ -22,6 +22,7 @@ struct OrangeDrinkApp: App {
     @State private var sections: PanelSections
     private let keyboard: PanelKeyboard
     private let history: Result<BatteryHistory, any Error>
+    private let appEnergy: Result<AppEnergyHistory, any Error>
 
     init() {
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
@@ -78,7 +79,9 @@ struct OrangeDrinkApp: App {
         _language = State(initialValue: language)
         // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
-        let history = Result { try BatteryHistory(store: HistoryStore(url: HistoryStore.defaultURL())) }
+        let store = Result { try HistoryStore(url: HistoryStore.defaultURL()) }
+        let changes = HistoryChanges()
+        let history = store.map { BatteryHistory(store: $0, changes: changes) }
         switch history {
         case .success(let recording):
             recording.follow(screen: ScreenMonitor.changes())
@@ -88,6 +91,10 @@ struct OrangeDrinkApp: App {
         case .failure(let error): log.error("no battery history: \(error)")
         }
         self.history = history
+        // [LAW:no-silent-failure] App energy needs the history store and the system's responsibility symbol;
+        // without either the app runs without it, and says so in the log.
+        appEnergy = Result { try AppEnergyHistory(store: store.get(), changes: changes, source: RusageEnergySource()) }
+        if case .failure(let error) = appEnergy { log.error("no app energy history: \(error)") }
         _battery = State(initialValue: BatteryModel(
             readings: BatteryMonitor.readings(), onReading: {
                 alerts.observe($0)

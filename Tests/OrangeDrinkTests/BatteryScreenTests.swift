@@ -77,9 +77,9 @@ import Testing
 
     @Test func theWritesThatReachTheStoreAreCountedForTheScreenToReloadOn() throws {
         let history = BatteryHistory(store: try HistoryStore(url: BatteryHistoryTests.tempFile()), timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
-        #expect(history.revision == 0)
+        #expect(history.changes.revision == 0)
         history.observe(try BatteryHistoryTests.onBattery(80))
-        #expect(history.revision == 1)
+        #expect(history.changes.revision == 1)
     }
 
     @Test func theTilesSayWhatTheReferenceReadingSays() throws {

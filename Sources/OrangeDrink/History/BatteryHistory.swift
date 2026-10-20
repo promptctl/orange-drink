@@ -9,9 +9,7 @@ import OSLog
 @Observable @MainActor final class BatteryHistory {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "history")
 
-    /// Counts the writes that reached the store, so a screen showing the history reloads when it changes
-    /// and not on a schedule of its own.
-    private(set) var revision = 0
+    let changes: HistoryChanges
     @ObservationIgnored private let store: HistoryStore
     @ObservationIgnored private let timekeeper: any Timekeeper
     @ObservationIgnored private let calendar: Calendar
@@ -19,8 +17,9 @@ import OSLog
     /// [LAW:types-are-the-program] exception: assigned after init by `follow`, which needs `self`.
     @ObservationIgnored nonisolated(unsafe) private var screenTask: Task<Void, Never>?
 
-    init(store: HistoryStore, timekeeper: any Timekeeper = SystemTimekeeper(), calendar: Calendar = .current) {
+    init(store: HistoryStore, changes: HistoryChanges = HistoryChanges(), timekeeper: any Timekeeper = SystemTimekeeper(), calendar: Calendar = .current) {
         self.store = store
+        self.changes = changes
         self.timekeeper = timekeeper
         self.calendar = calendar
         recorder = HistoryRecorder(calendar: calendar, launchedAt: timekeeper.now())
@@ -65,7 +64,7 @@ import OSLog
         guard !write.isEmpty else { return }
         do {
             try store.apply(write)
-            revision += 1
+            changes.wrote()
         } catch {
             Self.log.error("history write failed: \(String(describing: error), privacy: .public)")
             recorder.restore(write)

@@ -27,6 +27,24 @@ final class HistoryStore: Sendable {
                 table.column("screenOnSeconds", .double).notNull()
             }
         }
+        migrator.registerMigration("appEnergy") { db in
+            try db.create(table: "app") { table in
+                table.primaryKey("key", .text)
+                table.column("name", .text).notNull()
+                table.column("bundleID", .text)
+            }
+            try db.create(table: "appEnergyInterval") { table in
+                table.primaryKey("at", .double)
+                table.column("seconds", .double).notNull()
+                table.column("totalNanojoules", .integer).notNull()
+            }
+            try db.create(table: "appEnergy") { table in
+                table.column("at", .double).notNull().references("appEnergyInterval", onDelete: .cascade)
+                table.column("appKey", .text).notNull().references("app")
+                table.column("nanojoules", .integer).notNull()
+                table.primaryKey(["at", "appKey"])
+            }
+        }
         try migrator.migrate(queue)
     }
 
@@ -53,6 +71,39 @@ final class HistoryStore: Sendable {
                         dischargedPercent = dailyUsage.dischargedPercent + excluded.dischargedPercent,
                         screenOnSeconds = dailyUsage.screenOnSeconds + excluded.screenOnSeconds
                     """, arguments: [day.timeIntervalSince1970, usage.dischargedPercent, usage.screenOn])
+            }
+        }
+    }
+
+    /// One interval of per-app energy, with the apps it names, in one transaction.
+    func record(_ interval: AppEnergyInterval) throws {
+        try queue.write { db in
+            let at = interval.at.timeIntervalSince1970
+            try db.execute(sql: "INSERT OR REPLACE INTO appEnergyInterval (at, seconds, totalNanojoules) VALUES (?, ?, ?)",
+                           arguments: [at, interval.seconds, Int64(clamping: interval.totalNanojoules)])
+            try db.execute(sql: "DELETE FROM appEnergy WHERE at = ?", arguments: [at])
+            for entry in interval.entries {
+                try db.execute(sql: "INSERT OR REPLACE INTO app (key, name, bundleID) VALUES (?, ?, ?)",
+                               arguments: [entry.app.key, entry.app.name, entry.app.bundleID])
+                try db.execute(sql: "INSERT INTO appEnergy (at, appKey, nanojoules) VALUES (?, ?, ?)",
+                               arguments: [at, entry.app.key, Int64(clamping: entry.nanojoules)])
+            }
+        }
+    }
+
+    /// Intervals that ended at or after `since`, oldest first.
+    func appEnergy(since: Date) throws -> [AppEnergyInterval] {
+        try queue.read { db in
+            try Row.fetchAll(db, sql: "SELECT * FROM appEnergyInterval WHERE at >= ? ORDER BY at", arguments: [since.timeIntervalSince1970]).map { interval in
+                let entries = try Row.fetchAll(db, sql: """
+                    SELECT app.key, app.name, app.bundleID, appEnergy.nanojoules FROM appEnergy JOIN app ON app.key = appEnergy.appKey
+                    WHERE appEnergy.at = ? ORDER BY appEnergy.nanojoules DESC, app.key
+                    """, arguments: [interval["at"] as Double]).map { row in
+                    AppEnergyInterval.Entry(app: AppIdentity(key: row["key"], name: row["name"], bundleID: row["bundleID"]),
+                                            nanojoules: UInt64(row["nanojoules"] as Int64))
+                }
+                return AppEnergyInterval(at: Date(timeIntervalSince1970: interval["at"]), seconds: interval["seconds"],
+                                         totalNanojoules: UInt64(interval["totalNanojoules"] as Int64), entries: entries)
             }
         }
     }

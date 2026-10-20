@@ -2,7 +2,7 @@ APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
 
-.PHONY: generate build test unplug-check devices-check pill-check position-check cpu-check ax-check
+.PHONY: generate build test unplug-check devices-check pill-check position-check app-energy-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -37,6 +37,16 @@ pill-check: test
 # them, and checks the bar follows the list, including over a position left by a ⌘-drag.
 position-check: export TEST_RUNNER_POSITION_CHECK = 1
 position-check: test
+
+# The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
+# and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab. Same TEST_RUNNER_ shape.
+app-energy-check: export TEST_RUNNER_APP_ENERGY_CHECK = 1
+app-energy-check: generate
+	@set -e; \
+	window=$$(osascript -e 'tell application "Terminal" to set started to do script "yes > /dev/null"' -e 'tell application "Terminal" to return id of (first window whose tabs contains started)'); \
+	status=0; $(MAKE) test || status=$$?; \
+	osascript -e "tell application \"Terminal\" to close (first window whose id is $$window) saving no"; \
+	exit $$status
 
 # [LAW:verifiable-goals] PROJECT.md's 0.1% steady-state CPU bar, measured on the Release build
 # launched as a user runs it. Prints the percent and the power state; fails over the bar.
