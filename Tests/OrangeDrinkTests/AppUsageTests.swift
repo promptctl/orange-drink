@@ -81,4 +81,47 @@ import Testing
         let stored = AppUsageRanking(intervals: try store.appEnergy(since: Self.t0.addingTimeInterval(-AppUsageRange.month.duration)), firstInterval: try store.firstIntervalTime(), now: Self.t0, range: .week)
         #expect(stored == AppUsageRanking(intervals: Self.intervals, firstInterval: Self.intervals.first?.at, now: Self.t0, range: .week))
     }
+
+    // MARK: insights
+
+    /// `earlier` 120 s intervals of `before`, then the newest of `now`; entries are (app, J) against a 100 J total. 40 is over an hour.
+    static func history(before: [(String, Double)], now: [(String, Double)], earlier: Int = 40) -> [AppEnergyInterval] {
+        (0..<earlier).reversed().map { interval(hoursAgo: 0.01 + Double($0) * 0.03, total: 100, before) } + [interval(hoursAgo: 0, total: 100, now)]
+    }
+
+    static func insights(_ intervals: [AppEnergyInterval], range: AppUsageRange = .day) -> [AppInsight] {
+        AppUsageRanking(intervals: intervals, firstInterval: intervals.first?.at, now: t0, range: range).insights
+    }
+
+    @Test func anAppHoldingHalfTheRangesEnergyIsDominatingAndTheCardSaysSo() {
+        let found = Self.insights(Self.history(before: [("a", 50), ("b", 30), ("c", 20)], now: [("a", 50), ("b", 30), ("c", 20)]))
+        #expect(found.map(\.app.name) == ["a"])
+        #expect(found.first?.heading().english == "a is dominating your battery")
+        #expect(found.first?.text(locale: Locale(identifier: "en_US")).english.hasPrefix("50% of your apps' total energy in the last 24h. If you're not actively using it,") == true)
+    }
+
+    @Test func anAppAtOneAndAHalfTimesItsTypicalShareIsUnusuallyActive() {
+        let found = Self.insights(Self.history(before: [("a", 20), ("b", 25), ("c", 25)], now: [("a", 30), ("b", 20), ("c", 20)]))
+        #expect(found.map(\.app.name) == ["a"])
+        #expect(found.first?.heading().english == "a is unusually active right now")
+        #expect(found.first?.text(locale: Locale(identifier: "en_US")).english.hasPrefix("It's drawing about 1.5× more energy than its typical share.") == true)
+    }
+
+    @Test func aShareJustUnderTheThresholdsFindsNothing() {
+        #expect(Self.insights(Self.history(before: [("a", 40), ("b", 30)], now: [("a", 49), ("b", 30)])).isEmpty)
+        #expect(Self.insights(Self.history(before: [("a", 20), ("b", 25)], now: [("a", 29), ("b", 25)])).isEmpty)
+    }
+
+    @Test func anAppTooSmallToMatterOrWithoutAnHourOfHistoryIsNotUnusuallyActive() {
+        #expect(Self.insights(Self.history(before: [("a", 1), ("b", 40)], now: [("a", 5), ("b", 40)])).isEmpty)
+        #expect(Self.insights(Self.history(before: [("a", 20), ("b", 25)], now: [("a", 30), ("b", 25)], earlier: 10)).isEmpty)
+        #expect(Self.insights(Self.history(before: [("b", 25)], now: [("a", 30), ("b", 25)])).isEmpty)
+    }
+
+    @Test func theInsightsFollowTheSelectedRange() {
+        let intervals = Self.history(before: [("a", 50), ("b", 30)], now: [("a", 50), ("b", 30)]) + []
+        let old = Self.interval(hoursAgo: 100, total: 10_000, [("z", 9_000)])
+        #expect(Self.insights([old] + intervals, range: .day).map(\.app.name) == ["a"])
+        #expect(Self.insights([old] + intervals, range: .week).first?.app.name == "z")
+    }
 }

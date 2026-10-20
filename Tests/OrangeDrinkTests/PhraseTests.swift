@@ -105,7 +105,16 @@ import Testing
         phrases += AppUsageRange.allCases.map(\.title) + ["RIGHT NOW", "TOP DRAINERS · \("24H")", "just now", "\(2)m ago", "\(3)h ago",
                     usage.historyText, "1 day of history collected", "\(3) days of history collected", usage.trackedText, "1 app tracked in the last \("24h")",
                     "\(usage.historyText) • \(usage.trackedText)", "App energy history is unavailable. Quit and reopen the app.",
-                    "Collecting app energy — rankings appear after a few minutes of use."]
+                    "Collecting app energy — rankings appear after a few minutes of use.",
+                    "INSIGHTS", "See details", "Quit", "Share of energy in the last \("24h")", "Share of energy right now"]
+        let usageApp = AppUsageTests.app("a")
+        let usageShare = AppShare(app: usageApp, nanojoules: 1, share: 0.5)
+        phrases += [AppInsight.dominating(usageShare, range: .day), .unusuallyActive(usageShare, ratio: 1.5)].flatMap {
+            [$0.heading(), $0.text(locale: Locale(identifier: "en_US"))]
+        }
+        phrases += ["\("a") is dominating your battery", "\("a") is unusually active right now",
+                    "\("50%") of your apps' total energy in the last \("24h"). If you're not actively using it, closing it could meaningfully extend battery life.",
+                    "It's drawing about \("1.5")× more energy than its typical share. It may be stuck in a loop or doing background work. Restart it if you're not actively using it."]
         phrases += ["Close", "Plugged In", "On Battery", "Show Glow"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
         phrases += [true, false].flatMap { on in

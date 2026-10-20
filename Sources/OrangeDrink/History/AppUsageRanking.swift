@@ -46,13 +46,13 @@ struct AppUsageRanking: Equatable, Sendable {
     static let shown = 5
 
     let range: AppUsageRange
-    /// The newest interval's top apps, each against that interval's total; empty before any interval.
-    let rightNow: [AppShare]
+    /// Every app in the newest interval, each against that interval's total, most first; empty before any interval.
+    let latest: [AppShare]
     /// When the newest interval ended; nil before any.
     let lastSampleAt: Date?
-    /// Apps by energy over the range, each against everything apps used in the range, most first.
-    let drainers: [AppShare]
-    let appsTracked: Int
+    /// Every app seen in the range by energy, each against everything apps used in the range, most first.
+    let apps: [AppShare]
+    let insights: [AppInsight]
     /// How long the oldest stored interval has been in the history, however old; nil before any.
     let historyDepth: TimeInterval?
 
@@ -63,17 +63,21 @@ struct AppUsageRanking: Equatable, Sendable {
         let inRange = intervals.filter { $0.at >= now.addingTimeInterval(-range.duration) }
         let latest = intervals.last
         lastSampleAt = latest?.at
-        rightNow = latest.map { latest in
-            latest.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }.prefix(Self.shown).map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
+        self.latest = latest.map { latest in
+            latest.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }.map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
         } ?? []
         var byApp: [AppIdentity: UInt64] = [:]
         for entry in inRange.flatMap(\.entries) { byApp[entry.app, default: 0] += entry.nanojoules }
         let total = inRange.reduce(0) { $0 + $1.totalNanojoules }
-        drainers = byApp.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }.prefix(Self.shown)
+        apps = byApp.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }
             .map { AppShare(app: $0.key, nanojoules: $0.value, share: Self.fraction($0.value, of: total)) }
-        appsTracked = byApp.count
+        insights = AppInsight.find(inRange: inRange, apps: apps, latest: self.latest, range: range)
         historyDepth = firstInterval.map { now.timeIntervalSince($0) }
     }
+
+    var rightNow: [AppShare] { Array(latest.prefix(Self.shown)) }
+    var drainers: [AppShare] { Array(apps.prefix(Self.shown)) }
+    var appsTracked: Int { apps.count }
 
     private static func fraction(_ part: UInt64, of whole: UInt64) -> Double { whole == 0 ? 0 : Double(part) / Double(whole) }
 
