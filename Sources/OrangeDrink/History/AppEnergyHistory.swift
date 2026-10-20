@@ -12,7 +12,7 @@ import OSLog
     /// would take 0.09% of PROJECT.md's 0.1%. This is the sampling budget's lever and nothing else's.
     nonisolated static let interval = Duration.seconds(120)
 
-    private let changes: HistoryChanges
+    let changes: HistoryChanges
     private let store: HistoryStore
     private let source: any ProcessEnergySource
     private let timekeeper: any Timekeeper
@@ -32,6 +32,13 @@ import OSLog
                 do { try await timekeeper.sleep(for: interval) } catch { return }
             }
         }
+    }
+
+    /// The stored intervals the App Usage screen ranks: the longest range back from now, oldest first.
+    func ranking(range: AppUsageRange) throws -> AppUsageRanking {
+        let now = timekeeper.now()
+        let longest = AppUsageRange.allCases.map(\.duration).max() ?? 0
+        return AppUsageRanking(intervals: try store.appEnergy(since: now.addingTimeInterval(-longest)), firstInterval: try store.firstIntervalTime(), now: now, range: range)
     }
 
     /// Takes one snapshot off the main actor and records the interval it closes.

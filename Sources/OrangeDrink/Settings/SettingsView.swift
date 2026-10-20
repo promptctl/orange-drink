@@ -12,6 +12,7 @@ struct SettingsView: View {
     let deviceSettings: DeviceSettingsModel
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
+    let appEnergy: Result<AppEnergyHistory, any Error>
     @State private var selection: SettingsScreen = .general
 
     var body: some View {
@@ -27,7 +28,7 @@ struct SettingsView: View {
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
             ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
-                       deviceSettings: deviceSettings, battery: battery, history: history, select: { selection = $0 })
+                       deviceSettings: deviceSettings, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
         }
         .appLook(look, language)
         .frame(minWidth: 760, minHeight: 640)
@@ -73,6 +74,7 @@ private struct ScreenView: View {
     let deviceSettings: DeviceSettingsModel
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
+    let appEnergy: Result<AppEnergyHistory, any Error>
     let select: (SettingsScreen) -> Void
 
     var body: some View {
@@ -93,6 +95,7 @@ private struct ScreenView: View {
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
                 case .shortcuts: ShortcutsScreen(controller: shortcuts)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
+                case .appUsage: AppUsageScreen(appEnergy: appEnergy)
                 case .battery: BatteryScreen(battery: battery, history: history)
                 default: EmptyState(screen: screen).padding(.top, 60)
                 }
