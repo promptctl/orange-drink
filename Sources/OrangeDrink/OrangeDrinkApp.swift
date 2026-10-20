@@ -107,7 +107,7 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, sections: sections, keyboard: keyboard, look: look, language: language)
+            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, keyboard: keyboard, look: look, language: language)
         } label: {
             StatusItemLabel(state: battery.state, icon: menuBarIcon)
         }

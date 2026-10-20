@@ -74,9 +74,7 @@ struct AppUsageRanking: Equatable, Sendable {
         let inRange = intervals.filter { $0.at >= now.addingTimeInterval(-range.duration) }
         let latest = intervals.last
         lastSampleAt = latest?.at
-        self.latest = latest.map { latest in
-            latest.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }.map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
-        } ?? []
+        self.latest = latest.map(Self.shares(of:)) ?? []
         let total = inRange.reduce(0) { $0 + $1.totalNanojoules }
         // An app's range energy is the sum of its slices, so the share and the sparkline cannot disagree.
         apps = Self.slices(of: inRange, now: now, range: range)
@@ -87,9 +85,18 @@ struct AppUsageRanking: Equatable, Sendable {
         historyDepth = firstInterval.map { now.timeIntervalSince($0) }
     }
 
-    var rightNow: [AppShare] { Array(latest.prefix(Self.shown)) }
+    var rightNow: [AppShare] { Self.rightNow(of: latest) }
     var drainers: [AppShare] { apps.prefix(Self.shown).map(\.share) }
     var appsTracked: Int { apps.count }
+
+    /// Every app in one interval against that interval's total, most first.
+    static func shares(of interval: AppEnergyInterval) -> [AppShare] {
+        interval.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }
+            .map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: fraction($0.nanojoules, of: interval.totalNanojoules)) }
+    }
+
+    /// The Right Now card's list, which the panel's Apps Using Significant Energy section shows too.
+    static func rightNow(of latest: [AppShare]) -> [AppShare] { Array(latest.prefix(shown)) }
 
     /// Each app's energy per equal slice of the range, oldest first. An interval lands in the slice holding its end;
     /// one ending exactly now, or stamped after it by a clock step back, is the newest slice's.

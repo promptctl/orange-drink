@@ -41,6 +41,11 @@ import OSLog
         return AppUsageRanking(intervals: try store.appEnergy(since: now.addingTimeInterval(-longest)), firstInterval: try store.firstIntervalTime(), now: now, range: range)
     }
 
+    /// The Right Now list, read from the newest stored interval alone; empty before any.
+    func rightNow() throws -> [AppShare] {
+        AppUsageRanking.rightNow(of: try store.latestAppEnergy().map(AppUsageRanking.shares(of:)) ?? [])
+    }
+
     /// Takes one snapshot off the main actor and records the interval it closes.
     func sample() async {
         let source = source

@@ -6,7 +6,7 @@ import Testing
 // clicking its header does, the open state is what the next launch restores, and with the panel closed
 // the keys are nobody's.
 @MainActor @Suite struct PanelKeyboardTests {
-    static let both: Set<PanelSections.Section> = [.batteryInformation, .connectedDevices]
+    static let both: Set<PanelSections.Section> = [.batteryInformation, .appsUsingSignificantEnergy, .connectedDevices]
 
     static func store() -> UserDefaults { scratchDefaults() }
 
@@ -25,6 +25,14 @@ import Testing
             #expect(events.type(key))
             #expect(!sections.isOpen(section) && !sections.isOpen(other))
         }
+    }
+
+    @Test func uFlipsTheAppsUsingSignificantEnergySectionAndItIsRemembered() {
+        let defaults = Self.store(), events = FakeKeyEvents(), sections = PanelSections(defaults: defaults)
+        Self.keyboard(sections, events).panelDidOpen(shown: { Self.both })
+        #expect(events.type("u"))
+        #expect(sections.isOpen(.appsUsingSignificantEnergy) && !sections.isOpen(.batteryInformation))
+        #expect(PanelSections(defaults: defaults).isOpen(.appsUsingSignificantEnergy))
     }
 
     @Test func aKeyIsCaseInsensitive() {

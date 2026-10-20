@@ -96,7 +96,7 @@ private struct RankingCard<Content: View>: View {
 }
 
 /// A ranked top-five list: rank, icon, name over a bar as long as the app's share is next to the longest, share.
-private struct RankedRows: View {
+struct RankedRows: View {
     let shares: [AppShare]
     let highlightFirst: Bool
     @Environment(\.appLanguage) private var language

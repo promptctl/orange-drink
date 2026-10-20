@@ -5,6 +5,7 @@ struct PanelView: View {
     let battery: BatteryModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
+    let appEnergy: Result<AppEnergyHistory, any Error>
     let sections: PanelSections
     let keyboard: PanelKeyboard
     let look: AppAppearanceModel
@@ -21,6 +22,10 @@ struct PanelView: View {
             CollapsibleCard(title: "Battery Information", symbol: "info.circle.fill", symbolColor: .blue,
                             section: .batteryInformation, sections: sections) {
                 if case .known(let reading?) = battery.state { BatteryInformationView(info: BatteryInformation(reading), reading: reading, battery: battery) }
+            }
+            CollapsibleCard(title: "Apps Using Significant Energy", symbol: "bolt.circle.fill", symbolColor: .orange,
+                            section: .appsUsingSignificantEnergy, sections: sections) {
+                SignificantEnergyView(appEnergy: appEnergy)
             }
             let connected = ConnectedDevices(devices.list, settings: deviceSettings.value)
             if connected.isShown {
@@ -41,7 +46,7 @@ struct PanelView: View {
 
     /// The collapsible sections the panel draws: Connected Devices only when there is something to say.
     private static func shown(devices: DevicesModel, settings: DeviceSettingsModel) -> Set<PanelSections.Section> {
-        ConnectedDevices(devices.list, settings: settings.value).isShown ? [.batteryInformation, .connectedDevices] : [.batteryInformation]
+        ConnectedDevices(devices.list, settings: settings.value).isShown ? [.batteryInformation, .appsUsingSignificantEnergy, .connectedDevices] : [.batteryInformation, .appsUsingSignificantEnergy]
     }
 }
 
