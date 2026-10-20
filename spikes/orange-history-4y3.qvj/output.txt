@@ -1,0 +1,36 @@
+=== A. proc_pid_rusage energy, top five apps
+responsibility_get_pid_responsible_for_pid: found
+  2.334 W   43.6%  /Applications/iTerm.app
+  2.171 W   40.6%  /System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app
+  0.278 W    5.2%  /Users/bmf/.local/bin/ssa
+  0.118 W    2.2%  /System/Applications/FindMy.app
+  0.104 W    1.9%  /System/Library/CoreServices/Finder.app
+window 20.0s, 946 processes with an energy delta, 953 readable and 394 unreadable in the last snapshot, total 107.036893688 J (5.3518446844000005 W)
+responsibility_get_pid_responsible_for_pid: found
+sampler CPU: 0.0147 s over 20.0 s wall for 3 snapshots = 0.0049 s per snapshot
+=== B. top power column, last sample, top ten processes
+PID    COMMAND          POWER
+60793  com.apple.WebKit 59.5 
+399    WindowServer     47.5 
+78161  store.test       44.7 
+13553  com.apple.WebKit 29.1 
+962    searchpartyusera 14.3 
+84384  python3.12       13.8 
+61249  com.apple.WebKit 11.1 
+23378  biomesyncd       9.4  
+74371  ssa              9.5  
+408    coreaudiod       9.6  
+=== C. Activity Monitor Energy tab: app | energy impact | 12 hr power, sorted by energy impact, top eight
+ Find My | 183.2 | 11.11 | No | No | bmf
+ iTerm2 | 166.7 | 8,757.52 | No | No | bmf
+ Finder | 162.3 | - | No | Yes | bmf
+ News | 104.2 | 80.81 | No | No | bmf
+ Safari | 84.1 | 971.22 | No | Yes | bmf
+ Activity Monitor | 77.4 | 5.17 | No | No | bmf
+ Little Snitch Agent | 11.5 | 7.73 | No | No | bmf
+ Spotlight | 9.3 | - | - | - | -
+=== top's own cost for 3 samples over 20 s
+       21.13 real         0.10 user         0.98 sys
+=== A continuous at 5 s for 60 s (13 snapshots)
+window 60.0s, 995 processes with an energy delta, 1004 readable and 399 unreadable in the last snapshot, total 339.705934293 J (5.66176557155 W)
+sampler CPU: 0.0542 s over 60.1 s wall for 13 snapshots = 0.0042 s per snapshot
