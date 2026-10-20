@@ -5435,6 +5435,204 @@
           }
         }
       }
+    },
+    "INSIGHTS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "INSIGHTS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ANALYSES"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ANÁLISIS"
+          }
+        }
+      }
+    },
+    "See details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See details"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir les détails"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver detalles"
+          }
+        }
+      }
+    },
+    "Quit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salir"
+          }
+        }
+      }
+    },
+    "Share of energy in the last %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share of energy in the last %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part de l’énergie sur les %@ dernières"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parte de la energía en los últimos %@"
+          }
+        }
+      }
+    },
+    "Share of energy right now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share of energy right now"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part de l’énergie en ce moment"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parte de la energía ahora mismo"
+          }
+        }
+      }
+    },
+    "%@ is dominating your battery": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is dominating your battery"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ domine votre batterie"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ domina tu batería"
+          }
+        }
+      }
+    },
+    "%@ is unusually active right now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is unusually active right now"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est anormalement actif en ce moment"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está inusualmente activo ahora mismo"
+          }
+        }
+      }
+    },
+    "%@ of your apps' total energy in the last %@. If you're not actively using it, closing it could meaningfully extend battery life.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ of your apps' total energy in the last %@. If you're not actively using it, closing it could meaningfully extend battery life."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de l’énergie totale de vos apps sur les %@ dernières. Si vous ne l’utilisez pas activement, la fermer pourrait nettement prolonger l’autonomie."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de la energía total de tus apps en los últimos %@. Si no la estás usando, cerrarla podría alargar bastante la duración de la batería."
+          }
+        }
+      }
+    },
+    "It's drawing about %@× more energy than its typical share. It may be stuck in a loop or doing background work. Restart it if you're not actively using it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's drawing about %@× more energy than its typical share. It may be stuck in a loop or doing background work. Restart it if you're not actively using it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elle consomme environ %@× plus d’énergie que sa part habituelle. Elle est peut-être bloquée dans une boucle ou occupée en arrière-plan. Relancez-la si vous ne l’utilisez pas activement."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consume aproximadamente %@× más energía que su parte habitual. Puede estar atascada en un bucle o trabajando en segundo plano. Reiníciala si no la estás usando."
+          }
+        }
+      }
     }
   }
 }

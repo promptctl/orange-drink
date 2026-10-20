@@ -8,6 +8,7 @@ struct AppUsageScreen: View {
     let appEnergy: Result<AppEnergyHistory, any Error>
     @State private var range = AppUsageRange.day
     @State private var loaded: Result<AppUsageRanking, any Error>?
+    @State private var detail: AppDetailSheet.Subject?
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "app-energy")
 
     var body: some View {
@@ -25,10 +26,12 @@ struct AppUsageScreen: View {
                     RightNowCard(ranking: ranking)
                     TopDrainersCard(ranking: ranking)
                 }
+                InsightsSection(insights: ranking.insights, seeDetails: { detail = AppDetailSheet.Subject(app: $0, ranking: ranking) })
             }
         }
         .padding(24)
         .background(SettingsBackground(glow: .indigo, glowCenter: .top))
+        .sheet(item: $detail) { AppDetailSheet(subject: $0) }
         .task(id: Refresh(range: range, revision: (try? appEnergy.get())?.changes.revision)) {
             let ranking = Result { try appEnergy.get().ranking(range: range) }
             // A pill tapped again while this ran has cancelled it; its range is no longer the one selected.
