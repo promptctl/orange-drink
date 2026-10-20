@@ -77,13 +77,12 @@ struct AppUsageRanking: Equatable, Sendable {
         self.latest = latest.map { latest in
             latest.entries.sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }.map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
         } ?? []
-        var byApp: [AppIdentity: UInt64] = [:]
-        for entry in inRange.flatMap(\.entries) { byApp[entry.app, default: 0] += entry.nanojoules }
         let total = inRange.reduce(0) { $0 + $1.totalNanojoules }
-        let slices = Self.slices(of: inRange, now: now, range: range)
-        apps = byApp.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }.map {
-            AppConsumer(share: AppShare(app: $0.key, nanojoules: $0.value, share: Self.fraction($0.value, of: total)), slices: slices[$0.key] ?? [])
-        }
+        // An app's range energy is the sum of its slices, so the share and the sparkline cannot disagree.
+        apps = Self.slices(of: inRange, now: now, range: range)
+            .map { (app: $0.key, slices: $0.value, nanojoules: $0.value.reduce(0, +)) }
+            .sorted { ($0.nanojoules, $1.app.key) > ($1.nanojoules, $0.app.key) }
+            .map { AppConsumer(share: AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: total)), slices: $0.slices) }
         insights = AppInsight.find(inRange: inRange, apps: apps.map(\.share), latest: self.latest, now: now, range: range)
         historyDepth = firstInterval.map { now.timeIntervalSince($0) }
     }

@@ -140,7 +140,7 @@ private struct ConsumersSection: View {
             VStack(alignment: .leading, spacing: 12) {
                 Label { PhraseText("TOP ENERGY CONSUMERS").font(.caption.weight(.semibold)) } icon: { Image(systemName: "list.bullet") }
                     .foregroundStyle(.secondary)
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(Array(consumers.enumerated()), id: \.element.share.app) { index, consumer in
                         if index > 0 { Divider() }
                         Button { open(consumer.share.app) } label: { row(consumer) }.buttonStyle(.plain)
@@ -179,20 +179,23 @@ private struct ConsumersSection: View {
 /// A thin red line over a faint red fill, scaled to its own highest point.
 private struct Sparkline: View {
     let values: [Double]
+    private let stroke = 1.5
 
     var body: some View {
         GeometryReader { box in
+            // Drawn inside a stroke-wide margin so a peak or a flat baseline at the edge is not half cut off.
+            let width = box.size.width, height = box.size.height - stroke * 2
             let top = values.max() ?? 0
             let points = values.enumerated().map { index, value in
-                CGPoint(x: box.size.width * Double(index) / Double(max(values.count - 1, 1)),
-                        y: box.size.height * (top > 0 ? 1 - value / top : 1))
+                CGPoint(x: width * Double(index) / Double(max(values.count - 1, 1)),
+                        y: stroke + height * (top > 0 ? 1 - value / top : 1))
             }
             ZStack {
                 Path { path in
                     guard let first = points.first, let last = points.last else { return }
-                    path.move(to: CGPoint(x: first.x, y: box.size.height))
+                    path.move(to: CGPoint(x: first.x, y: stroke + height))
                     points.forEach { path.addLine(to: $0) }
-                    path.addLine(to: CGPoint(x: last.x, y: box.size.height))
+                    path.addLine(to: CGPoint(x: last.x, y: stroke + height))
                     path.closeSubpath()
                 }
                 .fill(Color.red.opacity(0.15))
@@ -201,7 +204,7 @@ private struct Sparkline: View {
                     path.move(to: first)
                     points.dropFirst().forEach { path.addLine(to: $0) }
                 }
-                .stroke(Color.red, style: StrokeStyle(lineWidth: 1.5, lineJoin: .round))
+                .stroke(Color.red, style: StrokeStyle(lineWidth: stroke, lineJoin: .round))
             }
         }
     }
