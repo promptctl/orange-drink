@@ -8,8 +8,9 @@ struct Snapshot { var nanojoules: [pid_t: UInt64] = [:]; var unreadable = 0 }
 
 func pids() -> [pid_t] {
     var buffer = [pid_t](repeating: 0, count: 4096)
-    let bytes = proc_listallpids(&buffer, Int32(buffer.count * MemoryLayout<pid_t>.size))
-    return Array(buffer.prefix(Int(bytes) / MemoryLayout<pid_t>.size)).filter { $0 > 0 }
+    // Returns the number of pids, not bytes.
+    let count = proc_listallpids(&buffer, Int32(buffer.count * MemoryLayout<pid_t>.size))
+    return Array(buffer.prefix(Int(count))).filter { $0 > 0 }
 }
 
 func snapshot() -> Snapshot {
@@ -50,7 +51,7 @@ func cpuSeconds() -> Double {
 
 let arguments = CommandLine.arguments
 let interval = arguments.count > 1 ? Double(arguments[1])! : 10
-let samples = arguments.count > 2 ? Int(arguments[2])! : 2
+let samples = max(2, arguments.count > 2 ? Int(arguments[2])! : 2)
 let cpuStart = cpuSeconds()
 let wallStart = Date()
 var previous = snapshot()
@@ -64,7 +65,7 @@ for _ in 1..<samples {
 }
 let window = Double(samples - 1) * interval
 let sum = totals.values.reduce(0, +)
-print("window \(window)s, \(totals.count) processes readable, \(last.unreadable) unreadable, total \(Double(sum) / 1e9) J (\(Double(sum) / 1e9 / window) W)")
+print("window \(window)s, \(totals.count) processes with an energy delta, \(last.nanojoules.count) readable and \(last.unreadable) unreadable in the last snapshot, total \(Double(sum) / 1e9) J (\(Double(sum) / 1e9 / window) W)")
 print("--- per process")
 for (pid, nj) in totals.sorted(by: { $0.value > $1.value }).prefix(10) {
     print(String(format: "%6d  %7.3f W  %5.1f%%  %@", pid, Double(nj) / 1e9 / window, Double(nj) * 100 / Double(max(sum, 1)), name(pid)))

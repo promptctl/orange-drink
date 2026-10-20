@@ -12,7 +12,7 @@ swiftc -O -o build/rusage rusage.swift
 open -a "Activity Monitor"; sleep 2
 build/rusage 10 3 > build/rusage.out &
 /usr/bin/time -l top -l 3 -s 10 -stats pid,command,power -o power -n 15 > build/top.out 2> build/top.time &
-sleep 21
+sleep 19
 osascript activity-monitor.applescript > build/am.out
 wait
 echo "=== A. proc_pid_rusage energy, top five apps"
@@ -24,3 +24,5 @@ echo "=== C. Activity Monitor Energy tab: app | energy impact | 12 hr power, sor
 sort -t'|' -k2 -rn build/am.out | head -8
 echo "=== top's own cost for 3 samples over 20 s"
 grep -E "real|user|sys" build/top.time | head -3
+echo "=== A continuous at 5 s for 60 s (13 snapshots)"
+build/rusage 5 13 | grep -E "window|sampler CPU"
