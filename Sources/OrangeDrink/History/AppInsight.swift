@@ -49,7 +49,7 @@ enum AppInsight: Equatable, Sendable, Identifiable {
             let ratio = (current.share / (Double(before) / Double(earlierTotal)) * 10).rounded() / 10
             return ratio >= unusualRatio ? .unusuallyActive(current, ratio: ratio) : nil
         }
-        return (dominating.map { [$0] } ?? []) + unusual.sorted { ($0.ratio ?? 0) > ($1.ratio ?? 0) }
+        return (dominating.map { [$0] } ?? []) + unusual.sorted { ($0.ratio ?? 0, $1.id) > ($1.ratio ?? 0, $0.id) }
     }
 
     private var ratio: Double? {
