@@ -38,6 +38,16 @@ struct AppShare: Equatable, Sendable {
     let share: Double
 }
 
+/// An app's row in Top Energy Consumers: its share, and its energy across the range for the sparkline.
+struct AppConsumer: Equatable, Sendable {
+    /// Slices the range is cut into; every sparkline has this many points.
+    static let points = 48
+
+    let share: AppShare
+    /// Nanojoules the app used in each of `points` equal slices, oldest first, the last ending now.
+    let slices: [UInt64]
+}
+
 /// What the App Usage screen ranks, for one range, from the stored intervals.
 ///
 /// [LAW:one-source-of-truth] Every list on the screen is derived here from the one list of stored
@@ -50,8 +60,9 @@ struct AppUsageRanking: Equatable, Sendable {
     let latest: [AppShare]
     /// When the newest interval ended; nil before any.
     let lastSampleAt: Date?
-    /// Every app seen in the range by energy, each against everything apps used in the range, most first.
-    let apps: [AppShare]
+    /// Every app seen in the range by energy, each against everything apps used in the range and with its
+    /// energy across the range, most first.
+    let apps: [AppConsumer]
     let insights: [AppInsight]
     /// How long the oldest stored interval has been in the history, however old; nil before any.
     let historyDepth: TimeInterval?
@@ -69,15 +80,30 @@ struct AppUsageRanking: Equatable, Sendable {
         var byApp: [AppIdentity: UInt64] = [:]
         for entry in inRange.flatMap(\.entries) { byApp[entry.app, default: 0] += entry.nanojoules }
         let total = inRange.reduce(0) { $0 + $1.totalNanojoules }
-        apps = byApp.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }
-            .map { AppShare(app: $0.key, nanojoules: $0.value, share: Self.fraction($0.value, of: total)) }
-        insights = AppInsight.find(inRange: inRange, apps: apps, latest: self.latest, now: now, range: range)
+        let slices = Self.slices(of: inRange, now: now, range: range)
+        apps = byApp.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }.map {
+            AppConsumer(share: AppShare(app: $0.key, nanojoules: $0.value, share: Self.fraction($0.value, of: total)), slices: slices[$0.key] ?? [])
+        }
+        insights = AppInsight.find(inRange: inRange, apps: apps.map(\.share), latest: self.latest, now: now, range: range)
         historyDepth = firstInterval.map { now.timeIntervalSince($0) }
     }
 
     var rightNow: [AppShare] { Array(latest.prefix(Self.shown)) }
-    var drainers: [AppShare] { Array(apps.prefix(Self.shown)) }
+    var drainers: [AppShare] { apps.prefix(Self.shown).map(\.share) }
     var appsTracked: Int { apps.count }
+
+    /// Each app's energy per equal slice of the range, oldest first. An interval lands in the slice holding its end;
+    /// one ending exactly now, or stamped after it by a clock step back, is the newest slice's.
+    private static func slices(of inRange: [AppEnergyInterval], now: Date, range: AppUsageRange) -> [AppIdentity: [UInt64]] {
+        let start = now.addingTimeInterval(-range.duration)
+        let width = range.duration / Double(AppConsumer.points)
+        var slices: [AppIdentity: [UInt64]] = [:]
+        for interval in inRange {
+            let slice = min(max(Int(interval.at.timeIntervalSince(start) / width), 0), AppConsumer.points - 1)
+            for entry in interval.entries { slices[entry.app, default: Array(repeating: 0, count: AppConsumer.points)][slice] += entry.nanojoules }
+        }
+        return slices
+    }
 
     private static func fraction(_ part: UInt64, of whole: UInt64) -> Double { whole == 0 ? 0 : Double(part) / Double(whole) }
 

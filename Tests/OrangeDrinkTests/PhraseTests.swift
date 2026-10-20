@@ -106,7 +106,7 @@ import Testing
                     usage.historyText, "1 day of history collected", "\(3) days of history collected", usage.trackedText, "1 app tracked in the last \("24h")",
                     "\(usage.historyText) • \(usage.trackedText)", "App energy history is unavailable. Quit and reopen the app.",
                     "Collecting app energy — rankings appear after a few minutes of use.",
-                    "INSIGHTS", "See details", "Quit", "Share of energy in the last \("24h")", "Share of energy right now"]
+                    "INSIGHTS", "TOP ENERGY CONSUMERS", "of total", "See details", "Quit", "Share of energy in the last \("24h")", "Share of energy right now"]
         let usageApp = AppUsageTests.app("a")
         let usageShare = AppShare(app: usageApp, nanojoules: 1, share: 0.5)
         phrases += [AppInsight.dominating(usageShare, range: .day), .unusuallyActive(usageShare, ratio: 1.5)].flatMap {

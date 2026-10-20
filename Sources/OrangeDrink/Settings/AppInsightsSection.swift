@@ -129,7 +129,7 @@ struct AppDetailSheet: View {
                     if let bundleID = app.bundleID { Text(bundleID).font(.caption).foregroundStyle(.secondary) }
                 }
             }
-            figure("Share of energy in the last \(ranking.range.title)", of: ranking.apps)
+            figure("Share of energy in the last \(ranking.range.title)", of: ranking.apps.map(\.share))
             figure("Share of energy right now", of: ranking.latest)
             HStack {
                 QuitButton(app: app, tint: nil)
