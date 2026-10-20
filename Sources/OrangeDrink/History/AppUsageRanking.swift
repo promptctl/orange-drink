@@ -71,7 +71,7 @@ struct AppUsageRanking: Equatable, Sendable {
         let total = inRange.reduce(0) { $0 + $1.totalNanojoules }
         apps = byApp.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }
             .map { AppShare(app: $0.key, nanojoules: $0.value, share: Self.fraction($0.value, of: total)) }
-        insights = AppInsight.find(inRange: inRange, apps: apps, latest: self.latest, range: range)
+        insights = AppInsight.find(inRange: inRange, apps: apps, latest: self.latest, now: now, range: range)
         historyDepth = firstInterval.map { now.timeIntervalSince($0) }
     }
 

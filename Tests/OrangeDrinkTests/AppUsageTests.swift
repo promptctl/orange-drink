@@ -124,4 +124,30 @@ import Testing
         #expect(Self.insights([old] + intervals, range: .day).map(\.app.name) == ["a"])
         #expect(Self.insights([old] + intervals, range: .week).first?.app.name == "z")
     }
+
+    @Test func anAppCanBeBothDominatingAndUnusuallyActiveAndEachGetsItsOwnCard() {
+        let found = Self.insights(Self.history(before: [("a", 60), ("b", 40)], now: [("a", 99), ("b", 1)]))
+        #expect(found.map(\.app.name) == ["a", "a"] && Set(found.map(\.id)).count == 2)
+    }
+
+    @Test func aNewestIntervalFromBeforeASleepIsNotRightNow() {
+        let stale = Self.history(before: [("a", 20), ("b", 25)], now: [("a", 30), ("b", 25)]).map {
+            AppEnergyInterval(at: $0.at.addingTimeInterval(-3600 * 5), seconds: $0.seconds, totalNanojoules: $0.totalNanojoules, entries: $0.entries)
+        }
+        #expect(Self.insights(stale).isEmpty)
+    }
+
+    @Test func aFewMinutesOfDataDominateNothing() {
+        #expect(Self.insights(Self.history(before: [("a", 90)], now: [("a", 90)], earlier: 3)).isEmpty)
+    }
+
+    @Test func quitFindsAnAppByBundleIDOrByTheBundleOrExecutableItsKeyNames() {
+        let bundled = Self.app("x")
+        #expect(AppQuitter.matches(bundled, bundleID: "com.example.x", bundlePath: nil, executablePath: nil))
+        #expect(!AppQuitter.matches(bundled, bundleID: "com.example.y", bundlePath: "com.example.x", executablePath: "com.example.x"))
+        let unnamed = AppIdentity(key: "/Apps/X.app", name: "X", bundleID: nil)
+        #expect(AppQuitter.matches(unnamed, bundleID: nil, bundlePath: "/Apps/X.app", executablePath: "/Apps/X.app/Contents/MacOS/X"))
+        let tool = AppIdentity(key: "/usr/bin/yes", name: "yes", bundleID: nil)
+        #expect(AppQuitter.matches(tool, bundleID: nil, bundlePath: nil, executablePath: "/usr/bin/yes"))
+    }
 }

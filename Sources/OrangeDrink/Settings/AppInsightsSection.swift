@@ -11,7 +11,7 @@ struct InsightsSection: View {
             VStack(alignment: .leading, spacing: 12) {
                 Label { PhraseText("INSIGHTS").font(.caption.weight(.semibold)) } icon: { Image(systemName: "sparkle").foregroundStyle(.yellow) }
                     .foregroundStyle(.secondary)
-                ForEach(insights, id: \.app) { insight in
+                ForEach(insights) { insight in
                     InsightCard(insight: insight, seeDetails: { seeDetails(insight.app) })
                 }
             }
@@ -73,7 +73,7 @@ private struct InsightButton: View {
     }
 }
 
-/// Quits the app the insight is about; greyed out once nothing of it is running.
+/// Quits the app the insight is about; greyed out when nothing of it was running as of the last reload.
 struct QuitButton: View {
     let app: AppIdentity
     let tint: Color?
@@ -87,12 +87,16 @@ struct QuitButton: View {
 
 /// [LAW:effects-at-boundaries] The one place an insight acts on a process.
 enum AppQuitter {
-    /// An app is its bundle's running instances, or for an executable with no bundle the ones running that file.
+    /// An app is the running instances of its bundle id; with no bundle id its key is a bundle's or an executable's path.
     @MainActor static func running(_ app: AppIdentity) -> [NSRunningApplication] {
-        let all = NSWorkspace.shared.runningApplications
-        return all.filter { instance in
-            app.bundleID.map { instance.bundleIdentifier == $0 } ?? (instance.executableURL?.path == app.key)
+        NSWorkspace.shared.runningApplications.filter {
+            matches(app, bundleID: $0.bundleIdentifier, bundlePath: $0.bundleURL?.path, executablePath: $0.executableURL?.path)
         }
+    }
+
+    static func matches(_ app: AppIdentity, bundleID: String?, bundlePath: String?, executablePath: String?) -> Bool {
+        if let wanted = app.bundleID { return bundleID == wanted }
+        return bundlePath == app.key || executablePath == app.key
     }
 
     /// Asks politely: the app may offer to save, as it would for Cmd-Q.
@@ -103,8 +107,16 @@ enum AppQuitter {
 
 /// What the ranking knows about one app: reached from an insight's See details.
 struct AppDetailSheet: View {
-    let app: AppIdentity
-    let ranking: AppUsageRanking
+    /// The ranking as it was when the sheet opened, so a reload behind it cannot change or blank it.
+    struct Subject: Identifiable {
+        let app: AppIdentity
+        let ranking: AppUsageRanking
+        var id: String { app.key }
+    }
+
+    let subject: Subject
+    private var app: AppIdentity { subject.app }
+    private var ranking: AppUsageRanking { subject.ranking }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appLanguage) private var language
 
