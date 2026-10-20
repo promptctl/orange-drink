@@ -5633,6 +5633,50 @@
           }
         }
       }
+    },
+    "TOP ENERGY CONSUMERS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TOP ENERGY CONSUMERS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRINCIPAUX CONSOMMATEURS D'ÉNERGIE"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAYORES CONSUMIDORES DE ENERGÍA"
+          }
+        }
+      }
+    },
+    "of total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "of total"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "du total"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "del total"
+          }
+        }
+      }
     }
   }
 }

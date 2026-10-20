@@ -82,6 +82,31 @@ import Testing
         #expect(stored == AppUsageRanking(intervals: Self.intervals, firstInterval: Self.intervals.first?.at, now: Self.t0, range: .week))
     }
 
+    // MARK: consumers
+
+    /// Four apps over a week: energy at the start (a, b), the middle (c), and the very end (d).
+    static let week = [
+        interval(hoursAgo: 167, total: 100, [("a", 40), ("b", 20)]),
+        interval(hoursAgo: 83, total: 100, [("a", 10), ("c", 15)]),
+        interval(hoursAgo: 0, total: 100, [("d", 5)]),
+    ]
+
+    @Test func everyTrackedAppIsAConsumerWithTopDrainersShareAndASparklineAcrossTheRange() {
+        let ranking = AppUsageRanking(intervals: Self.week, firstInterval: Self.week.first?.at, now: Self.t0, range: .week)
+        #expect(ranking.apps.map(\.share.app.name) == ["a", "b", "c", "d"])
+        #expect(ranking.drainers == Array(ranking.apps.map(\.share).prefix(AppUsageRanking.shown)))
+        #expect(ranking.apps.allSatisfy { $0.slices.count == AppConsumer.points })
+        let a = ranking.apps[0].slices
+        #expect(a.first == 40_000_000_000 && a[AppConsumer.points / 2] == 10_000_000_000 && a.last == 0)
+        #expect(ranking.apps[3].slices.last == 5_000_000_000 && ranking.apps[3].slices.dropLast().allSatisfy { $0 == 0 })
+    }
+
+    @Test func switchingTheRangeRedrawsEverySparklineOverTheNewRange() {
+        let day = AppUsageRanking(intervals: Self.week, firstInterval: Self.week.first?.at, now: Self.t0, range: .day)
+        #expect(day.apps.map(\.share.app.name) == ["d"])
+        #expect(day.apps[0].slices.count == AppConsumer.points && day.apps[0].slices.last == 5_000_000_000)
+    }
+
     // MARK: insights
 
     /// `earlier` 120 s intervals of `before`, then the newest of `now`; entries are (app, J) against a 100 J total. 40 is over an hour.

@@ -2,8 +2,8 @@ import AppKit
 import OSLog
 import SwiftUI
 
-/// design-docs/app-usage.md: the status line, the range pills, and the Right Now and Top Drainers cards.
-/// The insights and the Top Energy Consumers list read the same ranking.
+/// design-docs/app-usage.md: the status line, the range pills, the Right Now and Top Drainers cards, the insights,
+/// and the Top Energy Consumers list, all read from the one ranking.
 struct AppUsageScreen: View {
     let appEnergy: Result<AppEnergyHistory, any Error>
     @State private var range = AppUsageRange.day
@@ -27,6 +27,7 @@ struct AppUsageScreen: View {
                     TopDrainersCard(ranking: ranking)
                 }
                 InsightsSection(insights: ranking.insights, seeDetails: { detail = AppDetailSheet.Subject(app: $0, ranking: ranking) })
+                ConsumersSection(consumers: ranking.apps, open: { detail = AppDetailSheet.Subject(app: $0, ranking: ranking) })
             }
         }
         .padding(24)
@@ -123,6 +124,87 @@ private struct RankedRows: View {
                     }
                     .accessibilityElement(children: .combine)
                 }
+            }
+        }
+    }
+}
+
+/// design-docs/app-usage.md "Top Energy Consumers": every tracked app, its trend across the range, its share.
+private struct ConsumersSection: View {
+    let consumers: [AppConsumer]
+    let open: (AppIdentity) -> Void
+    @Environment(\.appLanguage) private var language
+
+    var body: some View {
+        if !consumers.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Label { PhraseText("TOP ENERGY CONSUMERS").font(.caption.weight(.semibold)) } icon: { Image(systemName: "list.bullet") }
+                    .foregroundStyle(.secondary)
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(consumers.enumerated()), id: \.element.share.app) { index, consumer in
+                        if index > 0 { Divider() }
+                        Button { open(consumer.share.app) } label: { row(consumer) }.buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .background(Color.veil(0.05), in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.veil(0.1), lineWidth: 1))
+            }
+        }
+    }
+
+    private func row(_ consumer: AppConsumer) -> some View {
+        let app = consumer.share.app
+        return HStack(spacing: 12) {
+            Image(nsImage: AppIcon.image(for: app)).resizable().frame(width: 32, height: 32).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(app.name).lineLimit(1)
+                Text(app.bundleID ?? app.key).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+            }
+            .frame(width: 180, alignment: .leading)
+            Sparkline(values: consumer.slices.map(Double.init)).frame(maxWidth: .infinity).frame(height: 32).accessibilityHidden(true)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(ShareFormat.text(percent: consumer.share.share * 100, locale: language.locale)).fontWeight(.bold)
+                PhraseText("of total").font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(width: 64, alignment: .trailing)
+            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary).accessibilityHidden(true)
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A thin red line over a faint red fill, scaled to its own highest point.
+private struct Sparkline: View {
+    let values: [Double]
+    private let stroke = 1.5
+
+    var body: some View {
+        GeometryReader { box in
+            // Drawn inside a stroke-wide margin so a peak or a flat baseline at the edge is not half cut off.
+            let width = box.size.width, height = box.size.height - stroke * 2
+            let top = values.max() ?? 0
+            let points = values.enumerated().map { index, value in
+                CGPoint(x: width * Double(index) / Double(max(values.count - 1, 1)),
+                        y: stroke + height * (top > 0 ? 1 - value / top : 1))
+            }
+            ZStack {
+                Path { path in
+                    guard let first = points.first, let last = points.last else { return }
+                    path.move(to: CGPoint(x: first.x, y: stroke + height))
+                    points.forEach { path.addLine(to: $0) }
+                    path.addLine(to: CGPoint(x: last.x, y: stroke + height))
+                    path.closeSubpath()
+                }
+                .fill(Color.red.opacity(0.15))
+                Path { path in
+                    guard let first = points.first else { return }
+                    path.move(to: first)
+                    points.dropFirst().forEach { path.addLine(to: $0) }
+                }
+                .stroke(Color.red, style: StrokeStyle(lineWidth: stroke, lineJoin: .round))
             }
         }
     }
