@@ -37,7 +37,8 @@ import OSLog
     /// The stored intervals the App Usage screen ranks: the longest range back from now, oldest first.
     func ranking(range: AppUsageRange) throws -> AppUsageRanking {
         let now = timekeeper.now()
-        return AppUsageRanking(intervals: try store.appEnergy(since: now.addingTimeInterval(-AppUsageRange.month.duration)), now: now, range: range)
+        let longest = AppUsageRange.allCases.map(\.duration).max() ?? 0
+        return AppUsageRanking(intervals: try store.appEnergy(since: now.addingTimeInterval(-longest)), firstInterval: try store.firstIntervalTime(), now: now, range: range)
     }
 
     /// Takes one snapshot off the main actor and records the interval it closes.

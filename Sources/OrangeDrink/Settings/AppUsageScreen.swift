@@ -8,14 +8,13 @@ struct AppUsageScreen: View {
     let appEnergy: Result<AppEnergyHistory, any Error>
     @State private var range = AppUsageRange.day
     @State private var loaded: Result<AppUsageRanking, any Error>?
-    @Environment(\.appLanguage) private var language
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "app-energy")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             switch loaded {
             case nil: EmptyView()
-            case .failure: Text("App energy history is unavailable. Quit and reopen the app.").foregroundStyle(.secondary)
+            case .failure: PhraseText("App energy history is unavailable. Quit and reopen the app.").foregroundStyle(.secondary)
             case .success(let ranking):
                 HStack {
                     PhraseText(ranking.statusText).foregroundStyle(.secondary)
@@ -126,7 +125,7 @@ private struct RankedRows: View {
 enum AppPalette {
     static let colors: [Color] = [.teal, .red, .purple, .pink, .blue, .mint, .yellow, .cyan]
 
-    static func color(for app: AppIdentity) -> Color { colors[AppColor.index(for: app) % colors.count] }
+    static func color(for app: AppIdentity) -> Color { colors[AppColor.index(for: app, of: colors.count)] }
 }
 
 /// The app's own icon, or the generic one for an executable with no bundle.

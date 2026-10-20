@@ -91,6 +91,11 @@ final class HistoryStore: Sendable {
         }
     }
 
+    /// When the oldest stored app-energy interval ended; nil before the first.
+    func firstIntervalTime() throws -> Date? {
+        try queue.read { db in try Double.fetchOne(db, sql: "SELECT min(at) FROM appEnergyInterval").map(Date.init(timeIntervalSince1970:)) }
+    }
+
     /// Intervals that ended at or after `since`, oldest first.
     func appEnergy(since: Date) throws -> [AppEnergyInterval] {
         try queue.read { db in

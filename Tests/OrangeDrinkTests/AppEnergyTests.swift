@@ -132,7 +132,7 @@ import Testing
         let ranked = energy.sorted { $0.value > $1.value }
         print("app energy check, most stored energy first:", ranked.prefix(5).map { "\($0.key.name) (\($0.key.bundleID ?? "no bundle")) \(Double($0.value) / 1e9) J" })
         #expect(ranked.first?.key.bundleID == "com.apple.Terminal")
-        let ranking = AppUsageRanking(intervals: intervals, now: Date(), range: .day)
+        let ranking = AppUsageRanking(intervals: intervals, firstInterval: intervals.first?.at, now: Date(), range: .day)
         print("right now:", ranking.rightNow.map { "\($0.app.name) \(ShareFormat.text(percent: $0.share * 100, locale: Locale(identifier: "en_US")))" })
         #expect(ranking.rightNow.first?.app.bundleID == "com.apple.Terminal")
         #expect(ranking.drainers.first?.app.bundleID == "com.apple.Terminal")

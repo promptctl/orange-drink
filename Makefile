@@ -51,7 +51,7 @@ app-energy-check: generate
 	  -e 'tell application "Terminal" to return ((id of (first window whose tabs contains started)) as text) & " " & (tty of started)'); \
 	window=$${started%% *}; tty=$${started##*/dev/}; \
 	status=0; $(XCB) -only-testing:OrangeDrinkTests/AppEnergyLive test-without-building || status=$$?; \
-	kill $$(ps -t "$$tty" -o pid=,comm= | awk '$$2 == "yes" { print $$1 }'); \
+	yes_pids=$$(ps -t "$$tty" -o pid=,comm= | awk '$$2 == "yes" { print $$1 }'); [ -z "$$yes_pids" ] || kill $$yes_pids; \
 	osascript -e "tell application \"Terminal\" to close (first window whose id is $$window) saving no"; \
 	exit $$status
 

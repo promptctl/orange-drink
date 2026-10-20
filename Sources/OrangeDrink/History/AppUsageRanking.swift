@@ -46,7 +46,6 @@ struct AppUsageRanking: Equatable, Sendable {
     static let shown = 5
 
     let range: AppUsageRange
-    let now: Date
     /// The newest interval's top apps, each against that interval's total; empty before any interval.
     let rightNow: [AppShare]
     /// When the newest interval ended; nil before any.
@@ -54,18 +53,18 @@ struct AppUsageRanking: Equatable, Sendable {
     /// Apps by energy over the range, each against everything apps used in the range, most first.
     let drainers: [AppShare]
     let appsTracked: Int
-    /// How long the oldest stored interval has been in the history; nil before any.
+    /// How long the oldest stored interval has been in the history, however old; nil before any.
     let historyDepth: TimeInterval?
 
-    /// `intervals` are oldest first and cover at least the range.
-    init(intervals: [AppEnergyInterval], now: Date, range: AppUsageRange) {
+    /// `intervals` are oldest first and cover at least the range; `firstInterval` is when the oldest stored
+    /// interval ended, which may be older than any of `intervals`.
+    init(intervals: [AppEnergyInterval], firstInterval: Date?, now: Date, range: AppUsageRange) {
         self.range = range
-        self.now = now
         let inRange = intervals.filter { $0.at >= now.addingTimeInterval(-range.duration) }
         let latest = intervals.last
         lastSampleAt = latest?.at
         rightNow = latest.map { latest in
-            latest.entries.prefix(Self.shown).map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
+            latest.entries.sorted { $0.nanojoules > $1.nanojoules }.prefix(Self.shown).map { AppShare(app: $0.app, nanojoules: $0.nanojoules, share: Self.fraction($0.nanojoules, of: latest.totalNanojoules)) }
         } ?? []
         var byApp: [AppIdentity: UInt64] = [:]
         for entry in inRange.flatMap(\.entries) { byApp[entry.app, default: 0] += entry.nanojoules }
@@ -73,7 +72,7 @@ struct AppUsageRanking: Equatable, Sendable {
         drainers = byApp.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }.prefix(Self.shown)
             .map { AppShare(app: $0.key, nanojoules: $0.value, share: Self.fraction($0.value, of: total)) }
         appsTracked = byApp.count
-        historyDepth = intervals.first.map { now.timeIntervalSince($0.at) }
+        historyDepth = firstInterval.map { now.timeIntervalSince($0) }
     }
 
     private static func fraction(_ part: UInt64, of whole: UInt64) -> Double { whole == 0 ? 0 : Double(part) / Double(whole) }
@@ -121,10 +120,8 @@ enum ShareFormat {
 
 /// An app's bar colour, the same wherever the app appears: a stable hash of its key picks from the palette.
 enum AppColor {
-    static let paletteSize = 8
-
     /// FNV-1a; Swift's own hashing is seeded per launch, which would recolour every app each time.
-    static func index(for app: AppIdentity) -> Int {
+    static func index(for app: AppIdentity, of paletteSize: Int) -> Int {
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in app.key.utf8 { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
         return Int(hash % UInt64(paletteSize))
