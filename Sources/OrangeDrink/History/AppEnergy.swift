@@ -20,6 +20,8 @@ struct ProcessEnergy: Equatable, Sendable {
     }
 
     let key: Key
+    /// How long the process had been running when it was read.
+    let age: TimeInterval
     /// Energy since the process started, in nanojoules; it only grows.
     let nanojoules: UInt64
     let owner: AppIdentity
@@ -49,29 +51,23 @@ struct AppEnergyMeter {
     /// Apps kept per interval; the rest are counted in the total only.
     static let kept = 20
 
-    /// Counters last seen, and for how many snapshots in a row a process has been missing from them.
-    private var previous: (at: Date, counters: [ProcessEnergy.Key: (nanojoules: UInt64, missed: Int)])?
-    /// A process that fails to read once, or briefly, keeps its counter this many snapshots, so it is not
-    /// mistaken for a new process whose whole lifetime energy belongs to one interval.
-    static let patience = 3
+    private var previous: (at: Date, counters: [ProcessEnergy.Key: UInt64])?
 
     /// nil for the first snapshot, which only sets the baseline the next one is measured from.
     mutating func observe(_ processes: [ProcessEnergy], at: Date) -> AppEnergyInterval? {
-        let seen = Dictionary(processes.map { ($0.key, (nanojoules: $0.nanojoules, missed: 0)) }) { _, last in last }
-        defer {
-            let missing = (previous?.counters ?? [:]).filter { seen[$0.key] == nil && $0.value.missed < Self.patience }
-            previous = (at, seen.merging(missing.mapValues { ($0.nanojoules, $0.missed + 1) }) { current, _ in current })
-        }
+        defer { previous = (at, Dictionary(processes.map { ($0.key, $0.nanojoules) }) { _, last in last }) }
         guard let previous else { return nil }
+        let seconds = at.timeIntervalSince(previous.at)
         var byApp: [AppIdentity: UInt64] = [:]
         for process in processes {
-            // A process not in the last snapshot started since, so all of its energy is this interval's.
-            let before = previous.counters[process.key]?.nanojoules ?? 0
+            // A process not in the last snapshot is new only if it started inside this interval, and then all of
+            // its energy is the interval's. An older one was merely unreadable then: its earlier energy is not.
+            let before = previous.counters[process.key] ?? (process.age <= seconds ? 0 : process.nanojoules)
             byApp[process.owner, default: 0] += process.nanojoules > before ? process.nanojoules - before : 0
         }
         let ranked = byApp.filter { $0.value > 0 }.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }
         return AppEnergyInterval(
-            at: at, seconds: at.timeIntervalSince(previous.at), totalNanojoules: byApp.values.reduce(0, +),
+            at: at, seconds: seconds, totalNanojoules: byApp.values.reduce(0, +),
             entries: ranked.prefix(Self.kept).map { AppEnergyInterval.Entry(app: $0.key, nanojoules: $0.value) })
     }
 }

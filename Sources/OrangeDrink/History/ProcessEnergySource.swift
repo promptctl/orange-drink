@@ -33,19 +33,33 @@ final class RusageEnergySource: ProcessEnergySource, @unchecked Sendable {
     }
 
     func snapshot() throws -> [ProcessEnergy] {
-        // A null buffer asks how many bytes the list needs; room is left for processes started since.
+        // A null buffer asks how many pids there are now; room is left for processes started since.
         let needed = proc_listallpids(nil, 0)
         guard needed > 0 else { throw ProcessEnergyError.processList }
-        var pids = [pid_t](repeating: 0, count: Int(needed) / MemoryLayout<pid_t>.size + 64)
+        var pids = [pid_t](repeating: 0, count: Int(needed) + 64)
         // The return value is a count of pids, not of bytes.
         let count = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
         guard count > 0 else { throw ProcessEnergyError.processList }
         return pids.prefix(Int(count)).compactMap { pid -> ProcessEnergy? in
             guard pid > 0, let usage = Self.usage(pid) else { return nil }
             let owner = responsible(pid)
-            guard let identity = identity(ofProcess: owner > 0 ? owner : pid) ?? identity(ofProcess: pid) else { return nil }
-            return ProcessEnergy(key: .init(pid: pid, started: usage.ri_proc_start_abstime), nanojoules: usage.ri_energy_nj, owner: identity)
+            // launchd is responsible for the processes nothing else claims; those stand for themselves.
+            guard let identity = identity(ofProcess: owner > 1 ? owner : pid) ?? identity(ofProcess: pid) else { return nil }
+            return ProcessEnergy(key: .init(pid: pid, started: usage.ri_proc_start_abstime), age: Self.seconds(since: usage.ri_proc_start_abstime),
+                                 nanojoules: usage.ri_energy_nj, owner: identity)
         }
+    }
+
+    /// mach_absolute_time ticks are not nanoseconds on Apple silicon; the timebase converts them.
+    private static let timebase: mach_timebase_info_data_t = {
+        var info = mach_timebase_info_data_t()
+        mach_timebase_info(&info)
+        return info
+    }()
+
+    private static func seconds(since started: UInt64) -> TimeInterval {
+        let ticks = mach_absolute_time() &- started
+        return Double(ticks) * Double(timebase.numer) / Double(timebase.denom) / 1e9
     }
 
     private static func usage(_ pid: pid_t) -> rusage_info_v6? {

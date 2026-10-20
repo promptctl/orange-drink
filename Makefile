@@ -44,10 +44,10 @@ app-energy-check: export TEST_RUNNER_APP_ENERGY_CHECK = 1
 app-energy-check: generate
 	@set -e; \
 	started=$$(osascript -e 'tell application "Terminal" to set started to do script "yes > /dev/null"' \
-	  -e 'tell application "Terminal" to return (id of (first window whose tabs contains started)) & " " & (tty of started)'); \
+	  -e 'tell application "Terminal" to return ((id of (first window whose tabs contains started)) as text) & " " & (tty of started)'); \
 	window=$${started%% *}; tty=$${started##*/dev/}; \
 	status=0; $(MAKE) test || status=$$?; \
-	pkill -t "$$tty" yes; \
+	kill $$(ps -t "$$tty" -o pid=,comm= | awk '$$2 == "yes" { print $$1 }'); \
 	osascript -e "tell application \"Terminal\" to close (first window whose id is $$window) saving no"; \
 	exit $$status
 

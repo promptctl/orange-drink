@@ -10,8 +10,8 @@ import Testing
     static let tool = AppIdentity(key: "/usr/local/bin/tool", name: "tool", bundleID: nil)
     static let t0 = Date(timeIntervalSince1970: 1_800_000_000)
 
-    static func process(_ pid: Int32, _ joules: Double, _ owner: AppIdentity, started: UInt64 = 1) -> ProcessEnergy {
-        ProcessEnergy(key: .init(pid: pid, started: started), nanojoules: UInt64(joules * 1e9), owner: owner)
+    static func process(_ pid: Int32, _ joules: Double, _ owner: AppIdentity, started: UInt64 = 1, age: TimeInterval = 86_400) -> ProcessEnergy {
+        ProcessEnergy(key: .init(pid: pid, started: started), age: age, nanojoules: UInt64(joules * 1e9), owner: owner)
     }
 
     static func step(_ meter: inout AppEnergyMeter, _ processes: [ProcessEnergy], at: Date) throws -> AppEnergyInterval {
@@ -28,7 +28,7 @@ import Testing
         var meter = AppEnergyMeter()
         _ = meter.observe([Self.process(1, 5, Self.editor), Self.process(2, 1, Self.browser), Self.process(3, 2, Self.browser)], at: Self.t0)
         let interval = try Self.step(
-            &meter, [Self.process(1, 8, Self.editor), Self.process(2, 4, Self.browser), Self.process(3, 2, Self.browser), Self.process(4, 1, Self.tool)],
+            &meter, [Self.process(1, 8, Self.editor), Self.process(2, 4, Self.browser), Self.process(3, 2, Self.browser), Self.process(4, 1, Self.tool, age: 30)],
             at: Self.t0.addingTimeInterval(120))
         #expect(interval.seconds == 120)
         // Editor +3 J, Browser +3 J (one helper idle), the new tool's whole 1 J.
@@ -40,16 +40,16 @@ import Testing
     @Test func aReusedPidIsANewProcessNotANegativeDelta() throws {
         var meter = AppEnergyMeter()
         _ = meter.observe([Self.process(1, 50, Self.editor, started: 10)], at: Self.t0)
-        let interval = try Self.step(&meter, [Self.process(1, 2, Self.browser, started: 99)], at: Self.t0.addingTimeInterval(60))
+        let interval = try Self.step(&meter, [Self.process(1, 2, Self.browser, started: 99, age: 10)], at: Self.t0.addingTimeInterval(60))
         #expect(interval.entries.map(\.app) == [Self.browser])
         #expect(interval.totalNanojoules == 2_000_000_000)
     }
 
-    @Test func aProcessThatFailedToReadOnceIsNotChargedItsWholeLifetime() throws {
+    @Test func aLongRunningProcessFirstReadLateIsNotChargedItsWholeLifetime() throws {
         var meter = AppEnergyMeter()
-        _ = meter.observe([Self.process(1, 5000, Self.editor)], at: Self.t0)
-        _ = meter.observe([], at: Self.t0.addingTimeInterval(120))
-        let interval = try Self.step(&meter, [Self.process(1, 5002, Self.editor)], at: Self.t0.addingTimeInterval(240))
+        _ = meter.observe([], at: Self.t0)
+        _ = meter.observe([Self.process(1, 5000, Self.editor, age: 90_000)], at: Self.t0.addingTimeInterval(120))
+        let interval = try Self.step(&meter, [Self.process(1, 5002, Self.editor, age: 90_120)], at: Self.t0.addingTimeInterval(240))
         #expect(interval.totalNanojoules == 2_000_000_000)
     }
 
@@ -57,7 +57,7 @@ import Testing
         var meter = AppEnergyMeter()
         let apps = (0..<(AppEnergyMeter.kept + 5)).map { AppIdentity(key: "app\($0)", name: "App \($0)", bundleID: nil) }
         _ = meter.observe([], at: Self.t0)
-        let interval = try Self.step(&meter, apps.enumerated().map { Self.process(Int32($0.offset + 1), Double($0.offset + 1), $0.element) }, at: Self.t0.addingTimeInterval(60))
+        let interval = try Self.step(&meter, apps.enumerated().map { Self.process(Int32($0.offset + 1), Double($0.offset + 1), $0.element, age: 5) }, at: Self.t0.addingTimeInterval(60))
         #expect(interval.entries.count == AppEnergyMeter.kept)
         #expect(interval.entries.first?.app == apps.last)
         #expect(interval.totalNanojoules == UInt64((1...apps.count).reduce(0, +)) * 1_000_000_000)
@@ -110,7 +110,9 @@ import Testing
 
     @Test func theRealSourceSeesProcessesAndTheirOwners() throws {
         let processes = try RusageEnergySource().snapshot()
-        #expect(processes.count > 50)
+        let listed = Int(proc_listallpids(nil, 0))
+        // Root daemons are unreadable (about 3 in 10); a buffer cut to a quarter would fall far below this.
+        #expect(processes.count * 10 >= listed * 5)
         #expect(processes.contains { $0.key.pid == getpid() })
     }
 }
