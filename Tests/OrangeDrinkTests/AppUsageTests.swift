@@ -94,7 +94,7 @@ import Testing
     @Test func everyTrackedAppIsAConsumerWithTopDrainersShareAndASparklineAcrossTheRange() {
         let ranking = AppUsageRanking(intervals: Self.week, firstInterval: Self.week.first?.at, now: Self.t0, range: .week)
         #expect(ranking.apps.map(\.share.app.name) == ["a", "b", "c", "d"])
-        #expect(ranking.drainers == ranking.apps.map(\.share).prefix(AppUsageRanking.shown).map { $0 })
+        #expect(ranking.drainers == Array(ranking.apps.map(\.share).prefix(AppUsageRanking.shown)))
         #expect(ranking.apps.allSatisfy { $0.slices.count == AppConsumer.points })
         let a = ranking.apps[0].slices
         #expect(a.first == 40_000_000_000 && a[AppConsumer.points / 2] == 10_000_000_000 && a.last == 0)
