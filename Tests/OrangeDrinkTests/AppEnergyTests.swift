@@ -45,6 +45,14 @@ import Testing
         #expect(interval.totalNanojoules == 2_000_000_000)
     }
 
+    @Test func aProcessThatFailedToReadOnceIsNotChargedItsWholeLifetime() throws {
+        var meter = AppEnergyMeter()
+        _ = meter.observe([Self.process(1, 5000, Self.editor)], at: Self.t0)
+        _ = meter.observe([], at: Self.t0.addingTimeInterval(120))
+        let interval = try Self.step(&meter, [Self.process(1, 5002, Self.editor)], at: Self.t0.addingTimeInterval(240))
+        #expect(interval.totalNanojoules == 2_000_000_000)
+    }
+
     @Test func onlyTheTopAppsAreKeptButTheTotalCountsThemAll() throws {
         var meter = AppEnergyMeter()
         let apps = (0..<(AppEnergyMeter.kept + 5)).map { AppIdentity(key: "app\($0)", name: "App \($0)", bundleID: nil) }

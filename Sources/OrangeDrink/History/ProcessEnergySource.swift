@@ -33,7 +33,10 @@ final class RusageEnergySource: ProcessEnergySource, @unchecked Sendable {
     }
 
     func snapshot() throws -> [ProcessEnergy] {
-        var pids = [pid_t](repeating: 0, count: 8192)
+        // A null buffer asks how many bytes the list needs; room is left for processes started since.
+        let needed = proc_listallpids(nil, 0)
+        guard needed > 0 else { throw ProcessEnergyError.processList }
+        var pids = [pid_t](repeating: 0, count: Int(needed) / MemoryLayout<pid_t>.size + 64)
         // The return value is a count of pids, not of bytes.
         let count = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
         guard count > 0 else { throw ProcessEnergyError.processList }

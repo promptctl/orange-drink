@@ -83,7 +83,7 @@ final class HistoryStore: Sendable {
                            arguments: [at, interval.seconds, Int64(clamping: interval.totalNanojoules)])
             try db.execute(sql: "DELETE FROM appEnergy WHERE at = ?", arguments: [at])
             for entry in interval.entries {
-                try db.execute(sql: "INSERT OR REPLACE INTO app (key, name, bundleID) VALUES (?, ?, ?)",
+                try db.execute(sql: "INSERT INTO app (key, name, bundleID) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET name = excluded.name, bundleID = excluded.bundleID",
                                arguments: [entry.app.key, entry.app.name, entry.app.bundleID])
                 try db.execute(sql: "INSERT INTO appEnergy (at, appKey, nanojoules) VALUES (?, ?, ?)",
                                arguments: [at, entry.app.key, Int64(clamping: entry.nanojoules)])
@@ -94,16 +94,19 @@ final class HistoryStore: Sendable {
     /// Intervals that ended at or after `since`, oldest first.
     func appEnergy(since: Date) throws -> [AppEnergyInterval] {
         try queue.read { db in
-            try Row.fetchAll(db, sql: "SELECT * FROM appEnergyInterval WHERE at >= ? ORDER BY at", arguments: [since.timeIntervalSince1970]).map { interval in
-                let entries = try Row.fetchAll(db, sql: """
-                    SELECT app.key, app.name, app.bundleID, appEnergy.nanojoules FROM appEnergy JOIN app ON app.key = appEnergy.appKey
-                    WHERE appEnergy.at = ? ORDER BY appEnergy.nanojoules DESC, app.key
-                    """, arguments: [interval["at"] as Double]).map { row in
-                    AppEnergyInterval.Entry(app: AppIdentity(key: row["key"], name: row["name"], bundleID: row["bundleID"]),
-                                            nanojoules: UInt64(row["nanojoules"] as Int64))
-                }
-                return AppEnergyInterval(at: Date(timeIntervalSince1970: interval["at"]), seconds: interval["seconds"],
-                                         totalNanojoules: UInt64(interval["totalNanojoules"] as Int64), entries: entries)
+            let since = since.timeIntervalSince1970
+            var entries: [Double: [AppEnergyInterval.Entry]] = [:]
+            for row in try Row.fetchAll(db, sql: """
+                SELECT appEnergy.at, app.key, app.name, app.bundleID, appEnergy.nanojoules
+                FROM appEnergy JOIN app ON app.key = appEnergy.appKey
+                WHERE appEnergy.at >= ? ORDER BY appEnergy.nanojoules DESC, app.key
+                """, arguments: [since]) {
+                entries[row["at"], default: []].append(AppEnergyInterval.Entry(
+                    app: AppIdentity(key: row["key"], name: row["name"], bundleID: row["bundleID"]), nanojoules: UInt64(row["nanojoules"] as Int64)))
+            }
+            return try Row.fetchAll(db, sql: "SELECT * FROM appEnergyInterval WHERE at >= ? ORDER BY at", arguments: [since]).map { interval in
+                AppEnergyInterval(at: Date(timeIntervalSince1970: interval["at"]), seconds: interval["seconds"],
+                                  totalNanojoules: UInt64(interval["totalNanojoules"] as Int64), entries: entries[interval["at"] as Double] ?? [])
             }
         }
     }

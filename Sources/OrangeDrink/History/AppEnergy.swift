@@ -49,16 +49,24 @@ struct AppEnergyMeter {
     /// Apps kept per interval; the rest are counted in the total only.
     static let kept = 20
 
-    private var previous: (at: Date, counters: [ProcessEnergy.Key: UInt64])?
+    /// Counters last seen, and for how many snapshots in a row a process has been missing from them.
+    private var previous: (at: Date, counters: [ProcessEnergy.Key: (nanojoules: UInt64, missed: Int)])?
+    /// A process that fails to read once, or briefly, keeps its counter this many snapshots, so it is not
+    /// mistaken for a new process whose whole lifetime energy belongs to one interval.
+    static let patience = 3
 
     /// nil for the first snapshot, which only sets the baseline the next one is measured from.
     mutating func observe(_ processes: [ProcessEnergy], at: Date) -> AppEnergyInterval? {
-        defer { previous = (at, Dictionary(processes.map { ($0.key, $0.nanojoules) }) { _, last in last }) }
+        let seen = Dictionary(processes.map { ($0.key, (nanojoules: $0.nanojoules, missed: 0)) }) { _, last in last }
+        defer {
+            let missing = (previous?.counters ?? [:]).filter { seen[$0.key] == nil && $0.value.missed < Self.patience }
+            previous = (at, seen.merging(missing.mapValues { ($0.nanojoules, $0.missed + 1) }) { current, _ in current })
+        }
         guard let previous else { return nil }
         var byApp: [AppIdentity: UInt64] = [:]
         for process in processes {
             // A process not in the last snapshot started since, so all of its energy is this interval's.
-            let before = previous.counters[process.key] ?? 0
+            let before = previous.counters[process.key]?.nanojoules ?? 0
             byApp[process.owner, default: 0] += process.nanojoules > before ? process.nanojoules - before : 0
         }
         let ranked = byApp.filter { $0.value > 0 }.sorted { ($0.value, $1.key.key) > ($1.value, $0.key.key) }

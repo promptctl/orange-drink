@@ -43,8 +43,11 @@ position-check: test
 app-energy-check: export TEST_RUNNER_APP_ENERGY_CHECK = 1
 app-energy-check: generate
 	@set -e; \
-	window=$$(osascript -e 'tell application "Terminal" to set started to do script "yes > /dev/null"' -e 'tell application "Terminal" to return id of (first window whose tabs contains started)'); \
+	started=$$(osascript -e 'tell application "Terminal" to set started to do script "yes > /dev/null"' \
+	  -e 'tell application "Terminal" to return (id of (first window whose tabs contains started)) & " " & (tty of started)'); \
+	window=$${started%% *}; tty=$${started##*/dev/}; \
 	status=0; $(MAKE) test || status=$$?; \
+	pkill -t "$$tty" yes; \
 	osascript -e "tell application \"Terminal\" to close (first window whose id is $$window) saving no"; \
 	exit $$status
 

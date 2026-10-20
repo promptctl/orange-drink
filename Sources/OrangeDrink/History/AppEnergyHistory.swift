@@ -26,9 +26,9 @@ import OSLog
         self.timekeeper = timekeeper
         // The first snapshot is the baseline; each later one is an interval.
         loop = Task { [weak self] in
+            // `self` is held only while sampling, so a dropped object ends the loop during the sleep.
             while !Task.isCancelled {
-                guard let self else { return }
-                await self.sample()
+                guard await self?.sample() != nil else { return }
                 do { try await timekeeper.sleep(for: interval) } catch { return }
             }
         }
