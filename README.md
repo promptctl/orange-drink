@@ -18,14 +18,16 @@ By default, press ⌃⌥J from anywhere to open the Orange Drink panel.
 
 ## Getting it
 
-There is no downloadable app yet. For now you build it from source on an Apple Silicon Mac running macOS 14 or later. You need Xcode and XcodeGen, which you can install with `brew install xcodegen`. Then run:
+There is no downloadable app yet. To build it from source, see [For developers](#for-developers).
+
+## For developers
+
+Build it on an Apple Silicon Mac running macOS 14 or later. You need Xcode and XcodeGen, which you can install with `brew install xcodegen`. Then run:
 
 ```sh
 make generate
 make build
 ```
-
-## For developers
 
 The Xcode project is generated from `project.yml`, so change that file and never edit the project by hand. Run `make test` to run the unit tests.
 
