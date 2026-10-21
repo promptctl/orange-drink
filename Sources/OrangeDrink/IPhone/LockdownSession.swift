@@ -18,6 +18,8 @@ enum IPhoneReadError: Error, Equatable {
     case layout(String)
     case parse(IPhoneParseError)
     case encoding(String)
+    case unsupported(String)
+    case replyTooLarge(Int)
 }
 
 // Not exported to Swift; value from Security/SecureTransport.h. SSLHandshake returns it when the server's
@@ -39,13 +41,21 @@ struct Deadline {
 final class TimedSocket {
     let fd: Int32
 
-    init(fd: Int32) {
+    /// Throws if the socket cannot take its wake-up: without it no deadline can be checked.
+    init(fd: Int32) throws(IPhoneReadError) {
         self.fd = fd
         var wake = timeval(tv_sec: 1, tv_usec: 0)
         var on: Int32 = 1
-        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &wake, socklen_t(MemoryLayout<timeval>.size))
-        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &wake, socklen_t(MemoryLayout<timeval>.size))
-        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+        let options = [
+            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &wake, socklen_t(MemoryLayout<timeval>.size)),
+            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &wake, socklen_t(MemoryLayout<timeval>.size)),
+            setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size)),
+        ]
+        if options.contains(-1) {
+            let err = errno
+            close(fd)
+            throw IPhoneReadError.socket(errno: err)
+        }
     }
 
     deinit { close(fd) }
@@ -175,10 +185,14 @@ final class TLSChannel {
         guard let context = SSLCreateContext(nil, .clientSide, .streamType) else { throw IPhoneReadError.tls(errSecAllocate) }
         let box = TLSBox(fd: socket.fd)
         let channel = TLSChannel(context: context, box: box, socket: socket)
-        SSLSetIOFuncs(context, tlsRead, tlsWrite)
-        SSLSetConnection(context, Unmanaged.passUnretained(box).toOpaque())
-        SSLSetCertificate(context, [identity] as CFArray)
-        SSLSetSessionOption(context, .breakOnServerAuth, true)
+        let setup = [
+            SSLSetIOFuncs(context, tlsRead, tlsWrite),
+            SSLSetConnection(context, Unmanaged.passUnretained(box).toOpaque()),
+            SSLSetCertificate(context, [identity] as CFArray),
+            SSLSetSessionOption(context, .breakOnServerAuth, true),
+        ]
+        // [LAW:no-silent-failure] A rejected setup call would handshake without the identity; fail here instead.
+        if let failed = setup.first(where: { $0 != noErr }) { throw IPhoneReadError.tls(failed) }
         box.deadline = Deadline(after: callDeadline)
         while true {
             let status = SSLHandshake(context)
@@ -244,7 +258,7 @@ func openUsbmux() throws -> TimedSocket {
         close(fd)
         throw IPhoneReadError.usbmuxUnavailable(errno: err)
     }
-    return TimedSocket(fd: fd)
+    return try TimedSocket(fd: fd)
 }
 
 /// One reply frame, read under the deadline.
@@ -289,11 +303,13 @@ func usbmuxRequest(_ body: [String: Any]) throws(IPhoneReadError) -> [String: An
 
 /// A usbmuxd Connect to a device's TCP port. After the reply the same socket carries that port's byte stream.
 func usbmuxConnect(handle: Int, port: Int) throws(IPhoneReadError) -> TimedSocket {
-    try typedReadErrors {
+    // [LAW:no-silent-failure] A port that does not fit the wire field is a typed error; UInt16(port) would trap.
+    guard let wirePort = UInt16(exactly: port) else { throw IPhoneReadError.lockdown("Port \(port) out of range") }
+    return try typedReadErrors {
         let socket = try openUsbmux()
         let deadline = Deadline(after: callDeadline)
         try sendUsbmux(socket, ["MessageType": "Connect", "DeviceID": handle,
-                                "PortNumber": Int(UInt16(port).bigEndian),
+                                "PortNumber": Int(wirePort.bigEndian),
                                 "ClientVersionString": "orange-drink", "ProgName": "orange-drink"], until: deadline)
         try usbmuxCheckResult(try readUsbmuxFrame(socket, until: deadline))
         return socket
@@ -326,6 +342,8 @@ final class PlistStream {
         }
         let header = try read(4, until: deadline)
         let length = header.reduce(0) { $0 << 8 | Int($1) }
+        // The bound the usbmux path applies: a corrupt length must not allocate gigabytes before any check.
+        guard (0...maxFrameLength).contains(length) else { throw IPhoneReadError.replyTooLarge(length) }
         return try read(length, until: deadline)
     }
 
@@ -357,6 +375,9 @@ private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReadi
           let certPEM = pair["HostCertificate"] as? Data, let keyPEM = pair["HostPrivateKey"] as? Data else {
         throw IPhoneReadError.lockdown("pair record")
     }
+    // [LAW:no-silent-failure] macOS 14 has no memory-only import, so the reader refuses to run there rather than write
+    // the host key into a keychain. Whether the deployment target moves to 15 is the owner's call.
+    guard #available(macOS 15.0, *) else { throw IPhoneReadError.unsupported("reading an iPhone needs macOS 15") }
     let identity = try pairIdentity(certificatePEM: certPEM, keyPEM: keyPEM)
 
     let lockdown = PlistStream(socket: try usbmuxConnect(handle: handle, port: 62078))

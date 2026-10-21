@@ -51,11 +51,13 @@ func parseIPhoneBattery(_ entry: [String: Any], layout: IPhoneLayout) throws -> 
             appleRawMaxCapacity: try integer(battery, "AppleRawMaxCapacity"))
     case .topLevel:
         let battery = try dictionary(entry, "BatteryData")
+        let design = try integer(battery, "DesignCapacity")
+        guard design > 0 else { throw IPhoneParseError.invalid("DesignCapacity") }
         return IPhoneBatteryReading(
             level: try integer(entry, "CurrentCapacity"),
             health: nil,
             cycleCount: try integer(entry, "CycleCount"),
-            designCapacity: try integer(battery, "DesignCapacity"),
+            designCapacity: design,
             appleRawMaxCapacity: try integer(entry, "AppleRawMaxCapacity"))
     }
 }

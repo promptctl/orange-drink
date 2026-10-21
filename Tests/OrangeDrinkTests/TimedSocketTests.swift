@@ -8,7 +8,7 @@ import Testing
     static func pair() throws -> (TimedSocket, Int32) {
         var fds: [Int32] = [0, 0]
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &fds) == 0 else { throw IPhoneReadError.socket(errno: errno) }
-        return (TimedSocket(fd: fds[0]), fds[1])
+        return (try TimedSocket(fd: fds[0]), fds[1])
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -23,11 +23,21 @@ import Testing
     @Test(.timeLimit(.minutes(1)))
     func peerTricklingBytesCannotExtendThePastTheDeadline() throws {
         let (socket, peer) = try Self.pair()
+        let stop = DispatchSemaphore(value: 0)
+        let finished = DispatchSemaphore(value: 0)
         let trickle = Thread {
-            while write(peer, [0x41], 1) == 1 { Thread.sleep(forTimeInterval: 0.4) }
+            // Writes until the test asks it to stop, then signals it is done, so the peer fd is never reused under it.
+            while stop.wait(timeout: .now() + 0.4) == .timedOut {
+                if write(peer, [0x41], 1) != 1 { break }
+            }
+            finished.signal()
         }
         trickle.start()
-        defer { close(peer) }
+        defer {
+            stop.signal()
+            finished.wait()
+            close(peer)
+        }
         #expect(throws: IPhoneReadError.timeout) {
             try socket.readExact(100, until: Deadline(after: .milliseconds(2000)))
         }

@@ -31,7 +31,7 @@ enum UsbmuxEvent: Equatable {
 }
 
 // The largest reply the monitor accepts; usbmuxd and lockdown replies are a few KB.
-private let maxFrameLength = 1 << 20
+let maxFrameLength = 1 << 20
 
 /// Encodes one request frame with the given tag.
 func usbmuxEncode(_ body: [String: Any], tag: UInt32 = 1) throws -> [UInt8] {
