@@ -1,0 +1,381 @@
+import Foundation
+import Security
+
+// The effectful edge of the iPhone reader: sockets, usbmuxd and lockdown requests, and SecureTransport.
+// [LAW:effects-at-boundaries] Every blocking call happens here, under a deadline; the parsers beside it stay pure.
+// [LAW:no-silent-failure] Every failure is a typed IPhoneReadError. Nothing here exits the process.
+
+enum IPhoneReadError: Error, Equatable {
+    case usbmuxUnavailable(errno: Int32)
+    case usbmux(UsbmuxFrameError)
+    case connectRefused(Int)
+    case socket(errno: Int32)
+    case closed
+    case timeout
+    case tls(OSStatus)
+    case identity(PKCS12Error)
+    case lockdown(String)
+    case layout(String)
+    case parse(IPhoneParseError)
+    case encoding(String)
+}
+
+// Not exported to Swift; value from Security/SecureTransport.h. SSLHandshake returns it when the server's
+// certificate is ready for the client's answer; lockdown's host certificate is not CA-signed, so the handshake continues.
+private let errSSLServerAuthCompleted: OSStatus = -9841
+
+/// Every usbmuxd and lockdown request gets this long, measured from when the call starts.
+let callDeadline = Duration.seconds(10)
+
+/// A point on the monotonic clock after which a call fails with `.timeout`.
+struct Deadline {
+    private let instant: ContinuousClock.Instant
+    init(after duration: Duration) { instant = ContinuousClock.now.advanced(by: duration) }
+    var passed: Bool { ContinuousClock.now >= instant }
+}
+
+/// A connected socket with a one-second wake-up (SO_RCVTIMEO and SO_SNDTIMEO). The wake-up only lets a loop re-check
+/// its deadline; a timed call checks the clock on every return, not only when the socket is quiet.
+final class TimedSocket {
+    let fd: Int32
+
+    init(fd: Int32) {
+        self.fd = fd
+        var wake = timeval(tv_sec: 1, tv_usec: 0)
+        var on: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &wake, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &wake, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+    }
+
+    deinit { close(fd) }
+
+    func readExact(_ n: Int, until deadline: Deadline) throws -> [UInt8] {
+        var out = [UInt8](repeating: 0, count: n)
+        var got = 0
+        while got < n {
+            let r = recvInto(fd, &out, at: got)
+            if r > 0 {
+                got += r
+            } else if r == 0 {
+                throw IPhoneReadError.closed
+            } else if errno != EAGAIN && errno != EWOULDBLOCK {
+                throw IPhoneReadError.socket(errno: errno)
+            }
+            if deadline.passed { throw IPhoneReadError.timeout }
+        }
+        return out
+    }
+
+    func writeAll(_ bytes: [UInt8], until deadline: Deadline) throws {
+        var sent = 0
+        while sent < bytes.count {
+            let r = bytes.withUnsafeBytes { buf -> Int in
+                guard let base = buf.baseAddress else { return -1 }
+                return send(fd, base + sent, bytes.count - sent, 0)
+            }
+            if r > 0 {
+                sent += r
+            } else if r == 0 {
+                throw IPhoneReadError.closed
+            } else if errno != EAGAIN && errno != EWOULDBLOCK {
+                throw IPhoneReadError.socket(errno: errno)
+            }
+            if deadline.passed { throw IPhoneReadError.timeout }
+        }
+    }
+
+    /// The Listen read. Returns the bytes that arrived, or nil on the one-second wake-up with nothing read.
+    /// No deadline: a quiet Listen connection is normal, and the caller checks for cancellation on each wake-up.
+    func receiveSome(max: Int) throws -> [UInt8]? {
+        var out = [UInt8](repeating: 0, count: max)
+        let r = recvInto(fd, &out, at: 0)
+        if r > 0 { return Array(out[0..<r]) }
+        if r == 0 { throw IPhoneReadError.closed }
+        if errno == EAGAIN || errno == EWOULDBLOCK { return nil }
+        throw IPhoneReadError.socket(errno: errno)
+    }
+}
+
+private func recvInto(_ fd: Int32, _ out: inout [UInt8], at offset: Int) -> Int {
+    out.withUnsafeMutableBytes { buf in
+        guard let base = buf.baseAddress else { return -1 }
+        return recv(fd, base + offset, buf.count - offset, 0)
+    }
+}
+
+// MARK: - SecureTransport
+
+/// The TLS callbacks' state. The channel owns it, because SecureTransport holds an unretained pointer to it.
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+private final class TLSBox {
+    let fd: Int32
+    var deadline = Deadline(after: callDeadline)
+    var timedOut = false
+    init(fd: Int32) { self.fd = fd }
+}
+
+// Read and write loop over recv/send until the buffer is full. EAGAIN before the deadline is a wait, so SecureTransport
+// never sees errSSLWouldBlock. Past the deadline the callback sets `timedOut` and returns errSSLClosedAbort.
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+private let tlsRead: SSLReadFunc = { conn, data, len in
+    let box = Unmanaged<TLSBox>.fromOpaque(conn).takeUnretainedValue()
+    let want = len.pointee
+    var got = 0
+    while got < want {
+        let r = recv(box.fd, data + got, want - got, 0)
+        if r == 0 { len.pointee = got; return errSSLClosedGraceful }
+        if r > 0 {
+            got += r
+        } else if errno != EAGAIN && errno != EWOULDBLOCK {
+            len.pointee = got
+            return errSSLClosedAbort
+        }
+        if box.deadline.passed { box.timedOut = true; len.pointee = got; return errSSLClosedAbort }
+    }
+    len.pointee = got
+    return noErr
+}
+
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+private let tlsWrite: SSLWriteFunc = { conn, data, len in
+    let box = Unmanaged<TLSBox>.fromOpaque(conn).takeUnretainedValue()
+    let want = len.pointee
+    var sent = 0
+    while sent < want {
+        let r = send(box.fd, data + sent, want - sent, 0)
+        if r > 0 {
+            sent += r
+        } else if errno != EAGAIN && errno != EWOULDBLOCK {
+            len.pointee = sent
+            return errSSLClosedAbort
+        }
+        if box.deadline.passed { box.timedOut = true; len.pointee = sent; return errSSLClosedAbort }
+    }
+    len.pointee = sent
+    return noErr
+}
+
+/// A TLS session over a TimedSocket, with the pair record's host identity as the client certificate.
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+final class TLSChannel {
+    private let context: SSLContext
+    private let box: TLSBox
+    private let socket: TimedSocket  // held so the fd outlives the box that points at it
+
+    private init(context: SSLContext, box: TLSBox, socket: TimedSocket) {
+        self.context = context
+        self.box = box
+        self.socket = socket
+    }
+
+    deinit { _ = SSLClose(context) }
+
+    static func handshake(over socket: TimedSocket, identity: SecIdentity) throws -> TLSChannel {
+        guard let context = SSLCreateContext(nil, .clientSide, .streamType) else { throw IPhoneReadError.tls(errSecAllocate) }
+        let box = TLSBox(fd: socket.fd)
+        let channel = TLSChannel(context: context, box: box, socket: socket)
+        SSLSetIOFuncs(context, tlsRead, tlsWrite)
+        SSLSetConnection(context, Unmanaged.passUnretained(box).toOpaque())
+        SSLSetCertificate(context, [identity] as CFArray)
+        SSLSetSessionOption(context, .breakOnServerAuth, true)
+        box.deadline = Deadline(after: callDeadline)
+        while true {
+            let status = SSLHandshake(context)
+            if box.timedOut { throw IPhoneReadError.timeout }
+            if status == errSSLServerAuthCompleted { continue }
+            if status == noErr { return channel }
+            throw IPhoneReadError.tls(status)
+        }
+    }
+
+    func write(_ bytes: [UInt8], until deadline: Deadline) throws {
+        box.deadline = deadline
+        var sent = 0
+        while sent < bytes.count {
+            var processed = 0
+            let status = bytes.withUnsafeBytes { buf -> OSStatus in
+                guard let base = buf.baseAddress else { return errSecParam }
+                return SSLWrite(context, base + sent, bytes.count - sent, &processed)
+            }
+            if box.timedOut { throw IPhoneReadError.timeout }
+            guard status == noErr else { throw IPhoneReadError.tls(status) }
+            sent += processed
+        }
+    }
+
+    func read(_ n: Int, until deadline: Deadline) throws -> [UInt8] {
+        box.deadline = deadline
+        var out = [UInt8](repeating: 0, count: n)
+        var got = 0
+        while got < n {
+            var processed = 0
+            let status = out.withUnsafeMutableBytes { buf -> OSStatus in
+                guard let base = buf.baseAddress else { return errSecParam }
+                return SSLRead(context, base + got, n - got, &processed)
+            }
+            if box.timedOut { throw IPhoneReadError.timeout }
+            guard status == noErr else { throw IPhoneReadError.tls(status) }
+            got += processed
+        }
+        return out
+    }
+}
+
+// MARK: - usbmuxd
+
+private let usbmuxPath = "/var/run/usbmuxd"
+
+func openUsbmux() throws -> TimedSocket {
+    let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+    guard fd >= 0 else { throw IPhoneReadError.usbmuxUnavailable(errno: errno) }
+    var addr = sockaddr_un()
+    addr.sun_family = sa_family_t(AF_UNIX)
+    let capacity = MemoryLayout.size(ofValue: addr.sun_path)
+    let copied = usbmuxPath.withCString { source in
+        withUnsafeMutableBytes(of: &addr.sun_path) { strlcpy($0.baseAddress!.assumingMemoryBound(to: CChar.self), source, capacity) }
+    }
+    guard copied < capacity else { close(fd); throw IPhoneReadError.usbmuxUnavailable(errno: ENAMETOOLONG) }
+    let rc = withUnsafePointer(to: &addr) { p in
+        p.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+    }
+    guard rc == 0 else {
+        let err = errno
+        close(fd)
+        throw IPhoneReadError.usbmuxUnavailable(errno: err)
+    }
+    return TimedSocket(fd: fd)
+}
+
+/// One reply frame, read under the deadline.
+func readUsbmuxFrame(_ socket: TimedSocket, until deadline: Deadline) throws -> [String: Any] {
+    let length = try usbmuxFrameLength(try socket.readExact(16, until: deadline))
+    return try plistDictionary(Data(try socket.readExact(length - 16, until: deadline)))
+}
+
+func sendUsbmux(_ socket: TimedSocket, _ body: [String: Any], until deadline: Deadline) throws {
+    do {
+        try socket.writeAll(try usbmuxEncode(body), until: deadline)
+    } catch let error as UsbmuxFrameError {
+        throw IPhoneReadError.usbmux(error)
+    }
+}
+
+/// Every failure leaves the public entry points as an IPhoneReadError: the lower layers keep their own typed errors,
+/// and this is the one place they are mapped.
+func typedReadErrors<T>(_ body: () throws -> T) throws(IPhoneReadError) -> T {
+    do { return try body() } catch let error as IPhoneReadError {
+        throw error
+    } catch let error as UsbmuxFrameError {
+        throw IPhoneReadError.usbmux(error)
+    } catch let error as PKCS12Error {
+        throw IPhoneReadError.identity(error)
+    } catch let error as IPhoneParseError {
+        throw IPhoneReadError.parse(error)
+    } catch {
+        throw IPhoneReadError.encoding(String(describing: error))
+    }
+}
+
+/// One request on its own usbmuxd connection, replied to with one frame.
+func usbmuxRequest(_ body: [String: Any]) throws(IPhoneReadError) -> [String: Any] {
+    try typedReadErrors {
+        let socket = try openUsbmux()
+        let deadline = Deadline(after: callDeadline)
+        try sendUsbmux(socket, body, until: deadline)
+        return try readUsbmuxFrame(socket, until: deadline)
+    }
+}
+
+/// A usbmuxd Connect to a device's TCP port. After the reply the same socket carries that port's byte stream.
+func usbmuxConnect(handle: Int, port: Int) throws(IPhoneReadError) -> TimedSocket {
+    try typedReadErrors {
+        let socket = try openUsbmux()
+        let deadline = Deadline(after: callDeadline)
+        try sendUsbmux(socket, ["MessageType": "Connect", "DeviceID": handle,
+                                "PortNumber": Int(UInt16(port).bigEndian),
+                                "ClientVersionString": "orange-drink", "ProgName": "orange-drink"], until: deadline)
+        try usbmuxCheckResult(try readUsbmuxFrame(socket, until: deadline))
+        return socket
+    }
+}
+
+// MARK: - lockdown and the diagnostics relay
+
+/// One lockdown or relay connection: big-endian length-prefixed plists, TLS once the service asks for it.
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+final class PlistStream {
+    private let socket: TimedSocket
+    private var tls: TLSChannel?
+
+    init(socket: TimedSocket) { self.socket = socket }
+
+    func startTLS(identity: SecIdentity) throws {
+        tls = try TLSChannel.handshake(over: socket, identity: identity)
+    }
+
+    /// One request and its reply under one deadline. The reply is returned as raw bytes; the caller decodes it.
+    func request(_ body: [String: Any]) throws -> [UInt8] {
+        let deadline = Deadline(after: callDeadline)
+        let payload = [UInt8](try PropertyListSerialization.data(fromPropertyList: body, format: .xml, options: 0))
+        let frame = withUnsafeBytes(of: UInt32(payload.count).bigEndian) { Array($0) } + payload
+        if let tls {
+            try tls.write(frame, until: deadline)
+        } else {
+            try socket.writeAll(frame, until: deadline)
+        }
+        let header = try read(4, until: deadline)
+        let length = header.reduce(0) { $0 << 8 | Int($1) }
+        return try read(length, until: deadline)
+    }
+
+    private func read(_ n: Int, until deadline: Deadline) throws -> [UInt8] {
+        if let tls { return try tls.read(n, until: deadline) }
+        return try socket.readExact(n, until: deadline)
+    }
+}
+
+/// The reply plist, with the control bytes a serial-number string can carry stripped first (XML forbids them).
+func decodeReply(_ bytes: [UInt8]) throws -> [String: Any] {
+    try plistDictionary(Data(bytes.filter { !($0 < 0x20 && ![0x09, 0x0a, 0x0d].contains($0)) }))
+}
+
+/// One battery read from the device behind a usbmuxd handle: its pair record, a lockdown session, the device's
+/// DeviceClass (which picks the layout), the diagnostics relay, and the IORegistry AppleSmartBattery entry.
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading {
+    try typedReadErrors { try readBattery(handle: handle, udid: udid) }
+}
+
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport; see lm3.8pk")
+private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReading {
+    let record = try usbmuxRequest(["MessageType": "ReadPairRecord", "PairRecordID": udid,
+                                    "ClientVersionString": "orange-drink", "ProgName": "orange-drink"])
+    guard let recordData = record["PairRecordData"] as? Data else { throw IPhoneReadError.usbmux(.missingKey("PairRecordData")) }
+    let pair = try plistDictionary(recordData)
+    guard let hostID = pair["HostID"] as? String, let systemBUID = pair["SystemBUID"] as? String,
+          let certPEM = pair["HostCertificate"] as? Data, let keyPEM = pair["HostPrivateKey"] as? Data else {
+        throw IPhoneReadError.lockdown("pair record")
+    }
+    let identity = try pairIdentity(certificatePEM: certPEM, keyPEM: keyPEM)
+
+    let lockdown = PlistStream(socket: try usbmuxConnect(handle: handle, port: 62078))
+    let session = try decodeReply(try lockdown.request(["Request": "StartSession", "HostID": hostID, "SystemBUID": systemBUID]))
+    if session["EnableSessionSSL"] as? Bool == true { try lockdown.startTLS(identity: identity) }
+
+    let classReply = try decodeReply(try lockdown.request(["Request": "GetValue", "Key": "DeviceClass"]))
+    guard let deviceClass = classReply["Value"] as? String else { throw IPhoneReadError.lockdown("DeviceClass") }
+    guard let layout = IPhoneLayout(deviceClass: deviceClass) else { throw IPhoneReadError.layout(deviceClass) }
+
+    let service = try decodeReply(try lockdown.request(["Request": "StartService", "Service": "com.apple.mobile.diagnostics_relay"]))
+    guard let port = service["Port"] as? Int else { throw IPhoneReadError.lockdown("Port") }
+
+    let relay = PlistStream(socket: try usbmuxConnect(handle: handle, port: port))
+    if service["EnableServiceSSL"] as? Bool == true { try relay.startTLS(identity: identity) }
+    let reply = try decodeReply(try relay.request(["Request": "IORegistry", "EntryClass": "AppleSmartBattery"]))
+    guard let diagnostics = reply["Diagnostics"] as? [String: Any],
+          let entry = diagnostics["IORegistry"] as? [String: Any] else {
+        throw IPhoneReadError.lockdown("Diagnostics.IORegistry")
+    }
+    return try parseIPhoneBattery(entry, layout: layout)
+}

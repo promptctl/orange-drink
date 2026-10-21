@@ -1,0 +1,19 @@
+# Prints lockdown DeviceClass and ProductType for the first USB device (verified this session on the reference iPhone). Run from this directory: python3 -I device_class_check.py
+import plistlib, socket, ssl, struct, tempfile, os
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "probe_mux.py")).read().split("# 1. Replay")[0])
+devs = read_mux(mux("ListDevices"))["DeviceList"]
+usb = [d for d in devs if d["Properties"].get("ConnectionType") == "USB"]
+d = usb[0] if usb else devs[0]
+udid = d["Properties"]["SerialNumber"]; dev_id = d["DeviceID"]
+pair = plistlib.loads(read_mux(mux("ReadPairRecord", {"PairRecordID": udid}))["PairRecordData"])
+s = mux("Connect", {"DeviceID": dev_id, "PortNumber": socket.htons(LOCKDOWN_PORT)}); read_mux(s)
+send(s, {"Request": "StartSession", "HostID": pair["HostID"], "SystemBUID": pair["SystemBUID"]}); start = recv(s)
+tmp = tempfile.mkdtemp(); cert, key = os.path.join(tmp, "c.pem"), os.path.join(tmp, "k.pem")
+for path, data in ((cert, pair["HostCertificate"]), (key, pair["HostPrivateKey"])):
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600); os.write(fd, data if isinstance(data, bytes) else data.encode()); os.close(fd)
+ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+ctx.load_cert_chain(cert, key); s = ctx.wrap_socket(s)
+for f in os.listdir(tmp): os.remove(os.path.join(tmp, f))
+os.rmdir(tmp)
+send(s, {"Request": "GetValue", "Key": "ProductType"}); print("ProductType:", recv(s).get("Value"))
+send(s, {"Request": "GetValue", "Key": "DeviceClass"}); print("DeviceClass:", recv(s).get("Value"))
