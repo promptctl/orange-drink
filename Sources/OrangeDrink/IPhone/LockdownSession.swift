@@ -8,7 +8,6 @@ import Security
 enum IPhoneReadError: Error, Equatable {
     case usbmuxUnavailable(errno: Int32)
     case usbmux(UsbmuxFrameError)
-    case connectRefused(Int)
     case socket(errno: Int32)
     case closed
     case timeout
@@ -42,7 +41,7 @@ struct Deadline {
 
 /// A connected socket with a one-second wake-up (SO_RCVTIMEO and SO_SNDTIMEO). The wake-up only lets a loop re-check
 /// its deadline; a timed call checks the clock on every return, not only when the socket is quiet.
-final class TimedSocket {
+final class TimedSocket: Sendable {
     let fd: Int32
 
     /// Throws if the socket cannot take its wake-up: without it no deadline can be checked.
@@ -272,11 +271,7 @@ func readUsbmuxFrame(_ socket: TimedSocket, until deadline: Deadline) throws -> 
 }
 
 func sendUsbmux(_ socket: TimedSocket, _ body: [String: Any], until deadline: Deadline) throws {
-    do {
-        try socket.writeAll(try usbmuxEncode(body), until: deadline)
-    } catch let error as UsbmuxFrameError {
-        throw IPhoneReadError.usbmux(error)
-    }
+    try socket.writeAll(try usbmuxEncode(body), until: deadline)
 }
 
 /// Every failure leaves the public entry points as an IPhoneReadError: the lower layers keep their own typed errors,
@@ -302,6 +297,19 @@ func usbmuxRequest(_ body: [String: Any]) throws(IPhoneReadError) -> [String: An
         let deadline = Deadline(after: callDeadline)
         try sendUsbmux(socket, body, until: deadline)
         return try readUsbmuxFrame(socket, until: deadline)
+    }
+}
+
+/// A usbmuxd connection subscribed with Listen. After the reply the same socket carries Attached, Detached, and
+/// Paired messages.
+func usbmuxListen() throws(IPhoneReadError) -> TimedSocket {
+    try typedReadErrors {
+        let socket = try openUsbmux()
+        let deadline = Deadline(after: callDeadline)
+        try sendUsbmux(socket, ["MessageType": "Listen", "ClientVersionString": "orange-drink", "ProgName": "orange-drink"],
+                       until: deadline)
+        try usbmuxCheckResult(try readUsbmuxFrame(socket, until: deadline))
+        return socket
     }
 }
 

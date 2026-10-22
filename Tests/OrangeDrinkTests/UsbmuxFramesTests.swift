@@ -47,6 +47,7 @@ import Testing
 
     @Test func detachedAndListenResultDecode() throws {
         #expect(try usbmuxEvent(["MessageType": "Detached", "DeviceID": 7]) == .detached(handle: 7))
+        #expect(try usbmuxEvent(["MessageType": "Paired", "DeviceID": 7]) == .paired(handle: 7))
         #expect(try usbmuxEvent(["MessageType": "Result", "Number": 0]) == .other)
         #expect(throws: UsbmuxFrameError.nonZeroResult(5)) { try usbmuxEvent(["MessageType": "Result", "Number": 5]) }
     }

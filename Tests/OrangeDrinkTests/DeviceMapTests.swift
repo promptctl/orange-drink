@@ -40,6 +40,15 @@ import Testing
         #expect(map.detach(handle: 5) == .disconnected(udid: "B"))
     }
 
+    @Test func pairedRereadsACableDeviceAndNothingElse() {
+        var map = DeviceMap()
+        _ = map.attach(AttachedDevice(handle: 6, connection: .usb(udid: "B")))
+        _ = map.attach(AttachedDevice(handle: 8, connection: .network))
+        #expect(map.paired(handle: 6) == .read(handle: 6, udid: "B"))
+        #expect(map.paired(handle: 8) == .nothing)
+        #expect(map.paired(handle: 99) == .nothing)
+    }
+
     @Test func aReplugGetsANewHandleAndReadsAgain() {
         var map = DeviceMap()
         _ = map.attach(AttachedDevice(handle: 6, connection: .usb(udid: "B")))

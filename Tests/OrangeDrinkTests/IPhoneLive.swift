@@ -9,15 +9,16 @@ import Testing
     @Test(.enabled(if: ProcessInfo.processInfo.environment["IPHONE_CHECK"] != nil, "run by make iphone-check with a cabled iPhone"),
           .timeLimit(.minutes(5)))
     func readsCabledIPhoneThenPrintsDisconnect() async throws {
-        var reading: IPhoneBatteryReading?
+        let log = try BatteryLog(category: IPhoneMonitor.logCategory)
+        var reading: (udid: String, value: IPhoneBatteryReading)?
         var disconnected = false
         events: for await event in IPhoneMonitor.events() {
             switch event {
-            case .reading(_, let value) where reading == nil:
-                reading = value
+            case .reading(let udid, let value) where reading == nil:
+                reading = (udid, value)
                 print("reading: level \(value.level)%, health \(value.health.map { String(format: "%.1f%%", $0 * 100) } ?? "not reported"), cycles \(value.cycleCount), design \(value.designCapacity) mAh, raw max \(value.appleRawMaxCapacity) mAh")
                 print("pull the cable now")
-            case .disconnected where reading != nil:
+            case .disconnected(let udid) where udid == reading?.udid:
                 print("disconnected")
                 disconnected = true
                 break events
@@ -31,7 +32,8 @@ import Testing
                 continue
             }
         }
-        let value = try #require(reading, "no cabled iPhone reading; is it trusted and plugged in with a cable?")
+        let (udid, value) = try #require(reading, "no cabled iPhone reading; is it trusted and plugged in with a cable?")
+        #expect(try log.messages().contains { $0.hasPrefix("iphone read: \(udid) ") })
         #expect(value.cycleCount > 0)
         #expect(value.health != nil)
         #expect(disconnected, "pulling the cable should print a disconnect")

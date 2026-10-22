@@ -30,6 +30,7 @@ struct AttachedDevice: Equatable {
 enum UsbmuxEvent: Equatable {
     case attached(AttachedDevice)
     case detached(handle: Int)
+    case paired(handle: Int)
     case other
 }
 
@@ -109,6 +110,9 @@ func usbmuxEvent(_ body: [String: Any]) throws -> UsbmuxEvent {
     case "Detached":
         guard let handle = body["DeviceID"] as? Int else { throw UsbmuxFrameError.missingKey("DeviceID") }
         return .detached(handle: handle)
+    case "Paired":
+        guard let handle = body["DeviceID"] as? Int else { throw UsbmuxFrameError.missingKey("DeviceID") }
+        return .paired(handle: handle)
     case "Result":
         try usbmuxCheckResult(body)
         return .other
