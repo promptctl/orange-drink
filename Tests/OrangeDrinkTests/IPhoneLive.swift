@@ -49,14 +49,14 @@ import Testing
         #expect(try log.messages().contains { $0.hasPrefix("iphone wifi sync on: \(udid) ") })
         print("pull the cable now")
 
-        // Wi-Fi: the first event may wait for a person, a cable read dropped mid-pull, and a rest; each later one, one window.
-        var limit = Self.window * 2 + .seconds(60)
+        // Wi-Fi: pulling the cable moves the route to Wi-Fi, which is read at once, so every event, the first included,
+        // arrives within one window. Until the person pulls, each cable reading restarts the wait.
         var wifiEvents = 0
         var wifiReadings = 0
         var cpuFrom: (cpu: Duration, at: ContinuousClock.Instant)?
         while wifiEvents <= Self.wifiWindows {
-            let event = try #require(try await arrivals.event(at: cursor, within: limit),
-                                     "no event for \(udid) within \(limit): the device went silent on Wi-Fi")
+            let event = try #require(try await arrivals.event(at: cursor, within: Self.window),
+                                     "no event for \(udid) within \(Self.window): the device went silent on Wi-Fi")
             cursor += 1
             switch event {
             case .reading(udid, .network, let value):
@@ -77,7 +77,6 @@ import Testing
                 continue
             }
             wifiEvents += 1
-            limit = Self.window
             cpuFrom = cpuFrom ?? (processCPU(), .now)
         }
 

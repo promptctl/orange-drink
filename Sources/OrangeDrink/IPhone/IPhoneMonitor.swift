@@ -5,9 +5,9 @@ import os
 // and which handle to read it over, are derived from it; every decision the monitor makes comes from the Steps it returns.
 struct DeviceMap {
     enum Step: Equatable {
-        /// Read the device now, then again every poll interval: it has just appeared, or has just trusted this Mac.
+        /// Read the device now, then again every poll interval: its route has just changed, or it has just trusted this Mac.
         case pace(udid: String)
-        /// Switch on the device's Wi-Fi sync: it has just been plugged in.
+        /// Switch on the device's Wi-Fi sync: its route has just become this cable.
         case enableWifiSync(handle: Int, udid: String)
         /// The device's last handle, cable or Wi-Fi, has gone.
         case disconnected(udid: String)
@@ -21,23 +21,18 @@ struct DeviceMap {
 
     private(set) var handles: [Int: DeviceConnection] = [:]
 
-    /// A handle already known is skipped, so one attach seen in both the snapshot and Listen counts once. A device's
-    /// first handle starts its reads; a second (the cable beside Wi-Fi) only joins its routes.
+    /// A handle already known is skipped, so one attach seen in both the snapshot and Listen counts once.
     mutating func attach(_ device: AttachedDevice) -> [Step] {
         guard handles[device.handle] == nil else { return [] }
-        handles[device.handle] = device.connection
-        guard case .device(let udid, let transport) = device.connection else { return [] }
-        let first = handles.values.filter { $0.udid == udid }.count == 1
-        return (first ? [.pace(udid: udid)] : []) + Self.pluggedIn(handle: device.handle, udid: udid, over: transport)
+        return edit(device.connection.udid) { $0[device.handle] = device.connection }
     }
 
     /// A handle the map never saw is ignored: usbmuxd reports a detach for a device that attached before our Listen
-    /// subscription and was already gone when the snapshot was taken. A device is disconnected when no handle holds it
-    /// any more, so pulling the cable of a device still on Wi-Fi, or a stale detach applied after the snapshot (unplug and
-    /// replug between Listen and ListDevices), leaves it present.
+    /// subscription and was already gone when the snapshot was taken. Pulling the cable of a device still on Wi-Fi moves
+    /// its route to Wi-Fi, and a stale detach applied after the snapshot (unplug and replug between Listen and
+    /// ListDevices) leaves its route alone.
     mutating func detach(handle: Int) -> [Step] {
-        guard let udid = handles.removeValue(forKey: handle)?.udid else { return [] }
-        return route(udid) == nil ? [.disconnected(udid: udid)] : []
+        edit(handles[handle]?.udid) { $0.removeValue(forKey: handle) }
     }
 
     /// usbmuxd's Paired: the device on this handle has just trusted this Mac, so a read or a Wi-Fi sync switch that
@@ -45,7 +40,7 @@ struct DeviceMap {
     /// pairing; not yet observed from Apple's usbmuxd here, since no untrusted device was at hand.
     func paired(handle: Int) -> [Step] {
         guard case .device(let udid, let transport)? = handles[handle] else { return [] }
-        return [.pace(udid: udid)] + Self.pluggedIn(handle: handle, udid: udid, over: transport)
+        return [.pace(udid: udid)] + Self.pluggedIn(Route(handle: handle, transport: transport), udid: udid)
     }
 
     /// Every Listen message, and every snapshot entry as an attach, comes through here.
@@ -59,7 +54,8 @@ struct DeviceMap {
     }
 
     /// The handle to read a device over, or nil once it has gone. The cable wins over Wi-Fi; within one transport the
-    /// newest handle wins, so a replug's fresh handle is read before a stale detach has removed the old one.
+    /// newest handle wins. usbmuxd numbers handles upward as devices attach, so a replug's fresh handle is read before a
+    /// stale detach has removed the old one, and a stale attach replayed after the snapshot never takes the route.
     func route(_ udid: String) -> Route? {
         handles.compactMap { handle, connection -> Route? in
             guard case .device(udid, let transport) = connection else { return nil }
@@ -67,18 +63,29 @@ struct DeviceMap {
         }.max { ($0.transport.preference, $0.handle) < ($1.transport.preference, $1.handle) }
     }
 
-    /// True while the route's handle still belongs to this udid. A read over a handle that has since detached is stale.
-    func holds(_ route: Route, udid: String) -> Bool { handles[route.handle] == .device(udid: udid, over: route.transport) }
-
     /// One decision as the log writes it: its steps in order, or "nothing".
     static func describe(_ steps: [Step]) -> String {
         steps.isEmpty ? "nothing" : steps.map { String(describing: $0) }.joined(separator: ", ")
     }
 
+    /// [LAW:dataflow-not-control-flow] Every attach and detach is one edit to the handles, and its steps are what the
+    /// edit did to the device's route: a new route is read now, a route onto a cable also switches on Wi-Fi sync, and no
+    /// route is a disconnect.
+    private mutating func edit(_ udid: String?, _ change: (inout [Int: DeviceConnection]) -> Void) -> [Step] {
+        let before = udid.flatMap(route)
+        change(&handles)
+        guard let udid else { return [] }
+        switch route(udid) {
+        case before: return []
+        case nil: return [.disconnected(udid: udid)]
+        case let after?: return [.pace(udid: udid)] + Self.pluggedIn(after, udid: udid)
+        }
+    }
+
     /// Plugging a device in switches on its Wi-Fi sync, so it is still read once the cable is out.
-    private static func pluggedIn(handle: Int, udid: String, over transport: Transport) -> [Step] {
-        switch transport {
-        case .usb: [.enableWifiSync(handle: handle, udid: udid)]
+    private static func pluggedIn(_ route: Route, udid: String) -> [Step] {
+        switch route.transport {
+        case .usb: [.enableWifiSync(handle: route.handle, udid: udid)]
         case .network: []
         }
     }
@@ -166,8 +173,9 @@ private final class MonitorState: @unchecked Sendable {
         let task: Task<Void, Never>
     }
 
-    /// [LAW:no-ambient-temporal-coupling] Whether read loops may run is this state, owned on the queue. Ending the
-    /// monitor cancels every pacer and moves to `stopped`, where a Listen frame still being drained starts none.
+    /// [LAW:no-ambient-temporal-coupling] Whether steps may run is this state, owned on the queue. Ending the monitor
+    /// cancels every pacer and moves to `stopped`, where a Listen frame still being drained is decided but not performed:
+    /// it starts no read and writes nothing to the device.
     private enum Lifecycle {
         case running(pacers: [String: Pacer])
         case stopped
@@ -217,33 +225,28 @@ private final class MonitorState: @unchecked Sendable {
         queue.sync {
             let steps = map.apply(event)
             IPhoneMonitor.log.info("iphone \(String(describing: event), privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
-            steps.forEach(perform)
+            switch lifecycle {
+            case .running(var pacers):
+                for step in steps { perform(step, pacers: &pacers) }
+                lifecycle = .running(pacers: pacers)
+            case .stopped:
+                IPhoneMonitor.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
+            }
         }
     }
 
-    private func perform(_ step: DeviceMap.Step) {
+    /// A pace replaces (and cancels) the device's read loop with a new one.
+    private func perform(_ step: DeviceMap.Step, pacers: inout [String: Pacer]) {
         switch step {
-        case .pace(let udid): startPacer(udid)
+        case .pace(let udid):
+            pacers[udid]?.task.cancel()
+            let token = UUID()
+            pacers[udid] = Pacer(token: token, task: Task { await self.pace(udid, token: token) })
         case .enableWifiSync(let handle, let udid): startWifiSync(handle: handle, udid: udid)
         case .disconnected(let udid):
-            if case .running(var pacers) = lifecycle {
-                pacers.removeValue(forKey: udid)?.task.cancel()
-                lifecycle = .running(pacers: pacers)
-            }
+            pacers.removeValue(forKey: udid)?.task.cancel()
             continuation.yield(.disconnected(udid: udid))
         }
-    }
-
-    /// Starts the device's read loop, replacing (and cancelling) any loop it already has.
-    private func startPacer(_ udid: String) {
-        guard case .running(var pacers) = lifecycle else {
-            IPhoneMonitor.log.info("iphone pacer not started: \(udid, privacy: .public): monitor stopped")
-            return
-        }
-        pacers[udid]?.task.cancel()
-        let token = UUID()
-        pacers[udid] = Pacer(token: token, task: Task { await self.pace(udid, token: token) })
-        lifecycle = .running(pacers: pacers)
     }
 
     /// Read, deliver, rest, and again, until the device has no route or the loop is cancelled. The next read starts
@@ -269,15 +272,13 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    /// An outcome reaches the stream only from the device's current pacer, over a handle still attached.
+    /// An outcome reaches the stream only from the device's current pacer. [LAW:single-enforcer] A handle that detaches
+    /// mid-read changes the device's route, which replaces its pacer, so this one check also drops a read over a handle
+    /// that has since gone.
     private func deliver(_ outcome: Result<IPhoneBatteryReading, IPhoneReadError>, udid: String, over route: DeviceMap.Route,
                          token: UUID) {
         guard case .running(let pacers) = lifecycle, pacers[udid]?.token == token else {
             IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle): its pacer was replaced or stopped")
-            return
-        }
-        guard map.holds(route, udid: udid) else {
-            IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle) detached before it finished")
             return
         }
         IPhoneMonitor.log.info("iphone read delivered: \(udid, privacy: .public) over \(String(describing: route.transport), privacy: .public)")

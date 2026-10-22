@@ -121,7 +121,7 @@ import Testing
     }
 
     @Test(.timeLimit(.minutes(1)))
-    func pullingTheCableOfADeviceOnWifiKeepsReadingItOverWifi() async throws {
+    func pullingTheCableOfADeviceOnWifiReadsItOverWifiWithoutWaitingAPoll() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
@@ -129,8 +129,7 @@ import Testing
 
         #expect(await Self.next(2, of: &events) == Self.described([.reading(udid: "B", over: .usb, Self.reading), .wifiSyncOn(udid: "B")]))
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
-        #expect(try await logged(Self.decision(.detached(handle: 5), []), in: log))
-        await harness.nextPoll()
+        #expect(try await logged(Self.decision(.detached(handle: 5), [.pace(udid: "B")]), in: log))
         #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
     }
 
@@ -149,11 +148,10 @@ import Testing
         #expect(await events.next() == .wifiSyncOn(udid: "B"))
         try await reached(1, cableReads)
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
-        #expect(try await logged(Self.decision(.detached(handle: 5), []), in: log))
-        cableReadMayFinish.signal()
-        #expect(try await logged("iphone read dropped: B handle 5 detached before it finished", in: log))
-        await harness.nextPoll()
+        #expect(try await logged(Self.decision(.detached(handle: 5), [.pace(udid: "B")]), in: log))
         #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
+        cableReadMayFinish.signal()
+        #expect(try await logged("iphone read dropped: B handle 5: its pacer was replaced or stopped", in: log))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -209,11 +207,13 @@ import Testing
     }
 
     @Test(.timeLimit(.minutes(1)))
-    func aDeviceSeenAfterTheMonitorEndedStartsNoPacer() async throws {
+    func aDeviceSeenAfterTheMonitorEndedIsNeitherReadNorWrittenTo() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
+        let syncs = OSAllocatedUnfairLock(initialState: 0)
         let ended = DispatchSemaphore(value: 0)
-        let harness = try Harness(snapshot: { ended.wait(); return [Self.wifi(6, "D")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(snapshot: { ended.wait(); return [Self.usb(6, "D")] },
+                                  enableWifiSync: { _, _ throws(IPhoneReadError) in syncs.withLock { $0 += 1 } }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             return Self.reading
         }
@@ -222,8 +222,10 @@ import Testing
         consumer.cancel()
         #expect(try await logged("iphone monitor ended: 0 pacers cancelled", in: log))
         ended.signal()
-        #expect(try await logged("iphone pacer not started: D: monitor stopped", in: log))
+        #expect(try await logged("iphone monitor stopped, not performed: \(DeviceMap.describe([.pace(udid: "D"), .enableWifiSync(handle: 6, udid: "D")]))",
+                                 in: log))
         #expect(reads.withLock { $0 } == 0)
+        #expect(syncs.withLock { $0 } == 0)
     }
 
     @Test(.timeLimit(.minutes(1)))

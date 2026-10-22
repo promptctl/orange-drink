@@ -30,20 +30,19 @@ import Testing
         #expect(map.route("A") == DeviceMap.Route(handle: 5, transport: .network))
     }
 
-    @Test func theCableBesideWifiJoinsTheRouteAndIsPreferred() {
+    @Test func theCableBesideWifiTakesTheRouteIsReadAtOnceAndSwitchesOnWifiSync() {
         var map = DeviceMap()
         _ = map.attach(Self.wifi(5, "A"))
-        #expect(map.attach(Self.usb(6, "A")) == [.enableWifiSync(handle: 6, udid: "A")])
+        #expect(map.attach(Self.usb(6, "A")) == [.pace(udid: "A"), .enableWifiSync(handle: 6, udid: "A")])
         #expect(map.route("A") == DeviceMap.Route(handle: 6, transport: .usb))
     }
 
-    @Test func pullingTheCableOfADeviceOnWifiLeavesItPresentOverWifi() {
+    @Test func pullingTheCableOfADeviceOnWifiReadsItOverWifiAtOnce() {
         var map = DeviceMap()
         _ = map.attach(Self.usb(6, "A"))
-        _ = map.attach(Self.wifi(7, "A"))
-        #expect(map.detach(handle: 6) == [])
+        #expect(map.attach(Self.wifi(7, "A")) == [])
+        #expect(map.detach(handle: 6) == [.pace(udid: "A")])
         #expect(map.route("A") == DeviceMap.Route(handle: 7, transport: .network))
-        #expect(!map.holds(DeviceMap.Route(handle: 6, transport: .usb), udid: "A"))
         #expect(map.detach(handle: 7) == [.disconnected(udid: "A")])
         #expect(map.route("A") == nil)
     }
@@ -59,14 +58,14 @@ import Testing
         #expect(map.detach(handle: 3) == [])
     }
 
-    @Test func aStaleDetachDoesNotDisconnectADeviceOnItsNewHandle() {
+    @Test func aStaleAttachAndDetachLeaveADeviceOnItsNewHandle() {
         // Unplug and replug between Listen and ListDevices: the snapshot holds handle 5, then the queued
-        // Attached(4) and Detached(4) are applied after it.
+        // Attached(4) and Detached(4) are applied after it. Handle 4 is gone, so nothing is read or written over it.
         var map = DeviceMap()
         _ = map.attach(Self.usb(5, "B"))
-        _ = map.attach(Self.usb(4, "B"))
+        #expect(map.attach(Self.usb(4, "B")) == [])
         #expect(map.detach(handle: 4) == [])
-        #expect(map.holds(DeviceMap.Route(handle: 5, transport: .usb), udid: "B"))
+        #expect(map.route("B") == DeviceMap.Route(handle: 5, transport: .usb))
         #expect(map.detach(handle: 5) == [.disconnected(udid: "B")])
     }
 
