@@ -16,11 +16,15 @@ final class ManualTimekeeper: Timekeeper, @unchecked Sendable {
         let id = UUID()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-                let waiting = lock.withLock {
+                // A task cancelled before it got here has already run onCancel, which found no sleeper to remove; checked
+                // under the lock onCancel takes, so a cancellation is seen here or by onCancel, never by neither.
+                let waiting: [CheckedContinuation<Void, Never>]? = lock.withLock {
+                    guard !Task.isCancelled else { return nil }
                     sleepers[id] = Sleeper(wakes: current.addingTimeInterval(Double(duration.components.seconds)), continuation: continuation)
                     defer { arrivals = [] }
                     return arrivals
                 }
+                guard let waiting else { return continuation.resume(throwing: CancellationError()) }
                 waiting.forEach { $0.resume() }
             }
         } onCancel: {

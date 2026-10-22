@@ -175,22 +175,24 @@ import Testing
 
     @Test(.timeLimit(.minutes(1)))
     func aDisconnectedDeviceIsNotReadAgain() async throws {
+        let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(snapshot: { [Self.wifi(6, "E")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             return Self.reading
         }
         defer { close(harness.peer) }
         var events = harness.events.makeAsyncIterator()
 
-        #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
+        #expect(await events.next() == .reading(udid: "E", over: .network, Self.reading))
         await harness.clock.asleep()
         try harness.send(["MessageType": "Detached", "DeviceID": 6])
-        #expect(await events.next() == .disconnected(udid: "B"))
+        #expect(await events.next() == .disconnected(udid: "E"))
+        #expect(try await logged("iphone pacer ended: E: replaced, disconnected, or stopped", in: log))
         harness.clock.advance(by: IPhoneMonitor.pollInterval)
         // A pacer that outlived its device would read on that advance; the device's return is read once, by its new pacer.
-        try harness.send(Self.attachedFrame(7, "B", "Network"))
-        #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
+        try harness.send(Self.attachedFrame(7, "E", "Network"))
+        #expect(await events.next() == .reading(udid: "E", over: .network, Self.reading))
         #expect(reads.withLock { $0 } == 2)
     }
 

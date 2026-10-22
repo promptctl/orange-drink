@@ -249,14 +249,23 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    /// Read, deliver, rest, and again, until the device has no route or the loop is cancelled. The next read starts
-    /// only after the last one finished, however long its deadlines let it run.
+    /// Read, deliver, rest, and again, while this loop is the device's current pacer. The next read starts only after
+    /// the last one finished, however long its deadlines let it run.
     private func pace(_ udid: String, token: UUID) async {
-        while !Task.isCancelled, let route = queue.sync(execute: { map.route(udid) }) {
+        while let route = queue.sync(execute: { isCurrent(udid, token) ? map.route(udid) : nil }) {
             let outcome = await read(over: route, udid: udid)
             queue.sync { deliver(outcome, udid: udid, over: route, token: token) }
-            do { try await inputs.timekeeper.sleep(for: IPhoneMonitor.pollInterval) } catch { return }
+            do { try await inputs.timekeeper.sleep(for: IPhoneMonitor.pollInterval) } catch { break }
         }
+        IPhoneMonitor.log.info("iphone pacer ended: \(udid, privacy: .public): replaced, disconnected, or stopped")
+    }
+
+    /// [LAW:single-enforcer] The one test of whether a pacer may act, on the queue: it is the device's current pacer in a
+    /// running monitor. A replacement, a disconnect, and a stop all fail it, before a read starts and when one is
+    /// delivered; a handle that detaches mid-read changes the device's route, which replaces its pacer.
+    private func isCurrent(_ udid: String, _ token: UUID) -> Bool {
+        guard case .running(let pacers) = lifecycle else { return false }
+        return pacers[udid]?.token == token
     }
 
     /// The read is a blocking call of up to several deadlines, so it runs off the queue and off the task's thread.
@@ -272,12 +281,10 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    /// An outcome reaches the stream only from the device's current pacer. [LAW:single-enforcer] A handle that detaches
-    /// mid-read changes the device's route, which replaces its pacer, so this one check also drops a read over a handle
-    /// that has since gone.
+    /// An outcome reaches the stream only from the device's current pacer.
     private func deliver(_ outcome: Result<IPhoneBatteryReading, IPhoneReadError>, udid: String, over route: DeviceMap.Route,
                          token: UUID) {
-        guard case .running(let pacers) = lifecycle, pacers[udid]?.token == token else {
+        guard isCurrent(udid, token) else {
             IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle): its pacer was replaced or stopped")
             return
         }
