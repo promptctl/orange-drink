@@ -2,7 +2,7 @@ APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
 
-.PHONY: generate build test unplug-check devices-check pill-check position-check app-energy-check cpu-check ax-check
+.PHONY: generate build test unplug-check iphone-check devices-check pill-check position-check app-energy-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -22,6 +22,11 @@ test: generate
 # enables the one test that needs a person at the cable.
 unplug-check: export TEST_RUNNER_UNPLUG_CHECK = 1
 unplug-check: test
+
+# The iPhone & iPad ticket's step on a real Mac: with a trusted iPhone cabled, prints its battery level, health,
+# cycle count, and lifetime stats, then waits for the cable to be pulled and prints the disconnect. Same TEST_RUNNER_ shape.
+iphone-check: export TEST_RUNNER_IPHONE_CHECK = 1
+iphone-check: test
 
 # The devices ticket's step on a real Mac: with paired devices connected, prints each one's name,
 # type, and level to compare with Control Center. Same TEST_RUNNER_ shape as unplug-check.

@@ -8,15 +8,17 @@ import OSLog
 struct BatteryLog {
     private let store: OSLogStore
     private let since: OSLogPosition
+    private let category: String
 
-    init() throws {
+    init(category: String = IOKitBattery.logCategory) throws {
+        self.category = category
         store = try OSLogStore(scope: .currentProcessIdentifier)
         since = store.position(date: Date())
     }
 
     func messages() throws -> [String] {
         try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                              IOKitBattery.logSubsystem, IOKitBattery.logCategory))
+                                                              IOKitBattery.logSubsystem, category))
             .map(\.composedMessage)
     }
 }
