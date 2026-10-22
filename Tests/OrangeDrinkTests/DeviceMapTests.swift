@@ -76,13 +76,19 @@ import Testing
         #expect(map.route("B") == DeviceMap.Route(handle: 9, transport: .usb))
     }
 
-    @Test func pairedRereadsTheDeviceAndSwitchesOnWifiSyncOverTheCable() {
+    @Test func pairedRereadsTheDeviceAndSwitchesOnWifiSyncOverItsCable() {
         var map = DeviceMap()
         _ = map.attach(Self.usb(6, "B"))
         _ = map.attach(Self.wifi(8, "B"))
         #expect(map.paired(handle: 6) == [.pace(udid: "B"), .enableWifiSync(handle: 6, udid: "B")])
-        #expect(map.paired(handle: 8) == [.pace(udid: "B")])
+        #expect(map.paired(handle: 8) == [.pace(udid: "B"), .enableWifiSync(handle: 6, udid: "B")])
         #expect(map.paired(handle: 99) == [])
+    }
+
+    @Test func pairedOverWifiAloneRereadsWithoutWifiSync() {
+        var map = DeviceMap()
+        _ = map.attach(Self.wifi(8, "B"))
+        #expect(map.paired(handle: 8) == [.pace(udid: "B")])
     }
 
     @Test func aReplugGetsANewHandleAndReadsAgain() {

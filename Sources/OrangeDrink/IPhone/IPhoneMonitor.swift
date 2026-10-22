@@ -36,11 +36,11 @@ struct DeviceMap {
     }
 
     /// usbmuxd's Paired: the device on this handle has just trusted this Mac, so a read or a Wi-Fi sync switch that
-    /// failed for want of a pair record can now succeed. Paired is the message libimobiledevice's usbmuxd sends on
+    /// failed for want of a pair record can now succeed. Both go over the device's route, as they do on attach. Paired is the message libimobiledevice's usbmuxd sends on
     /// pairing; not yet observed from Apple's usbmuxd here, since no untrusted device was at hand.
     func paired(handle: Int) -> [Step] {
-        guard case .device(let udid, let transport)? = handles[handle] else { return [] }
-        return [.pace(udid: udid)] + Self.pluggedIn(Route(handle: handle, transport: transport), udid: udid)
+        guard let udid = handles[handle]?.udid, let route = route(udid) else { return [] }
+        return [.pace(udid: udid)] + Self.pluggedIn(route, udid: udid)
     }
 
     /// Every Listen message, and every snapshot entry as an attach, comes through here.
@@ -301,15 +301,16 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    /// Cancels every pacer; nothing starts another.
+    /// Cancels every pacer; nothing starts another. Ending an ended monitor (a failure's finish, then its stream's
+    /// termination) changes nothing.
     private func end() {
-        let pacers: [Pacer] = switch lifecycle {
-        case .running(let pacers): Array(pacers.values)
-        case .stopped: []
+        switch lifecycle {
+        case .running(let pacers):
+            pacers.values.forEach { $0.task.cancel() }
+            lifecycle = .stopped
+            IPhoneMonitor.log.info("iphone monitor ended: \(pacers.count) pacers cancelled")
+        case .stopped: break
         }
-        pacers.forEach { $0.task.cancel() }
-        lifecycle = .stopped
-        IPhoneMonitor.log.info("iphone monitor ended: \(pacers.count) pacers cancelled")
     }
 
     private func finish(with error: IPhoneReadError) {
