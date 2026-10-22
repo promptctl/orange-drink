@@ -51,11 +51,20 @@ import Testing
         #expect(throws: UsbmuxFrameError.nonZeroResult(5)) { try usbmuxEvent(["MessageType": "Result", "Number": 5]) }
     }
 
-    @Test func unknownConnectionTypeIsATypedError() {
-        #expect(throws: UsbmuxFrameError.unknownConnectionType("Bluetooth")) {
-            try usbmuxEvent(["MessageType": "Attached", "DeviceID": 1,
-                             "Properties": ["ConnectionType": "Bluetooth", "SerialNumber": "X"]])
+    @Test func unknownConnectionTypeIsADeviceThatIsNotTheCable() throws {
+        let event = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 1,
+                                     "Properties": ["ConnectionType": "Bluetooth", "SerialNumber": "X"]])
+        #expect(event == .attached(AttachedDevice(handle: 1, connection: .other("Bluetooth"))))
+        #expect(throws: UsbmuxFrameError.missingKey("ConnectionType")) {
+            try usbmuxEvent(["MessageType": "Attached", "DeviceID": 1, "Properties": ["SerialNumber": "X"]])
         }
+    }
+
+    @Test func pairRecordReplyIsTheRecordOrNotTrusted() throws {
+        #expect(try usbmuxPairRecord(["PairRecordData": Data([1, 2])]) == Data([1, 2]))
+        // The reply usbmuxd gave for an unknown UDID.
+        #expect(throws: UsbmuxFrameError.noPairRecord) { try usbmuxPairRecord(["MessageType": "Result", "Number": 2]) }
+        #expect(throws: UsbmuxFrameError.missingKey("PairRecordData")) { try usbmuxPairRecord(["MessageType": "Result", "Number": 0]) }
     }
 
     @Test func listDevicesDecodesEveryEntry() throws {

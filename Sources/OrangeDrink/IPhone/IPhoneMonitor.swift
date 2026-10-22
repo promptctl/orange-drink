@@ -18,18 +18,17 @@ struct DeviceMap {
         handles[device.handle] = device.connection
         switch device.connection {
         case .usb(let udid): return .read(handle: device.handle, udid: udid)
-        case .network: return .nothing
+        case .network, .other: return .nothing
         }
     }
 
     /// A Wi-Fi entry going away is not the cable. A handle the map never saw is ignored: usbmuxd reports a detach
     /// for a device that attached before our Listen subscription and was already gone when the snapshot was taken.
+    /// A device is disconnected when no cable handle holds it any more, so a stale detach applied after the snapshot
+    /// (unplug and replug between Listen and ListDevices) does not disconnect a device still attached on its new handle.
     mutating func detach(handle: Int) -> Step {
-        guard let connection = handles.removeValue(forKey: handle) else { return .nothing }
-        switch connection {
-        case .usb(let udid): return .disconnected(udid: udid)
-        case .network: return .nothing
-        }
+        guard case .usb(let udid)? = handles.removeValue(forKey: handle) else { return .nothing }
+        return handles.values.contains(.usb(udid: udid)) ? .nothing : .disconnected(udid: udid)
     }
 
     /// True while the handle still belongs to this udid. A read that finishes after the cable came out is stale.

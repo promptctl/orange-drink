@@ -15,6 +15,8 @@ enum IPhoneReadError: Error, Equatable {
     case tls(OSStatus)
     case identity(PKCS12Error)
     case lockdown(String)
+    /// The device answered with an Error: PasswordProtected while locked, InvalidHostID once trust is revoked.
+    case refused(String)
     case layout(String)
     case parse(IPhoneParseError)
     case encoding(String)
@@ -22,8 +24,10 @@ enum IPhoneReadError: Error, Equatable {
     case replyTooLarge(Int)
 }
 
-// Not exported to Swift; value from Security/SecureTransport.h. SSLHandshake returns it when the server's
-// certificate is ready for the client's answer; lockdown's host certificate is not CA-signed, so the handshake continues.
+// Not exported to Swift; value from Security/SecureTransport.h. SSLHandshake returns it when the device's certificate
+// is ready to evaluate. It is signed by the pair record's own root, not a system CA, and it is not pinned: a device
+// claiming a trusted iPhone's UDID can only misreport its own battery, and the host's CertificateVerify signs this
+// session's transcript, so it cannot be replayed to a real device.
 private let errSSLServerAuthCompleted: OSStatus = -9841
 
 /// Every usbmuxd and lockdown request gets this long, measured from when the call starts.
@@ -354,8 +358,12 @@ final class PlistStream {
 }
 
 /// The reply plist, with the control bytes a serial-number string can carry stripped first (XML forbids them).
+/// [LAW:single-enforcer] Every lockdown and relay reply passes here, so a refusal is thrown once, before any caller
+/// reads a key the refusal does not carry.
 func decodeReply(_ bytes: [UInt8]) throws -> [String: Any] {
-    try plistDictionary(Data(bytes.filter { !($0 < 0x20 && ![0x09, 0x0a, 0x0d].contains($0)) }))
+    let reply = try plistDictionary(Data(bytes.filter { !($0 < 0x20 && ![0x09, 0x0a, 0x0d].contains($0)) }))
+    if let error = reply["Error"] { throw IPhoneReadError.refused(String(describing: error)) }
+    return reply
 }
 
 /// One battery read from the device behind a usbmuxd handle: its pair record, a lockdown session, the device's
@@ -369,8 +377,7 @@ func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPh
 private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReading {
     let record = try usbmuxRequest(["MessageType": "ReadPairRecord", "PairRecordID": udid,
                                     "ClientVersionString": "orange-drink", "ProgName": "orange-drink"])
-    guard let recordData = record["PairRecordData"] as? Data else { throw IPhoneReadError.usbmux(.missingKey("PairRecordData")) }
-    let pair = try plistDictionary(recordData)
+    let pair = try plistDictionary(try usbmuxPairRecord(record))
     guard let hostID = pair["HostID"] as? String, let systemBUID = pair["SystemBUID"] as? String,
           let certPEM = pair["HostCertificate"] as? Data, let keyPEM = pair["HostPrivateKey"] as? Data else {
         throw IPhoneReadError.lockdown("pair record")

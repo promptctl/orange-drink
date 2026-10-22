@@ -8,14 +8,17 @@ enum UsbmuxFrameError: Error, Equatable {
     case lengthOutOfRange(Int)
     case notAPlist
     case missingKey(String)
-    case unknownConnectionType(String)
     case nonZeroResult(Int)
+    /// usbmuxd holds no pair record for the UDID: the device has not trusted this Mac.
+    case noPairRecord
 }
 
 /// What usbmuxd says a handle is. The handle is a per-attach transport number; the UDID is the identity.
 enum DeviceConnection: Equatable {
     case usb(udid: String)
     case network
+    /// A ConnectionType this reader does not know. It is not the cable, so it is not read.
+    case other(String)
 }
 
 struct AttachedDevice: Equatable {
@@ -87,6 +90,16 @@ func usbmuxDeviceList(_ body: [String: Any]) throws -> [AttachedDevice] {
     return try list.map { try attachedDevice($0) }
 }
 
+/// The ReadPairRecord reply's record. For a UDID it has no record for, usbmuxd answers Result 2 (probed on
+/// /var/run/usbmuxd with an unknown UDID).
+func usbmuxPairRecord(_ body: [String: Any]) throws -> Data {
+    switch (body["PairRecordData"] as? Data, body["Number"] as? Int) {
+    case (let data?, _): return data
+    case (nil, 2): throw UsbmuxFrameError.noPairRecord
+    case (nil, _): throw UsbmuxFrameError.missingKey("PairRecordData")
+    }
+}
+
 /// One Listen message, decoded. Attached and Detached carry the handle; Result (the Listen reply) is `.other`
 /// on success and throws on a nonzero Number.
 func usbmuxEvent(_ body: [String: Any]) throws -> UsbmuxEvent {
@@ -110,6 +123,7 @@ private func attachedDevice(_ body: [String: Any]) throws -> AttachedDevice {
         guard let udid = props["SerialNumber"] as? String else { throw UsbmuxFrameError.missingKey("SerialNumber") }
         return AttachedDevice(handle: handle, connection: .usb(udid: udid))
     case "Network": return AttachedDevice(handle: handle, connection: .network)
-    case let other: throw UsbmuxFrameError.unknownConnectionType(other ?? "absent")
+    case let other?: return AttachedDevice(handle: handle, connection: .other(other))
+    case nil: throw UsbmuxFrameError.missingKey("ConnectionType")
     }
 }

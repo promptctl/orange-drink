@@ -29,6 +29,17 @@ import Testing
         #expect(map.detach(handle: 99) == .nothing)
     }
 
+    @Test func aStaleDetachDoesNotDisconnectADeviceOnItsNewHandle() {
+        // Unplug and replug between Listen and ListDevices: the snapshot holds handle 5, then the queued
+        // Attached(4) and Detached(4) are applied after it.
+        var map = DeviceMap()
+        _ = map.attach(AttachedDevice(handle: 5, connection: .usb(udid: "B")))
+        _ = map.attach(AttachedDevice(handle: 4, connection: .usb(udid: "B")))
+        #expect(map.detach(handle: 4) == .nothing)
+        #expect(map.holds(handle: 5, udid: "B"))
+        #expect(map.detach(handle: 5) == .disconnected(udid: "B"))
+    }
+
     @Test func aReplugGetsANewHandleAndReadsAgain() {
         var map = DeviceMap()
         _ = map.attach(AttachedDevice(handle: 6, connection: .usb(udid: "B")))

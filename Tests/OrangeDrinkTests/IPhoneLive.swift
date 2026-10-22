@@ -23,6 +23,7 @@ import Testing
                 break events
             case .readFailed(_, let error):
                 Issue.record("read failed: \(error)")
+                break events
             case .failed(let error):
                 Issue.record("monitor failed: \(error)")
                 break events

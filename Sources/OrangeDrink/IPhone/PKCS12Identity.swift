@@ -121,10 +121,12 @@ private func encrypt3DES(key: [UInt8], iv: [UInt8], plain: [UInt8]) throws -> [U
     return Array(out.prefix(moved))
 }
 
-private func pemBody(_ pem: Data) throws -> [UInt8] {
+/// The DER between a PEM's armor lines. LF or CRLF: Swift reads "\r\n" as one Character, so a split on "\n" alone
+/// would never split a CRLF file. An empty body is not DER.
+func pemBody(_ pem: Data) throws -> [UInt8] {
     let text = String(decoding: pem, as: UTF8.self)
-    let b64 = text.split(separator: "\n").filter { !$0.hasPrefix("-----") }.joined()
-    guard let bytes = Data(base64Encoded: b64) else { throw PKCS12Error.badPEM }
+    let b64 = text.split(whereSeparator: \.isNewline).filter { !$0.hasPrefix("-----") }.joined()
+    guard let bytes = Data(base64Encoded: b64), !bytes.isEmpty else { throw PKCS12Error.badPEM }
     return [UInt8](bytes)
 }
 
