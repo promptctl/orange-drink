@@ -90,12 +90,13 @@ func usbmuxDeviceList(_ body: [String: Any]) throws -> [AttachedDevice] {
     return try list.map { try attachedDevice($0) }
 }
 
-/// The ReadPairRecord reply's record. For a UDID it has no record for, usbmuxd answers Result 2 (probed on
-/// /var/run/usbmuxd with an unknown UDID).
+/// The ReadPairRecord reply's record. Without one, usbmuxd answers a Result whose Number is an errno (probed on
+/// /var/run/usbmuxd): 2, ENOENT, for a well-formed UDID it holds no record for; 22, EINVAL, for a malformed UDID.
 func usbmuxPairRecord(_ body: [String: Any]) throws -> Data {
     switch (body["PairRecordData"] as? Data, body["Number"] as? Int) {
     case (let data?, _): return data
     case (nil, 2): throw UsbmuxFrameError.noPairRecord
+    case (nil, let number?) where number != 0: throw UsbmuxFrameError.nonZeroResult(number)
     case (nil, _): throw UsbmuxFrameError.missingKey("PairRecordData")
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // [LAW:one-source-of-truth] The handle map is the one record of what usbmuxd has attached. Every decision the
 // monitor makes (read, disconnect, ignore) comes from a Step the map returns.
@@ -44,12 +45,15 @@ enum IPhoneEvent {
     case failed(IPhoneReadError)
 }
 
-@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
 enum IPhoneMonitor {
+    static let logCategory = "iphone"
+    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: logCategory)
+
     /// Events for every iPhone and iPad usbmuxd reports. The stream ends after a `.failed` event.
+    @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
     static func events() -> AsyncStream<IPhoneEvent> {
         AsyncStream { continuation in
-            let state = MonitorState(continuation: continuation)
+            let state = MonitorState(continuation: continuation, read: readIPhoneBattery(handle:udid:))
             continuation.onTermination = { _ in state.stop() }
             Thread { state.runListen() }.start()
         }
@@ -57,15 +61,20 @@ enum IPhoneMonitor {
 }
 
 /// Map, reads, and the output stream. Every method runs on `queue`, so the Listen thread and the read completions
-/// see one ordered history of attaches, detaches, and reads.
-@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
-private final class MonitorState: @unchecked Sendable {
+/// see one ordered history of attaches, detaches, and reads. Every decision leaves one line in the log.
+final class MonitorState: @unchecked Sendable {
+    typealias Read = @Sendable (_ handle: Int, _ udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading
+
     private let queue = DispatchQueue(label: "dev.orangedrink.iphone-monitor")
     private let continuation: AsyncStream<IPhoneEvent>.Continuation
+    private let read: Read
     private var map = DeviceMap()
     private var stopped = false
 
-    init(continuation: AsyncStream<IPhoneEvent>.Continuation) { self.continuation = continuation }
+    init(continuation: AsyncStream<IPhoneEvent>.Continuation, read: @escaping Read) {
+        self.continuation = continuation
+        self.read = read
+    }
 
     func stop() { queue.async { self.stopped = true } }
 
@@ -88,18 +97,21 @@ private final class MonitorState: @unchecked Sendable {
 
         let snapshot = try usbmuxDeviceList(try usbmuxRequest(["MessageType": "ListDevices",
                                                               "ClientVersionString": "orange-drink", "ProgName": "orange-drink"]))
-        queue.sync { snapshot.forEach { self.apply(attached: $0) } }
+        receive(snapshot: snapshot)
 
         var reader = UsbmuxFrameReader()
         while !isStopped() {
             guard let bytes = try socket.receiveSome(max: 4096) else { continue }
             reader.append(bytes)
             while let body = try reader.next() {
-                let event = try usbmuxEvent(body)
-                queue.sync { self.apply(event) }
+                receive(try usbmuxEvent(body))
             }
         }
     }
+
+    /// The Listen thread's two inputs, each applied on the queue.
+    func receive(snapshot: [AttachedDevice]) { queue.sync { snapshot.forEach { self.apply(attached: $0) } } }
+    func receive(_ event: UsbmuxEvent) { queue.sync { self.apply(event) } }
 
     private func isStopped() -> Bool { queue.sync { stopped } }
 
@@ -115,8 +127,12 @@ private final class MonitorState: @unchecked Sendable {
 
     private func apply(step: DeviceMap.Step) {
         switch step {
-        case .read(let handle, let udid): startRead(handle: handle, udid: udid)
-        case .disconnected(let udid): continuation.yield(.disconnected(udid: udid))
+        case .read(let handle, let udid):
+            IPhoneMonitor.log.info("iphone attached: \(udid, privacy: .public) handle \(handle), reading")
+            startRead(handle: handle, udid: udid)
+        case .disconnected(let udid):
+            IPhoneMonitor.log.info("iphone disconnected: \(udid, privacy: .public)")
+            continuation.yield(.disconnected(udid: udid))
         case .nothing: break
         }
     }
@@ -127,7 +143,7 @@ private final class MonitorState: @unchecked Sendable {
         DispatchQueue.global(qos: .utility).async {
             let outcome: Result<IPhoneBatteryReading, IPhoneReadError>
             do throws(IPhoneReadError) {
-                let reading = try readIPhoneBattery(handle: handle, udid: udid)
+                let reading = try self.read(handle, udid)
                 outcome = .success(reading)
             } catch {
                 outcome = .failure(error)
@@ -137,7 +153,10 @@ private final class MonitorState: @unchecked Sendable {
     }
 
     private func finishRead(handle: Int, udid: String, outcome: Result<IPhoneBatteryReading, IPhoneReadError>) {
-        guard map.holds(handle: handle, udid: udid) else { return }
+        guard map.holds(handle: handle, udid: udid) else {
+            IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(handle) detached before it finished")
+            return
+        }
         switch outcome {
         case .success(let reading): continuation.yield(.reading(udid: udid, reading))
         case .failure(let error): continuation.yield(.readFailed(udid: udid, error))
@@ -145,6 +164,7 @@ private final class MonitorState: @unchecked Sendable {
     }
 
     private func finish(with error: IPhoneReadError) {
+        IPhoneMonitor.log.error("iphone monitor failed: \(String(describing: error), privacy: .public)")
         stopped = true
         continuation.yield(.failed(error))
         continuation.finish()

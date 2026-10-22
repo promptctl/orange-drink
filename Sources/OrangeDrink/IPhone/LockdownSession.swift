@@ -55,11 +55,8 @@ final class TimedSocket {
             setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &wake, socklen_t(MemoryLayout<timeval>.size)),
             setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size)),
         ]
-        if options.contains(-1) {
-            let err = errno
-            close(fd)
-            throw IPhoneReadError.socket(errno: err)
-        }
+        // No close here: fd is already stored, so a throw from this init still runs deinit, which closes it.
+        if options.contains(-1) { throw IPhoneReadError.socket(errno: errno) }
     }
 
     deinit { close(fd) }
@@ -73,7 +70,7 @@ final class TimedSocket {
                 got += r
             } else if r == 0 {
                 throw IPhoneReadError.closed
-            } else if errno != EAGAIN && errno != EWOULDBLOCK {
+            } else if !isRetry(errno) {
                 throw IPhoneReadError.socket(errno: errno)
             }
             if deadline.passed { throw IPhoneReadError.timeout }
@@ -92,7 +89,7 @@ final class TimedSocket {
                 sent += r
             } else if r == 0 {
                 throw IPhoneReadError.closed
-            } else if errno != EAGAIN && errno != EWOULDBLOCK {
+            } else if !isRetry(errno) {
                 throw IPhoneReadError.socket(errno: errno)
             }
             if deadline.passed { throw IPhoneReadError.timeout }
@@ -106,10 +103,13 @@ final class TimedSocket {
         let r = recvInto(fd, &out, at: 0)
         if r > 0 { return Array(out[0..<r]) }
         if r == 0 { throw IPhoneReadError.closed }
-        if errno == EAGAIN || errno == EWOULDBLOCK { return nil }
+        if isRetry(errno) { return nil }
         throw IPhoneReadError.socket(errno: errno)
     }
 }
+
+/// The errnos that mean "nothing moved yet, call again": the one-second wake-up, or a signal that interrupted the call.
+private func isRetry(_ err: Int32) -> Bool { err == EAGAIN || err == EWOULDBLOCK || err == EINTR }
 
 private func recvInto(_ fd: Int32, _ out: inout [UInt8], at offset: Int) -> Int {
     out.withUnsafeMutableBytes { buf in
@@ -141,7 +141,7 @@ private let tlsRead: SSLReadFunc = { conn, data, len in
         if r == 0 { len.pointee = got; return errSSLClosedGraceful }
         if r > 0 {
             got += r
-        } else if errno != EAGAIN && errno != EWOULDBLOCK {
+        } else if !isRetry(errno) {
             len.pointee = got
             return errSSLClosedAbort
         }
@@ -160,7 +160,7 @@ private let tlsWrite: SSLWriteFunc = { conn, data, len in
         let r = send(box.fd, data + sent, want - sent, 0)
         if r > 0 {
             sent += r
-        } else if errno != EAGAIN && errno != EWOULDBLOCK {
+        } else if !isRetry(errno) {
             len.pointee = sent
             return errSSLClosedAbort
         }
@@ -369,12 +369,24 @@ func decodeReply(_ bytes: [UInt8]) throws -> [String: Any] {
 /// One battery read from the device behind a usbmuxd handle: its pair record, a lockdown session, the device's
 /// DeviceClass (which picks the layout), the diagnostics relay, and the IORegistry AppleSmartBattery entry.
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+/// Every outcome leaves one line in the log.
 func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading {
-    try typedReadErrors { try readBattery(handle: handle, udid: udid) }
+    do {
+        let reading = try typedReadErrors { try readBattery(handle: handle, udid: udid) }
+        IPhoneMonitor.log.info("iphone read: \(udid, privacy: .public) handle \(handle): \(String(describing: reading), privacy: .public)")
+        return reading
+    } catch {
+        IPhoneMonitor.log.error("iphone read failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
+        throw error
+    }
 }
 
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport; see lm3.8pk")
 private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReading {
+    // [LAW:no-silent-failure] macOS 14 has no memory-only import, so the reader refuses to run there rather than write
+    // the host key into a keychain. Checked first, so the pair record's private key is never loaded on a Mac that
+    // cannot use it. Whether the deployment target moves to 15 is the owner's call.
+    guard #available(macOS 15.0, *) else { throw IPhoneReadError.unsupported("reading an iPhone needs macOS 15") }
     let record = try usbmuxRequest(["MessageType": "ReadPairRecord", "PairRecordID": udid,
                                     "ClientVersionString": "orange-drink", "ProgName": "orange-drink"])
     let pair = try plistDictionary(try usbmuxPairRecord(record))
@@ -382,9 +394,6 @@ private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReadi
           let certPEM = pair["HostCertificate"] as? Data, let keyPEM = pair["HostPrivateKey"] as? Data else {
         throw IPhoneReadError.lockdown("pair record")
     }
-    // [LAW:no-silent-failure] macOS 14 has no memory-only import, so the reader refuses to run there rather than write
-    // the host key into a keychain. Whether the deployment target moves to 15 is the owner's call.
-    guard #available(macOS 15.0, *) else { throw IPhoneReadError.unsupported("reading an iPhone needs macOS 15") }
     let identity = try pairIdentity(certificatePEM: certPEM, keyPEM: keyPEM)
 
     let lockdown = PlistStream(socket: try usbmuxConnect(handle: handle, port: 62078))

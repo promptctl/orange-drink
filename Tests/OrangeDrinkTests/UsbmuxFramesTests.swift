@@ -62,8 +62,9 @@ import Testing
 
     @Test func pairRecordReplyIsTheRecordOrNotTrusted() throws {
         #expect(try usbmuxPairRecord(["PairRecordData": Data([1, 2])]) == Data([1, 2]))
-        // The reply usbmuxd gave for an unknown UDID.
+        // The replies usbmuxd gave for a well-formed unknown UDID and for a malformed one.
         #expect(throws: UsbmuxFrameError.noPairRecord) { try usbmuxPairRecord(["MessageType": "Result", "Number": 2]) }
+        #expect(throws: UsbmuxFrameError.nonZeroResult(22)) { try usbmuxPairRecord(["MessageType": "Result", "Number": 22]) }
         #expect(throws: UsbmuxFrameError.missingKey("PairRecordData")) { try usbmuxPairRecord(["MessageType": "Result", "Number": 0]) }
     }
 
