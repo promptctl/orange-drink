@@ -39,10 +39,13 @@ import Testing
     @Test func attachedUSBAndNetworkDevicesDecode() throws {
         let usb = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 7,
                                    "Properties": ["ConnectionType": "USB", "SerialNumber": "UDID-1"]])
-        #expect(usb == .attached(AttachedDevice(handle: 7, connection: .usb(udid: "UDID-1"))))
+        #expect(usb == .attached(AttachedDevice(handle: 7, connection: .device(udid: "UDID-1", over: .usb))))
         let wifi = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 8,
                                     "Properties": ["ConnectionType": "Network", "SerialNumber": "UDID-1"]])
-        #expect(wifi == .attached(AttachedDevice(handle: 8, connection: .network)))
+        #expect(wifi == .attached(AttachedDevice(handle: 8, connection: .device(udid: "UDID-1", over: .network))))
+        #expect(throws: UsbmuxFrameError.missingKey("SerialNumber")) {
+            try usbmuxEvent(["MessageType": "Attached", "DeviceID": 8, "Properties": ["ConnectionType": "Network"]])
+        }
     }
 
     @Test func detachedAndListenResultDecode() throws {
@@ -52,7 +55,7 @@ import Testing
         #expect(throws: UsbmuxFrameError.nonZeroResult(5)) { try usbmuxEvent(["MessageType": "Result", "Number": 5]) }
     }
 
-    @Test func unknownConnectionTypeIsADeviceThatIsNotTheCable() throws {
+    @Test func unknownConnectionTypeIsAnEntryThatIsNotRead() throws {
         let event = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 1,
                                      "Properties": ["ConnectionType": "Bluetooth", "SerialNumber": "X"]])
         #expect(event == .attached(AttachedDevice(handle: 1, connection: .other("Bluetooth"))))
@@ -74,8 +77,8 @@ import Testing
             ["DeviceID": 4, "Properties": ["ConnectionType": "USB", "SerialNumber": "A"]],
             ["DeviceID": 5, "Properties": ["ConnectionType": "Network", "SerialNumber": "A"]],
         ]])
-        #expect(devices == [AttachedDevice(handle: 4, connection: .usb(udid: "A")),
-                            AttachedDevice(handle: 5, connection: .network)])
+        #expect(devices == [AttachedDevice(handle: 4, connection: .device(udid: "A", over: .usb)),
+                            AttachedDevice(handle: 5, connection: .device(udid: "A", over: .network))])
         #expect(throws: UsbmuxFrameError.missingKey("DeviceList")) { try usbmuxDeviceList([:]) }
     }
 }
