@@ -59,8 +59,8 @@ final class Session: NSObject, HelperProtocol {
     }
 }
 
-/// The helper exits once it has held no accepted connection for `idle`, counted from launch too, and
-/// launchd starts it again for the next caller. So a call is answered by the helper and requirement
+/// The helper exits at the first check, `idle` after its launch or after any connection closes, that
+/// finds no accepted connection open, and launchd starts it again for the next caller. So a call is answered by the helper and requirement
 /// now on disk, not by one started before a rebuild, including one launched only for a refused
 /// caller, which never reaches the delegate. A connection still being served keeps it alive.
 final class Lifetime: @unchecked Sendable {
