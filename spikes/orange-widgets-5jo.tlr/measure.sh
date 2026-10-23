@@ -14,7 +14,7 @@ echo "$(now) schedule: $times reloads $every s apart from seq $from"
 shown=unread
 # The host sleeps EVERY seconds after its last reload too, so watching while it runs sees each redraw.
 while [ -n "$(jobs -rp)" ]; do
-  seq=$(eyes read --rect "$rect" --limit 10 | awk 'match($0, /SEQ [0-9]+/) { print substr($0, RSTART, RLENGTH); exit }')
+  seq=$(eyes read --rect "$rect" --limit 10 | awk 'match($0, /SEQ [0-9]+/) && !found { found = 1; print substr($0, RSTART, RLENGTH) }')
   if [ "$seq" != "$shown" ]; then
     echo "$(now) screen: ${seq:-no SEQ}"
     shown=$seq

@@ -71,10 +71,10 @@ Task { @MainActor in
     for step in 0..<schedule.times {
         do {
             try write(sequence: schedule.from + step)
+            try await Task.sleep(for: .seconds(schedule.every))
         } catch {
-            fail("write failed: \(error)", status: 1)
+            fail("seq \(schedule.from + step) failed: \(error)", status: 1)
         }
-        try await Task.sleep(for: .seconds(schedule.every))
     }
     log.info("schedule done")
     exit(0)
