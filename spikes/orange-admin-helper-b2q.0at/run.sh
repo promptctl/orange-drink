@@ -134,7 +134,12 @@ bootout() {
 uninstall() {
   if [ -f "$placed_file" ] && [ -d "$(app)" ]; then
     run_app unregister
-    if launchctl print "system/$(label)" >/dev/null 2>&1; then echo "launchd still has system/$(label)" >&2; exit 1; fi
+    # launchd removes the job after unregister returns; a job loaded with `bootstrap` stays until `bootout`.
+    for _ in $(seq 50); do
+      if ! launchctl print "system/$(label)" >/dev/null 2>&1; then break; fi
+      sleep 0.1
+    done
+    if launchctl print "system/$(label)" >/dev/null 2>&1; then echo "launchd still has system/$(label) 5 s after unregister (bootstrapped? run bootout)" >&2; exit 1; fi
     rm -rf "$(app)"
   fi
   rm -f "$placed_file" "$remote_dir/Impostor"
@@ -147,7 +152,7 @@ uninstall() {
   btm=$(sudo -n sfltool dumpbtm)
   dispositions=$(awk '/Name: HelperSpikeHelper$/ { found = 1 } found && /Disposition:/ { print; found = 0 }' <<<"$btm")
   echo "BTM HelperSpikeHelper records: ${dispositions:-none}"
-  if grep -v -q disallowed <<<"$dispositions"; then echo "a HelperSpikeHelper record is still allowed" >&2; exit 1; fi
+  if [ -n "$dispositions" ] && grep -v -q disallowed <<<"$dispositions"; then echo "a HelperSpikeHelper record is still allowed" >&2; exit 1; fi
 }
 
 command=${1:?"usage: run.sh build|ship|place|register|status|unregister|call|impostor|helper-state|stop-helper|uninstall (see the top of run.sh)"}

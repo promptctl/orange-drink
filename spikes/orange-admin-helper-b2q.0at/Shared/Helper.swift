@@ -46,7 +46,9 @@ func signing(of code: SecStaticCode) -> String {
 }
 
 /// Calls the helper once and exits: 0 with its reply, 1 with the error that ended the connection.
-/// [LAW:no-silent-failure] The error's domain and code tell a refusal from an unreachable helper.
+/// [LAW:no-silent-failure] A refusal reaches the caller as NSCocoaErrorDomain 4097, the same error as a
+/// helper that went away; only the helper's log ("Dropping check-in message due to code signing
+/// requirement") tells them apart.
 func callHelper(service: String) -> Never {
     let connection = NSXPCConnection(machServiceName: service, options: .privileged)
     connection.remoteObjectInterface = NSXPCInterface(with: HelperProtocol.self)

@@ -12,8 +12,9 @@ func fail(_ message: String) -> Never {
 
 /// [LAW:one-source-of-truth] The peer requirement is the app's own designated requirement, read off
 /// its signature at launch: `cdhash H"…"` for an ad-hoc app, its identifier and team for a Developer ID one.
-/// For an ad-hoc app that pins whatever bundle is at this path when the helper launches, so anyone who can
-/// rewrite the path chooses whom the root helper trusts; only the Developer ID requirement pins a signer.
+/// Either way it pins whatever bundle is at this path when the helper launches: re-signing the app, ad hoc
+/// or with any team, rewrites the requirement the root helper enforces. Pinning a signer would take a
+/// requirement built from the helper's own signature, which this spike does not try.
 func designatedRequirement(of app: URL) -> String {
     var code: SecStaticCode?
     var requirement: SecRequirement?
