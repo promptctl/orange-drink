@@ -41,7 +41,8 @@ uninstall() {
 }
 
 build() {
-  # [LAW:dataflow-not-control-flow] The variant is only the signature; entitlements and steps are the same.
+  # [LAW:dataflow-not-control-flow] The variant is the configuration and signature the app's own Debug
+  # and Release builds use (Debug adds get-task-allow); the entitlements files and the steps are the same.
   case "$1" in
     release)
       # [LAW:one-source-of-truth] The release identity and team are the app's own, named as scripts/dmg names them.
@@ -64,7 +65,7 @@ build() {
 ship() {
   zip=$(build "$1" | tail -n 1)
   ssh "$2" mkdir -p "$remote_dir"
-  scp -q "$zip" "$here/run.sh" "$2:$remote_dir/"
+  scp -q "$zip" "$here/run.sh" "$here/measure.sh" "$2:$remote_dir/"
   ssh "$2" bash "$remote_dir/run.sh" install "$remote_dir/$(basename "$zip")"
 }
 
@@ -80,8 +81,14 @@ install() {
   await_registration listed
 }
 
+# Each reload is a new host (-n), so a host still running never swallows these arguments. open
+# returns its own status, never the host's, so the host reports a failure on stderr instead.
 reload() {
-  open -W "$installed" --args --every "$1" --times "$2" --from "$3"
+  errors=$(mktemp)
+  open -n -W --stderr "$errors" "$installed" --args --every "$1" --times "$2" --from "$3"
+  failure=$(cat "$errors")
+  rm "$errors"
+  if [ -n "$failure" ]; then echo "$app failed: $failure" >&2; exit 1; fi
 }
 
 command=${1:?"usage: run.sh build|ship|install|reload|uninstall (see the top of run.sh)"}

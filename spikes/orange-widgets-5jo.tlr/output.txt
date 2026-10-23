@@ -286,3 +286,25 @@ Timestamp               Ty Process[PID:TID]
 2026-10-22 22:00:40.637 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] reload seq 202
 2026-10-22 22:00:40.682 I  OrangeWidgetSpikeWidget[56679:bb450e5] [dev.orangedrink.widgetspike:widget] getTimeline seq 202 percent 98 written 1792728040.6364331
 2026-10-22 22:00:45.950 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] schedule done
+
+######## 4. Both variants on the Mac that builds (macOS 26.5.2, 25F84), 2026-10-22, each installed there
+######## with `run.sh install`, which uninstalls first
+
+# Debug: `run.sh install build/OrangeWidgetSpike-debug.zip`. The host's first write blocks in open() on the
+# group container (`sample`: Data.write → createProtectedTemporaryFile → open) behind a prompt:
+# `eyes read --rect 560,200,400,320`
+756,305	“OrangeWidgetSpike” would like to access data from other apps.	AXStaticText
+756,355	Keeping app data separate makes it easier to manage your privacy and security.	AXStaticText
+697,409	Don’t Allow	AXButton
+815,409	Allow	AXButton
+# Don't Allow:
+OrangeWidgetSpike failed: write failed: Error Domain=NSCocoaErrorDomain Code=513 "Creating a temporary file via mktemp failed. ..." ... NSUnderlyingError=0xb2cc1afa0 {Error Domain=NSPOSIXErrorDomain Code=1 "Operation not permitted"}}
+install status 1
+# The next launch, `run.sh reload 0.5 3 7`, asked again. Allow:
+2026-10-22 22:16:08.924 I  OrangeWidgetSpike[14390:17b1650a] [dev.orangedrink.widgetspike:host] wrote seq 7 percent 93 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+
+# Release: `tccutil reset SystemPolicyAppData dev.orangedrink.widgetspike`, then `run.sh install build/OrangeWidgetSpike-release.zip`
+Successfully reset SystemPolicyAppData approval status for dev.orangedrink.widgetspike
+status 0
+"would like" not found in display 1 0,0 1512x982 by tree and pixels, merged; 809 runs read; ...
+2026-10-22 22:16:53.924 I  OrangeWidgetSpike[21603:17b1d748] [dev.orangedrink.widgetspike:host] wrote seq 0 percent 100 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json

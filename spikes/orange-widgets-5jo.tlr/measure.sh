@@ -11,9 +11,9 @@ now() { perl -MTime::HiRes=time -MPOSIX=strftime -e '$t = time; printf "%s.%03d"
 "$here/run.sh" reload "$every" "$times" "$from" &
 host=$!
 echo "$(now) schedule: $times reloads $every s apart from seq $from"
-end=$(( $(date +%s) + every * times + 60 ))
 shown=unread
-while [ "$(date +%s)" -lt "$end" ]; do
+# The host sleeps EVERY seconds after its last reload too, so watching while it runs sees each redraw.
+while [ -n "$(jobs -rp)" ]; do
   seq=$(eyes read --rect "$rect" --limit 10 | awk 'match($0, /SEQ [0-9]+/) { print substr($0, RSTART, RLENGTH); exit }')
   if [ "$seq" != "$shown" ]; then
     echo "$(now) screen: ${seq:-no SEQ}"

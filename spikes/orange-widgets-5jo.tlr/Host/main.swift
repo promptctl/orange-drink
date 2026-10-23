@@ -35,6 +35,14 @@ enum ScheduleError: Error {
     case notANumber(String, String)
 }
 
+// run.sh launches the host with open, which drops its exit status, so a failure also goes to
+// stderr, where run.sh reads it.
+func fail(_ message: String, status: Int32) -> Never {
+    log.error("\(message, privacy: .public)")
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+    exit(status)
+}
+
 @MainActor
 func write(sequence: Int) throws {
     let level = Level(sequence: sequence, percent: 100 - sequence % 100, writtenAt: .now)
@@ -49,8 +57,7 @@ let schedule: Schedule
 do {
     schedule = try Schedule(CommandLine.arguments)
 } catch {
-    log.error("bad arguments \(String(describing: error), privacy: .public): \(CommandLine.arguments, privacy: .public)")
-    exit(64)
+    fail("bad arguments \(error): \(CommandLine.arguments)", status: 64)
 }
 
 let app = NSApplication.shared
@@ -65,8 +72,7 @@ Task { @MainActor in
         do {
             try write(sequence: schedule.from + step)
         } catch {
-            log.error("write failed: \(String(describing: error), privacy: .public)")
-            exit(1)
+            fail("write failed: \(error)", status: 1)
         }
         try await Task.sleep(for: .seconds(schedule.every))
     }
