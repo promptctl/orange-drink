@@ -67,7 +67,7 @@ expect "a branch that names no ticket stops before the test, saying so" \
 git checkout -q ticket-1
 
 bundle Passed
-answers='y\n' run --covers src/a.swift src --ask 'Saw it?' -- sh -c 'echo "» reading 5"; echo "not for the record"'
+answers='y\n' run --covers src/a.swift src --ask 'Saw it?' -- sh -c 'echo "» reading 5"; echo "quoted » not for the record"'
 body=$(latest)
 expect "a pass posts its result, commit, covers, printed lines, and answers, and exits 0" \
   eval '[ $status = 0 ] && has "hardware check: c" "$body" && has "result: pass" "$body" && has "commit: $(git rev-parse HEAD)" "$body" &&

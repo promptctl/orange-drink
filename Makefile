@@ -76,7 +76,7 @@ pill-check.covers := Sources/OrangeDrink/Alerts Sources/OrangeDrink/Settings/App
 position-check: export TEST_RUNNER_POSITION_CHECK = 1
 position-check.test := PinnedPositionCheck/theBarFollowsTheListEvenOverASavedPosition()
 position-check.covers := Sources/OrangeDrink/MenuBar/PinnedItems.swift Sources/OrangeDrink/Devices/PinnedOrder.swift \
-  Tests/OrangeDrinkTests/PinnedOrderTests.swift
+  Sources/OrangeDrink/Devices/Device.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

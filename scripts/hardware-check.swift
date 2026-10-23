@@ -72,7 +72,7 @@ func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
     var printed: [String] = []
     func take(_ line: Data) {
         let text = String(decoding: line, as: UTF8.self)
-        if let mark = text.range(of: recordMark) { printed.append(String(text[mark.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)) }
+        if text.hasPrefix(recordMark) { printed.append(String(text.dropFirst(recordMark.count)).trimmingCharacters(in: .whitespacesAndNewlines)) }
     }
     while case let chunk = output.fileHandleForReading.availableData, !chunk.isEmpty {
         FileHandle.standardOutput.write(chunk)
