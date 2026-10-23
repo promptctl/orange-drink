@@ -66,11 +66,20 @@ struct BatteryRing: View {
             let line = side * 0.1
             VStack(spacing: side * 0.1) {
                 ZStack {
-                    Circle().stroke(.gray.opacity(0.35), lineWidth: line)
-                    Circle()
-                        .trim(from: 0, to: Double(level ?? 0) / 100)
-                        .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
+                    ZStack {
+                        Circle().stroke(.gray.opacity(0.35), lineWidth: line)
+                        Circle()
+                            .trim(from: 0, to: Double(level ?? 0) / 100)
+                            .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        // The bolt sits in a gap cut from the ring: drawn over the green arc it would not read.
+                        Circle()
+                            .frame(width: side * 0.26, height: side * 0.26)
+                            .offset(y: -side / 2)
+                            .blendMode(.destinationOut)
+                            .opacity(charging ? 1 : 0)
+                    }
+                    .compositingGroup()
                     Image(systemName: "laptopcomputer")
                         .font(.system(size: side * 0.32))
                     Image(systemName: "bolt.fill")
