@@ -58,9 +58,9 @@ struct MenuBarScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(symbol: "macwindow", color: .cyan, title: "Menu Bar Icon")
             SettingEditor(model) { edits in
                 let config = edits.value
-                SettingsSectionHeader(symbol: "macwindow", color: .cyan, title: "Menu Bar Icon")
                 SettingCard {
                     ForEach(MenuBarIconConfig.Style.allCases, id: \.self) { style in
                         RadioRow(title: style.title(appName: appName), description: style.description(appName: appName), isSelected: config.style == style) {

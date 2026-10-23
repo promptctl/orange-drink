@@ -7,11 +7,6 @@ import Testing
 @MainActor @Suite struct ChargeLimitTests {
     static func model(_ defaults: UserDefaults) throws -> ChargeLimitModel { try ChargeLimitModel(defaults: defaults) }
 
-    /// The edits the screen makes to `model`, with what they reported.
-    static func edits(_ model: ChargeLimitModel, events: SettingEvents) -> SettingEdits<ChargeLimit> {
-        SettingEdits(setting: ChargeLimit.storageKey, read: { model.value }, update: model.update, record: events.record)
-    }
-
     static func target(_ percent: Int) throws -> ChargeTarget { try #require(ChargeTarget.all.first { $0.percent == percent }) }
 
     @Test func aFirstLaunchHasTheLimitOffAndTheTargetAt80() throws {
@@ -22,7 +17,7 @@ import Testing
     @Test func theSwitchAndTargetComeBackAsSetWhenLoadedAsARelaunchWould() throws {
         let defaults = AlertSettingsPersistence.suite()
         let events = SettingEvents()
-        let edits = Self.edits(try Self.model(defaults), events: events)
+        let edits = SettingEdits(try Self.model(defaults), record: events.record)
         edits.binding(\.isOn).wrappedValue = true
         edits.binding(\.target).wrappedValue = try Self.target(90)
         #expect(try Self.model(defaults).value == ChargeLimit(isOn: true, target: try Self.target(90)))
@@ -33,7 +28,7 @@ import Testing
     }
 
     @Test func turningTheLimitOffKeepsTheTargetForWhenItIsTurnedBackOn() throws {
-        let edits = Self.edits(try Self.model(AlertSettingsPersistence.suite()), events: SettingEvents())
+        let edits = SettingEdits(try Self.model(AlertSettingsPersistence.suite()), record: SettingEvents().record)
         let ninety = try Self.target(90)
         edits.perform { $0.isOn = true; $0.target = ninety }
         edits.binding(\.isOn).wrappedValue = false
@@ -44,6 +39,15 @@ import Testing
     @Test func theOfferedTargetsRunFromHalfTo95InFivesWithoutFull() {
         #expect(ChargeTarget.all.map(\.percent) == [50, 55, 60, 65, 70, 75, 80, 85, 90, 95])
         #expect(ChargeTarget.all.contains(.standard))
+    }
+
+    /// The bytes this release keeps, written out rather than encoded, so a field added without a default or a
+    /// level no longer offered fails here instead of failing a user's next launch.
+    @Test(arguments: [50, 55, 60, 65, 70, 75, 80, 85, 90, 95])
+    func aLimitThisReleaseKeptStillLoads(percent: Int) throws {
+        let defaults = AlertSettingsPersistence.suite()
+        defaults.set(Data(#"{"isOn":true,"target":\#(percent)}"#.utf8), forKey: "charging.limit")
+        #expect(try Self.model(defaults).value == ChargeLimit(isOn: true, target: try Self.target(percent)))
     }
 
     @Test(arguments: [100, 81, 0])

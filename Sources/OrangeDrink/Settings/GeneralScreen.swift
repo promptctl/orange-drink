@@ -22,11 +22,13 @@ private struct LanguageSection: View {
     let language: AppLanguageModel
 
     var body: some View {
-        SettingEditor(language) { edits in
+        VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "globe", color: .blue, title: "Language")
-            SettingCard {
-                SettingRow(icon: ("globe", .blue), title: "App Language", description: "Choose the language \(appName) uses. Changes apply immediately.") {
-                    PopUpButton(selection: edits.binding(\.self), options: AppLanguage.choices(), title: { Text(verbatim: $0.menuTitle(speaking: edits.value)) })
+            SettingEditor(language) { edits in
+                SettingCard {
+                    SettingRow(icon: ("globe", .blue), title: "App Language", description: "Choose the language \(appName) uses. Changes apply immediately.") {
+                        PopUpButton(selection: edits.binding(\.self), options: AppLanguage.choices(), title: { Text(verbatim: $0.menuTitle(speaking: edits.value)) })
+                    }
                 }
             }
         }
@@ -38,11 +40,13 @@ private struct AppAppearanceSection: View {
     let look: AppAppearanceModel
 
     var body: some View {
-        SettingEditor(look) { edits in
+        VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "circle.lefthalf.filled", color: .purple, title: "Appearance")
-            SettingCard {
-                SettingRow(icon: ("circle.lefthalf.filled", .purple), title: "App Appearance", description: "Auto follows your Mac's system appearance") {
-                    PopUpButton(selection: edits.binding(\.self), options: AppAppearance.allCases, title: { Text($0.label) })
+            SettingEditor(look) { edits in
+                SettingCard {
+                    SettingRow(icon: ("circle.lefthalf.filled", .purple), title: "App Appearance", description: "Auto follows your Mac's system appearance") {
+                        PopUpButton(selection: edits.binding(\.self), options: AppAppearance.allCases, title: { Text($0.label) })
+                    }
                 }
             }
         }
@@ -55,27 +59,29 @@ private struct NotificationAppearanceSection: View {
     @State private var showGlow = false
 
     var body: some View {
-        SettingEditor(appearance) { edits in
-            let look = edits.value
+        VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "sparkle", color: .pink, title: "Notification Appearance")
-            SettingCard {
-                SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {
-                    PopUpButton(selection: edits.binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: { Text($0.label) })
+            SettingEditor(appearance) { edits in
+                let look = edits.value
+                SettingCard {
+                    SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {
+                        PopUpButton(selection: edits.binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: { Text($0.label) })
+                    }
+                    SettingRow(title: "Screen Edge Glow", description: "Strength of the glow around the screen edge") {
+                        PopUpButton(selection: edits.binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: { Text($0.label) })
+                    }
+                    SettingRow(title: "Preview") {
+                        AccentSwitch(isOn: $showGlow, tint: .green, label: "Show Glow")
+                    }
                 }
-                SettingRow(title: "Screen Edge Glow", description: "Strength of the glow around the screen edge") {
-                    PopUpButton(selection: edits.binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: { Text($0.label) })
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.03))
+                    if showGlow { GlowView(severity: PillContent.sample.severity, strength: look.glowStrength) }
+                    PillView(content: PillContent.sample, scale: look.bubbleSize.scale, onClose: {})
                 }
-                SettingRow(title: "Preview") {
-                    AccentSwitch(isOn: $showGlow, tint: .green, label: "Show Glow")
-                }
+                .frame(height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.03))
-                if showGlow { GlowView(severity: PillContent.sample.severity, strength: look.glowStrength) }
-                PillView(content: PillContent.sample, scale: look.bubbleSize.scale, onClose: {})
-            }
-            .frame(height: 200)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 }

@@ -29,31 +29,33 @@ struct PinnedDevicesCard: View {
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        SettingEditor(settings) { edits in
-            let list = PinnedDevicesList(devices.list, pinned: edits.value.pinned)
+        VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "pin.fill", color: .orange, title: "Pinned Devices")
-            if list.entries.isEmpty {
-                Text("Pin a connected device from the Devices screen to arrange it here.").foregroundStyle(.secondary)
-            } else {
-                SettingCard {
-                    ForEach(list.entries) { entry in
-                        HStack(spacing: 12) {
-                            Image(systemName: entry.row.kind.symbol).font(.system(size: 18)).frame(width: 28)
-                                .foregroundStyle(.secondary).accessibilityHidden(true)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.row.name).fontWeight(.semibold)
-                                Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
+            SettingEditor(settings) { edits in
+                let list = PinnedDevicesList(devices.list, pinned: edits.value.pinned)
+                if list.entries.isEmpty {
+                    Text("Pin a connected device from the Devices screen to arrange it here.").foregroundStyle(.secondary)
+                } else {
+                    SettingCard {
+                        ForEach(list.entries) { entry in
+                            HStack(spacing: 12) {
+                                Image(systemName: entry.row.kind.symbol).font(.system(size: 18)).frame(width: 28)
+                                    .foregroundStyle(.secondary).accessibilityHidden(true)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.row.name).fontWeight(.semibold)
+                                    Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 12)
+                                moveButton("chevron.up", "Move \(entry.row.name) up, toward the left of the menu bar", entry.id, with: entry.above, edits)
+                                moveButton("chevron.down", "Move \(entry.row.name) down, toward the right of the menu bar", entry.id, with: entry.below, edits)
                             }
-                            Spacer(minLength: 12)
-                            moveButton("chevron.up", "Move \(entry.row.name) up, toward the left of the menu bar", entry.id, with: entry.above, edits)
-                            moveButton("chevron.down", "Move \(entry.row.name) down, toward the right of the menu bar", entry.id, with: entry.below, edits)
+                            .padding(12)
+                            .accessibilityElement(children: .contain)
                         }
-                        .padding(12)
-                        .accessibilityElement(children: .contain)
                     }
+                    Text("The top device sits leftmost in the menu bar. Dragging an item in the menu bar is undone when a pinned device connects, disconnects, or is moved here.")
+                        .font(.callout).foregroundStyle(.secondary)
                 }
-                Text("The top device sits leftmost in the menu bar. Dragging an item in the menu bar is undone when a pinned device connects, disconnects, or is moved here.")
-                    .font(.callout).foregroundStyle(.secondary)
             }
         }
     }

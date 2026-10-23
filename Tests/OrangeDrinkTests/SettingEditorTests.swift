@@ -43,6 +43,18 @@ import Testing
         #expect(kept.events.all.last?.failure == nil)
     }
 
+    /// The process reads its own private arguments back unredacted, so this sees the value the log hides.
+    @Test func everyEditIsLoggedWithWhichSettingAndWhatCameOfIt() async throws {
+        let log = try BatteryLog(category: SettingEvent.logCategory)
+        let kept = Kept()
+        kept.refuses = true
+        kept.edits.perform { $0.isOn = true }
+        kept.refuses = false
+        kept.edits.perform { $0.isOn = true }
+        #expect(try await log.logged("charging.limit not saved: the disk is full"))
+        #expect(try await log.logged("charging.limit saved: \(ChargeLimit(isOn: true, target: .standard))"))
+    }
+
     @Test func aBindingReadsTheCurrentValueAndSetsThroughTheSameEdit() {
         let kept = Kept()
         let isOn = kept.edits.binding(\.isOn)
