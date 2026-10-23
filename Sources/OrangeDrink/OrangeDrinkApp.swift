@@ -78,7 +78,7 @@ struct OrangeDrinkApp: App {
         _look = State(initialValue: look)
         let sections = PanelSections()
         _sections = State(initialValue: sections)
-        let lowPowerMode = LowPowerMode(helper: HelperClient(service: HelperRegistration.daemon.label))
+        let lowPowerMode = LowPowerMode(helper: HelperAccess(daemon: HelperRegistration.daemon))
         _lowPowerMode = State(initialValue: lowPowerMode)
         keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)

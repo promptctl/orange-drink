@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 /// The panel the status item opens: stacked rounded cards on a dark ground.
@@ -182,8 +183,17 @@ private struct ActionsCard: View {
                 Toggle("Low Power Mode", isOn: .constant(lowPowerMode.isOn)).labelsHidden().toggleStyle(.switch).allowsHitTesting(false)
             }
             if let failure = lowPowerMode.failure {
-                PhraseText("Couldn't change Low Power Mode: \(failure)").font(.caption).foregroundStyle(.red).lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
+                // A failure the user can fix says how; any other says what went wrong.
+                VStack(alignment: .leading, spacing: 4) {
+                    if failure.needsApproval {
+                        PhraseText("Allow \(appName) in Login Items to change Low Power Mode.").fixedSize(horizontal: false, vertical: true)
+                        Button { SMAppService.openSystemSettingsLoginItems() } label: { PhraseText("Open Login Items…") }
+                            .buttonStyle(.link)
+                    } else {
+                        PhraseText("Couldn't change Low Power Mode: \(failure.call.description)").foregroundStyle(.red).lineLimit(3)
+                    }
+                }
+                .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
             }
         case .checkForUpdates:
             // A placeholder until the update check exists (orange-distribution-kg2.l9x).

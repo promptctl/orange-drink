@@ -5699,6 +5699,50 @@
           }
         }
       }
+    },
+    "Allow %@ in Login Items to change Low Power Mode.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow %@ in Login Items to change Low Power Mode."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez %@ dans Ouverture pour modifier le mode économie d’énergie."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite %@ en Ítems de inicio para cambiar el modo de bajo consumo."
+          }
+        }
+      }
+    },
+    "Open Login Items…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Login Items…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir Ouverture…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ítems de inicio…"
+          }
+        }
+      }
     }
   }
 }

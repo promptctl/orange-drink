@@ -11,7 +11,7 @@ import OSLog
     /// What happened, as the log and the tests read it.
     enum Event: Equatable {
         /// A change was asked of the helper: nil failure once it happened, or why it did not.
-        case asked(Bool, failure: String?)
+        case asked(Bool, failure: HelperUseFailure?)
         /// The system posted a change, and this is its state now.
         case changed(Bool)
 
@@ -19,7 +19,7 @@ import OSLog
         var line: String {
             switch self {
             case .asked(let on, nil): "low power mode \(on ? "on" : "off"): done"
-            case .asked(let on, let failure?): "low power mode \(on ? "on" : "off") failed: \(failure)"
+            case .asked(let on, let failure?): "low power mode \(on ? "on" : "off") failed: \(failure.description)"
             case .changed(let on): "low power mode is \(on ? "on" : "off")"
             }
         }
@@ -31,10 +31,10 @@ import OSLog
     /// reply is the only one there is to land.
     private(set) var isAsking = false
     /// Why the last change asked for did not happen; nil once one has, or once the system has moved.
-    private(set) var failure: String?
+    private(set) var failure: HelperUseFailure?
 
     @ObservationIgnored private let read: () -> Bool
-    @ObservationIgnored private let write: @Sendable (Bool) throws -> Void
+    @ObservationIgnored private let write: @Sendable (Bool) throws(HelperUseFailure) -> Void
     @ObservationIgnored private let record: (Event) -> Void
 
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "lowPowerMode")
@@ -42,7 +42,7 @@ import OSLog
     /// [LAW:composability] `read` is the system's state, `center` posts its changes, `write` asks for a state
     /// and throws when it did not happen, and `record` is told each event. The app passes ProcessInfo, the
     /// default center, the helper, and the log.
-    init(read: @escaping () -> Bool, center: NotificationCenter, write: @escaping @Sendable (Bool) throws -> Void,
+    init(read: @escaping () -> Bool, center: NotificationCenter, write: @escaping @Sendable (Bool) throws(HelperUseFailure) -> Void,
          record: @escaping (Event) -> Void = { event in LowPowerMode.log.notice("\(event.line, privacy: .public)") }) {
         self.read = read
         self.write = write
@@ -54,8 +54,8 @@ import OSLog
         }
     }
 
-    convenience init(helper: HelperClient) {
-        self.init(read: { ProcessInfo.processInfo.isLowPowerModeEnabled }, center: .default) { on in
+    convenience init(helper: HelperAccess) {
+        self.init(read: { ProcessInfo.processInfo.isLowPowerModeEnabled }, center: .default) { on throws(HelperUseFailure) in
             try helper.setLowPowerMode(on)
         }
     }
@@ -70,9 +70,9 @@ import OSLog
         isAsking = true
         return Task {
             let outcome = await withCheckedContinuation { asked in
-                DispatchQueue.global().async { asked.resume(returning: Result { try write(wanted) }) }
+                DispatchQueue.global().async { asked.resume(returning: Result { () throws(HelperUseFailure) in try write(wanted) }) }
             }
-            let failure = outcome.failure.map { String(describing: $0) }
+            let failure = outcome.failure
             // [LAW:no-silent-failure] The panel shows why under the switch, which stays where the system is.
             self.failure = failure
             isAsking = false
