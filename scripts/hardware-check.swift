@@ -229,14 +229,16 @@ func run(check: String, test: String, bundle: String, covers paths: [String], qu
     let committed = try objectIDs(of: paths, in: "HEAD")
 
     let (status, printed) = try stream(command)
-    let (outcome, failures) = try outcome(of: test, in: bundle)
+    let (tested, testFailures) = try outcome(of: test, in: bundle)
+    // A passing test under a failing run is a failed check, so the ticket and make's exit status say the same thing.
+    let exited = status == 0 ? [] : ["\(command[0]) exited \(status)"]
+    let outcome = exited.isEmpty ? tested : .fail
     let record = Record(check: check, outcome: outcome, commit: commit, covers: paths.map { ($0, built[$0]!) },
-                        uncommitted: paths.filter { built[$0] != committed[$0] }, printed: printed, failures: failures,
-                        answers: questions.map { ($0, ask($0)) })
+                        uncommitted: paths.filter { built[$0] != committed[$0] }, printed: printed,
+                        failures: testFailures + exited, answers: questions.map { ($0, ask($0)) })
     try capture(["lit", "comment", "add", ticket, "--by", "make \(check)", "--body-file", "-"], input: record.body)
     print("\n\(check): \(outcome.rawValue), posted on \(ticket)")
-    if status != 0 { FileHandle.standardError.write(Data("\(command.first ?? "the check") exited \(status)\n".utf8)) }
-    return outcome == .pass && status == 0 ? 0 : 1
+    return outcome == .pass ? 0 : 1
 }
 
 func status(checks: [(name: String, paths: [String])]) throws {
