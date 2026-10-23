@@ -84,22 +84,31 @@ final class ChargingHolds {
     /// [LAW:dataflow-not-control-flow] Every trigger runs the same steps: change the holders, read the marker and
     /// CHTE, and perform what `ChargingInhibit.reconcile` says; only the holders vary.
     private func reconcile(_ trigger: String, holders change: (inout Set<ObjectIdentifier>) -> Void) -> Outcome {
-        guard case .supported(var holders) = state else {
-            guard case .unsupported(let failure) = state else { fatalError("unreachable") }
-            return Outcome(result: .failure(failure), line: "charging \(trigger): \(failure)")
+        var holders: Set<ObjectIdentifier>
+        switch state {
+        case .unsupported(let failure): return Outcome(result: .failure(failure), line: "charging \(trigger): \(failure)")
+        case .supported(let held): holders = held
         }
         change(&holders)
         state = .supported(holders: holders)
+        var marked = false
         do {
+            marked = try marker.isMarked()
+            // With no holder and no pause of ours, the rule leaves CHTE alone whatever it holds, so the SMC is not
+            // opened: a helper that stays up for Low Power Mode costs a file check per power change, no more.
+            guard !holders.isEmpty || marked else {
+                return Outcome(result: .success(()), line: "charging \(trigger): 0 holding, marked false: nothing to do")
+            }
             let key = try open()
-            let marked = try marker.isMarked()
             let read = try key.read()
             let steps = ChargingInhibit.reconcile(leases: holders.count, marked: marked, read: read.inhibit)
             for step in steps { try perform(step, on: key) }
             let did = steps.isEmpty ? "nothing to do" : steps.map(\.text).joined(separator: ", ")
             return Outcome(result: .success(()), line: "charging \(trigger): \(holders.count) holding, marked \(marked), \(ChargingInhibit.key) \(Self.hex(read.bytes)): \(did)")
         } catch {
-            if case .unsupported = error { state = .unsupported(error) }
+            // A Mac that cannot pause stops being asked, but only while no pause of ours may be outstanding: a refusal
+            // met while giving charging back leaves the record, and every later reconcile tries again.
+            if case .unsupported = error, !marked { state = .unsupported(error) }
             return Outcome(result: .failure(error), line: "charging \(trigger) failed: \(error)")
         }
     }

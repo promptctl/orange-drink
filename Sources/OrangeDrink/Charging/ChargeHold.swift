@@ -103,7 +103,7 @@ enum ChargeHoldEvent: Equatable {
     /// The helper calls the hold makes, each blocking until its reply, so they run off the main actor.
     struct Effects: Sendable {
         /// Holds charging paused; the lease's `lost` hears the helper end it.
-        let pause: @Sendable (@escaping @Sendable (ObjectIdentifier) -> Void) throws(HelperUseFailure) -> Lease
+        let pause: @Sendable (@escaping @Sendable (Lease) -> Void) throws(HelperUseFailure) -> Lease
         let release: @Sendable (Lease) throws(HelperUseFailure) -> Void
         let resume: @Sendable () throws(HelperUseFailure) -> Void
         /// Returns once the helper's registration has run, so no ask meets a service not registered yet.
@@ -151,11 +151,11 @@ enum ChargeHoldEvent: Equatable {
 
     /// Follows the stored setting from now on.
     func follow(_ model: ChargeLimitModel) {
-        withObservationTracking {
-            set(limit: model.value)
-        } onChange: { [weak self] in
+        // Only the setting is read under tracking: the evaluation it starts reads the hold's own state.
+        let limit = withObservationTracking { model.value } onChange: { [weak self] in
             Task { @MainActor in self?.follow(model) }
         }
+        set(limit: limit)
     }
 
     /// [LAW:one-source-of-truth] A kept failure is a snapshot of an approval the user changes in System Settings at
@@ -222,11 +222,11 @@ enum ChargeHoldEvent: Equatable {
     private func call(for step: Step) -> @Sendable () throws(HelperUseFailure) -> State {
         let effects = effects
         // A lease can be lost while the reply that granted it is still on its way here, so the loss waits for the ask
-        // in flight to land first.
-        let lost: @Sendable (ObjectIdentifier) -> Void = { [weak self] id in
+        // in flight to land first. It carries the lease itself, which keeps its identity from passing to a newer one.
+        let lost: @Sendable (Lease) -> Void = { [weak self] lease in
             Task { @MainActor in
                 await self?.asking?.value
-                self?.lost(id)
+                self?.lost(lease)
             }
         }
         return {
@@ -265,8 +265,8 @@ enum ChargeHoldEvent: Equatable {
         return failure.status == .enabled ? .unknown(failure) : .allowed(failure)
     }
 
-    private func lost(_ id: ObjectIdentifier) {
-        guard case .paused(let lease) = state, ObjectIdentifier(lease) == id else { return }
+    private func lost(_ ended: Lease) {
+        guard case .paused(let lease) = state, lease === ended else { return }
         state = .unknown(nil)
         record(.lost)
         evaluate()

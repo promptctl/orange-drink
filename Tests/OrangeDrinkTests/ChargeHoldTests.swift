@@ -17,7 +17,7 @@ final class FakeLease: Sendable {}
 final class FakeChargeHelper: @unchecked Sendable {
     private let lock = NSLock()
     private var log: [String] = []
-    private var leases: [(lease: FakeLease, lost: @Sendable (ObjectIdentifier) -> Void)] = []
+    private var leases: [(lease: FakeLease, lost: @Sendable (FakeLease) -> Void)] = []
     private var answer: HelperUseFailure?
     private var held: DispatchSemaphore?
 
@@ -39,7 +39,7 @@ final class FakeChargeHelper: @unchecked Sendable {
     /// The helper ends the latest pause it granted.
     func endLatestLease() {
         guard let last = lock.withLock({ leases.last }) else { Issue.record("no lease was granted"); return }
-        last.lost(ObjectIdentifier(last.lease))
+        last.lost(last.lease)
     }
 
     var effects: ChargeHold<FakeLease>.Effects {

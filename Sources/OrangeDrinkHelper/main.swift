@@ -118,9 +118,9 @@ final class Listener: NSObject, NSXPCListenerDelegate {
         let session = Session(peer: connection.processIdentifier)
         connection.exportedInterface = NSXPCInterface(with: PrivilegedHelper.self)
         connection.exportedObject = session
-        // A connection that ends, by the app's quit or crash or its own release, lets go of any pause it held.
-        let holder = ObjectIdentifier(session)
-        connection.invalidationHandler = { logged { $0.drop(holder) } }
+        // A connection that ends, by the app's quit or crash or its own release, lets go of any pause it held. The
+        // handler holds the session, so its identity cannot pass to a newer connection's before this drop runs.
+        connection.invalidationHandler = { logged { $0.drop(ObjectIdentifier(session)) } }
         connection.resume()
         return true
     }

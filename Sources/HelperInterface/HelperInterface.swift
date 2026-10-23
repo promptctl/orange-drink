@@ -282,17 +282,17 @@ struct HelperClient {
 
     /// Holds charging paused on a connection kept for it; the lease is that connection. `lost` hears, once, that the
     /// helper ended a lease it had granted; a lease this call fails to grant is ended here and never reported.
-    func pauseCharging(lost: @escaping @Sendable (ObjectIdentifier) -> Void) throws(HelperCallError) -> ChargeLease {
+    func pauseCharging(lost: @escaping @Sendable (ChargeLease) -> Void) throws(HelperCallError) -> ChargeLease {
         let lease = ChargeLease(connection: connect(), service: service, lost: lost)
         do {
             try Self.send(on: lease.connection, service: service) { helper, deadline, finish in
                 helper.pauseCharging(until: deadline) { kind, description in finish(HelperCallError.charging(kind: kind, description: description)) }
             }
-            try lease.arm()
         } catch {
             lease.end()
             throw error
         }
+        lease.arm()
         return lease
     }
 
@@ -348,12 +348,12 @@ final class ChargeLease: @unchecked Sendable {
     // documents it as safe to message from any thread, and `stage` is the lease's only other state, under its lock.
     fileprivate let connection: NSXPCConnection
     private let service: String
-    private let lost: @Sendable (ObjectIdentifier) -> Void
+    private let lost: @Sendable (ChargeLease) -> Void
     private let stage = OSAllocatedUnfairLock(initialState: Stage.granting)
 
     private enum Stage { case granting, armed, ended }
 
-    fileprivate init(connection: NSXPCConnection, service: String, lost: @escaping @Sendable (ObjectIdentifier) -> Void) {
+    fileprivate init(connection: NSXPCConnection, service: String, lost: @escaping @Sendable (ChargeLease) -> Void) {
         self.connection = connection
         self.service = service
         self.lost = lost
@@ -364,14 +364,13 @@ final class ChargeLease: @unchecked Sendable {
     }
 
     /// The grant's reply landed: from here, an end the app did not ask for is reported. A connection that ended while
-    /// the reply crossed was never a lease.
-    fileprivate func arm() throws(HelperCallError) {
-        let armed = stage.withLock { stage in
-            guard stage == .granting else { return false }
-            stage = .armed
-            return true
+    /// the reply crossed was granted and then lost, so it is reported at once: the holder asks again, as for any loss.
+    fileprivate func arm() {
+        let endedWhileGranting = stage.withLock { stage in
+            defer { if stage == .granting { stage = .armed } }
+            return stage == .ended
         }
-        guard armed else { throw .failed("the helper went away before the pause was held") }
+        if endedWhileGranting { lost(self) }
     }
 
     /// Ends the lease. Only an armed lease's first end is reported: the helper's exit, or the system's end of the
@@ -382,7 +381,7 @@ final class ChargeLease: @unchecked Sendable {
             return stage == .armed
         }
         connection.invalidate()
-        if wasArmed { lost(ObjectIdentifier(self)) }
+        if wasArmed { lost(self) }
     }
 
     /// Lets go of the pause: the helper is told on this connection, then the connection ends. The lease is used up

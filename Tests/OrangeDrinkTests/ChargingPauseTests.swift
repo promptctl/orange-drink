@@ -65,14 +65,36 @@ final class FakeMarker: PauseRecord {
         ChargingHolds(open: { () throws(ChargingFailure) in chte }, marker: marker)
     }
 
-    @Test func anotherWritersPauseIsLeftAloneAtStartAndAtAPowerChange() {
-        let chte = FakeCHTE(Self.paused), marker = FakeMarker(marked: false)
-        let holds = Self.holds(chte, marker)
+    @Test func anotherWritersPauseIsLeftAloneAtStartAndAtAPowerChangeWithoutOpeningTheSMC() {
+        final class Opens { var count = 0 }
+        let opens = Opens(), chte = FakeCHTE(Self.paused), marker = FakeMarker(marked: false)
+        let holds = ChargingHolds(open: { () throws(ChargingFailure) in opens.count += 1; return chte }, marker: marker)
         for trigger in ["helper start", "power source changed"] {
             let outcome = holds.check(trigger)
-            #expect(outcome.line == "charging \(trigger): 0 holding, marked false, CHTE 01000000: nothing to do")
+            #expect(outcome.line == "charging \(trigger): 0 holding, marked false: nothing to do")
         }
-        #expect(chte.writes == [] && marker.changes == [])
+        #expect(chte.writes == [] && marker.changes == [] && opens.count == 0)
+    }
+
+    /// A refusal met while giving charging back is not this Mac's final answer: the record stays, and the next
+    /// reconcile tries again.
+    @Test func aRefusalWhileGivingChargingBackIsTriedAgain() {
+        final class Flaky: ChargeInhibitAccess {
+            var refuse = true
+            var bytes: [UInt8] = [1, 0, 0, 0]
+            func read() throws(ChargingFailure) -> (inhibit: ChargingInhibit?, bytes: [UInt8]) { (ChargingInhibit(bytes: bytes), bytes) }
+            func write(_ inhibit: ChargingInhibit) throws(ChargingFailure) {
+                if refuse { throw .unsupported("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged)") }
+                bytes = inhibit.bytes
+            }
+        }
+        let key = Flaky(), marker = FakeMarker(marked: true)
+        let holds = ChargingHolds(open: { () throws(ChargingFailure) in key }, marker: marker)
+        #expect(holds.check("helper start").result.failure != nil)
+        #expect(holds.state == .supported(holders: []) && marker.marked)
+        key.refuse = false
+        _ = holds.end("helper exits: SIGTERM")
+        #expect(key.bytes == Self.allowed && !marker.marked)
     }
 
     @Test func aPauseADeadHelperLeftIsEndedOnceAtTheNextStart() {

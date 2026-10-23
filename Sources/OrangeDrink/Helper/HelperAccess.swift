@@ -35,7 +35,7 @@ struct HelperAccess {
         try Self.explained({ () throws(HelperCallError) in try client.setLowPowerMode(on) }, status: status)
     }
 
-    func pauseCharging(lost: @escaping @Sendable (ObjectIdentifier) -> Void) throws(HelperUseFailure) -> ChargeLease {
+    func pauseCharging(lost: @escaping @Sendable (ChargeLease) -> Void) throws(HelperUseFailure) -> ChargeLease {
         try Self.explained({ () throws(HelperCallError) in try client.pauseCharging(lost: lost) }, status: status)
     }
 

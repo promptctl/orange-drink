@@ -24,7 +24,11 @@ struct ChargingScreen: View {
                     AccentSwitch(isOn: edits.binding(\.isOn), tint: .green, label: "Charge Limit")
                 }
                 if edits.value.isOn {
-                    if let failure = hold.failure { failureLine(failure) }
+                    if let failure = hold.failure {
+                        HelperFailureLine(failure: failure, explanation: Self.explanation(of: failure, appName: appName),
+                                          openLoginItems: { hold.openLoginItems() })
+                            .padding(.horizontal, 16).padding(.bottom, 10)
+                    }
                     SettingRow(title: "Target", description: "Charging pauses at this level") {
                         PopUpButton(selection: edits.binding(\.target), options: ChargeTarget.all, title: { Text("\($0.percent)%") })
                     }
@@ -36,20 +40,5 @@ struct ChargingScreen: View {
         // back to the front while it shows, asks again about a failure it holds.
         .onAppear { hold.recheck() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in hold.recheck() }
-    }
-
-    /// A failure the user can fix says how; any other says what went wrong.
-    private func failureLine(_ failure: HelperUseFailure) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            let explanation = PhraseText(Self.explanation(of: failure, appName: appName))
-            if failure.needsApproval {
-                explanation.fixedSize(horizontal: false, vertical: true)
-                Button { hold.openLoginItems() } label: { PhraseText(LowPowerMode.openLoginItemsTitle) }
-                    .buttonStyle(.link)
-            } else {
-                explanation.foregroundStyle(.red).lineLimit(3)
-            }
-        }
-        .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.bottom, 10)
     }
 }

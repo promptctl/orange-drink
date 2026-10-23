@@ -115,20 +115,20 @@ final class ChargeInhibitKey {
         let kr = IOServiceOpen(service, mach_task_self_, 0, &opened)
         guard kr == KERN_SUCCESS else { throw Self.failure("IOServiceOpen AppleSMC", kr) }
         connection = opened
+        // Once per opening: the shape cannot change while the key is open. A throw here still closes the connection.
+        try checkShape()
     }
 
     deinit { IOServiceClose(connection) }
 
     /// What CHTE holds: one of the helper's two values, or nil with the bytes for a value it never writes.
     func read() throws(ChargingFailure) -> (inhibit: ChargingInhibit?, bytes: [UInt8]) {
-        try checkShape()
         let out = try call(.read) { Self.put32(&$0, Offset.dataSize, 4) }
         let bytes = Array(out[Offset.bytes..<Offset.bytes + 4])
         return (ChargingInhibit(bytes: bytes), bytes)
     }
 
     func write(_ inhibit: ChargingInhibit) throws(ChargingFailure) {
-        try checkShape()
         _ = try call(.write) {
             Self.put32(&$0, Offset.dataSize, 4)
             $0.replaceSubrange(Offset.bytes..<Offset.bytes + 4, with: inhibit.bytes)
