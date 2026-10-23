@@ -12,6 +12,12 @@ struct ChildProcess {
     /// Both streams, for a failure message.
     var transcript: String { text + errors }
 
+    struct TimedOut: Error, CustomStringConvertible {
+        let executable: String
+        let seconds: Int
+        var description: String { "\(executable) was still running at its \(seconds) s deadline and was killed" }
+    }
+
     static func run(_ executable: String, _ arguments: [String], deadline seconds: Int = 30) throws -> ChildProcess {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -20,7 +26,11 @@ struct ChildProcess {
         process.standardOutput = out
         process.standardError = err
         try process.run()
-        let killer = DispatchWorkItem { process.terminate() }
+        let killed = OSAllocatedUnfairLock(initialState: false)
+        let killer = DispatchWorkItem {
+            killed.withLock { $0 = true }
+            process.terminate()
+        }
         DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(seconds), execute: killer)
         // stderr drains on its own thread, so a tool that fills one pipe never blocks on the other.
         let errors = OSAllocatedUnfairLock(initialState: Data())
@@ -34,6 +44,7 @@ struct ChildProcess {
         drained.wait()
         process.waitUntilExit()
         killer.cancel()
+        if killed.withLock({ $0 }) { throw TimedOut(executable: executable, seconds: seconds) }
         return ChildProcess(status: process.terminationStatus, output: output, errors: String(decoding: errors.withLock { $0 }, as: UTF8.self))
     }
 }

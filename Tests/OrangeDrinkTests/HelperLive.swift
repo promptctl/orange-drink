@@ -63,8 +63,16 @@ struct HelperLive {
         #expect(control.status == 0, "team-signed: \(control.transcript)")
         let controlPid = try #require(control.text.firstMatch(of: /pid (\d+)/)?.1, "team-signed printed no pid: \(control.transcript)")
 
-        // The helper's log separates a refusal from an unreachable helper.
-        let helperLog = try helperLogSinceStart()
+        // The helper's log separates a refusal from an unreachable helper. Its lines reach the store a moment
+        // after the calls, so the log is read until they are there.
+        func complete(_ log: String) -> Bool {
+            log.components(separatedBy: Self.refusalLine).count - 1 >= refused.count && log.contains("accepted pid \(controlPid)")
+        }
+        var helperLog = try helperLogSinceStart()
+        for _ in 0..<10 where !complete(helperLog) {
+            Thread.sleep(forTimeInterval: 0.5)
+            helperLog = try helperLogSinceStart()
+        }
         #expect(helperLog.components(separatedBy: Self.refusalLine).count - 1 >= refused.count, "helper log:\n\(helperLog)")
         #expect(helperLog.contains("accepted pid \(controlPid)"), "helper log:\n\(helperLog)")
 

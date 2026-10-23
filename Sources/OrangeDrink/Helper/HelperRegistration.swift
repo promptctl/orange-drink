@@ -50,21 +50,25 @@ enum HelperRegistration {
         do { return try LaunchDaemon(in: .main) } catch { fatalError("no helper launchd plist: \(error)") }
     }()
 
+    /// The launch's steps, which the exit handler waits for.
+    static let launching = DispatchGroup()
+
     /// The launch path's one call. It installs the one handler that releases the record at exit, then, off
     /// the main thread since each step is a round trip to the system's background-task daemons, clears
     /// (which also repairs a job a crashed copy left wedged) and registers, so this copy's helper is the
     /// job's program; approval survives both steps. A refusal, such as an approval not yet given, is logged,
-    /// and the app runs without the helper. An exit while this is under way can leave the record, which the
-    /// copy's next launch clears.
+    /// and the app runs without the helper.
     static func holdUntilExit() {
         let plistName = daemon.plistName
         // A C function pointer captures nothing, so the handler reads the plist name launch already read.
         atexit {
+            // [LAW:no-ambient-temporal-coupling] An exit soon after launch releases what the launch registered.
+            HelperRegistration.launching.wait()
             let service = SMAppService.daemon(plistName: HelperRegistration.daemon.plistName)
             let clearing = HelperRegistration.clear(service)
             HelperRegistration.log.notice("\(HelperRegistration.Event.exited(clearing, status: service.status.name).line, privacy: .public)")
         }
-        DispatchQueue.global(qos: .utility).async {
+        DispatchQueue.global(qos: .utility).async(group: launching) {
             let service = SMAppService.daemon(plistName: plistName)
             let clearing = clear(service)
             let refusal = attempt(service.register)

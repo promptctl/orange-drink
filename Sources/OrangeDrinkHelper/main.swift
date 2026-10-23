@@ -21,9 +21,9 @@ if let path = Processes.executablePath(of: getpid()) { executable = path } else 
     exit(EX_OSERR)
 }
 
-// [LAW:one-source-of-truth] The code that serves is the file on disk. A rebuild or an update that rewrites,
-// replaces or removes it ends this process, and launchd runs the new file at the next call, even while a
-// running copy of the app still holds the record and so never unregisters.
+// [LAW:one-source-of-truth] The code that serves is the file on disk. A rebuild that rewrites, replaces or
+// removes it, or the unmount of its volume, ends this process, and launchd runs the new file at the next
+// call, even while a running copy of the app still holds the record and so never unregisters.
 let binary = open(executable, O_EVTONLY)
 if binary < 0 {
     log.fault("helper exits: cannot watch \(executable, privacy: .public), errno \(errno)")

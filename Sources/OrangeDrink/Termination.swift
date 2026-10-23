@@ -76,7 +76,9 @@ enum TerminationRequest: Equatable {
         let sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         sigterm.setEventHandler { MainActor.assumeIsolated { NSApplication.shared.terminate(nil) } }
         sigterm.resume()
-        signal(SIGTERM, SIG_IGN)
+        // A handler that does nothing, not SIG_IGN: an ignored signal stays ignored in every process the app
+        // runs, while a caught one is reset to the default in each.
+        signal(SIGTERM) { _ in }
         source = sigterm
     }
 }
