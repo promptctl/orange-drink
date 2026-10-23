@@ -58,37 +58,34 @@ struct DevicesScreen: View {
     let settings: DeviceSettingsModel
     /// Switches the settings window to another screen.
     let select: (SettingsScreen) -> Void
-    @State private var saveFailure: String?
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        let current = settings.value
-        VStack(alignment: .leading, spacing: 24) {
-            if let saveFailure {
-                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                SettingsSectionHeader(symbol: "wave.3.right", color: .blue, title: "Bluetooth Devices")
-                SettingCard {
-                    SettingRow(icon: ("ipad.and.iphone", .gray), title: "Show Connected Devices",
-                               description: "Display battery levels for paired Bluetooth devices in the menu bar dropdown") {
-                        AccentSwitch(isOn: showBinding, tint: .blue, label: "Show Connected Devices")
+        SettingEditor(settings) { edits in
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSectionHeader(symbol: "wave.3.right", color: .blue, title: "Bluetooth Devices")
+                    SettingCard {
+                        SettingRow(icon: ("ipad.and.iphone", .gray), title: "Show Connected Devices",
+                                   description: "Display battery levels for paired Bluetooth devices in the menu bar dropdown") {
+                            AccentSwitch(isOn: edits.binding(\.showConnectedDevices), tint: .blue, label: "Show Connected Devices")
+                        }
                     }
                 }
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                SettingsSectionHeader(symbol: "antenna.radiowaves.left.and.right", color: .primary, title: "Detected Devices")
-                detectedCard(DetectedDevices(devices.list, settings: current))
-            }
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(DevicesHelpLine.all) { helpLine($0) }
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSectionHeader(symbol: "antenna.radiowaves.left.and.right", color: .primary, title: "Detected Devices")
+                    detectedCard(DetectedDevices(devices.list, settings: edits.value), edits)
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(DevicesHelpLine.all) { helpLine($0) }
+                }
             }
         }
         .padding(24)
         .background(SettingsBackground(glow: .green, glowCenter: .top))
     }
 
-    @ViewBuilder private func detectedCard(_ detected: DetectedDevices) -> some View {
+    @ViewBuilder private func detectedCard(_ detected: DetectedDevices, _ edits: SettingEdits<DeviceSettings>) -> some View {
         if devices.failure != nil {
             Text("Device readings stopped. Quit and reopen the app.").foregroundStyle(.secondary)
         } else if detected.entries.isEmpty {
@@ -104,19 +101,19 @@ struct DevicesScreen: View {
                             Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 12)
-                        Button { toggleAlerting(entry.id) } label: {
+                        Button { edits.perform { $0.toggleAlerting(entry.id) } } label: {
                             Image(systemName: entry.isAlerting ? "bell.fill" : "bell.slash").frame(width: 32, height: 32)
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(entry.alertingLabel.text(in: language))
-                        Button { togglePinned(entry.id) } label: {
+                        Button { edits.perform { $0.togglePinned(entry.id) } } label: {
                             Image(systemName: entry.isPinned ? "pin.fill" : "pin").frame(width: 32, height: 32)
                                 .background(Color.veil(0.1), in: Circle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(entry.pinnedLabel.text(in: language))
-                        Button { toggleHidden(entry.id) } label: {
+                        Button { edits.perform { $0.toggleHidden(entry.id) } } label: {
                             Image(systemName: entry.isHidden ? "eye.slash" : "eye").frame(width: 32, height: 32)
                                 .background(Color.veil(0.1), in: Circle())
                         }
@@ -141,24 +138,6 @@ struct DevicesScreen: View {
                     select(screen)
                     return .handled
                 })
-        }
-    }
-
-    private var showBinding: Binding<Bool> {
-        Binding(get: { settings.value.showConnectedDevices }, set: { show in perform { $0.showConnectedDevices = show } })
-    }
-
-    private func toggleHidden(_ id: DeviceID) { perform { $0.toggleHidden(id) } }
-    private func toggleAlerting(_ id: DeviceID) { perform { $0.toggleAlerting(id) } }
-    private func togglePinned(_ id: DeviceID) { perform { $0.togglePinned(id) } }
-
-    /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
-    private func perform(_ edit: (inout DeviceSettings) -> Void) {
-        do {
-            try settings.update(edit)
-            saveFailure = nil
-        } catch {
-            saveFailure = error.localizedDescription
         }
     }
 }

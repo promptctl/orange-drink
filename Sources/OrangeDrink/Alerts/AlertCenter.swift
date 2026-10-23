@@ -29,6 +29,9 @@ import os
         settings = try store.load()
     }
 
+    /// The defaults key the settings are kept under, which the settings log names them by.
+    var storageKey: String { store.key }
+
     func update(_ edit: (inout AlertSettings) -> Void) throws {
         var edited = settings
         edit(&edited)

@@ -10,6 +10,7 @@ struct SettingsView: View {
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
+    let chargeLimit: ChargeLimitModel
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
@@ -28,7 +29,7 @@ struct SettingsView: View {
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
             ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
-                       deviceSettings: deviceSettings, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
+                       deviceSettings: deviceSettings, chargeLimit: chargeLimit, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
         }
         .appLook(look, language)
         .frame(minWidth: 760, minHeight: 640)
@@ -72,6 +73,7 @@ private struct ScreenView: View {
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
+    let chargeLimit: ChargeLimitModel
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
@@ -93,6 +95,7 @@ private struct ScreenView: View {
                 case .general: GeneralScreen(appearance: appearance, look: look, language: language)
                 case .alerts: AlertsScreen(center: alerts)
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
+                case .charging: ChargingScreen(limit: chargeLimit)
                 case .shortcuts: ShortcutsScreen(controller: shortcuts)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
                 case .appUsage: AppUsageScreen(appEnergy: appEnergy)

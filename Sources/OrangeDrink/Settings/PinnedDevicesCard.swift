@@ -26,16 +26,12 @@ struct PinnedDevicesList: Equatable {
 struct PinnedDevicesCard: View {
     let devices: DevicesModel
     let settings: DeviceSettingsModel
-    @State private var saveFailure: String?
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        let list = PinnedDevicesList(devices.list, pinned: settings.value.pinned)
-        VStack(alignment: .leading, spacing: 8) {
+        SettingEditor(settings) { edits in
+            let list = PinnedDevicesList(devices.list, pinned: edits.value.pinned)
             SettingsSectionHeader(symbol: "pin.fill", color: .orange, title: "Pinned Devices")
-            if let saveFailure {
-                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            }
             if list.entries.isEmpty {
                 Text("Pin a connected device from the Devices screen to arrange it here.").foregroundStyle(.secondary)
             } else {
@@ -49,8 +45,8 @@ struct PinnedDevicesCard: View {
                                 Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer(minLength: 12)
-                            moveButton("chevron.up", "Move \(entry.row.name) up, toward the left of the menu bar", entry.id, with: entry.above)
-                            moveButton("chevron.down", "Move \(entry.row.name) down, toward the right of the menu bar", entry.id, with: entry.below)
+                            moveButton("chevron.up", "Move \(entry.row.name) up, toward the left of the menu bar", entry.id, with: entry.above, edits)
+                            moveButton("chevron.down", "Move \(entry.row.name) down, toward the right of the menu bar", entry.id, with: entry.below, edits)
                         }
                         .padding(12)
                         .accessibilityElement(children: .contain)
@@ -63,22 +59,12 @@ struct PinnedDevicesCard: View {
     }
 
     /// A button that trades places with a neighbour, and is off when there is none on that side.
-    private func moveButton(_ symbol: String, _ label: Phrase, _ id: DeviceID, with neighbour: DeviceID?) -> some View {
-        Button { if let neighbour { perform { $0.pinned.swap(id, with: neighbour) } } } label: {
+    private func moveButton(_ symbol: String, _ label: Phrase, _ id: DeviceID, with neighbour: DeviceID?, _ edits: SettingEdits<DeviceSettings>) -> some View {
+        Button { if let neighbour { edits.perform { $0.pinned.swap(id, with: neighbour) } } } label: {
             Image(systemName: symbol).frame(width: 32, height: 32).background(Color.veil(0.1), in: Circle())
         }
         .buttonStyle(.plain)
         .disabled(neighbour == nil)
         .accessibilityLabel(label.text(in: language))
-    }
-
-    /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
-    private func perform(_ edit: (inout DeviceSettings) -> Void) {
-        do {
-            try settings.update(edit)
-            saveFailure = nil
-        } catch {
-            saveFailure = error.localizedDescription
-        }
     }
 }
