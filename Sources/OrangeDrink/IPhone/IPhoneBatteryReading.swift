@@ -32,6 +32,15 @@ enum MaximumCapacity: Equatable {
     }
 }
 
+extension MaximumCapacity: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .stored: "\(percent)% (stored)"
+        case .ratio(let ratio): "\(percent)% (" + String(format: "ratio %.1f%%", ratio) + ")"
+        }
+    }
+}
+
 struct IPhoneBatteryReading: Equatable {
     /// Percent: top-level CurrentCapacity over top-level MaxCapacity.
     let level: Int
@@ -52,13 +61,8 @@ struct IPhoneBatteryReading: Equatable {
 // stated here rather than left to reflection.
 extension IPhoneBatteryReading: CustomStringConvertible {
     var description: String {
-        let source = switch maximumCapacity {
-        case .stored: "stored"
-        case .ratio(let ratio): String(format: "ratio %.1f%%", ratio)
-        }
-        return "level \(level)%, cycles \(cycleCount), design \(designCapacity.mAh) mAh (\(designCapacity.place.rawValue)), "
-            + "nominal \(nominalChargeCapacity.mAh) mAh (\(nominalChargeCapacity.place.rawValue)), "
-            + "max capacity \(maximumCapacity.percent)% (\(source))"
+        "level \(level)%, cycles \(cycleCount), design \(designCapacity.mAh) mAh (\(designCapacity.place.rawValue)), "
+            + "nominal \(nominalChargeCapacity.mAh) mAh (\(nominalChargeCapacity.place.rawValue)), max capacity \(maximumCapacity)"
     }
 }
 
@@ -91,7 +95,8 @@ func parseIPhoneBattery(_ entry: [String: Any]) throws -> IPhoneBatteryReading {
 }
 
 /// A capacity in mAh: the top-level key if present, else the BatteryData key. The two places are separate snapshots
-/// (Voltage differs between them within one reply), so they are never compared; the precedence is fixed.
+/// (Voltage differs between them within one reply), so a key's two values are never compared; the precedence is
+/// fixed.
 private func capacity(_ entry: [String: Any], _ battery: [String: Any], _ key: String) throws -> EntryCapacity {
     let place: EntryPlace = entry[key] == nil ? .batteryData : .topLevel
     return EntryCapacity(mAh: try integer(place == .topLevel ? entry : battery, key, in: 1...), place: place)
