@@ -51,7 +51,8 @@ enum Charging: Equatable, Sendable {
 /// [LAW:types-are-the-program] The estimate exists only where it means something: powerd's
 /// estimate is always to 100%, so a charge a limit will stop short of full carries none.
 enum ChargeOutlook: Equatable, Sendable {
-    /// Heading to full. `in` is nil while the system has no estimate yet.
+    /// No limit reported: powerd's estimate, which counts to 100% even below a limit the charger has
+    /// not reached yet. `in` is nil while the system has no estimate yet.
     case toFull(in: Duration?)
     /// The charger reports a charge limit in force, so this charge ends at the limit, not at full.
     case limited
@@ -151,9 +152,9 @@ private extension Charging {
 }
 
 /// The charger's report, in the registry, that a charge limit is in force: bit 24 of
-/// ChargerData's NotChargingReason (the SMC's CHNC). It is set on the first reading at the limit,
-/// while IOPS still says charging with its estimate to 100%, and outlives the hold for a while on
-/// battery. The field is otherwise undocumented, so no other bit is read. Absent on a Mac that
+/// ChargerData's NotChargingReason (the SMC's CHNC). powerd logs it 3-8 ms after posting the percent
+/// that reaches the limit, while IOPS still says charging with its estimate to 100%, and it outlives
+/// the hold for a while on battery. The field is otherwise undocumented, so no other bit is read. Absent on a Mac that
 /// publishes no charger data: no limit reported.
 private func chargeLimitInForce(_ registry: [String: Any]) throws -> Bool {
     let charger: [String: Any]? = try optionalField("ChargerData", in: registry, "registry")
