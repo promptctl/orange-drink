@@ -104,13 +104,13 @@ enum PillEnd {
     func deliver(_ firing: DeviceFiring) { show(PillContent(firing)) }
 
     func show(_ content: PillContent) {
-        dismiss("replaced")
-        // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost alert is logged.
+        // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
+        // alert is logged. A pill already up stays, and its own countdown takes it down.
         guard let screen = NSScreen.main ?? NSScreen.screens.first else {
             Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .private)")
-            releaseWaiters()
             return
         }
+        dismiss("replaced")
         let look = appearance.value
         let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, screen: screen, onClose: { [weak self] in self?.close(.closeButton) })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
@@ -128,6 +128,7 @@ enum PillEnd {
             self.close(.timedOut)
         }
         up = Up(content: content, panel: panel, glow: glow, expiry: expiry)
+        Self.log.info("pill shown at \(content.position.rawValue, privacy: .public) for \(Self.shownFor, privacy: .public): \(content.headline.english, privacy: .private)")
     }
 
     /// Takes down the pill showing, if any, without telling waiters: a replacement may follow.
@@ -142,10 +143,6 @@ enum PillEnd {
 
     func close(_ end: PillEnd) {
         dismiss("closed: \(end.said)")
-        releaseWaiters()
-    }
-
-    private func releaseWaiters() {
         let released = waiters
         waiters = []
         for waiter in released { waiter.resume() }

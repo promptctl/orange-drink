@@ -109,11 +109,13 @@ import Testing
         await clock.asleep()
 
         clock.advance(by: PillController.shownFor - .seconds(1))
-        #expect(pills.shown != nil && pills.shownGlowFrame != nil)
+        // The countdown is still asleep: `advance` wakes a due sleeper on the spot, so this needs no yield.
+        #expect(clock.sleeping == 1)
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil && pills.shownGlowFrame == nil)
-        #expect(try Self.lines(log, about: "31% Remaining") == ["pill closed: timed out after \(PillController.shownFor): 31% Remaining"])
+        #expect(try Self.lines(log, about: "31% Remaining") == [
+            "pill shown at center for \(PillController.shownFor): 31% Remaining", "pill closed: timed out after \(PillController.shownFor): 31% Remaining"])
     }
 
     @Test func aReplacementGetsItsOwnFullTimeOnScreen() async throws {
@@ -132,12 +134,13 @@ import Testing
 
         let waiter = Task { await pills.untilClosed() }
         clock.advance(by: PillController.shownFor - .seconds(1))
-        #expect(pills.shown?.headline.english == "28% Remaining")
+        #expect(clock.sleeping == 1)
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil)
-        #expect(try Self.lines(log, about: "29% Remaining") == ["pill replaced: 29% Remaining"])
-        #expect(try Self.lines(log, about: "28% Remaining") == ["pill closed: timed out after \(PillController.shownFor): 28% Remaining"])
+        #expect(try Self.lines(log, about: "29% Remaining") == ["pill shown at top for \(PillController.shownFor): 29% Remaining", "pill replaced: 29% Remaining"])
+        #expect(try Self.lines(log, about: "28% Remaining") == [
+            "pill shown at top for \(PillController.shownFor): 28% Remaining", "pill closed: timed out after \(PillController.shownFor): 28% Remaining"])
     }
 
     @Test func closingAPillEndsItsCountdown() async throws {
@@ -151,7 +154,7 @@ import Testing
         pills.close(.closeButton)
         // Nothing is left counting down to take down whichever pill comes up next.
         #expect(clock.sleeping == 0)
-        #expect(try Self.lines(log, about: "26% Remaining") == ["pill closed: ×: 26% Remaining"])
+        #expect(try Self.lines(log, about: "26% Remaining") == ["pill shown at top for \(PillController.shownFor): 26% Remaining", "pill closed: ×: 26% Remaining"])
     }
 
     @Test func pillWordingAndSeverityFollowTheAlertAndTheReading() throws {
@@ -213,7 +216,9 @@ import Testing
             await pills.untilClosed()
         }
         // A pill that timed out proves nothing about whether a person could see it.
-        #expect(try Self.lines(log, about: "17% Remaining") == Array(repeating: "pill closed: ×: 17% Remaining", count: steps.count))
+        #expect(try Self.lines(log, about: "17% Remaining") == steps.flatMap {
+            ["pill shown at \($0.position.rawValue) for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"]
+        })
     }
 }
 
