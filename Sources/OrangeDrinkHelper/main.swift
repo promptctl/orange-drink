@@ -45,33 +45,23 @@ final class Session: NSObject, PrivilegedHelper {
         reply(executable, geteuid())
     }
 
-    func setLowPowerMode(_ on: Bool, reply: @escaping @Sendable (String?) -> Void) {
-        let outcome = Result { () throws(HelperFailure) in try LowPowerModeWrite.perform(on, pmset: pmset) }
+    func setLowPowerMode(_ on: Bool, until deadline: Date, reply: @escaping @Sendable (String?) -> Void) {
+        let outcome = writes.sync {
+            Result { () throws(HelperFailure) in
+                try LowPowerModeWrite.perform(on, source: PmsetSource.current()) { arguments throws(HelperFailure) in
+                    try LowPowerModeWrite.pmset(arguments, until: deadline)
+                }
+            }
+        }
         log.notice("\(LowPowerModeWrite.line(on, peer: self.peer, outcome), privacy: .public)")
         reply(outcome.failure?.description)
     }
 }
 
-/// Runs /usr/bin/pmset to its end: its output, or a failure with its exit status and what it printed.
-func pmset(_ arguments: [String]) throws(HelperFailure) -> String {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
-    process.arguments = arguments
-    let output = Pipe()
-    process.standardOutput = output
-    process.standardError = output
-    do { try process.run() } catch { throw HelperFailure("pmset \(arguments.joined(separator: " ")) did not start: \(error)") }
-    let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-    process.waitUntilExit()
-    guard process.terminationStatus == 0 else { throw HelperFailure("pmset \(arguments.joined(separator: " ")) exited \(process.terminationStatus): \(text)") }
-    return text
-}
-
-extension Result {
-    var failure: Failure? {
-        if case .failure(let failure) = self { failure } else { nil }
-    }
-}
+/// [LAW:single-enforcer] The one order of the system settings this helper writes: each connection delivers on
+/// its own queue, so two connections' writes would run at once; here they run one at a time, in the order
+/// they reach the helper.
+let writes = DispatchQueue(label: "writes")
 
 final class Listener: NSObject, NSXPCListenerDelegate {
     /// [LAW:single-enforcer] Every connection that reaches here has met the listener's requirement.

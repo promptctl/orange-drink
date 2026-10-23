@@ -11,7 +11,7 @@ guard CommandLine.arguments.count == 2 else {
 }
 print("pid \(getpid())")
 do {
-    let identity = try HelperClient(service: CommandLine.arguments[1]).identity(within: 10)
+    let identity = try HelperClient(service: CommandLine.arguments[1]).identity()
     print("identity \(identity.executable) euid \(identity.euid)")
     exit(0)
 } catch {

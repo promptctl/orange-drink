@@ -176,12 +176,13 @@ private struct ActionsCard: View {
         case .batterySettings:
             ActionRow(action: action) { NSWorkspace.shared.open(PanelAction.batteryPane) } trailing: { Chevron() }
         case .lowPowerMode:
-            // The switch shows the system's state and asks for the other one; it moves when the system does.
-            ActionRow(action: action) { lowPowerMode.toggle() } trailing: {
-                Toggle("Low Power Mode", isOn: Binding(get: { lowPowerMode.isOn }, set: { _ in lowPowerMode.toggle() })).labelsHidden().toggleStyle(.switch)
+            // The row is the one input: a click asks for the other state, and the row is busy until the system has
+            // answered. The switch only shows the system's state, so it moves when the system does.
+            ActionRow(action: action, run: lowPowerMode.isAsking ? nil : { lowPowerMode.toggle() }) {
+                Toggle("Low Power Mode", isOn: .constant(lowPowerMode.isOn)).labelsHidden().toggleStyle(.switch).allowsHitTesting(false)
             }
             if let failure = lowPowerMode.failure {
-                PhraseText("Couldn't change Low Power Mode: \(failure)").font(.caption).foregroundStyle(.red)
+                PhraseText("Couldn't change Low Power Mode: \(failure)").font(.caption).foregroundStyle(.red).lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
             }
         case .checkForUpdates:

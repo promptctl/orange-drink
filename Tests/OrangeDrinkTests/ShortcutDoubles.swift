@@ -35,7 +35,7 @@ import Foundation
 }
 
 @MainActor final class FakeKeyEvents: KeyEvents {
-    private var handler: (@MainActor (PlainKey) -> Bool)?
+    private var handler: (@MainActor (KeyPress) -> Bool)?
     var listening: Bool { handler != nil }
 
     private final class Listener: KeyListening {
@@ -44,13 +44,14 @@ import Foundation
         func stop() { stopped() }
     }
 
-    func listen(_ handle: @escaping @MainActor (PlainKey) -> Bool) -> any KeyListening {
+    func listen(_ handle: @escaping @MainActor (KeyPress) -> Bool) -> any KeyListening {
         handler = handle
         return Listener { [weak self] in self?.handler = nil }
     }
 
-    /// A key typed to the app: true when a shortcut used it, false when it goes on to whoever would have had it.
-    func type(_ key: PlainKey) -> Bool { handler?(key) ?? false }
+    /// A key typed to the app, or the system's repeat of one held: true when a shortcut used it, false when it
+    /// goes on to whoever would have had it.
+    func type(_ key: PlainKey, repeating: Bool = false) -> Bool { handler?(KeyPress(key: key, isRepeat: repeating)) ?? false }
 }
 
 func scratchDefaults() -> UserDefaults {
