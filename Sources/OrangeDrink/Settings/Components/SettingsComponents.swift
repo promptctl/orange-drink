@@ -189,9 +189,11 @@ struct SettingsBackground: View {
         var center: UnitPoint
         var opacity = 0.18
         var radius: CGFloat = 420
+
+        static let standard = Glow(color: .green, center: .topTrailing)
     }
 
-    var glows = [Glow(color: .green, center: .topTrailing)]
+    var glows = [Glow.standard]
 
     var body: some View {
         ZStack {

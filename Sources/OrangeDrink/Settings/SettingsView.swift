@@ -39,10 +39,10 @@ struct SettingsView: View {
 extension SettingsScreen {
     var tileColor: Color { Color(hue: tileHue / 360, saturation: 0.75, brightness: 0.9) }
 
-    /// The glows behind the screen, from its design doc's "Background" line where it has one.
+    /// The glows behind the screen. Where its design doc has a "Background" line, they follow it.
     var backdrop: SettingsBackground {
         switch self {
-        case .alerts: SettingsBackground(glows: [.init(color: .green, center: .topTrailing), .init(color: .red, center: .center, opacity: 0.1, radius: 360)])
+        case .alerts: SettingsBackground(glows: [.standard, .init(color: .red, center: .center, opacity: 0.1, radius: 360)])
         case .devices, .battery: SettingsBackground(glows: [.init(color: .green, center: .top)])
         case .appUsage: SettingsBackground(glows: [.init(color: .indigo, center: .top)])
         case .general, .menuBar, .charging, .widgets, .shortcuts, .iphoneIpad: SettingsBackground()
