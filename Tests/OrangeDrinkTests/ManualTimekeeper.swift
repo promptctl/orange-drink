@@ -44,6 +44,10 @@ final class ManualTimekeeper: Timekeeper, @unchecked Sendable {
         }
     }
 
+    /// How many sleeps are waiting on this clock. A cancelled sleep leaves at once, in its
+    /// cancellation handler, so a test reads this with no yield in between.
+    var sleeping: Int { lock.withLock { sleepers.count } }
+
     func advance(by duration: Duration) {
         let due = lock.withLock {
             current = current.addingTimeInterval(Double(duration.components.seconds))

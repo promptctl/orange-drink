@@ -14,6 +14,12 @@ import Testing
         "CycleCount": 103, "DesignCycleCount9C": 1000,
         "Temperature": 3093, "Voltage": 12510, "Amperage": -252,
     ] }
+    /// The registry as the charger reports a charge limit in force: this Mac at its 80% Charge
+    /// Limit, where ChargerData's NotChargingReason read 16777216 (bit 24).
+    static func charger(reason: Any) -> [String: Any] {
+        registry.merging(["ChargerData": ["NotChargingReason": reason, "ChargingCurrent": 3539]]) { $1 }
+    }
+    static var limitInForce: [String: Any] { charger(reason: 16_777_216) }
     static var adapter: [String: Any] { [kIOPSPowerAdapterWattsKey: 86] }
     static var eightySixWatts: Measurement<UnitPower> { .init(value: 86, unit: .watts) }
 
@@ -37,7 +43,8 @@ import Testing
         kIOPSIsChargingKey: false, kIOPSTimeToFullChargeKey: 0, kIOPSTimeToEmptyKey: 0,
     ] }
 
-    static func parse(_ powerSource: [String: Any], adapter: [String: Any] = adapter) throws -> BatteryReading {
+    static func parse(_ powerSource: [String: Any], adapter: [String: Any] = adapter,
+                      registry: [String: Any] = registry) throws -> BatteryReading {
         try #require(try BatteryReading(registry: registry, powerSource: powerSource, adapter: adapter))
     }
 
@@ -66,12 +73,59 @@ import Testing
 
     @Test func chargingWithEstimate() throws {
         let reading = try Self.parse(Self.charging(timeToFull: 82))
-        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(timeToFull: .seconds(82 * 60))))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(.toFull(in: .seconds(82 * 60)))))
     }
 
     @Test func chargingWhileStillCalculating() throws {
         let reading = try Self.parse(Self.charging(timeToFull: -1))
-        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(timeToFull: nil)))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(.toFull(in: nil))))
+    }
+
+    // The reported moment, captured live: at 80%, IOPS still says charging with 48 min to full
+    // (its estimate is to 100%) while the charger already reports the limit in force.
+    @Test func chargingWithTheLimitInForceHasNoEstimate() throws {
+        let reading = try Self.parse(Self.charging(timeToFull: 48), registry: Self.limitInForce)
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(.limited)))
+        #expect(reading.power.estimate == nil)
+        // What the "battery read:" log line carries for this reading.
+        #expect(String(describing: reading.power).contains("limited"))
+    }
+
+    // The charger's report alone decides, whatever the level: the parse claims no more than it.
+    @Test func theLimitReportDecidesAtAnyLevel() throws {
+        var source = Self.charging(timeToFull: 55)
+        source[kIOPSCurrentCapacityKey] = 76
+        #expect(try Self.parse(source, registry: Self.limitInForce).power == .adapter(Self.eightySixWatts, .charging(.limited)))
+    }
+
+    // Every charging reading below the limit on this Mac: the charger data present, the reason 0.
+    @Test func chargingWithNoReasonKeepsTheEstimate() throws {
+        let reading = try Self.parse(Self.charging(timeToFull: 48), registry: Self.charger(reason: 0))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(.toFull(in: .seconds(48 * 60)))))
+    }
+
+    @Test func theLimitReportDoesNotExcuseAMissingEstimate() {
+        var source = Self.charging(timeToFull: 48)
+        source[kIOPSTimeToFullChargeKey] = nil
+        #expect(throws: BatteryReadError.invalid(key: kIOPSTimeToFullChargeKey, source: "power source")) {
+            try Self.parse(source, registry: Self.limitInForce)
+        }
+    }
+
+    @Test func onlyTheLimitBitIsRead() throws {
+        let reading = try Self.parse(Self.charging(timeToFull: 82), registry: Self.charger(reason: 128))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(.toFull(in: .seconds(82 * 60)))))
+    }
+
+    @Test func theHoldAtTheLimitIsNotCharging() throws {
+        let reading = try Self.parse(Self.onACNotCharging(charged: false), registry: Self.limitInForce)
+        #expect(reading.power == .adapter(Self.eightySixWatts, .notCharging))
+    }
+
+    @Test func aMistypedChargerReasonFailsNamingIt() {
+        #expect(throws: BatteryReadError.invalid(key: "NotChargingReason", source: "charger data")) {
+            try Self.parse(Self.charging(timeToFull: 48), registry: Self.charger(reason: "16777216"))
+        }
     }
 
     @Test func dischargingWithEstimate() throws {

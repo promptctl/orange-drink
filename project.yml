@@ -12,13 +12,26 @@ settings:
     ARCHS: arm64
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: 1
+    # [LAW:one-source-of-truth] Every build is signed with the Hardened Runtime and a secure
+    # timestamp, so the app developed on runs under the rules the shipped one does; an ad-hoc
+    # signature takes no timestamp and codesign skips it. A release supplies only the Developer ID
+    # identity (scripts/dmg), and the Makefile reads the team from it.
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "-"
     DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: YES
+    OTHER_CODE_SIGN_FLAGS: --timestamp
+  configs:
+    # Xcode adds get-task-allow to every build it signs, so a debugger can attach under the Hardened
+    # Runtime; the notary service refuses an app that carries it.
+    Release:
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift
-    from: 7.9.0
+    # [LAW:one-source-of-truth] Exact, so the source tree decides what a fresh build directory
+    # resolves; GRDB is the only package and has no dependencies of its own.
+    exactVersion: 7.11.1
 targets:
   OrangeDrink:
     type: application

@@ -40,11 +40,22 @@ enum PowerSource: Equatable, Sendable {
 }
 
 enum Charging: Equatable, Sendable {
-    /// `timeToFull` is nil while the system has no estimate yet.
-    case charging(timeToFull: Duration?)
+    case charging(ChargeOutlook)
     /// On an adapter with no charge flowing: held under a charge limit, or paused by the system.
     case notCharging
     case full
+}
+
+/// Where a charge in progress is heading, as far as the system tells.
+///
+/// [LAW:types-are-the-program] The estimate exists only where it means something: powerd's
+/// estimate is always to 100%, so a charge a limit will stop short of full carries none.
+enum ChargeOutlook: Equatable, Sendable {
+    /// No limit reported: powerd's estimate, which counts to 100% even below a limit the charger has
+    /// not reached yet. `in` is nil while the system has no estimate yet.
+    case toFull(in: Duration?)
+    /// The charger reports a charge limit in force, so this charge ends at the limit, not at full.
+    case limited
 }
 
 struct Capacity: Equatable, Sendable {
@@ -85,7 +96,7 @@ extension BatteryReading {
             throw BatteryReadError.invalid(key: kIOPSCurrentCapacityKey, source: "power source")
         }
         chargePercent = percent
-        power = try PowerSource(powerSource: powerSource, adapter: adapter)
+        power = try PowerSource(powerSource: powerSource, adapter: adapter, registry: registry)
         // The registry holds integers: mAh, hundredths of a degree, millivolts, milliamperes.
         func integer(_ key: String) throws -> Double { Double(try field(key, in: registry, "registry") as Int) }
         capacity = Capacity(
@@ -110,13 +121,13 @@ extension BatteryReading {
 }
 
 private extension PowerSource {
-    init(powerSource: [String: Any], adapter: [String: Any]) throws {
+    init(powerSource: [String: Any], adapter: [String: Any], registry: [String: Any]) throws {
         switch try field(kIOPSPowerSourceStateKey, in: powerSource, "power source") as String {
         case kIOPSBatteryPowerValue:
             self = .battery(timeToEmpty: duration(minutes: try field(kIOPSTimeToEmptyKey, in: powerSource, "power source")))
         case kIOPSACPowerValue:
             let watts: Int? = try optionalField(kIOPSPowerAdapterWattsKey, in: adapter, "adapter")
-            self = .adapter(watts.map { .init(value: Double($0), unit: .watts) }, try Charging(powerSource: powerSource))
+            self = .adapter(watts.map { .init(value: Double($0), unit: .watts) }, try Charging(powerSource: powerSource, registry: registry))
         default:
             throw BatteryReadError.invalid(key: kIOPSPowerSourceStateKey, source: "power source")
         }
@@ -126,15 +137,29 @@ private extension PowerSource {
 private extension Charging {
     /// powerd publishes "Is Charged" only while plugged in and not charging (PowerManagement,
     /// BatteryTimeRemaining.m, packageKernelPowerSource), so it is read only on that branch.
-    init(powerSource: [String: Any]) throws {
+    init(powerSource: [String: Any], registry: [String: Any]) throws {
         if try field(kIOPSIsChargingKey, in: powerSource, "power source") {
-            self = .charging(timeToFull: duration(minutes: try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source")))
+            // [LAW:dataflow-not-control-flow] Both facts are read on every charging reading; the
+            // limit report only decides which of them the reading keeps.
+            let timeToFull = duration(minutes: try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source"))
+            self = .charging(try chargeLimitInForce(registry) ? .limited : .toFull(in: timeToFull))
         } else if try field(kIOPSIsChargedKey, in: powerSource, "power source") {
             self = .full
         } else {
             self = .notCharging
         }
     }
+}
+
+/// The charger's report, in the registry, that a charge limit is in force: bit 24 of
+/// ChargerData's NotChargingReason (the SMC's CHNC). powerd logs it 3-8 ms after posting the percent
+/// that reaches the limit, while IOPS still says charging with its estimate to 100%, and it outlives
+/// the hold for a while on battery. The field is otherwise undocumented, so no other bit is read. Absent on a Mac that
+/// publishes no charger data: no limit reported.
+private func chargeLimitInForce(_ registry: [String: Any]) throws -> Bool {
+    let charger: [String: Any]? = try optionalField("ChargerData", in: registry, "registry")
+    let reason: Int? = try charger.flatMap { try optionalField("NotChargingReason", in: $0, "charger data") }
+    return (reason ?? 0) & (1 << 24) != 0
 }
 
 /// IOPowerSources reports minutes, and `kIOPSTimeRemainingUnknown` while still calculating.

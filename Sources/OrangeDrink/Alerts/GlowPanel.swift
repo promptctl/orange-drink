@@ -22,9 +22,9 @@ struct GlowView: View {
 final class GlowPanel: OverlayPanel {
     let strength: NotificationAppearance.GlowStrength
 
-    init(severity: Alert.Severity, strength: NotificationAppearance.GlowStrength, screen: NSScreen) {
+    init(severity: Alert.Severity, strength: NotificationAppearance.GlowStrength, frame: CGRect) {
         self.strength = strength
-        super.init(frame: screen.frame, level: .glow, content: GlowView(severity: severity, strength: strength))
+        super.init(frame: frame, level: .glow, content: GlowView(severity: severity, strength: strength))
         ignoresMouseEvents = true
         hasShadow = false
     }

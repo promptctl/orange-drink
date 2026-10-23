@@ -1,8 +1,26 @@
+SHELL := /bin/bash
 APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
-XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
+# [LAW:one-source-of-truth] Where builds land; every target reads the products from here, and
+# scripts/dmg points it at a directory of its own so a release is a clean build.
+DERIVED_DATA := build/DerivedData
+PRODUCTS := $(DERIVED_DATA)/Build/Products
+RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
+XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA)
 
-.PHONY: generate build test hardware-check-test app-energy-check cpu-check ax-check
+# The certificate `release` signs with, named in full by scripts/dmg. Empty, the build keeps
+# project.yml's ad-hoc identity. [LAW:one-type-per-behavior] A release and a local Release build
+# are one recipe run with two values. Settings on xcodebuild's command line reach every target,
+# GRDB's included, and a package target signs automatically and refuses a named identity
+# without a team, so the identity also brings manual signing and the team read from the
+# parentheses that end its name. [LAW:one-source-of-truth] The identity is the only input.
+SIGNING_IDENTITY :=
+lparen := (
+rparen := )
+release_signing = $(if $(SIGNING_IDENTITY),'CODE_SIGN_IDENTITY=$(SIGNING_IDENTITY)' \
+  DEVELOPMENT_TEAM=$(patsubst %$(rparen),%,$(lastword $(subst $(lparen), ,$(SIGNING_IDENTITY)))) CODE_SIGN_STYLE=Manual)
+
+.PHONY: generate build release test hardware-check-test app-energy-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -67,7 +85,8 @@ devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/
   Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
 # The alert pill: put an app full screen, then click the × of the pill that appears
-# at the centre of the screen and again at the top, then once more at the centre with the screen glow.
+# at the centre of the screen and again at the top, then once more at the centre with the screen glow,
+# each within the 8 s it stays up. A pill that leaves by itself fails the check: no one saw it.
 pill-check: export TEST_RUNNER_PILL_CHECK = 1
 pill-check.test := PillTests/pillsShowOverAFullScreenApp()
 pill-check.covers := Sources/OrangeDrink/Alerts Sources/OrangeDrink/Settings/AppLanguage.swift \
@@ -99,17 +118,22 @@ app-energy-check: generate
 
 # [LAW:verifiable-goals] PROJECT.md's 0.1% steady-state CPU bar, measured on the Release build
 # launched as a user runs it. Prints the percent and the power state; fails over the bar.
-cpu-check: generate
-	$(call gated,build,-configuration Release)
-	swift scripts/cpu-check.swift build/DerivedData/Build/Products/Release/$(APP).app/Contents/MacOS/$(APP)
+cpu-check: release
+	swift scripts/cpu-check.swift "$(RELEASE_APP)/Contents/MacOS/$(APP)"
+
+# The Release app, signed with SIGNING_IDENTITY when it names one. The last line printed is the
+# app's path, so scripts/dmg spells neither the configuration's directory nor the app's name.
+release: generate
+	$(call gated,build,-configuration Release $(release_signing))
+	@echo $(RELEASE_APP)
 
 # [LAW:verifiable-goals] "Zero warnings" is read from the result bundle, which counts every
 # build issue. Grepping xcodebuild's output would count tool chatter (appintentsmetadataprocessor
 # prints a "warning:" line whenever no target links AppIntents) and is not the compiler's map.
 define gated
-rm -rf build/$(1).xcresult
-$(XCB) -resultBundlePath build/$(1).xcresult $(1) $(2)
-xcrun xcresulttool get build-results --path build/$(1).xcresult | python3 -c 'import json, sys; n = json.load(sys.stdin)["warningCount"]; print(f"build warnings: {n}"); sys.exit(n != 0)'
+rm -rf $(DERIVED_DATA)/$(1).xcresult
+$(XCB) -resultBundlePath $(DERIVED_DATA)/$(1).xcresult $(1) $(2)
+xcrun xcresulttool get build-results --path $(DERIVED_DATA)/$(1).xcresult | python3 -c 'import json, sys; n = json.load(sys.stdin)["warningCount"]; print(f"build warnings: {n}"); sys.exit(n != 0)'
 endef
 
 # The shared settings components through the accessibility tree of the running app's component
@@ -117,7 +141,7 @@ endef
 # SwiftUI's tree; the invoking process must be trusted for Accessibility.
 ax-check: generate
 	$(call gated,build)
-	@set -e; app=build/DerivedData/Build/Products/Debug/$(APP).app; \
+	@set -e; app=$(PRODUCTS)/Debug/$(APP).app; \
 	"$$app/Contents/MacOS/$(APP)" -ComponentGallery & pid=$$!; \
 	status=0; swift scripts/ax-check.swift $$pid || status=$$?; \
 	kill $$pid; exit $$status

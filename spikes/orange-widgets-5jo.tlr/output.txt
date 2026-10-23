@@ -1,0 +1,310 @@
+orange-widgets-5jo.tlr: runs on mmu.local (macOS 26.3, 25D125, Apple Silicon), 2026-10-22, built on a
+Mac with Xcode 26.6 (17F113) holding "Developer ID Application: Brandon Fryslie (6R988MUU27)".
+Times are mmu's local time. Every block below is pasted output; lines starting with "#" are not, and "..." marks where a long line was cut.
+
+######## 1. Release variant: `run.sh ship release mmu.local`
+
+pluginkit:   (no matches)
+Identifier=dev.orangedrink.widgetspike
+Authority=Developer ID Application: Brandon Fryslie (6R988MUU27)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=6R988MUU27
+{
+  "com.apple.security.application-groups" => [
+    0 => "6R988MUU27.dev.orangedrink.widgetspike"
+  ]
+}
+Identifier=dev.orangedrink.widgetspike.widget
+Authority=Developer ID Application: Brandon Fryslie (6R988MUU27)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=6R988MUU27
+{
+  "com.apple.security.app-sandbox" => true
+  "com.apple.security.application-groups" => [
+    0 => "6R988MUU27.dev.orangedrink.widgetspike"
+  ]
+}
+/Applications/OrangeWidgetSpike.app: rejected
+source=Unnotarized Developer ID
+origin=Developer ID Application: Brandon Fryslie (6R988MUU27)
+spctl: rejected (status 3)
+pluginkit:      dev.orangedrink.widgetspike.widget(1.0)	718F7B86-AD1F-41F7-8C1B-3D9F16768693	2026-10-23 03:18:35 +0000	/Applications/OrangeWidgetSpike.app/Contents/PlugIns/OrangeWidgetSpikeWidget.appex
+ (1 plug-in)
+
+# Edit Widgets..., search "OrangeWidgetSpike": `eyes read --rect 520,420,200,240`
+567,448	OrangeWidgetSpike
+595,549	Previews
+620,552	Small
+620,547	SEQ O
+620,562	100%
+620,635	OrangeWidgetSpike
+620,651	orange-widgets-5jo.tir
+620,642	OrangeWidgetSpike, orange-widgets-5jo.tlr
+
+# Right after the widget's first read: `eyes find "access data"` and `eyes find "would like"`
+"access data" not found in display 1 0,0 1512x982 by tree and pixels, merged; 293 runs read; ...
+"would like" not found in display 1 0,0 1512x982 by tree and pixels, merged; 292 runs read; ...
+
+# Dragged onto the desktop, gallery closed: `eyes read --rect 690,130,180,180`
+790,231	OrangeWidgetSpike
+790,222	SEQ O
+790,221	SEQ 0
+790,246	100%
+
+# Trial: `measure.sh 5 3 1 710,140,160,160`
+21:22:37.910 schedule: 3 reloads 5 s apart from seq 1
+21:22:38.301 screen: SEQ 0
+21:22:38.632 screen: SEQ 1
+21:22:43.768 screen: SEQ 2
+21:22:49.214 screen: SEQ 3
+
+# Run (a): `measure.sh 60 15 10 710,140,160,160`. At 21:34 a person brought Safari forward over
+# the widget (HIDIdleTime 2 s at 21:40), so the screen column stops at seq 19; the log in section 3
+# carries every reload through seq 24.
+21:24:03.117 schedule: 15 reloads 60 s apart from seq 10
+21:24:03.517 screen: SEQ 10
+21:25:07.503 screen: SEQ 11
+21:26:11.548 screen: SEQ 12
+21:27:15.621 screen: SEQ 13
+21:28:19.640 screen: SEQ 14
+21:29:23.733 screen: SEQ 15
+21:30:27.515 screen: SEQ 16
+21:31:31.577 screen: SEQ 17
+21:32:35.437 screen: SEQ 18
+21:33:39.705 screen: SEQ 19
+21:34:00.748 screen: no SEQ
+
+# Run (b), the burst: `run.sh reload 3 20 100`, with Safari over the widget, so log only (section 3).
+
+######## 2. Debug variant: `run.sh ship debug mmu.local` (install uninstalls the release first)
+
+pluginkit:   (no matches)
+Identifier=dev.orangedrink.widgetspike
+Signature=adhoc
+TeamIdentifier=not set
+{
+  "com.apple.security.application-groups" => [
+    0 => "6R988MUU27.dev.orangedrink.widgetspike"
+  ]
+  "com.apple.security.get-task-allow" => true
+}
+Identifier=dev.orangedrink.widgetspike.widget
+Signature=adhoc
+TeamIdentifier=not set
+{
+  "com.apple.security.app-sandbox" => true
+  "com.apple.security.application-groups" => [
+    0 => "6R988MUU27.dev.orangedrink.widgetspike"
+  ]
+  "com.apple.security.get-task-allow" => true
+}
+/Applications/OrangeWidgetSpike.app: rejected
+spctl: rejected (status 3)
+pluginkit:      dev.orangedrink.widgetspike.widget(1.0)	F3046B90-AE00-4345-B21E-D9D5DCD82F2F	2026-10-23 03:58:02 +0000	/Applications/OrangeWidgetSpike.app/Contents/PlugIns/OrangeWidgetSpikeWidget.appex
+ (1 plug-in)
+
+# The widget placed in section 1 kept its spot and now runs the ad-hoc extension: `eyes read --rect 690,130,200,200`
+790,231	OrangeWidgetSpike
+789,222	SEQ O
+790,221	SEQ 0
+790,246	100%
+
+# No prompt: `eyes find "access data"` and `eyes find "would like"`
+"access data" not found in display 1 0,0 1512x982 by tree and pixels, merged; 176 runs read; ...
+"would like" not found in display 1 0,0 1512x982 by tree and pixels, merged; 176 runs read; ...
+
+# Edit Widgets..., search "OrangeWidgetSpike": `eyes find OrangeWidgetSpike`, `eyes find SEQ`
+present after 1 read in 2.7s: 5 matched "OrangeWidgetSpike" in display 1 0,0 1512x982 by tree and pixels, merged; ...
+567,448	OrangeWidgetSpike
+362,464	OrangeWidgetSpike
+362,558	OrangeWidgetSpike
+620,642	OrangeWidgetSpike, orange-widgets-5jo.tlr
+620,635	OrangeWidgetSpike
+present after 1 read in 2.5s: 2 matched "SEQ" in display 1 0,0 1512x982 by tree and pixels, merged; ...
+780,222	SEQ
+613,545	SEQ
+
+# `measure.sh 5 3 200 690,130,200,200`
+22:00:30.185 schedule: 3 reloads 5 s apart from seq 200
+22:00:30.688 screen: SEQ 0
+22:00:31.111 screen: SEQ 200
+22:00:36.082 screen: SEQ 201
+22:00:41.199 screen: SEQ 202
+
+# Cleanup: Remove Widget, then `run.sh uninstall` and `ls /Applications/OrangeWidgetSpike.app`
+pluginkit:   (no matches)
+ls: /Applications/OrangeWidgetSpike.app: No such file or directory
+
+######## 3. The whole log on mmu, both variants:
+######## /usr/bin/log stream --style compact --level info --predicate 'subsystem == "dev.orangedrink.widgetspike"'
+Filtering the log data using "subsystem == "dev.orangedrink.widgetspike""
+Timestamp               Ty Process[PID:TID]
+2026-10-22 21:20:59.895 I  OrangeWidgetSpikeWidget[30050:bad40a5] [dev.orangedrink.widgetspike:widget] placeholder family systemSmall
+2026-10-22 21:21:12.223 I  OrangeWidgetSpikeWidget[30050:bad40a5] [dev.orangedrink.widgetspike:widget] getSnapshot preview true seq 0 percent 100 written 1792725515.2642422
+2026-10-22 21:21:49.809 I  OrangeWidgetSpikeWidget[30050:bad40a5] [dev.orangedrink.widgetspike:widget] getTimeline seq 0 percent 100 written 1792725515.2642422
+2026-10-22 21:22:38.056 I  OrangeWidgetSpike[34420:bad7ece] [dev.orangedrink.widgetspike:host] placed widgets: 1
+2026-10-22 21:22:38.063 I  OrangeWidgetSpike[34420:bad7ebe] [dev.orangedrink.widgetspike:host] wrote seq 1 percent 99 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:22:38.063 I  OrangeWidgetSpike[34420:bad7ebe] [dev.orangedrink.widgetspike:host] reload seq 1
+2026-10-22 21:22:38.376 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] placeholder family systemSmall
+2026-10-22 21:22:38.426 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 1 percent 99 written 1792725758.06193
+2026-10-22 21:22:43.397 I  OrangeWidgetSpike[34420:bad7ebe] [dev.orangedrink.widgetspike:host] wrote seq 2 percent 98 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:22:43.397 I  OrangeWidgetSpike[34420:bad7ebe] [dev.orangedrink.widgetspike:host] reload seq 2
+2026-10-22 21:22:43.435 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 2 percent 98 written 1792725763.396467
+2026-10-22 21:22:48.489 I  OrangeWidgetSpike[34420:bad7ebe] [dev.orangedrink.widgetspike:host] wrote seq 3 percent 97 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:22:48.489 I  OrangeWidgetSpike[34420:bad7ebe] [dev.orangedrink.widgetspike:host] reload seq 3
+2026-10-22 21:22:48.527 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 3 percent 97 written 1792725768.488385
+2026-10-22 21:22:53.535 I  OrangeWidgetSpike[34420:bad7ebe] [dev.orangedrink.widgetspike:host] schedule done
+2026-10-22 21:24:03.207 I  OrangeWidgetSpike[39492:badcd40] [dev.orangedrink.widgetspike:host] placed widgets: 1
+2026-10-22 21:24:03.218 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 10 percent 90 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:24:03.218 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 10
+2026-10-22 21:24:03.240 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 10 percent 90 written 1792725843.216589
+2026-10-22 21:25:07.212 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 11 percent 89 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:25:07.212 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 11
+2026-10-22 21:25:07.256 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 11 percent 89 written 1792725907.2112541
+2026-10-22 21:26:11.200 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 12 percent 88 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:26:11.200 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 12
+2026-10-22 21:26:11.248 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 12 percent 88 written 1792725971.199825
+2026-10-22 21:27:14.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 13 percent 87 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:27:14.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 13
+2026-10-22 21:27:14.991 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 13 percent 87 written 1792726034.9375858
+2026-10-22 21:28:18.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 14 percent 86 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:28:18.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 14
+2026-10-22 21:28:18.972 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 14 percent 86 written 1792726098.93858
+2026-10-22 21:29:22.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 15 percent 85 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:29:22.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 15
+2026-10-22 21:29:22.976 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 15 percent 85 written 1792726162.9385319
+2026-10-22 21:30:26.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 16 percent 84 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:30:26.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 16
+2026-10-22 21:30:26.981 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 16 percent 84 written 1792726226.93853
+2026-10-22 21:31:30.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 17 percent 83 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:31:30.940 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 17
+2026-10-22 21:31:30.983 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 17 percent 83 written 1792726290.938703
+2026-10-22 21:32:34.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 18 percent 82 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:32:34.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 18
+2026-10-22 21:32:34.985 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 18 percent 82 written 1792726354.938035
+2026-10-22 21:33:38.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 19 percent 81 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:33:38.939 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 19
+2026-10-22 21:33:38.983 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 19 percent 81 written 1792726418.938545
+2026-10-22 21:34:00.176 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 19 percent 81 written 1792726418.938545
+2026-10-22 21:34:42.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 20 percent 80 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:34:42.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 20
+2026-10-22 21:34:42.983 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 20 percent 80 written 1792726482.937664
+2026-10-22 21:35:46.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 21 percent 79 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:35:46.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 21
+2026-10-22 21:35:46.978 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 21 percent 79 written 1792726546.9377232
+2026-10-22 21:36:50.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 22 percent 78 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:36:50.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 22
+2026-10-22 21:36:50.989 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 22 percent 78 written 1792726610.937876
+2026-10-22 21:37:54.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 23 percent 77 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:37:54.938 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 23
+2026-10-22 21:37:54.979 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 23 percent 77 written 1792726674.9378572
+2026-10-22 21:38:58.472 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] wrote seq 24 percent 76 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:38:58.472 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] reload seq 24
+2026-10-22 21:38:58.513 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 24 percent 76 written 1792726738.471463
+2026-10-22 21:40:02.471 I  OrangeWidgetSpike[39492:badcd2b] [dev.orangedrink.widgetspike:host] schedule done
+2026-10-22 21:40:48.462 I  OrangeWidgetSpike[2113:bb17c4d] [dev.orangedrink.widgetspike:host] placed widgets: 1
+2026-10-22 21:40:48.476 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 100 percent 100 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:40:48.476 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 100
+2026-10-22 21:40:48.498 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 100 percent 100 written 1792726848.4745588
+2026-10-22 21:40:51.668 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 101 percent 99 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:40:51.668 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 101
+2026-10-22 21:40:51.708 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 101 percent 99 written 1792726851.667887
+2026-10-22 21:40:54.863 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 102 percent 98 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:40:54.863 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 102
+2026-10-22 21:40:54.894 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 102 percent 98 written 1792726854.862222
+2026-10-22 21:40:58.060 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 103 percent 97 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:40:58.061 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 103
+2026-10-22 21:40:58.098 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 103 percent 97 written 1792726858.0602
+2026-10-22 21:41:01.257 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 104 percent 96 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:01.257 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 104
+2026-10-22 21:41:01.294 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 104 percent 96 written 1792726861.256326
+2026-10-22 21:41:04.310 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 105 percent 95 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:04.310 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 105
+2026-10-22 21:41:04.349 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 105 percent 95 written 1792726864.308811
+2026-10-22 21:41:07.504 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 106 percent 94 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:07.505 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 106
+2026-10-22 21:41:07.551 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 106 percent 94 written 1792726867.504235
+2026-10-22 21:41:10.579 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 107 percent 93 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:10.579 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 107
+2026-10-22 21:41:10.618 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 107 percent 93 written 1792726870.578227
+2026-10-22 21:41:13.749 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 108 percent 92 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:13.749 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 108
+2026-10-22 21:41:13.786 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 108 percent 92 written 1792726873.74775
+2026-10-22 21:41:16.945 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 109 percent 91 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:16.945 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 109
+2026-10-22 21:41:16.990 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 109 percent 91 written 1792726876.94508
+2026-10-22 21:41:19.949 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 110 percent 90 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:19.949 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 110
+2026-10-22 21:41:19.994 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 110 percent 90 written 1792726879.948864
+2026-10-22 21:41:23.151 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 111 percent 89 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:23.151 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 111
+2026-10-22 21:41:23.201 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 111 percent 89 written 1792726883.146998
+2026-10-22 21:41:26.347 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 112 percent 88 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:26.347 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 112
+2026-10-22 21:41:26.396 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 112 percent 88 written 1792726886.346941
+2026-10-22 21:41:29.546 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 113 percent 87 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:29.546 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 113
+2026-10-22 21:41:29.587 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 113 percent 87 written 1792726889.544969
+2026-10-22 21:41:32.629 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 114 percent 86 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:32.630 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 114
+2026-10-22 21:41:32.668 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 114 percent 86 written 1792726892.628948
+2026-10-22 21:41:35.826 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 115 percent 85 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:35.826 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 115
+2026-10-22 21:41:35.861 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 115 percent 85 written 1792726895.825172
+2026-10-22 21:41:38.957 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 116 percent 84 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:38.958 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 116
+2026-10-22 21:41:38.989 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 116 percent 84 written 1792726898.9564981
+2026-10-22 21:41:42.154 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 117 percent 83 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:42.154 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 117
+2026-10-22 21:41:42.190 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 117 percent 83 written 1792726902.1531138
+2026-10-22 21:41:45.354 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 118 percent 82 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:45.355 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 118
+2026-10-22 21:41:45.399 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 118 percent 82 written 1792726905.353187
+2026-10-22 21:41:48.548 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] wrote seq 119 percent 81 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:41:48.548 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] reload seq 119
+2026-10-22 21:41:48.584 I  OrangeWidgetSpikeWidget[34432:bad7f47] [dev.orangedrink.widgetspike:widget] getTimeline seq 119 percent 81 written 1792726908.5479422
+2026-10-22 21:41:51.587 I  OrangeWidgetSpike[2113:bb17c36] [dev.orangedrink.widgetspike:host] schedule done
+2026-10-22 21:58:02.479 I  OrangeWidgetSpike[50135:bb3f25d] [dev.orangedrink.widgetspike:host] placed widgets: 1
+2026-10-22 21:58:02.495 I  OrangeWidgetSpike[50135:bb3f259] [dev.orangedrink.widgetspike:host] wrote seq 0 percent 100 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 21:58:02.495 I  OrangeWidgetSpike[50135:bb3f259] [dev.orangedrink.widgetspike:host] reload seq 0
+2026-10-22 21:58:02.497 I  OrangeWidgetSpike[50135:bb3f259] [dev.orangedrink.widgetspike:host] schedule done
+2026-10-22 21:58:02.702 I  OrangeWidgetSpikeWidget[50143:bb3f296] [dev.orangedrink.widgetspike:widget] getTimeline seq 0 percent 100 written 1792727882.48647
+2026-10-22 21:58:02.767 I  OrangeWidgetSpikeWidget[50143:bb3f296] [dev.orangedrink.widgetspike:widget] getTimeline seq 0 percent 100 written 1792727882.48647
+2026-10-22 21:58:03.140 I  OrangeWidgetSpikeWidget[50143:bb3f296] [dev.orangedrink.widgetspike:widget] placeholder family systemSmall
+2026-10-22 22:00:11.393 I  OrangeWidgetSpikeWidget[50143:bb3f296] [dev.orangedrink.widgetspike:widget] getSnapshot preview true seq 0 percent 100 written 1792727882.48647
+2026-10-22 22:00:30.328 I  OrangeWidgetSpike[56642:bb45073] [dev.orangedrink.widgetspike:host] placed widgets: 1
+2026-10-22 22:00:30.335 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] wrote seq 200 percent 100 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 22:00:30.335 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] reload seq 200
+2026-10-22 22:00:30.641 I  OrangeWidgetSpikeWidget[56679:bb450e5] [dev.orangedrink.widgetspike:widget] placeholder family systemSmall
+2026-10-22 22:00:30.690 I  OrangeWidgetSpikeWidget[56679:bb450e5] [dev.orangedrink.widgetspike:widget] getTimeline seq 200 percent 100 written 1792728030.334341
+2026-10-22 22:00:35.555 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] wrote seq 201 percent 99 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 22:00:35.555 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] reload seq 201
+2026-10-22 22:00:35.595 I  OrangeWidgetSpikeWidget[56679:bb450e5] [dev.orangedrink.widgetspike:widget] getTimeline seq 201 percent 99 written 1792728035.554325
+2026-10-22 22:00:40.637 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] wrote seq 202 percent 98 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+2026-10-22 22:00:40.637 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] reload seq 202
+2026-10-22 22:00:40.682 I  OrangeWidgetSpikeWidget[56679:bb450e5] [dev.orangedrink.widgetspike:widget] getTimeline seq 202 percent 98 written 1792728040.6364331
+2026-10-22 22:00:45.950 I  OrangeWidgetSpike[56642:bb4505b] [dev.orangedrink.widgetspike:host] schedule done
+
+######## 4. Both variants on the Mac that builds (macOS 26.5.2, 25F84), 2026-10-22, each installed there
+######## with `run.sh install`, which uninstalls first
+
+# Debug: `run.sh install build/OrangeWidgetSpike-debug.zip`. The host's first write blocks in open() on the
+# group container (`sample`: Data.write → createProtectedTemporaryFile → open) behind a prompt:
+# `eyes read --rect 560,200,400,320`
+756,305	“OrangeWidgetSpike” would like to access data from other apps.	AXStaticText
+756,355	Keeping app data separate makes it easier to manage your privacy and security.	AXStaticText
+697,409	Don’t Allow	AXButton
+815,409	Allow	AXButton
+# Don't Allow:
+OrangeWidgetSpike failed: write failed: Error Domain=NSCocoaErrorDomain Code=513 "Creating a temporary file via mktemp failed. ..." ... NSUnderlyingError=0xb2cc1afa0 {Error Domain=NSPOSIXErrorDomain Code=1 "Operation not permitted"}}
+install status 1
+# The next launch, `run.sh reload 0.5 3 7`, asked again. Allow:
+2026-10-22 22:16:08.924 I  OrangeWidgetSpike[14390:17b1650a] [dev.orangedrink.widgetspike:host] wrote seq 7 percent 93 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+
+# Release: `tccutil reset SystemPolicyAppData dev.orangedrink.widgetspike`, then `run.sh install build/OrangeWidgetSpike-release.zip`
+Successfully reset SystemPolicyAppData approval status for dev.orangedrink.widgetspike
+status 0
+"would like" not found in display 1 0,0 1512x982 by tree and pixels, merged; 809 runs read; ...
+2026-10-22 22:16:53.924 I  OrangeWidgetSpike[21603:17b1d748] [dev.orangedrink.widgetspike:host] wrote seq 0 percent 100 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
