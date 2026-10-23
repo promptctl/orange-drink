@@ -20,7 +20,7 @@ out=${1:?usage: scripts/dmg <output directory>}
 # Made and resolved before the move to the repo root, which make needs, so a relative directory
 # means the one the caller named.
 mkdir -p "$out"
-out=$(cd "$out" && pwd)
+out=$(realpath "$out")
 cd "$(dirname "$0")/.."
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-dmg.XXXXXX")
