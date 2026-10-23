@@ -4,8 +4,8 @@ import Testing
 
 // [LAW:behavior-not-structure] The contract: the helper writes the one key this Mac's pmset lists, on the power
 // source the Mac is on, leaving every other source as System Settings set it; the panel's switch is the system's
-// state and moves only when the system posts a change; a press asks for the other state, a second quick press
-// undoes the first, answers land in the order asked, and a change that did not happen says why until one does.
+// state and moves only when the system posts a change; a press asks for the other of what the switch shows, a
+// press while that ask is unanswered does nothing, and a change that did not happen says why until one does.
 @Suite struct PowerModeKeyTests {
     /// `pmset -g` on a MacBook Pro with an Energy Mode (Mac16,6, macOS 26.5), trimmed.
     static let energyModeMac = """

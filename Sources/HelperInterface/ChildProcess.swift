@@ -29,7 +29,8 @@ struct ChildProcess {
         let killed = OSAllocatedUnfairLock(initialState: false)
         let killer = DispatchWorkItem {
             killed.withLock { $0 = true }
-            process.terminate()
+            // SIGKILL, which no tool can catch, so a run past its deadline always ends.
+            kill(process.processIdentifier, SIGKILL)
         }
         DispatchQueue.global().asyncAfter(deadline: .now() + seconds, execute: killer)
         // stderr drains on its own thread, so a tool that fills one pipe never blocks on the other.
@@ -44,7 +45,8 @@ struct ChildProcess {
         drained.wait()
         process.waitUntilExit()
         killer.cancel()
-        if killed.withLock({ $0 }) { throw TimedOut(executable: executable, seconds: seconds) }
+        // Timed out only when the kill ended it: a tool that exited just before the kill landed finished in time.
+        if killed.withLock({ $0 }), process.terminationReason == .uncaughtSignal { throw TimedOut(executable: executable, seconds: seconds) }
         return ChildProcess(status: process.terminationStatus, output: output, errors: String(decoding: errors.withLock { $0 }, as: UTF8.self))
     }
 }
