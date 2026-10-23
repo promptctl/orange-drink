@@ -5700,46 +5700,46 @@
         }
       }
     },
-    "Allow %@ in Login Items to change Low Power Mode.": {
+    "Allow %@ in the background to change Low Power Mode.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow %@ in Login Items to change Low Power Mode."
+            "value": "Allow %@ in the background to change Low Power Mode."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorisez %@ dans Ouverture pour modifier le mode économie d’énergie."
+            "value": "Autorisez %@ en arrière-plan pour modifier le mode économie d’énergie."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permite %@ en Ítems de inicio para cambiar el modo de bajo consumo."
+            "value": "Permite %@ en segundo plano para cambiar el modo de bajo consumo."
           }
         }
       }
     },
-    "Open Login Items…": {
+    "Open Login Items & Extensions…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Login Items…"
+            "value": "Open Login Items & Extensions…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrir Ouverture…"
+            "value": "Ouvrir les réglages Ouverture et extensions…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir Ítems de inicio…"
+            "value": "Abrir Ítems de inicio y extensiones…"
           }
         }
       }

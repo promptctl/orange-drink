@@ -6,7 +6,7 @@ import ServiceManagement
 /// [LAW:no-silent-failure] Both facts are kept. An unapproved helper has no job for launchd to look up, so its
 /// call fails at once as NSCocoaErrorDomain 4099 (orange-admin-helper-b2q.1d4); the status says that is why,
 /// and the call's error stays as the evidence.
-struct HelperUseFailure: Error, Equatable {
+struct HelperUseFailure: Error, Equatable, CustomStringConvertible {
     let call: HelperCallError
     let status: SMAppService.Status
 
@@ -24,9 +24,11 @@ struct HelperAccess {
     /// Sendable and a control's write runs off the main actor.
     let plistName: String
 
-    init(daemon: LaunchDaemon) {
-        client = HelperClient(service: daemon.label)
-        plistName = daemon.plistName
+    init(daemon: LaunchDaemon) { self.init(service: daemon.label, plistName: daemon.plistName) }
+
+    init(service: String, plistName: String) {
+        client = HelperClient(service: service)
+        self.plistName = plistName
     }
 
     func setLowPowerMode(_ on: Bool) throws(HelperUseFailure) {

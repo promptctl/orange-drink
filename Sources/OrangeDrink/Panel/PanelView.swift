@@ -1,4 +1,3 @@
-import ServiceManagement
 import SwiftUI
 
 /// The panel the status item opens: stacked rounded cards on a dark ground.
@@ -43,7 +42,10 @@ struct PanelView: View {
         .background(AdaptiveColor(light: .white.opacity(0.85), dark: .black.opacity(0.85)))
         .appLook(look, language)
         .onAppear { keyboard.panelDidOpen(shown: { [devices, deviceSettings] in Self.shown(devices: devices, settings: deviceSettings) }) }
-        .onDisappear { keyboard.panelDidClose() }
+        .onDisappear {
+            keyboard.panelDidClose()
+            lowPowerMode.panelDidClose()
+        }
     }
 
     /// The collapsible sections the panel draws: Connected Devices only when there is something to say.
@@ -185,12 +187,13 @@ private struct ActionsCard: View {
             if let failure = lowPowerMode.failure {
                 // A failure the user can fix says how; any other says what went wrong.
                 VStack(alignment: .leading, spacing: 4) {
+                    let explanation = PhraseText(LowPowerMode.explanation(of: failure, appName: appName))
                     if failure.needsApproval {
-                        PhraseText("Allow \(appName) in Login Items to change Low Power Mode.").fixedSize(horizontal: false, vertical: true)
-                        Button { SMAppService.openSystemSettingsLoginItems() } label: { PhraseText("Open Login Items…") }
+                        explanation.fixedSize(horizontal: false, vertical: true)
+                        Button { lowPowerMode.openLoginItems() } label: { PhraseText(LowPowerMode.openLoginItemsTitle) }
                             .buttonStyle(.link)
                     } else {
-                        PhraseText("Couldn't change Low Power Mode: \(failure.call.description)").foregroundStyle(.red).lineLimit(3)
+                        explanation.foregroundStyle(.red).lineLimit(3)
                     }
                 }
                 .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
