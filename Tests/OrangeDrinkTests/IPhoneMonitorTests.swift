@@ -7,8 +7,10 @@ import Testing
 // connection is one end of a socketpair the test writes usbmuxd frames to; the snapshot, the read, and the Wi-Fi sync
 // switch are stand-ins; time passes only when the test advances the clock.
 @Suite(.serialized) struct IPhoneMonitorDecisions {
-    private static let reading = IPhoneBatteryReading(level: 80, health: 0.91, cycleCount: 312,
-                                                      designCapacity: 3_274, appleRawMaxCapacity: 3_001)
+    private static let reading = IPhoneBatteryReading(level: 80, cycleCount: 312,
+                                                      designCapacity: EntryCapacity(mAh: 3_274, place: .topLevel),
+                                                      nominalChargeCapacity: EntryCapacity(mAh: 2_980, place: .topLevel),
+                                                      storedMaximumCapacity: nil)
 
     private static func usb(_ handle: Int, _ udid: String) -> AttachedDevice {
         AttachedDevice(handle: handle, connection: .device(udid: udid, over: .usb))
