@@ -55,7 +55,9 @@ iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTh
 iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
   Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 iphone-check.ask := 'Did macOS show a Local Network prompt? (y/n)' \
-  'Did the app appear under System Settings > Privacy & Security > Local Network? (y/n)'
+  'Did the app appear under System Settings > Privacy & Security > Local Network? (y/n)' \
+  'Settings > Battery > Battery Health on the phone: Maximum Capacity? (recorded as evidence, not a gate)' \
+  'Settings > Battery > Battery Health on the phone: Cycle Count? (recorded as evidence, not a gate)'
 
 # The devices ticket's step on a real Mac: with paired devices connected, prints each one's name,
 # type, and level to compare with Control Center. project.yml is covered for the Bluetooth usage description.

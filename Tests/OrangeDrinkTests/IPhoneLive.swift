@@ -43,7 +43,7 @@ import Testing
             switch event {
             case .reading(udid, .usb, let value):
                 read = true
-                printForTheRecord("cable reading: level \(value.level)%, health \(value.health.map { String(format: "%.1f%%", $0 * 100) } ?? "not reported"), cycles \(value.cycleCount)")
+                printForTheRecord("cable reading: level \(value.level)%, cycles \(value.cycleCount), design \(value.designCapacity.value) mAh (\(value.designCapacity.place)), nominal \(value.nominalChargeCapacity.value) mAh (\(value.nominalChargeCapacity.place)), stored max capacity \(value.storedMaximumCapacity.map { "\($0)%" } ?? "none"), max capacity \(value.maximumCapacityPercent)%")
             case .wifiSyncOn(udid):
                 synced = true
                 printForTheRecord("wifi sync on: check that Finder now ticks \"Show this iPhone when on Wi-Fi\"")

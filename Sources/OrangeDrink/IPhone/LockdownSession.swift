@@ -16,7 +16,6 @@ enum IPhoneReadError: Error, Equatable {
     case lockdown(String)
     /// The device answered with an Error: PasswordProtected while locked, InvalidHostID once trust is revoked.
     case refused(String)
-    case layout(String)
     case parse(IPhoneParseError)
     case encoding(String)
     case unsupported(String)
@@ -380,8 +379,9 @@ func decodeReply(_ bytes: [UInt8]) throws -> [String: Any] {
     return reply
 }
 
-/// One battery read from the device behind a usbmuxd handle: a lockdown session, the device's DeviceClass (which picks
-/// the layout), the diagnostics relay, and the IORegistry AppleSmartBattery entry.
+/// One battery read from the device behind a usbmuxd handle: a lockdown session, the diagnostics relay, and the
+/// IORegistry IOPMPowerSource entry. IOPMPowerSource, not its AppleSmartBattery subclass: the Vision Pro publishes its
+/// battery only under the superclass (orange-iphone-watch-lm3.7iy cmt-9996a69e).
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
 /// Every outcome leaves one line in the log.
 func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading {
@@ -395,10 +395,10 @@ func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPh
     }
 }
 
-/// The longest one battery read can take: readBattery's nine calls (ReadPairRecord, Connect, StartSession, session TLS,
-/// GetValue, StartService, Connect, relay TLS, IORegistry), each under callDeadline, which a socket notices on its next
+/// The longest one battery read can take: readBattery's eight calls (ReadPairRecord, Connect, StartSession, session TLS,
+/// StartService, Connect, relay TLS, IORegistry), each under callDeadline, which a socket notices on its next
 /// one-second wake-up. A step added to openLockdown or readBattery is a step added here.
-let readWorstCase = (callDeadline + .seconds(1)) * 9
+let readWorstCase = (callDeadline + .seconds(1)) * 8
 
 /// Switches the device's Wi-Fi sync, the box Finder labels "Show this iPhone when on Wi-Fi", on or off. On, usbmuxd
 /// reaches the device over the network once the cable is out. Every outcome leaves one line in the log.
@@ -450,19 +450,15 @@ private func openLockdown(handle: Int, udid: String) throws -> Lockdown {
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport; see lm3.8pk")
 private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReading {
     let lockdown = try openLockdown(handle: handle, udid: udid)
-    let classReply = try decodeReply(try lockdown.stream.request(["Request": "GetValue", "Key": "DeviceClass"]))
-    guard let deviceClass = classReply["Value"] as? String else { throw IPhoneReadError.lockdown("DeviceClass") }
-    guard let layout = IPhoneLayout(deviceClass: deviceClass) else { throw IPhoneReadError.layout(deviceClass) }
-
     let service = try decodeReply(try lockdown.stream.request(["Request": "StartService", "Service": "com.apple.mobile.diagnostics_relay"]))
     guard let port = service["Port"] as? Int else { throw IPhoneReadError.lockdown("Port") }
 
     let relay = PlistStream(socket: try usbmuxConnect(handle: handle, port: port))
     if service["EnableServiceSSL"] as? Bool == true { try relay.startTLS(identity: lockdown.identity) }
-    let reply = try decodeReply(try relay.request(["Request": "IORegistry", "EntryClass": "AppleSmartBattery"]))
+    let reply = try decodeReply(try relay.request(["Request": "IORegistry", "EntryClass": "IOPMPowerSource"]))
     guard let diagnostics = reply["Diagnostics"] as? [String: Any],
           let entry = diagnostics["IORegistry"] as? [String: Any] else {
         throw IPhoneReadError.lockdown("Diagnostics.IORegistry")
     }
-    return try parseIPhoneBattery(entry, layout: layout)
+    return try parseIPhoneBattery(entry)
 }
