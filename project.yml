@@ -65,8 +65,9 @@ targets:
         script: |
           set -euo pipefail
           plist="$SCRIPT_OUTPUT_FILE_0"
+          # The whole directory, since a plist left by a build under another label would make two.
+          rm -rf "$(dirname "$plist")"
           mkdir -p "$(dirname "$plist")"
-          rm -f "$plist"
           plutil -create xml1 "$plist"
           plutil -insert Label -string "$HELPER_LABEL" "$plist"
           plutil -insert BundleProgram -string "Contents/MacOS/OrangeDrinkHelper" "$plist"
@@ -115,7 +116,16 @@ targets:
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         OrangeDrinkAppIdentifier: $(APP_BUNDLE_IDENTIFIER)
+        OrangeDrinkAdmitsDebuggableCallers: $(HELPER_ADMITS_DEBUGGABLE_CALLERS)
     settings:
+      # A caller with get-task-allow can be attached to and driven by other code of the same user. Only a
+      # Debug helper admits one, since its Debug app carries it; a Release helper, the shipped one included,
+      # refuses it.
+      configs:
+        Debug:
+          HELPER_ADMITS_DEBUGGABLE_CALLERS: "YES"
+        Release:
+          HELPER_ADMITS_DEBUGGABLE_CALLERS: "NO"
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HELPER_LABEL)
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES

@@ -20,6 +20,8 @@ struct HelperFailure: Error, CustomStringConvertible {
 struct LaunchDaemon {
     let plistName: String
     let label: String
+    /// The helper's path inside the app, its `BundleProgram`.
+    let program: String
 
     /// [LAW:parse-dont-validate] The bundle's one plist, or a failure naming what was found instead.
     init(in app: Bundle) throws(HelperFailure) {
@@ -33,11 +35,33 @@ struct LaunchDaemon {
         do { contents = try PropertyListSerialization.propertyList(from: Data(contentsOf: plist), format: nil) as? [String: Any] } catch {
             throw HelperFailure("\(plist.path) is not a property list: \(error)")
         }
-        guard let label = contents?["Label"] as? String, let services = contents?["MachServices"] as? [String: Any], services.keys.sorted() == [label] else {
-            throw HelperFailure("\(plist.path) needs a Label and exactly that one MachServices entry")
+        guard let label = contents?["Label"] as? String, let services = contents?["MachServices"] as? [String: Any], services.keys.sorted() == [label],
+              let program = contents?["BundleProgram"] as? String else {
+            throw HelperFailure("\(plist.path) needs a Label, exactly that one MachServices entry, and a BundleProgram")
         }
         plistName = plist.lastPathComponent
         self.label = label
+        self.program = program
+    }
+}
+
+/// A signature's signing information: where the helper's identity and its rule for callers are read from.
+enum SigningInformation {
+    static func of(_ code: SecStaticCode, flags: UInt32 = kSecCSSigningInformation) throws(HelperFailure) -> [String: Any] {
+        var info: CFDictionary?
+        let status = SecCodeCopySigningInformation(code, SecCSFlags(rawValue: flags), &info)
+        guard status == errSecSuccess, let info = info as? [String: Any] else { throw HelperFailure("no signing information: OSStatus \(status)") }
+        return info
+    }
+
+    /// The running process's own, read from the running code rather than the file on disk, so a file
+    /// replaced after launch cannot change it. A running SecCode is accepted wherever a SecStaticCode is;
+    /// Swift keeps the two types apart, hence the cast.
+    static func ofSelf(flags: UInt32 = kSecCSSigningInformation) throws(HelperFailure) -> [String: Any] {
+        var me: SecCode?
+        let status = SecCodeCopySelf([], &me)
+        guard status == errSecSuccess, let me else { throw HelperFailure("SecCodeCopySelf: OSStatus \(status)") }
+        return try of(unsafeBitCast(me, to: SecStaticCode.self), flags: flags)
     }
 }
 
@@ -48,28 +72,41 @@ struct Signer: Equatable {
     let service: String
     /// The bundle identifier of the one app the helper serves.
     let app: String
+    /// Whether a caller may carry get-task-allow, which lets other code of the same user attach to it and
+    /// act through it. Only a Debug helper admits one, because its Debug app carries it.
+    let admitsDebuggableCallers: Bool
 
-    /// [LAW:one-source-of-truth] Both facts come from one signature: the team, and the Info.plist bound into
-    /// it, never a file read off disk. [LAW:parse-dont-validate] A helper without a team, ad hoc for
+    /// [LAW:one-source-of-truth] Every fact comes from one signature: the team, and the Info.plist bound
+    /// into it, never a file read off disk. [LAW:parse-dont-validate] A helper without a team, ad hoc for
     /// instance, has no requirement to enforce, so it has no `Signer` at all.
-    init(code: SecStaticCode) throws(HelperFailure) {
-        var info: CFDictionary?
-        let status = SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &info)
-        guard status == errSecSuccess, let info = info as? [String: Any] else { throw HelperFailure("no signing information: OSStatus \(status)") }
+    init(signingInformation info: [String: Any]) throws(HelperFailure) {
         guard let team = info[kSecCodeInfoTeamIdentifier as String] as? String, !team.isEmpty else { throw HelperFailure("the helper's signature has no team") }
         guard let plist = info[kSecCodeInfoPList as String] as? [String: Any] else { throw HelperFailure("the helper's signature binds no Info.plist") }
         guard let service = plist["CFBundleIdentifier"] as? String, !service.isEmpty,
-              let app = plist["OrangeDrinkAppIdentifier"] as? String, !app.isEmpty else {
-            throw HelperFailure("the helper's Info.plist lacks CFBundleIdentifier or OrangeDrinkAppIdentifier: \(plist)")
+              let app = plist["OrangeDrinkAppIdentifier"] as? String, !app.isEmpty,
+              let admits = plist["OrangeDrinkAdmitsDebuggableCallers"] as? String, ["YES", "NO"].contains(admits) else {
+            throw HelperFailure("the helper's Info.plist lacks CFBundleIdentifier, OrangeDrinkAppIdentifier, or a YES/NO OrangeDrinkAdmitsDebuggableCallers: \(plist)")
         }
         self.team = team
         self.service = service
         self.app = app
+        admitsDebuggableCallers = admits == "YES"
     }
 
-    /// Code Apple's CA issued to this helper's own team, carrying the app's identifier. A rebuild leaves it
-    /// unchanged, and a process that is not the team's build of the app cannot meet it.
-    var callerRequirement: String { "anchor apple generic and identifier \"\(app)\" and certificate leaf[subject.OU] = \"\(team)\"" }
+    /// Code Apple's CA issued to this helper's own team, carrying the app's identifier, and, outside Debug,
+    /// not debuggable. A rebuild leaves it unchanged, and a process that is not the team's build of the app
+    /// cannot meet it.
+    var callerRequirement: String {
+        let teamBuildOfTheApp = "anchor apple generic and identifier \"\(app)\" and certificate leaf[subject.OU] = \"\(team)\""
+        return admitsDebuggableCallers ? teamBuildOfTheApp : teamBuildOfTheApp + " and !entitlement[\"com.apple.security.get-task-allow\"]"
+    }
+}
+
+/// The path the kernel ran for a process, any user's, or nil once it has gone.
+func executablePath(of pid: pid_t) -> String? {
+    var path = [UInt8](repeating: 0, count: Int(MAXPATHLEN))
+    let length = proc_pidpath(pid, &path, UInt32(path.count))
+    return length > 0 ? String(decoding: path.prefix(Int(length)), as: UTF8.self) : nil
 }
 
 struct HelperIdentity: Equatable, Sendable {

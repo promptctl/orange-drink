@@ -18,11 +18,15 @@ struct HelperLive {
 
     let label: String
     let identifier: String
+    /// This copy's helper, as launchd runs it: the plist's BundleProgram inside the test host, which is the app.
+    let helperPath: String
     let started = Date()
 
     init() throws {
-        label = try LaunchDaemon(in: .main).label
+        let daemon = try LaunchDaemon(in: .main)
+        label = daemon.label
         identifier = try #require(Bundle.main.bundleIdentifier)
+        helperPath = Bundle.main.bundleURL.appending(path: daemon.program).resolvingSymlinksInPath().path
     }
 
     @Test func acceptsOnlyTheApp() throws {
@@ -65,18 +69,22 @@ struct HelperLive {
         #expect(helperLog.components(separatedBy: Self.refusalLine).count - 1 >= refused, "helper log:\n\(helperLog)")
         #expect(helperLog.contains("accepted pid \(controlPid)"), "helper log:\n\(helperLog)")
 
-        // This launch's registration, as the app logged it.
+        // This launch's registration, as the app logged it. It runs off the main thread, so it is waited for.
         let store = try OSLogStore(scope: .currentProcessIdentifier)
-        let lines = try store.getEntries(matching: NSPredicate(format: "subsystem == %@ AND category == %@", IOKitBattery.logSubsystem, "helper"))
-            .map(\.composedMessage)
-        #expect(lines.contains { $0.hasPrefix("helper registration: cleared ") && $0.hasSuffix("; registered; status enabled") }, "\(lines)")
+        var lines: [String] = []
+        for _ in 0..<50 {
+            lines = try store.getEntries(matching: NSPredicate(format: "subsystem == %@ AND category == %@", IOKitBattery.logSubsystem, "helper"))
+                .map(\.composedMessage)
+            if lines.contains(where: { $0.hasPrefix("helper registration: ") }) { break }
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+        #expect(lines.contains { $0.hasPrefix("helper registration: ") && $0.hasSuffix("; registered; status enabled") }, "\(lines)")
     }
 
     func expectAppAccepted() throws {
         let identity = try HelperClient(service: label).identity(within: Self.deadline)
         #expect(identity.euid == 0)
-        let own = Bundle.main.bundleURL.appending(path: "Contents/MacOS/OrangeDrinkHelper").resolvingSymlinksInPath().path
-        #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath().path == own, "the helper that answered is \(identity.executable)")
+        #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath().path == helperPath, "the helper that answered is \(identity.executable)")
     }
 
     func copy(_ executable: URL, to directory: URL, as name: String) throws -> URL {
@@ -90,11 +98,14 @@ struct HelperLive {
         try #require(result.status == 0, "codesign \(arguments): \(result.output)")
     }
 
+    /// This copy's helper's log since the test started; every copy's helper has the same name, so the
+    /// predicate is the path.
     func helperLogSinceStart() throws -> String {
         let start = DateFormatter()
+        start.locale = Locale(identifier: "en_US_POSIX")
         start.dateFormat = "yyyy-MM-dd HH:mm:ss"
         let result = try run(URL(fileURLWithPath: "/usr/bin/log"), ["show", "--start", start.string(from: started.addingTimeInterval(-1)), "--style", "compact",
-                                                                  "--predicate", "process == \"OrangeDrinkHelper\""])
+                                                                  "--predicate", "processImagePath == \"\(helperPath)\""])
         try #require(result.status == 0, "log show: \(result.output)")
         return result.output
     }
@@ -120,12 +131,7 @@ struct HelperLive {
 
     /// The name of the certificate this test host is signed with, so the control is signed by the same team.
     static func ownSigningIdentity() throws -> String {
-        var me: SecCode?
-        try #require(SecCodeCopySelf([], &me) == errSecSuccess)
-        let code = try #require(me)
-        var info: CFDictionary?
-        try #require(SecCodeCopySigningInformation(unsafeBitCast(code, to: SecStaticCode.self), SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess)
-        let certificates = try #require((info as? [String: Any])?[kSecCodeInfoCertificates as String] as? [SecCertificate])
+        let certificates = try #require(try SigningInformation.ofSelf()[kSecCodeInfoCertificates as String] as? [SecCertificate])
         let leaf = try #require(certificates.first)
         return try #require(SecCertificateCopySubjectSummary(leaf) as String?)
     }
