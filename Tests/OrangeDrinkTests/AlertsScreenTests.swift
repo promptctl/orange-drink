@@ -28,10 +28,10 @@ import Testing
 
     @Test func editsAndTheirSwitchesSurviveARelaunch() throws {
         let defaults = AlertSettingsPersistence.suite()
-        let first = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in })
-        try first.update { $0.add(.charged); $0.power.pluggedIn = false; $0.enabled = false }
+        let first = try AlertCenter(defaults: defaults, deliver: { _, _ in })
+        try first.model.update { $0.add(.charged); $0.power.pluggedIn = false; $0.enabled = false }
 
-        let relaunched = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in })
+        let relaunched = try AlertCenter(defaults: defaults, deliver: { _, _ in })
         #expect(relaunched.settings == first.settings)
         #expect(relaunched.settings.alerts(.charged).map(\.threshold) == [80, 90])
         #expect(!relaunched.settings.power.pluggedIn && !relaunched.settings.enabled)
@@ -41,16 +41,16 @@ import Testing
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
         defer { pills.close(.closeButton) }
         let center = try AlertCenter(
-            store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()),
+            defaults: AlertSettingsPersistence.suite(),
             deliver: { pills.deliver($0, reading: $1) })
-        try center.update { $0.alerts = [] }
+        try center.model.update { $0.alerts = [] }
         center.observe(try PowerAndTemperatureAlerts.battery())
-        try center.update { $0.enabled = false }
+        try center.model.update { $0.enabled = false }
         center.observe(try PowerAndTemperatureAlerts.adapter())
         #expect(pills.shown == nil)
 
         center.observe(try PowerAndTemperatureAlerts.battery())
-        try center.update { $0.enabled = true }
+        try center.model.update { $0.enabled = true }
         center.observe(try PowerAndTemperatureAlerts.adapter())
         #expect(pills.shown?.headline == "Plugged In")
     }
@@ -72,13 +72,13 @@ import Testing
         var fired: [Int] = []
         let defaults = AlertSettingsPersistence.suite()
         let center = try AlertCenter(
-            store: AlertSettingsStore(defaults: defaults),
+            defaults: defaults,
             deliver: { firing, reading in
                 if case .threshold = firing { fired.append(reading.chargePercent) }
             })
-        try center.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
+        try center.model.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
         let id = center.settings.alerts[0].id
-        try center.update { settings in
+        try center.model.update { settings in
             settings.edit(id) { $0.threshold = 12 }
             settings.edit(id) { $0.position = .center }
             settings.edit(id) { $0.glow = true }
@@ -89,7 +89,7 @@ import Testing
         #expect(fired == [11])
 
         #expect(center.settings.alerts(.low).map(\.summary.english) == ["Center of Screen • Border Glow"])
-        let relaunched = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in })
+        let relaunched = try AlertCenter(defaults: defaults, deliver: { _, _ in })
         #expect(relaunched.settings.alerts == [edited])
     }
 
@@ -105,21 +105,21 @@ import Testing
     @Test func editingAFiredAlertsThresholdMakesItNewAndEditingAGoneAlertChangesNothing() throws {
         var fired: [Int] = []
         let center = try AlertCenter(
-            store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()),
+            defaults: AlertSettingsPersistence.suite(),
             deliver: { firing, reading in
                 if case .threshold = firing { fired.append(reading.chargePercent) }
             })
-        try center.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
+        try center.model.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
         for percent in [25, 19] { center.observe(try PillTests.reading(percent)) }
         #expect(fired == [19])
 
         let id = center.settings.alerts[0].id
-        try center.update { $0.edit(id) { $0.threshold = 12 } }
+        try center.model.update { $0.edit(id) { $0.threshold = 12 } }
         for percent in [15, 11] { center.observe(try PillTests.reading(percent)) }
         #expect(fired == [19, 11])
 
         let before = center.settings
-        try center.update { $0.edit(UUID()) { $0.threshold = 50 } }
+        try center.model.update { $0.edit(UUID()) { $0.threshold = 50 } }
         #expect(center.settings == before)
     }
 

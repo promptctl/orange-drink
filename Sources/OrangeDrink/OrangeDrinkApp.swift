@@ -20,6 +20,7 @@ struct OrangeDrinkApp: App {
     @State private var menuBarIcon: MenuBarIconModel
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
+    @State private var chargeLimit: ChargeLimitModel
     @State private var sections: PanelSections
     @State private var lowPowerMode: LowPowerMode
     private let keyboard: PanelKeyboard
@@ -35,6 +36,7 @@ struct OrangeDrinkApp: App {
         let look: AppAppearanceModel
         let language: AppLanguageModel
         let shortcutsModel: ShortcutsModel
+        let chargeLimit: ChargeLimitModel
         let pills: PillController
         let sounds = AlertSounds()
         do {
@@ -44,9 +46,10 @@ struct OrangeDrinkApp: App {
             look = try AppAppearanceModel(defaults: .standard)
             language = try AppLanguageModel(defaults: .standard)
             shortcutsModel = try ShortcutsModel(defaults: .standard)
+            chargeLimit = try ChargeLimitModel(defaults: .standard)
             pills = PillController(appearance: appearance, language: language)
             pills.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
-            alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
+            alerts = try AlertCenter(defaults: .standard, deliver: {
                 pills.deliver($0, reading: $1)
                 sounds.deliver($0)
             }, deliverDevice: {
@@ -54,7 +57,7 @@ struct OrangeDrinkApp: App {
                 sounds.deliver($0)
             })
         } catch {
-            fatalError("stored alert, appearance, device, menu bar, app appearance, app language, or shortcut settings do not decode: \(error)")
+            fatalError("stored alert, appearance, device, menu bar, app appearance, app language, shortcut, or charge limit settings do not decode: \(error)")
         }
         let devices = DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
@@ -82,6 +85,7 @@ struct OrangeDrinkApp: App {
         _lowPowerMode = State(initialValue: lowPowerMode)
         keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
+        _chargeLimit = State(initialValue: chargeLimit)
         // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
         let store = Result { try HistoryStore(url: HistoryStore.defaultURL()) }
@@ -136,7 +140,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, battery: battery, history: history, appEnergy: appEnergy) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, battery: battery, history: history, appEnergy: appEnergy) }
     }
 }
 

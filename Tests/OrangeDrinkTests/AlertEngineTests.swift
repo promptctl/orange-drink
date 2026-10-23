@@ -87,24 +87,24 @@ import Testing
         return defaults
     }
 
-    @Test func aRelaunchGetsTheSameAlertsAndSwitchBack() throws {
+    @MainActor @Test func aRelaunchGetsTheSameAlertsAndSwitchBack() throws {
         let defaults = Self.suite()
         let saved = AlertSettings(enabled: false, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: false), alerts: [
             Alert(kind: .low, threshold: 7, position: .center, glow: true, sound: false),
             Alert(kind: .charged, threshold: 90, position: .top, glow: false, sound: true),
         ])
-        try AlertSettingsStore(defaults: defaults).save(saved)
-        #expect(try AlertSettingsStore(defaults: defaults).load() == saved)
+        try AlertSettingsModel(defaults: defaults).update { $0 = saved }
+        #expect(try AlertSettingsModel(defaults: defaults).value == saved)
     }
 
-    @Test func aFirstLaunchStartsFromTheReferenceSetup() throws {
-        #expect(try AlertSettingsStore(defaults: Self.suite()).load() == .initial)
+    @MainActor @Test func aFirstLaunchStartsFromTheReferenceSetup() throws {
+        #expect(try AlertSettingsModel(defaults: Self.suite()).value == .initial)
     }
 
-    @Test func storedBytesThatDoNotDecodeFailLoudly() {
+    @MainActor @Test func storedBytesThatDoNotDecodeFailLoudly() {
         let defaults = Self.suite()
         defaults.set(Data("nonsense".utf8), forKey: "alerts.settings")
-        #expect(throws: DecodingError.self) { try AlertSettingsStore(defaults: defaults).load() }
+        #expect(throws: DecodingError.self) { try AlertSettingsModel(defaults: defaults) }
     }
 }
 
@@ -116,23 +116,23 @@ import Testing
     @Test func aReadingCrossingAThresholdDeliversItsAlertAndAnEditSurvivesARelaunch() throws {
         let defaults = AlertSettingsPersistence.suite()
         var delivered: [Firing] = []
-        let center = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { firing, _ in delivered.append(firing) })
+        let center = try AlertCenter(defaults: defaults, deliver: { firing, _ in delivered.append(firing) })
         let alert = AlertEngineTests.low(20)
-        try center.update { $0.alerts = [alert] }
+        try center.model.update { $0.alerts = [alert] }
         center.observe(try Self.reading(21))
         center.observe(try Self.reading(19))
         center.observe(nil)
         #expect(delivered == [.threshold(alert)])
-        #expect(try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in }).settings.alerts == [alert])
+        #expect(try AlertCenter(defaults: defaults, deliver: { _, _ in }).settings.alerts == [alert])
     }
 
     @Test func nothingIsDeliveredWithTheMasterSwitchOffAndNothingFiresLateWhenItComesOn() throws {
         var delivered: [Firing] = []
-        let center = try AlertCenter(store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()), deliver: { firing, _ in delivered.append(firing) })
-        try center.update { $0 = AlertSettings(enabled: false, power: $0.power, alerts: [AlertEngineTests.low(20)]) }
+        let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { firing, _ in delivered.append(firing) })
+        try center.model.update { $0 = AlertSettings(enabled: false, power: $0.power, alerts: [AlertEngineTests.low(20)]) }
         center.observe(try Self.reading(21))
         center.observe(try Self.reading(19))
-        try center.update { $0.enabled = true }
+        try center.model.update { $0.enabled = true }
         center.observe(try Self.reading(18))
         #expect(delivered == [])
     }
@@ -180,8 +180,8 @@ import Testing
     @Test func theMasterSwitchSilencesEveryPowerAndTemperatureAlert() throws {
         var delivered: [Firing] = []
         let center = try AlertCenter(
-            store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()), deliver: { firing, _ in delivered.append(firing) })
-        try center.update { $0.enabled = false }
+            defaults: AlertSettingsPersistence.suite(), deliver: { firing, _ in delivered.append(firing) })
+        try center.model.update { $0.enabled = false }
         for reading in [try Self.battery(), try Self.adapter(), try Self.battery(celsius: 41)] { center.observe(reading) }
         #expect(delivered == [])
     }
@@ -228,9 +228,9 @@ import Testing
     @Test func theSwitchesAndSoundComeBackFromARelaunch() throws {
         let defaults = AlertSettingsPersistence.suite()
         let power = PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: false)
-        let center = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in })
-        try center.update { $0.power = power }
-        let relaunched = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in })
+        let center = try AlertCenter(defaults: defaults, deliver: { _, _ in })
+        try center.model.update { $0.power = power }
+        let relaunched = try AlertCenter(defaults: defaults, deliver: { _, _ in })
         #expect(relaunched.settings.power == power)
     }
 }

@@ -138,6 +138,8 @@ import Testing
                     "Detected Devices", "Device readings stopped. Quit and reopen the app.", "No connected Bluetooth devices report a battery.",
                     "Pinned Devices", "Pin a connected device from the Devices screen to arrange it here.",
                     "The top device sits leftmost in the menu bar. Dragging an item in the menu bar is undone when a pinned device connects, disconnects, or is moved here."]
+        phrases += ["Charge Limit", "Pause charging at your target so the battery sits in a healthier range.", "Target", "Charging pauses at this level",
+                    ChargingScreen.limitHelp]
         for edit: (inout [String: Any]) -> Void in [{ _ in }, { $0["AppleRawMaxCapacity"] = 4000 }, { $0["Temperature"] = 3700 },
                                                      { $0["Temperature"] = 4300 }, { $0["Voltage"] = 8000 }] {
             let info = try Words.reference(edit)

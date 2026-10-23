@@ -20,25 +20,15 @@ struct GeneralScreen: View {
 /// Match System or a language the app carries, applied as it is chosen.
 private struct LanguageSection: View {
     let language: AppLanguageModel
-    @State private var saveFailure: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "globe", color: .blue, title: "Language")
-            if let saveFailure {
-                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            }
-            SettingCard {
-                SettingRow(icon: ("globe", .blue), title: "App Language", description: "Choose the language \(appName) uses. Changes apply immediately.") {
-                    PopUpButton(selection: Binding(get: { language.value }, set: { choice in
-                        // [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
-                        do {
-                            try language.update { $0 = choice }
-                            saveFailure = nil
-                        } catch {
-                            saveFailure = error.localizedDescription
-                        }
-                    }), options: AppLanguage.choices(), title: { Text(verbatim: $0.menuTitle(speaking: language.value)) })
+            SettingEditor(language) { edits in
+                SettingCard {
+                    SettingRow(icon: ("globe", .blue), title: "App Language", description: "Choose the language \(appName) uses. Changes apply immediately.") {
+                        PopUpButton(selection: edits.binding(\.self), options: AppLanguage.choices(), title: { Text(verbatim: $0.menuTitle(speaking: edits.value)) })
+                    }
                 }
             }
         }
@@ -48,25 +38,15 @@ private struct LanguageSection: View {
 /// Auto, Light, or Dark for the settings window and the panel, applied as it is chosen.
 private struct AppAppearanceSection: View {
     let look: AppAppearanceModel
-    @State private var saveFailure: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "circle.lefthalf.filled", color: .purple, title: "Appearance")
-            if let saveFailure {
-                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            }
-            SettingCard {
-                SettingRow(icon: ("circle.lefthalf.filled", .purple), title: "App Appearance", description: "Auto follows your Mac's system appearance") {
-                    PopUpButton(selection: Binding(get: { look.value }, set: { choice in
-                        // [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
-                        do {
-                            try look.update { $0 = choice }
-                            saveFailure = nil
-                        } catch {
-                            saveFailure = error.localizedDescription
-                        }
-                    }), options: AppAppearance.allCases, title: { Text($0.label) })
+            SettingEditor(look) { edits in
+                SettingCard {
+                    SettingRow(icon: ("circle.lefthalf.filled", .purple), title: "App Appearance", description: "Auto follows your Mac's system appearance") {
+                        PopUpButton(selection: edits.binding(\.self), options: AppAppearance.allCases, title: { Text($0.label) })
+                    }
                 }
             }
         }
@@ -77,46 +57,32 @@ private struct AppAppearanceSection: View {
 private struct NotificationAppearanceSection: View {
     let appearance: NotificationAppearanceModel
     @State private var showGlow = false
-    @State private var saveFailure: String?
 
     var body: some View {
-        let look = appearance.value
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "sparkle", color: .pink, title: "Notification Appearance")
-            if let saveFailure {
-                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            }
-            SettingCard {
-                SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {
-                    PopUpButton(selection: binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: { Text($0.label) })
+            SettingEditor(appearance) { edits in
+                let look = edits.value
+                SettingCard {
+                    SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {
+                        PopUpButton(selection: edits.binding(\.bubbleSize), options: NotificationAppearance.BubbleSize.allCases, title: { Text($0.label) })
+                    }
+                    SettingRow(title: "Screen Edge Glow", description: "Strength of the glow around the screen edge") {
+                        PopUpButton(selection: edits.binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: { Text($0.label) })
+                    }
+                    SettingRow(title: "Preview") {
+                        AccentSwitch(isOn: $showGlow, tint: .green, label: "Show Glow")
+                    }
                 }
-                SettingRow(title: "Screen Edge Glow", description: "Strength of the glow around the screen edge") {
-                    PopUpButton(selection: binding(\.glowStrength), options: NotificationAppearance.GlowStrength.allCases, title: { Text($0.label) })
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.03))
+                    if showGlow { GlowView(severity: PillContent.sample.severity, strength: look.glowStrength) }
+                    PillView(content: PillContent.sample, scale: look.bubbleSize.scale, onClose: {})
                 }
-                SettingRow(title: "Preview") {
-                    AccentSwitch(isOn: $showGlow, tint: .green, label: "Show Glow")
-                }
+                .frame(height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.03))
-                if showGlow { GlowView(severity: PillContent.sample.severity, strength: look.glowStrength) }
-                PillView(content: PillContent.sample, scale: look.bubbleSize.scale, onClose: {})
-            }
-            .frame(height: 200)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-    }
-
-    /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
-    private func binding<Value>(_ keyPath: WritableKeyPath<NotificationAppearance, Value>) -> Binding<Value> {
-        Binding(get: { appearance.value[keyPath: keyPath] }, set: { value in
-            do {
-                try appearance.update { $0[keyPath: keyPath] = value }
-                saveFailure = nil
-            } catch {
-                saveFailure = error.localizedDescription
-            }
-        })
     }
 }
 
