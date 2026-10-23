@@ -36,9 +36,16 @@ private final class PillPanel: OverlayPanel {
 }
 
 /// Why a pill came down, as its log line says it.
-enum PillEnd: String {
-    case closeButton = "×"
-    case timedOut = "timed out"
+enum PillEnd {
+    case closeButton
+    case timedOut
+
+    var said: String {
+        switch self {
+        case .closeButton: "×"
+        case .timedOut: "timed out after \(PillController.shownFor)"
+        }
+    }
 }
 
 /// The one pill on screen, with the screen glow its alert asks for: a new alert replaces both, and
@@ -49,7 +56,7 @@ enum PillEnd: String {
 @MainActor final class PillController {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
     /// How long a pill stays up unless its × or a newer alert takes it down first.
-    static let shownFor: Duration = .seconds(8)
+    nonisolated static let shownFor: Duration = .seconds(8)
 
     @MainActor private struct Up {
         let content: PillContent
@@ -100,7 +107,7 @@ enum PillEnd: String {
         dismiss("replaced")
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost alert is logged.
         guard let screen = NSScreen.main ?? NSScreen.screens.first else {
-            Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .public)")
+            Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .private)")
             releaseWaiters()
             return
         }
@@ -125,14 +132,15 @@ enum PillEnd: String {
     /// Takes down the pill showing, if any, without telling waiters: a replacement may follow.
     private func dismiss(_ why: String) {
         if let up {
-            Self.log.info("pill \(why, privacy: .public): \(up.content.headline.english, privacy: .public)")
+            // A device pill's headline holds the device's name, which AlertCenter logs as private too.
+            Self.log.info("pill \(why, privacy: .public): \(up.content.headline.english, privacy: .private)")
             up.close()
         }
         up = nil
     }
 
     func close(_ end: PillEnd) {
-        dismiss("closed: \(end.rawValue)")
+        dismiss("closed: \(end.said)")
         releaseWaiters()
     }
 

@@ -113,7 +113,7 @@ import Testing
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil && pills.shownGlowFrame == nil)
-        #expect(try Self.lines(log, about: "31% Remaining") == ["pill closed: timed out: 31% Remaining"])
+        #expect(try Self.lines(log, about: "31% Remaining") == ["pill closed: timed out after \(PillController.shownFor): 31% Remaining"])
     }
 
     @Test func aReplacementGetsItsOwnFullTimeOnScreen() async throws {
@@ -125,19 +125,19 @@ import Testing
         await clock.asleep()
         clock.advance(by: .seconds(5))
         pills.show(PillContent(low, reading: try Self.reading(28)))
+        // The first pill's countdown went with it. The second's has not started: its task waits
+        // for the main actor, which this test holds until its next await.
+        #expect(clock.sleeping == 0)
         await clock.asleep()
 
-        // The first pill's time is up; the second, five seconds younger, still has its own.
-        clock.advance(by: PillController.shownFor - .seconds(5))
-        await Task.yield()
-        #expect(pills.shown?.headline.english == "28% Remaining")
         let waiter = Task { await pills.untilClosed() }
-        await Task.yield()
-        clock.advance(by: .seconds(5))
+        clock.advance(by: PillController.shownFor - .seconds(1))
+        #expect(pills.shown?.headline.english == "28% Remaining")
+        clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil)
         #expect(try Self.lines(log, about: "29% Remaining") == ["pill replaced: 29% Remaining"])
-        #expect(try Self.lines(log, about: "28% Remaining") == ["pill closed: timed out: 28% Remaining"])
+        #expect(try Self.lines(log, about: "28% Remaining") == ["pill closed: timed out after \(PillController.shownFor): 28% Remaining"])
     }
 
     @Test func closingAPillEndsItsCountdown() async throws {
@@ -149,9 +149,8 @@ import Testing
         await clock.asleep()
         clock.advance(by: .seconds(3))
         pills.close(.closeButton)
-        clock.advance(by: PillController.shownFor)
-        await Task.yield()
-        #expect(pills.shown == nil)
+        // Nothing is left counting down to take down whichever pill comes up next.
+        #expect(clock.sleeping == 0)
         #expect(try Self.lines(log, about: "26% Remaining") == ["pill closed: ×: 26% Remaining"])
     }
 
@@ -198,6 +197,7 @@ import Testing
         // The appearance a person set on the General screen, as the app itself loads it.
         let pills = PillController(appearance: try NotificationAppearanceModel(defaults: .standard), language: try AppLanguageModel(defaults: .standard))
         defer { pills.close(.closeButton) }
+        let log = try BatteryLog(category: "alerts")
         let sounds = AlertSounds()
         let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
             (.center, false, false), (.top, false, false), (.center, true, true)]
@@ -212,6 +212,8 @@ import Testing
                     + " and click its × before it leaves by itself after \(PillController.shownFor).\n").utf8))
             await pills.untilClosed()
         }
+        // A pill that timed out proves nothing about whether a person could see it.
+        #expect(try Self.lines(log, about: "15% Remaining") == Array(repeating: "pill closed: ×: 15% Remaining", count: steps.count))
     }
 }
 
