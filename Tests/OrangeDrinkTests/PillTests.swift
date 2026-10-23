@@ -214,7 +214,10 @@ import Testing
     @Test func aChangeOfDisplaysPlacesThePillOnTheMainScreenAndKeepsItsCountdownAndLanguage() async throws {
         let clock = ManualTimekeeper()
         let language = AppLanguageTests.scratch()
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, timekeeper: clock)
+        let laptop = ScreenArea(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 944))
+        let external = ScreenArea(frame: CGRect(x: 1512, y: 0, width: 2560, height: 1440), visibleFrame: CGRect(x: 1512, y: 70, width: 2560, height: 1345))
+        let screens = Screens(laptop)
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, timekeeper: clock, screen: { screens.main })
         let log = try BatteryLog(category: "alerts")
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(PillContent(Alert(kind: .low, threshold: 22, position: .top, glow: true, sound: false),
@@ -223,19 +226,47 @@ import Testing
         clock.advance(by: .seconds(5))
         try language.update { $0 = AppLanguage(code: "es") }
 
+        screens.main = external
         pills.screensChanged()
-        let screen = try #require(NSScreen.main ?? NSScreen.screens.first)
-        #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen.visibleFrame, scale: 1))
-        #expect(pills.shownGlowFrame == screen.frame)
+        #expect(pills.shownFrame == PillPlacement.frame(.top, on: external.visibleFrame, scale: 1))
+        #expect(pills.shownGlowFrame == external.frame)
         #expect(pills.shownLanguage == AppLanguage(code: "fr"))
+        // Displays re-enumerating: no screen to go to, so the pill stays where it is.
+        screens.main = nil
+        pills.screensChanged()
+        #expect(pills.shownFrame == PillPlacement.frame(.top, on: external.visibleFrame, scale: 1))
         // The same countdown, three seconds from its end.
         #expect(clock.sleeping == 1)
         let waiter = Task { await pills.untilClosed() }
         clock.advance(by: PillController.shownFor - .seconds(5))
         await waiter.value
         #expect(try Self.lines(log, about: "21% Remaining") == [
-            "pill shown at top for \(PillController.shownFor): 21% Remaining", "pill placed on the current screen: 21% Remaining",
-            "pill closed: timed out after \(PillController.shownFor): 21% Remaining"])
+            "pill shown at top for \(PillController.shownFor): 21% Remaining", "pill placed in \(external.visibleFrame): 21% Remaining",
+            "no screen to place the pill on: 21% Remaining", "pill closed: timed out after \(PillController.shownFor): 21% Remaining"])
+    }
+
+    // The first set the system sends at launch may say what the controller already holds: nothing hides the screen.
+    @Test(.timeLimit(.minutes(1))) func theSameHidersAgainLeaveACountingPillsCountdownAsItWas() async throws {
+        let clock = ManualTimekeeper()
+        let pills = Self.countdown(clock)
+        let log = try BatteryLog(category: "alerts")
+        pills.show(PillContent(Alert(kind: .low, threshold: 19, position: .top, glow: false, sound: false),
+                               reading: try Self.reading(18)))
+        await clock.asleep()
+        clock.advance(by: .seconds(6))
+        pills.screen(hidden: [])
+        #expect(clock.sleeping == 1)
+        let waiter = Task { await pills.untilClosed() }
+        clock.advance(by: PillController.shownFor - .seconds(6))
+        await waiter.value
+        #expect(try Self.lines(log, about: "18% Remaining") == [
+            "pill shown at top for \(PillController.shownFor): 18% Remaining", "pill closed: timed out after \(PillController.shownFor): 18% Remaining"])
+    }
+
+    /// The screen a test's pills go on, moved by the test.
+    @MainActor final class Screens {
+        var main: ScreenArea?
+        init(_ main: ScreenArea) { self.main = main }
     }
 
     @Test func pillWordingAndSeverityFollowTheAlertAndTheReading() throws {

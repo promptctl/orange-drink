@@ -23,14 +23,27 @@ enum PillPlacement {
     }
 }
 
+/// The two rectangles of a screen a pill and its glow are placed by.
+struct ScreenArea: Equatable {
+    /// The whole screen, which the glow covers.
+    let frame: CGRect
+    /// The screen less the menu bar and Dock, which the pill sits in.
+    let visibleFrame: CGRect
+
+    /// [LAW:effects-at-boundaries] The screen pills go on now, as AppKit says: none with every display gone.
+    @MainActor static func main() -> ScreenArea? {
+        (NSScreen.main ?? NSScreen.screens.first).map { ScreenArea(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+    }
+}
+
 /// The pill's window: it takes the close button's clicks without taking focus.
 private final class PillPanel: OverlayPanel {
     let language: AppLanguage
 
-    init(_ content: PillContent, scale: Double, language: AppLanguage, screen: NSScreen, onClose: @escaping () -> Void) {
+    init(_ content: PillContent, scale: Double, language: AppLanguage, area: ScreenArea, onClose: @escaping () -> Void) {
         self.language = language
         super.init(
-            frame: PillPlacement.frame(content.position, on: screen.visibleFrame, scale: scale), level: .pill,
+            frame: PillPlacement.frame(content.position, on: area.visibleFrame, scale: scale), level: .pill,
             content: PillView(content: content, scale: scale, onClose: onClose).speaking(language))
     }
 }
@@ -72,25 +85,28 @@ enum PillEnd {
 
         func close() { countdown?.cancel(); panel.close(); glow?.close() }
 
-        func place(on screen: NSScreen) {
-            panel.setFrame(PillPlacement.frame(content.position, on: screen.visibleFrame, scale: scale), display: true)
-            glow?.setFrame(screen.frame, display: true)
+        func place(on area: ScreenArea) {
+            panel.setFrame(PillPlacement.frame(content.position, on: area.visibleFrame, scale: scale), display: true)
+            glow?.setFrame(area.frame, display: true)
         }
     }
 
     private let appearance: NotificationAppearanceModel
     private let language: AppLanguageModel
     private let timekeeper: any Timekeeper
+    private let currentScreen: @MainActor () -> ScreenArea?
     private var up: Up?
     /// A launched app has someone in front of it, so nothing hides the screen until the system says so.
     private var hidden: Set<ScreenHider> = []
     private var waiters: [CheckedContinuation<Void, Never>] = []
     nonisolated(unsafe) private var following: [Task<Void, Never>] = []
 
-    init(appearance: NotificationAppearanceModel, language: AppLanguageModel, timekeeper: any Timekeeper = SystemTimekeeper()) {
+    init(appearance: NotificationAppearanceModel, language: AppLanguageModel, timekeeper: any Timekeeper = SystemTimekeeper(),
+         screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main) {
         self.appearance = appearance
         self.language = language
         self.timekeeper = timekeeper
+        currentScreen = screen
     }
 
     deinit { following.forEach { $0.cancel() } }
@@ -123,16 +139,16 @@ enum PillEnd {
     func show(_ content: PillContent) {
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
         // alert is logged. A pill already up stays, with the countdown `hidden` gave it.
-        guard let screen = Self.screen else {
+        guard let area = currentScreen() else {
             Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .private)")
             return
         }
         dismiss("replaced")
         let look = appearance.value
-        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, screen: screen, onClose: { [weak self] in self?.close(.closeButton) })
+        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, area: area, onClose: { [weak self] in self?.close(.closeButton) })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
-        let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, screen: screen) : nil
+        let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, frame: area.frame) : nil
         glow?.orderFrontRegardless()
         panel.orderFrontRegardless()
         let pill = Up(content: content, scale: look.bubbleSize.scale, panel: panel, glow: glow, countdown: countdown())
@@ -141,8 +157,10 @@ enum PillEnd {
         Self.log.info("pill shown at \(content.position.rawValue, privacy: .public)\(counting, privacy: .public): \(content.headline.english, privacy: .private)")
     }
 
-    /// What hides the screen now. Every change gives the pill up a new countdown from `countdown()`.
+    /// What hides the screen now. Every change gives the pill up a new countdown from `countdown()`;
+    /// the same set again, as the first one the system sends at launch may be, is no change.
     func screen(hidden: Set<ScreenHider>) {
+        guard hidden != self.hidden else { return }
         self.hidden = hidden
         let said = hidden.isEmpty ? "seen" : "hidden by \(hidden.map(\.rawValue).sorted().joined(separator: ", "))"
         Self.log.info("screen \(said, privacy: .public)")
@@ -158,12 +176,12 @@ enum PillEnd {
     func screensChanged() {
         guard let pill = up else { return }
         // [LAW:no-silent-failure] With no screen the pill stays where it was, and the next change places it.
-        guard let screen = Self.screen else {
+        guard let area = currentScreen() else {
             Self.log.error("no screen to place the pill on: \(pill.content.headline.english, privacy: .private)")
             return
         }
-        pill.place(on: screen)
-        Self.log.info("pill placed on the current screen: \(pill.content.headline.english, privacy: .private)")
+        pill.place(on: area)
+        Self.log.info("pill placed in \(String(describing: area.visibleFrame), privacy: .public): \(pill.content.headline.english, privacy: .private)")
     }
 
     /// Feeds the controller what hides the screen and when the displays change, for as long as it lives.
@@ -183,8 +201,6 @@ enum PillEnd {
             },
         ]
     }
-
-    private static var screen: NSScreen? { NSScreen.main ?? NSScreen.screens.first }
 
     /// [LAW:single-enforcer] The one place a countdown is made, from `hidden` alone: none while the
     /// screen is hidden, a full `shownFor` while it is seen.

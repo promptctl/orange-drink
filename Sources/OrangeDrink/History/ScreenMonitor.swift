@@ -34,25 +34,27 @@ enum ScreenMonitor {
     /// is locked or off the console, and whether the main display sleeps. The screen saver and system
     /// sleep cannot be asked, and an app that is running is awake.
     static func asked() -> Set<ScreenHider> {
-        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        asked(session: CGSessionCopyCurrentDictionary() as? [String: Any], mainDisplayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0)
+    }
+
+    static func asked(session: [String: Any]?, mainDisplayAsleep: Bool) -> Set<ScreenHider> {
         // [LAW:no-silent-failure] An app with a menu bar item has a window-server session; one without
         // is logged, and the screen is taken as seen, as at any launch.
         if session == nil { log.error("no window-server session to ask whether the screen is locked") }
         let answers: [ScreenHider: Bool] = [
             .locked: session?["CGSSessionScreenIsLocked"] as? Bool == true,
             .switchedOut: session?[kCGSessionOnConsoleKey] as? Bool == false,
-            .displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
+            .displayAsleep: mainDisplayAsleep,
         ]
         return Set(answers.filter(\.value).keys)
     }
 
-    /// The hiders in force: first those of `initial` the table can end, then the set each time it
-    /// changes. Nothing is polled: the system posts every start and end.
-    static func hidden(_ signals: [Signal] = signals, initial: Set<ScreenHider> = asked(), workspace: NotificationCenter = NSWorkspace.shared.notificationCenter,
+    /// The hiders in force: first those `ask` says hold that the table can end, then the set each time
+    /// it changes. Nothing is polled: the system posts every start and end.
+    static func hidden(_ signals: [Signal] = signals, ask: @Sendable () -> Set<ScreenHider> = { asked() }, workspace: NotificationCenter = NSWorkspace.shared.notificationCenter,
                        distributed: DistributedNotificationCenter = .default()) -> AsyncStream<Set<ScreenHider>> {
         AsyncStream { continuation in
-            // A hider with no row could never end, so it does not start in force either.
-            let fold = HiderFold(signals, initial: initial.intersection(signals.map(\.hider)), continuation: continuation)
+            let fold = HiderFold(signals, continuation: continuation)
             for signal in signals {
                 for name in [signal.starts, signal.ends] {
                     switch signal.center {
@@ -66,24 +68,16 @@ enum ScreenMonitor {
             }
             let centers: [NotificationCenter] = [workspace, distributed]
             continuation.onTermination = { _ in centers.forEach { $0.removeObserver(fold) } }
+            // [LAW:no-ambient-temporal-coupling] Asked once every row is observed, so a change the answer
+            // misses arrives after it. A hider with no row could never end, so it does not start in force.
+            fold.start { ask().intersection(signals.map(\.hider)) }
         }
     }
 
-    /// true when the displays wake, false when they sleep: the `displayAsleep` row of `hidden`, sent
-    /// only when it flips from awake, where battery history starts.
-    static func changes(_ hidden: AsyncStream<Set<ScreenHider>> = hidden(signals.filter { $0.hider == .displayAsleep })) -> AsyncStream<Bool> {
-        AsyncStream { continuation in
-            let task = Task {
-                var on = true
-                // The displays flip when "asleep" comes to equal "on": asleep while on, or awake while off.
-                for await hiders in hidden where hiders.contains(.displayAsleep) == on {
-                    on.toggle()
-                    continuation.yield(on)
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
+    /// Whether the displays are awake: the `displayAsleep` row of `hidden`, where battery history starts.
+    static func changes(_ hidden: AsyncStream<Set<ScreenHider>> = hidden(signals.filter { $0.hider == .displayAsleep }))
+        -> AsyncMapSequence<AsyncStream<Set<ScreenHider>>, Bool> {
+        hidden.map { !$0.contains(.displayAsleep) }
     }
 
     /// Each time displays are added, removed, or rearranged.
@@ -104,11 +98,19 @@ private final class HiderFold: NSObject, Sendable {
     private let hidden: OSAllocatedUnfairLock<Set<ScreenHider>>
     private let continuation: AsyncStream<Set<ScreenHider>>.Continuation
 
-    init(_ signals: [ScreenMonitor.Signal], initial: Set<ScreenHider>, continuation: AsyncStream<Set<ScreenHider>>.Continuation) {
+    init(_ signals: [ScreenMonitor.Signal], continuation: AsyncStream<Set<ScreenHider>>.Continuation) {
         moves = Dictionary(uniqueKeysWithValues: signals.flatMap { [($0.starts, ($0.hider, true)), ($0.ends, ($0.hider, false))] })
-        hidden = OSAllocatedUnfairLock(initialState: initial)
+        hidden = OSAllocatedUnfairLock(initialState: [])
         self.continuation = continuation
-        continuation.yield(initial)
+    }
+
+    /// Takes the hiders in force from `ask` and sends them: under the lock, so a post arriving while it
+    /// asks is folded in after the answer.
+    func start(_ ask: @Sendable () -> Set<ScreenHider>) {
+        hidden.withLock { hiders in
+            hiders = ask()
+            continuation.yield(hiders)
+        }
     }
 
     @objc func received(_ note: Notification) {

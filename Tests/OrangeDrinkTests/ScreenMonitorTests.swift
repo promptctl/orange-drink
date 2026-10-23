@@ -9,7 +9,7 @@ import Testing
     @Test func theWorkspaceStartsAndEndsFoldIntoTheHidersInForce() async throws {
         let workspace = NotificationCenter()
         let rows = ScreenMonitor.signals.filter { $0.center == .workspace }
-        var hidden = ScreenMonitor.hidden(rows, initial: [], workspace: workspace).makeAsyncIterator()
+        var hidden = ScreenMonitor.hidden(rows, ask: { [] }, workspace: workspace).makeAsyncIterator()
         func post(_ name: Notification.Name) { workspace.post(name: name, object: nil) }
 
         #expect(await hidden.next() == [])
@@ -35,7 +35,7 @@ import Testing
         let workspace = NotificationCenter()
         let rows = ScreenMonitor.signals.filter { $0.center == .workspace }
         // `.locked` has no row here, so nothing could end it.
-        var hidden = ScreenMonitor.hidden(rows, initial: [.displayAsleep, .locked], workspace: workspace).makeAsyncIterator()
+        var hidden = ScreenMonitor.hidden(rows, ask: { [.displayAsleep, .locked] }, workspace: workspace).makeAsyncIterator()
         #expect(await hidden.next() == [.displayAsleep])
         workspace.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
         #expect(await hidden.next() == [])
@@ -43,16 +43,21 @@ import Testing
 
     @Test func theDisplaysAreOnUnlessDisplayAsleepIsInForce() async {
         let (hidden, feed) = AsyncStream<Set<ScreenHider>>.makeStream()
-        var on = ScreenMonitor.changes(hidden).makeAsyncIterator()
-        feed.yield([.locked])
-        feed.yield([.locked, .displayAsleep])
-        #expect(await on.next() == false)
-        feed.yield([.displayAsleep])
-        feed.yield([])
-        #expect(await on.next() == true)
-        feed.yield([.screenSaver])
+        for hiders: Set<ScreenHider> in [[.locked], [.locked, .displayAsleep], [.displayAsleep], [], [.screenSaver]] { feed.yield(hiders) }
         feed.finish()
-        #expect(await on.next() == nil)
+        var on: [Bool] = []
+        for await awake in ScreenMonitor.changes(hidden) { on.append(awake) }
+        #expect(on == [true, false, false, true, true])
+    }
+
+    @Test func theSystemIsAskedWhetherTheSessionIsLockedOrAwayAndTheMainDisplayAsleep() throws {
+        let log = try BatteryLog(category: "screen")
+        #expect(ScreenMonitor.asked(session: ["CGSSessionScreenIsLocked": true, kCGSessionOnConsoleKey: true], mainDisplayAsleep: false) == [.locked])
+        #expect(ScreenMonitor.asked(session: [kCGSessionOnConsoleKey: false], mainDisplayAsleep: true) == [.switchedOut, .displayAsleep])
+        #expect(try !log.messages().contains("no window-server session to ask whether the screen is locked"))
+        // With no session nothing can be said about the lock, and the screen is taken as seen.
+        #expect(ScreenMonitor.asked(session: nil, mainDisplayAsleep: false) == [])
+        #expect(try log.messages().contains("no window-server session to ask whether the screen is locked"))
     }
 
     /// On the system's own distributed center, under a name only this test posts: NSApplication
@@ -62,7 +67,7 @@ import Testing
         let id = UUID().uuidString
         let row = ScreenMonitor.Signal(hider: .locked, center: .distributed,
                                        starts: Notification.Name("OrangeDrinkTests.locked.\(id)"), ends: Notification.Name("OrangeDrinkTests.unlocked.\(id)"))
-        let hidden = ScreenMonitor.hidden([row], initial: [], workspace: NotificationCenter(), distributed: center)
+        let hidden = ScreenMonitor.hidden([row], ask: { [] }, workspace: NotificationCenter(), distributed: center)
         let was = center.suspended
         center.suspended = true
         defer { center.suspended = was }
