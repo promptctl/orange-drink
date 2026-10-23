@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 import Testing
 @testable import OrangeDrink
 
@@ -96,20 +97,23 @@ import Testing
         /// Each ask's delay before it answers, in the order asked; none once they run out.
         var delays: [TimeInterval] = []
         private var answered = 0
-        var refusal: (any Error)?
+        var refusal: HelperUseFailure?
         @MainActor var events: [LowPowerMode.Event] = []
 
         init() { (asked, continuation) = AsyncStream.makeStream() }
 
         @MainActor func model() -> LowPowerMode {
-            LowPowerMode(read: { self.isOn }, center: center, write: { on in
+            LowPowerMode(read: { self.isOn }, center: center, write: { on throws(HelperUseFailure) in
                 self.continuation.yield(on)
                 let delay = self.answered < self.delays.count ? self.delays[self.answered] : 0
                 self.answered += 1
                 Thread.sleep(forTimeInterval: delay)
                 if let refusal = self.refusal { throw refusal }
-            }, record: { self.events.append($0) })
+            }, record: { self.events.append($0) }, openLoginItems: { self.loginItemsShown += 1 })
         }
+
+        /// How many times Login Items & Extensions was opened.
+        @MainActor var loginItemsShown = 0
 
         /// The system changes its state and says so, as it does for a change made anywhere.
         @MainActor func change(to on: Bool) {
@@ -164,26 +168,84 @@ import Testing
     @Test func aChangeThatFailsSaysWhyUntilOneSucceedsOrTheSystemMoves() async {
         let system = FakeSystem()
         let model = system.model()
-        system.refusal = HelperCallError.noReply(seconds: 10, service: "test")
+        let noReply = HelperUseFailure(call: .noReply(seconds: 10, service: "test"), status: .enabled)
+        system.refusal = noReply
         await model.toggle().value
-        #expect(model.failure?.hasPrefix("no reply in 10 s") == true)
+        #expect(model.failure == noReply)
         #expect(!model.isAsking && !model.isOn)
-        #expect(system.events.last == .asked(true, failure: model.failure))
+        #expect(system.events.last == .asked(true, failure: noReply))
         system.refusal = nil
         await model.toggle().value
         #expect(model.failure == nil)
 
-        system.refusal = HelperCallError.failed("pmset -b powermode 1 exited 1")
+        system.refusal = HelperUseFailure(call: .failed("pmset -b powermode 1 exited 1"), status: .enabled)
         await model.toggle().value
-        #expect(model.failure == "the helper failed: pmset -b powermode 1 exited 1")
+        #expect(model.failure?.needsApproval == false)
         system.change(to: true)
         #expect(model.failure == nil)
     }
 
+    /// The ticket's case: a press before the helper is allowed says so, and once it is allowed the same press works.
+    /// The user follows the row to Login Items & Extensions, which closes the panel, so the reopened panel does not
+    /// repeat the advice.
+    @Test func aPressBeforeApprovalSaysSoAndThePressAfterItWorks() async {
+        let system = FakeSystem()
+        let model = system.model()
+        let unapproved = HelperUseFailure(call: Self.unapproved, status: .requiresApproval)
+        system.refusal = unapproved
+        await model.toggle().value
+        #expect(model.failure?.needsApproval == true)
+        #expect(LowPowerMode.explanation(of: unapproved, appName: "App") == "Allow \("App") in the background to change Low Power Mode.")
+        #expect(!model.isAsking && !model.isOn)
+        model.openLoginItems()
+        #expect(system.loginItemsShown == 1)
+        model.panelDidClose()
+        #expect(model.failure == nil)
+        system.refusal = nil
+        await model.toggle().value
+        #expect(model.failure == nil)
+        #expect(system.events == [.asked(true, failure: unapproved), .openedLoginItems, .dismissed(unapproved), .asked(true, failure: nil)])
+    }
+
+    /// A reply that lands after the panel closed is shown when it opens again: nobody has seen it yet.
+    @Test func aFailureThatLandsWhileThePanelIsClosedWaitsForItToOpen() async {
+        let system = FakeSystem()
+        let model = system.model()
+        let unapproved = HelperUseFailure(call: Self.unapproved, status: .requiresApproval)
+        system.refusal = unapproved
+        let asking = model.toggle()
+        model.panelDidClose()
+        await asking.value
+        #expect(model.failure == unapproved)
+        #expect(system.events == [.asked(true, failure: unapproved)])
+    }
+
+    /// Any other failure says what went wrong, and closing the panel forgets it too; the log says so.
+    @Test func aFailureTheUserCannotFixSaysWhatWentWrong() async {
+        let system = FakeSystem()
+        let model = system.model()
+        let failure = HelperUseFailure(call: .failed("pmset -c powermode 1 exited 1"), status: .enabled)
+        system.refusal = failure
+        await model.toggle().value
+        #expect(LowPowerMode.explanation(of: failure, appName: "App") == "Couldn't change Low Power Mode: \("the helper failed: pmset -c powermode 1 exited 1")")
+        model.panelDidClose()
+        #expect(model.failure == nil)
+        #expect(system.events == [.asked(true, failure: failure), .dismissed(failure)])
+    }
+
+    /// What an unapproved helper's call answers, measured (orange-admin-helper-b2q.1d4): launchd has no job to look up.
+    static let unapproved = HelperCallError.connection(domain: "NSCocoaErrorDomain", code: 4099, description: "Couldn’t communicate with a helper application.")
+
     @Test func eachEventSaysItselfInTheLog() {
         #expect(LowPowerMode.Event.asked(true, failure: nil).line == "low power mode on: done")
-        #expect(LowPowerMode.Event.asked(false, failure: "the helper failed: x").line == "low power mode off failed: the helper failed: x")
+        #expect(LowPowerMode.Event.asked(false, failure: HelperUseFailure(call: .failed("x"), status: .enabled)).line
+                    == "low power mode off failed: the helper failed: x (helper status enabled)")
+        #expect(LowPowerMode.Event.asked(true, failure: HelperUseFailure(call: Self.unapproved, status: .requiresApproval)).line
+                    == "low power mode on failed: call failed: domain=NSCocoaErrorDomain code=4099 Couldn’t communicate with a helper application. (helper status requiresApproval)")
         #expect(LowPowerMode.Event.changed(true).line == "low power mode is on")
+        #expect(LowPowerMode.Event.openedLoginItems.line == "opened Login Items & Extensions to allow the helper")
+        #expect(LowPowerMode.Event.dismissed(HelperUseFailure(call: .failed("x"), status: .enabled)).line
+                    == "panel closed; no longer showing: the helper failed: x (helper status enabled)")
     }
 
     @Test func theLowPowerModeLetterFlipsItAndAHeldLetterIsOnePress() async throws {
@@ -207,5 +269,39 @@ import Testing
 
     @Test func eachMenuShortcutActsOnItsOwnRow() {
         #expect(MenuShortcut.allCases.map(\.target) == [.section(.batteryInformation), .section(.appsUsingSignificantEnergy), .section(.connectedDevices), .lowPowerMode])
+    }
+}
+
+// [LAW:behavior-not-structure] The contract: a call that succeeds asks nothing of the registration; one that fails
+// reads the helper's approval once and keeps it beside the call's own error, and only requiresApproval is a failure
+// the user fixes by allowing the helper.
+@Suite struct HelperAccessTests {
+    final class Reads: @unchecked Sendable { var count = 0 }
+
+    /// The app's path end to end, short of a helper: a real call to a service launchd has no job for fails at once
+    /// as 4099, and the failure carries the status SMAppService reads for that plist, which this bundle lacks.
+    @Test func theAppsCallCarriesTheStatusReadAfterItFails() {
+        let access = HelperAccess(service: "dev.orangedrink.no-such-helper", plistName: "dev.orangedrink.no-such-helper.plist")
+        #expect { try access.setLowPowerMode(true) } throws: { error in
+            guard let failure = error as? HelperUseFailure, case .connection(_, 4099, _) = failure.call else { return false }
+            return failure.status == .notFound && !failure.needsApproval
+        }
+    }
+
+    @Test func aCallThatSucceedsReadsNoStatus() throws {
+        let reads = Reads()
+        let value = try HelperAccess.explained({ () throws(HelperCallError) in 7 }, status: { reads.count += 1; return .requiresApproval })
+        #expect(value == 7 && reads.count == 0)
+    }
+
+    @Test(arguments: [(SMAppService.Status.requiresApproval, true), (.enabled, false), (.notRegistered, false), (.notFound, false)])
+    func aCallThatFailsKeepsItsErrorAndTheStatusReadOnce(status: SMAppService.Status, needsApproval: Bool) {
+        let reads = Reads()
+        let error = HelperCallError.connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x")
+        #expect {
+            try HelperAccess.explained({ () throws(HelperCallError) in throw error }, status: { reads.count += 1; return status })
+        } throws: { ($0 as? HelperUseFailure) == HelperUseFailure(call: error, status: status) }
+        #expect(reads.count == 1)
+        #expect(HelperUseFailure(call: error, status: status).needsApproval == needsApproval)
     }
 }

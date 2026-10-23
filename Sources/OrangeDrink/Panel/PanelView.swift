@@ -42,7 +42,10 @@ struct PanelView: View {
         .background(AdaptiveColor(light: .white.opacity(0.85), dark: .black.opacity(0.85)))
         .appLook(look, language)
         .onAppear { keyboard.panelDidOpen(shown: { [devices, deviceSettings] in Self.shown(devices: devices, settings: deviceSettings) }) }
-        .onDisappear { keyboard.panelDidClose() }
+        .onDisappear {
+            keyboard.panelDidClose()
+            lowPowerMode.panelDidClose()
+        }
     }
 
     /// The collapsible sections the panel draws: Connected Devices only when there is something to say.
@@ -182,8 +185,18 @@ private struct ActionsCard: View {
                 Toggle("Low Power Mode", isOn: .constant(lowPowerMode.isOn)).labelsHidden().toggleStyle(.switch).allowsHitTesting(false)
             }
             if let failure = lowPowerMode.failure {
-                PhraseText("Couldn't change Low Power Mode: \(failure)").font(.caption).foregroundStyle(.red).lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
+                // A failure the user can fix says how; any other says what went wrong.
+                VStack(alignment: .leading, spacing: 4) {
+                    let explanation = PhraseText(LowPowerMode.explanation(of: failure, appName: appName))
+                    if failure.needsApproval {
+                        explanation.fixedSize(horizontal: false, vertical: true)
+                        Button { lowPowerMode.openLoginItems() } label: { PhraseText(LowPowerMode.openLoginItemsTitle) }
+                            .buttonStyle(.link)
+                    } else {
+                        explanation.foregroundStyle(.red).lineLimit(3)
+                    }
+                }
+                .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
             }
         case .checkForUpdates:
             // A placeholder until the update check exists (orange-distribution-kg2.l9x).

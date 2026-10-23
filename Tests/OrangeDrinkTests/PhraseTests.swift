@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 import Testing
 @testable import OrangeDrink
 
@@ -73,6 +74,9 @@ import Testing
         phrases += [ChargeCard.Status.charging, .onBattery, .notCharging, .charged].map(\.title)
         phrases += SettingsScreen.allCases.map(\.comingSoon)
         phrases += PanelAction.allCases.map { $0.title(appName: "App") }
+        phrases += [SMAppService.Status.requiresApproval, .enabled].map {
+            LowPowerMode.explanation(of: HelperUseFailure(call: .failed("x"), status: $0), appName: "App")
+        } + [LowPowerMode.openLoginItemsTitle]
         phrases += SettingsScreen.allCases.flatMap { [$0.title] + ($0.subtitle(appName: "App").map { [$0] } ?? []) }
         phrases += [3, 15, 40, 80].map { PowerFlow.workload(watts: Double($0)) }
         phrases += ["Not charging", "Charging at \(5) W", "UNTIL EMPTY", "UNTIL FULL", "\(1)h \(2)m"]
