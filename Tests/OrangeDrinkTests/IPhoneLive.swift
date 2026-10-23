@@ -5,8 +5,8 @@ import Testing
 
 // [LAW:verifiable-goals] The ticket's hardware step: plugging in a trusted iPhone switches on its Wi-Fi sync and reads it
 // over the cable; once the cable is pulled, every window brings a Wi-Fi reading or a typed Wi-Fi read failure, never
-// nothing, and the app reading it stays under PROJECT.md's 0.1% CPU bar. Run by make iphone-check with the iPhone cabled,
-// Finder's "Show this iPhone when on Wi-Fi" box unticked, and a person at the cable.
+// nothing, and the app reading it stays under PROJECT.md's 0.1% CPU bar. Run by make iphone-check with the iPhone cabled
+// and a person at the cable.
 @Suite(.serialized) struct IPhoneLive {
     /// The longest a device on Wi-Fi may go without an event: one rest, then one read at its worst.
     private static let window = IPhoneMonitor.pollInterval + readWorstCase
@@ -18,34 +18,42 @@ import Testing
           .timeLimit(.minutes(20)))
     func switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
+        // The one cabled device's Wi-Fi sync is switched off before the monitor starts, so the monitor is what switches it on.
+        let cabled = try usbmuxListDevices().compactMap { device -> (handle: Int, udid: String)? in
+            guard case .device(let udid, .usb) = device.connection else { return nil }
+            return (device.handle, udid)
+        }
+        try #require(cabled.count == 1, "this check needs exactly one cabled iPhone; usbmuxd lists \(cabled.count)")
+        let (handle, udid) = cabled[0]
+        try setIPhoneWifiSync(false, handle: handle, udid: udid)
+        printForTheRecord("wifi sync off: \(udid)")
+
         let arrivals = Arrivals()
         let consumer = Task { for await event in IPhoneMonitor.events() { arrivals.append(event) } }
         defer { consumer.cancel() }
         var cursor = 0
 
-        // The cable: one reading over USB and the Wi-Fi sync switch, for the same device.
-        var cabled: String?
-        var synced: String?
-        while cabled == nil || synced == nil {
+        // The cable: one reading over USB and the Wi-Fi sync switch, for that device.
+        var read = false
+        var synced = false
+        while !read || !synced {
             let event = try #require(try await arrivals.event(at: cursor, within: .seconds(120)),
-                                     "no cable reading and Wi-Fi sync within two minutes; is the iPhone trusted, unlocked, and plugged in?")
+                                     "no cable reading and Wi-Fi sync within two minutes; is the iPhone trusted and unlocked?")
             cursor += 1
             switch event {
-            case .reading(let udid, .usb, let value):
-                cabled = udid
-                print("cable reading: level \(value.level)%, health \(value.health.map { String(format: "%.1f%%", $0 * 100) } ?? "not reported"), cycles \(value.cycleCount)")
-            case .wifiSyncOn(let udid):
-                synced = udid
-                print("wifi sync on: check that Finder now ticks \"Show this iPhone when on Wi-Fi\"")
-            case .wifiSyncFailed(_, let error), .readFailed(_, _, let error), .failed(let error):
+            case .reading(udid, .usb, let value):
+                read = true
+                printForTheRecord("cable reading: level \(value.level)%, health \(value.health.map { String(format: "%.1f%%", $0 * 100) } ?? "not reported"), cycles \(value.cycleCount)")
+            case .wifiSyncOn(udid):
+                synced = true
+                printForTheRecord("wifi sync on: check that Finder now ticks \"Show this iPhone when on Wi-Fi\"")
+            case .wifiSyncFailed(udid, let error), .readFailed(udid, _, let error), .failed(let error):
                 Issue.record("cable phase: \(event) (\(error))")
                 return
             default:
                 continue
             }
         }
-        let udid = try #require(cabled)
-        #expect(synced == udid, "Wi-Fi sync was switched on for another device")
         #expect(try log.messages().contains { $0.hasPrefix("iphone wifi sync on: \(udid) ") })
         print("pull the cable now")
 
@@ -61,9 +69,9 @@ import Testing
             switch event {
             case .reading(udid, .network, let value):
                 wifiReadings += 1
-                print("wifi reading: level \(value.level)%: compare with the phone")
+                printForTheRecord("wifi reading: level \(value.level)%: compare with the phone")
             case .readFailed(udid, .network, let error):
-                print("wifi read failed: \(error)")
+                printForTheRecord("wifi read failed: \(error)")
             case .reading(udid, .usb, _):
                 print("still on the cable: pull it")
                 continue
@@ -82,7 +90,7 @@ import Testing
 
         let from = try #require(cpuFrom)
         let percent = (processCPU() - from.cpu) / (ContinuousClock.now - from.at) * 100
-        print(String(format: "wifi phase CPU: %.3f%% over %d windows", percent, Self.wifiWindows))
+        printForTheRecord(String(format: "wifi phase CPU: %.3f%% over %d windows", percent, Self.wifiWindows))
         #expect(percent < 0.1, "the app over Wi-Fi is over PROJECT.md's 0.1% CPU bar")
         #expect(wifiReadings > 0, "every Wi-Fi read failed")
     }

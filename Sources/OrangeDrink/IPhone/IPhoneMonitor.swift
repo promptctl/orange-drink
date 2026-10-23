@@ -147,10 +147,9 @@ enum IPhoneMonitor {
     static func events() -> AsyncStream<IPhoneEvent> {
         events(from: MonitorInputs(
             listen: usbmuxListen,
-            snapshot: { try usbmuxDeviceList(try usbmuxRequest(["MessageType": "ListDevices", "ClientVersionString": "orange-drink",
-                                                                "ProgName": "orange-drink"])) },
+            snapshot: usbmuxListDevices,
             read: readIPhoneBattery(handle:udid:),
-            enableWifiSync: enableIPhoneWifiSync(handle:udid:),
+            enableWifiSync: { handle, udid throws(IPhoneReadError) in try setIPhoneWifiSync(true, handle: handle, udid: udid) },
             timekeeper: SystemTimekeeper()))
     }
 

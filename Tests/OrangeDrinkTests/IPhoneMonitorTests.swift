@@ -270,8 +270,10 @@ import Testing
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let udid = "00000000-0000000000000000"  // UDID-shaped, so usbmuxd answers ENOENT rather than EINVAL
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneBattery(handle: 1, udid: udid) }
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try enableIPhoneWifiSync(handle: 1, udid: udid) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(false, handle: 1, udid: udid) }
         #expect(try await logged("iphone read failed: \(udid) handle 1: usbmux(", in: log))
-        #expect(try await logged("iphone wifi sync failed: \(udid) handle 1: usbmux(", in: log))
+        #expect(try await logged("iphone wifi sync on failed: \(udid) handle 1: usbmux(", in: log))
+        #expect(try await logged("iphone wifi sync off failed: \(udid) handle 1: usbmux(", in: log))
     }
 }

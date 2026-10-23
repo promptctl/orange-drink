@@ -148,7 +148,7 @@ struct DeviceListTests {
             break
         }
         for device in list.devices {
-            print("device: \(device.name) | \(device.kind) | \(device.levels)")
+            printForTheRecord("device: \(device.name) | \(device.kind) | \(device.levels)")
             if let profiled = connected[device.name] {
                 let ours = Self.percents(device.levels)
                 #expect(Set(ours.keys) == Set(profiled.keys), "\(device.name) reports different parts than system_profiler")
