@@ -83,9 +83,17 @@ struct ChildProcess {
         defer { argv.forEach { free($0) } }
         var pid: pid_t = 0
         let code = posix_spawn(&pid, executable, &actions, &attributes, argv, environ)
-        try output.fileHandleForWriting.close()
-        try errors.fileHandleForWriting.close()
         guard code == 0 else { throw NotStarted(executable: executable, code: code) }
+        // This process's write ends close, so the reads end with the tool; a tool whose pipes cannot be set up is
+        // ended and reaped here, as nothing else knows it.
+        do {
+            try output.fileHandleForWriting.close()
+            try errors.fileHandleForWriting.close()
+        } catch {
+            kill(pid, SIGKILL)
+            waitpid(pid, nil, 0)
+            throw error
+        }
         return pid
     }
 }

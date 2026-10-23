@@ -64,8 +64,8 @@ import Testing
         #expect(ran == [["-g"]])
     }
 
-    /// The runner the helper uses: a tool that fails is a failure with its output, and one that outlives its
-    /// deadline is killed and named.
+    /// The runner the helper uses: a tool that fails is a failure with its output, one that outlives its deadline
+    /// is killed and named, and one that cannot start says why.
     @Test func pmsetRunsToItsEndOrItsDeadline() throws {
         let later = Date(timeIntervalSinceNow: 10)
         _ = try PowerModeKey(listing: LowPowerModeWrite.pmset(["-g"], until: later))
@@ -75,6 +75,7 @@ import Testing
             "\($0)".hasPrefix("pmset -g no-such-setting not run: the call's deadline passed 2")
         }
         #expect { try ChildProcess.run("/bin/sleep", ["5"], deadline: 1) } throws: { "\($0)" == "/bin/sleep was still running at its 1 s deadline and was killed" }
+        #expect { try ChildProcess.run("/no/such/tool", []) } throws: { "\($0)" == "/no/such/tool could not start: No such file or directory" }
     }
 
     @Test func theLogLineNamesWhoAskedWhatAndWhatPmsetDid() {
