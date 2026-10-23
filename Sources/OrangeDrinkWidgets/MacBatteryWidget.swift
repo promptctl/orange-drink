@@ -22,7 +22,8 @@ struct MacBatteryProvider: TimelineProvider {
     }
 
     // [LAW:dataflow-not-control-flow] Policy .never: every redraw follows a reload the app asked for
-    // when the shelf changed (spike orange-widgets-5jo.tlr: 43 of 43 reloads honoured, 22–53 ms).
+    // when the shelf changed (spike orange-widgets-5jo.tlr: 43 of 43 reloads honoured, 22–53 ms; §5:
+    // 150 of 150 budgeted reloads in 10 minutes, more than a day of 1% steps).
     func getTimeline(in context: Context, completion: @escaping (Timeline<MacBatteryEntry>) -> Void) {
         completion(Timeline(entries: [entry()], policy: .never))
     }
