@@ -39,16 +39,6 @@ import Testing
         }
     }
 
-    /// Polls the log until a line contains `fragment`: log entries reach OSLogStore shortly after they are written.
-    private func logged(_ fragment: String, in log: BatteryLog) async throws -> Bool {
-        let end = ContinuousClock.now.advanced(by: .seconds(5))
-        while ContinuousClock.now < end {
-            if try log.messages().contains(where: { $0.contains(fragment) }) { return true }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        return false
-    }
-
     @Test(.timeLimit(.minutes(1)))
     func aSnapshotEntryAndItsListenAttachReadOnceAndAFailedReadIsYielded() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
@@ -65,7 +55,7 @@ import Testing
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
         #expect(await events.next() == .disconnected(udid: "B"))
         #expect(reads.withLock { $0 } == 1)
-        #expect(try await logged(Self.decision(.attached(Self.usb(5, "B")), .nothing), in: log))
+        #expect(try await log.logged(Self.decision(.attached(Self.usb(5, "B")), .nothing)))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -99,9 +89,9 @@ import Testing
         #expect(await events.next() == .reading(udid: "B", Self.reading))
         try harness.send(Self.attachedFrame(4, "B"))
         try harness.send(["MessageType": "Detached", "DeviceID": 4])
-        #expect(try await logged(Self.decision(.detached(handle: 4), .nothing), in: log))
+        #expect(try await log.logged(Self.decision(.detached(handle: 4), .nothing)))
         staleReadMayFinish.signal()
-        #expect(try await logged("iphone read dropped: B handle 4", in: log))
+        #expect(try await log.logged("iphone read dropped: B handle 4"))
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
         #expect(await events.next() == .disconnected(udid: "B"))
     }
@@ -114,7 +104,7 @@ import Testing
         var events: [IPhoneEvent] = []
         for await event in harness.events { events.append(event) }
         #expect(events == [.failed(.closed)])
-        #expect(try await logged("iphone monitor failed: closed", in: log))
+        #expect(try await log.logged("iphone monitor failed: closed"))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -135,7 +125,7 @@ import Testing
         defer { close(harness.peer) }
         let consumer = Task { for await _ in harness.events {} }
         consumer.cancel()
-        #expect(try await logged("iphone monitor stopped", in: log))
+        #expect(try await log.logged("iphone monitor stopped"))
     }
 
     // The real usbmuxd, which every Mac runs: a UDID it holds no pair record for is a typed failure and one log line.
@@ -145,6 +135,6 @@ import Testing
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let udid = "00000000-0000000000000000"  // UDID-shaped, so usbmuxd answers ENOENT rather than EINVAL
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneBattery(handle: 1, udid: udid) }
-        #expect(try await logged("iphone read failed: \(udid) handle 1: usbmux(", in: log))
+        #expect(try await log.logged("iphone read failed: \(udid) handle 1: usbmux("))
     }
 }

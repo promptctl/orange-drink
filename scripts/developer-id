@@ -1,7 +1,10 @@
 # Sourced, not run. Who a release is signed and notarized as. [LAW:one-source-of-truth] The team
-# is written here and nowhere else: the certificate names end with it in parentheses, and the
-# Makefile reads it back off the identity scripts/dmg hands it.
-developer_team=6R988MUU27
+# is written in project.yml, which signs every build with it, and read back from there; the
+# certificate names end with it in parentheses.
+developer_team=$(awk '$1 == "DEVELOPMENT_TEAM:" { print $2 }' "$(dirname "${BASH_SOURCE[0]}")/../project.yml")
+# [LAW:parse-dont-validate] A team id is ten capitals and digits; a quoted, commented, or repeated
+# value is refused here rather than at the codesign that follows a full build.
+[[ $developer_team =~ ^[A-Z0-9]{10}$ ]] || { echo "project.yml's DEVELOPMENT_TEAM is not one team id: '$developer_team'" >&2; return 1; }
 developer_id="Brandon Fryslie ($developer_team)"
 # The notarytool keychain profile a releasing Mac stores the notary credentials under, once:
 # `xcrun notarytool store-credentials orange-drink-notary`.

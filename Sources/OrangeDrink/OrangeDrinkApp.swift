@@ -1,5 +1,6 @@
 import SwiftUI
 import OSLog
+import WidgetKit
 
 // [LAW:one-source-of-truth] project.yml's `name` is the app's name; CFBundleName derives from
 // it, and the generated Info.plist always carries it, so absence here is a broken build, not
@@ -84,22 +85,36 @@ struct OrangeDrinkApp: App {
         let changes = HistoryChanges()
         let history = store.map { BatteryHistory(store: $0, changes: changes) }
         switch history {
-        case .success(let recording):
-            recording.follow(screen: ScreenMonitor.changes())
-            NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { recording.flush() }
-            }
+        case .success(let recording): recording.follow(screen: ScreenMonitor.changes())
         case .failure(let error): log.error("no battery history: \(error)")
         }
         self.history = history
+        // [LAW:one-source-of-truth] project.yml signs every build into the app group, so a missing
+        // container is a broken build, not a case to run past.
+        let widgets: MacBatteryPublisher
+        do {
+            widgets = MacBatteryPublisher(directory: try WidgetShelf.groupContainer()) {
+                WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.macBatteryKind)
+            }
+        } catch { fatalError("no widget shelf: \(error)") }
+        // [LAW:no-ambient-temporal-coupling] The one place the app's normal end is acted on: a menu
+        // Quit, logout, and shutdown arrive here; a crash or a signal does not.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                if case .success(let recording) = history { recording.flush() }
+                widgets.publish(.appNotRunning)
+            }
+        }
         // [LAW:no-silent-failure] App energy needs the history store and the system's responsibility symbol;
         // without either the app runs without it, and says so in the log.
         appEnergy = Result { try AppEnergyHistory(store: store.get(), changes: changes, source: RusageEnergySource()) }
         if case .failure(let error) = appEnergy { log.error("no app energy history: \(error)") }
         _battery = State(initialValue: BatteryModel(
-            readings: BatteryMonitor.readings(), onReading: {
-                alerts.observe($0)
-                if case .success(let recording) = history { recording.observe($0) }
+            readings: BatteryMonitor.readings(), onState: { state in
+                widgets.publish(MacBattery(state))
+                guard case .known(let reading) = state else { return }
+                alerts.observe(reading)
+                if case .success(let recording) = history { recording.observe(reading) }
             }))
         #if DEBUG
         ComponentGallery.showIfRequested()

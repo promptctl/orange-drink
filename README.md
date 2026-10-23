@@ -22,7 +22,7 @@ There is no downloadable app yet. To build it from source, see [For developers](
 
 ## For developers
 
-Build it on an Apple Silicon Mac running macOS 14 or later. You need Xcode and XcodeGen, which you can install with `brew install xcodegen`. Then run:
+Build it on an Apple Silicon Mac running macOS 14 or later. You need Xcode and XcodeGen, which you can install with `brew install xcodegen`. Every build, Debug included, is signed with the Developer ID Application certificate for the team `project.yml` names, so the app and its widgets share their app group the way the shipped app does. Your Mac needs that certificate, with its private key, in the login keychain, plus Apple's "Developer ID Certification Authority" G2 intermediate certificate. Without the intermediate, `security find-identity -v -p codesigning` lists no valid identity. Then run:
 
 ```sh
 make generate
@@ -31,7 +31,7 @@ make build
 
 The Xcode project is generated from `project.yml`, so change that file and never edit the project by hand. Run `make test` to run the unit tests.
 
-Run `scripts/dmg build/dmg` to build the downloadable disk image in `build/dmg`. The script builds the Release app, signs it with the Developer ID certificate and the hardened runtime, notarizes it with Apple, and staples the ticket. It then packs the app into a disk image with a link to Applications, signs, notarizes, and staples the image too, and prints its path, such as `build/dmg/OrangeDrink-0.1.0.dmg`. Expect it to take several minutes, mostly waiting on Apple's notary service. Before the first run, your Mac needs the Developer ID Application certificate that `scripts/developer-id` names, with its private key, in the login keychain, plus Apple's "Developer ID Certification Authority" G2 intermediate certificate. Without the intermediate, `security find-identity -v -p codesigning` lists no valid identity. Store the notary credentials once, under the profile name that file gives, with `xcrun notarytool store-credentials <profile>`.
+Run `scripts/dmg build/dmg` to build the downloadable disk image in `build/dmg`. The script builds the Release app, signs it with the Developer ID certificate and the hardened runtime, notarizes it with Apple, and staples the ticket. It then packs the app into a disk image with a link to Applications, signs, notarizes, and staples the image too, and prints its path, such as `build/dmg/OrangeDrink-0.1.0.dmg`. Expect it to take several minutes, mostly waiting on Apple's notary service. Before the first run, store the notary credentials once, under the profile name that file gives, with `xcrun notarytool store-credentials <profile>`.
 
 Some checks need a real Mac and a person at the keyboard. Each one has a make target: `make unplug-check`, `make devices-check`, `make pill-check`, and `make position-check`. `make ax-check` also needs your terminal trusted for Accessibility.
 

@@ -8,9 +8,9 @@
 # The app is notarized and stapled before it is packed, so it still opens offline once dragged
 # out of the image: stapling the image covers the image alone.
 #
-# [LAW:one-source-of-truth] The build is the Makefile's `release` recipe; this script names the
-# certificate and a derived-data directory of its own, so a release is always a clean build, and
-# reads the app's path, name and version back off what it built.
+# [LAW:one-source-of-truth] The build is the Makefile's `release` recipe, which signs with the
+# certificate project.yml names; this script gives it a derived-data directory of its own, so a
+# release is always a clean build, and reads the app's path, name and version back off what it built.
 set -euo pipefail
 
 source "$(dirname "$0")/developer-id"
@@ -26,7 +26,7 @@ cd "$(dirname "$0")/.."
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-dmg.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
 
-built=$(make --no-print-directory release SIGNING_IDENTITY="$identity" DERIVED_DATA="$scratch/DerivedData" | tee /dev/stderr | tail -n 1)
+built=$(make --no-print-directory release DERIVED_DATA="$scratch/DerivedData" | tee /dev/stderr | tail -n 1)
 app=$(scripts/notarize "$built")
 
 name=$(basename "$app" .app)
