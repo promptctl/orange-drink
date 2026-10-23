@@ -28,13 +28,7 @@ struct MacBatteryProvider: TimelineProvider {
     }
 
     private func entry() -> MacBatteryEntry {
-        let battery = Result { try WidgetShelf.groupContainer() }.flatMap(WidgetShelf.read(from:))
-        switch battery {
-        case .success(let value): log.info("widget shelf read: \(String(describing: value), privacy: .public)")
-        // [LAW:no-silent-failure] Drawn as "Open the app" and logged with its cause.
-        case .failure(let error): log.error("widget shelf unreadable: \(String(describing: error), privacy: .public)")
-        }
-        return MacBatteryEntry(date: .now, battery: battery)
+        MacBatteryEntry(date: .now, battery: WidgetShelf.load(from: Result { try WidgetShelf.groupContainer() }, log: log))
     }
 }
 

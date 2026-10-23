@@ -56,8 +56,31 @@ import Testing
         widgets.publish(.level(percent: 50, charging: false))
         widgets.publish(.level(percent: 50, charging: false))
         #expect(reloads.count == 1)
-        #expect(try await log.logged("widget shelf written, reload asked: level(percent: 50, charging: false)"))
-        #expect(try await log.logged("widget shelf unchanged: level(percent: 50, charging: false)"))
+        // The host app publishes into the same log category; the shelf's path makes each line this test's own.
+        #expect(try await log.logged("widget shelf written, reload asked: level(percent: 50, charging: false) in \(shelf.path)"))
+        #expect(try await log.logged("widget shelf unchanged: level(percent: 50, charging: false) in \(shelf.path)"))
+    }
+
+    @Test func aShelfThatCannotBeWrittenIsLoggedAndAsksNoReload() async throws {
+        let log = try BatteryLog(category: MacBatteryPublisher.logCategory)
+        let reloads = Reloads()
+        let missing = shelf.appending(path: "missing")
+        let widgets = MacBatteryPublisher(directory: missing) { reloads.count += 1 }
+
+        widgets.publish(.level(percent: 50, charging: false))
+        #expect(reloads.count == 0)
+        #expect(try await log.logged("widget shelf write failed: level(percent: 50, charging: false) in \(missing.path)"))
+    }
+
+    /// The widget's own read, logged either way.
+    @Test func theWidgetLogsWhatItReadsAndWhyItCouldNot() async throws {
+        let log = try BatteryLog(category: MacBatteryPublisher.logCategory)
+        #expect(throws: (any Error).self) { try WidgetShelf.load(from: .success(shelf), log: MacBatteryPublisher.log).get() }
+        #expect(try await log.logged("widget shelf unreadable: "))
+
+        try WidgetShelf.write(.level(percent: 42, charging: true), to: shelf)
+        #expect(try WidgetShelf.load(from: .success(shelf), log: MacBatteryPublisher.log).get() == .level(percent: 42, charging: true))
+        #expect(try await log.logged("widget shelf read: level(percent: 42, charging: true)"))
     }
 
     /// A test host quitting beside the installed app leaves `.appNotRunning` on the shared shelf; the

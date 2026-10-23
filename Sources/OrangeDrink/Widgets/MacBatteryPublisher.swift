@@ -34,17 +34,18 @@ extension MacBattery {
     /// cannot be read does not hold the value, so it is written.
     func publish(_ battery: MacBattery) {
         let value = String(describing: battery)
+        let shelf = directory.path
         guard (try? WidgetShelf.read(from: directory).get()) != battery else {
-            Self.log.info("widget shelf unchanged: \(value, privacy: .public)")
+            Self.log.info("widget shelf unchanged: \(value, privacy: .public) in \(shelf, privacy: .public)")
             return
         }
         do {
             try WidgetShelf.write(battery, to: directory)
             reload()
-            Self.log.info("widget shelf written, reload asked: \(value, privacy: .public)")
+            Self.log.info("widget shelf written, reload asked: \(value, privacy: .public) in \(shelf, privacy: .public)")
         } catch {
             // [LAW:no-silent-failure] Logged; the shelf still differs, so the next state retries.
-            Self.log.error("widget shelf write failed: \(String(describing: error), privacy: .public)")
+            Self.log.error("widget shelf write failed: \(value, privacy: .public) in \(shelf, privacy: .public): \(String(describing: error), privacy: .public)")
         }
     }
 }

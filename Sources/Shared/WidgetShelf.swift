@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import os
 
 // Compiled into the app and its widget extension: what the app hands its widgets, and where.
 
@@ -31,6 +32,17 @@ enum WidgetShelf {
 
     static func read(from directory: URL) -> Result<MacBattery, any Error> {
         Result { try JSONDecoder().decode(MacBattery.self, from: Data(contentsOf: file(in: directory))) }
+    }
+
+    /// What a widget draws from. [LAW:no-silent-failure] Logged either way: a failure is drawn as
+    /// "Open the app", and the log carries its cause.
+    static func load(from directory: Result<URL, any Error>, log: Logger) -> Result<MacBattery, any Error> {
+        let battery = directory.flatMap(read(from:))
+        switch battery {
+        case .success(let value): log.info("widget shelf read: \(String(describing: value), privacy: .public)")
+        case .failure(let error): log.error("widget shelf unreadable: \(String(describing: error), privacy: .public)")
+        }
+        return battery
     }
 
     private static func file(in directory: URL) -> URL { directory.appending(path: "mac.json") }
