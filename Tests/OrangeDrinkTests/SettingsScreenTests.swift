@@ -35,3 +35,15 @@ import Testing
         #expect(SettingsScreen.allCases.filter { $0.subtitle(appName: "App") == nil } == [.appUsage])
     }
 }
+
+// [LAW:behavior-not-structure] The contract is each design doc's "Background" line: alerts.md, devices.md and charging.md.
+@MainActor @Suite struct SettingsBackdrops {
+    @Test func glowsSitWhereTheDocsPutThem() {
+        let alerts = SettingsScreen.alerts.backdrop.glows
+        #expect(alerts.map(\.color) == [.green, .red] && alerts.map(\.center) == [.topTrailing, .center])
+        let devices = SettingsScreen.devices.backdrop.glows
+        #expect(devices.map(\.color) == [.green] && devices.map(\.center) == [.top])
+        let charging = SettingsScreen.charging.backdrop.glows
+        #expect(charging.map(\.color) == [.green] && charging.map(\.center) == [.trailing])
+    }
+}
