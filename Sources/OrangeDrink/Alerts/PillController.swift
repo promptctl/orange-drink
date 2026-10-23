@@ -121,10 +121,11 @@ enum PillEnd {
         // [LAW:no-ambient-temporal-coupling] The countdown belongs to this pill's `Up`, which cancels it
         // on any close or replacement. A replacement can land between the wake and this task's turn on
         // the main actor; it has cancelled the task by then, so the check after the sleep is that state.
-        let expiry = Task { [weak self, timekeeper] in
+        // It holds `self` strongly, at most for `shownFor`, so a pill comes down even if its controller is dropped.
+        let expiry = Task { [timekeeper] in
             try await timekeeper.sleep(for: Self.shownFor)
             try Task.checkCancellation()
-            self?.close(.timedOut)
+            self.close(.timedOut)
         }
         up = Up(content: content, panel: panel, glow: glow, expiry: expiry)
     }

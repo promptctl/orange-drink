@@ -202,8 +202,8 @@ import Testing
         let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
             (.center, false, false), (.top, false, false), (.center, true, true)]
         for (position, glow, sound) in steps {
-            let alert = Alert(kind: .low, threshold: 15, position: position, glow: glow, sound: sound)
-            pills.deliver(.threshold(alert), reading: try Self.reading(15))
+            let alert = Alert(kind: .low, threshold: 17, position: position, glow: glow, sound: sound)
+            pills.deliver(.threshold(alert), reading: try Self.reading(17))
             sounds.deliver(.threshold(alert))
             FileHandle.standardError.write(Data(
                 ("\n>>> With an app full screen, find the pill at the \(position) of the screen"
@@ -213,7 +213,7 @@ import Testing
             await pills.untilClosed()
         }
         // A pill that timed out proves nothing about whether a person could see it.
-        #expect(try Self.lines(log, about: "15% Remaining") == Array(repeating: "pill closed: ×: 15% Remaining", count: steps.count))
+        #expect(try Self.lines(log, about: "17% Remaining") == Array(repeating: "pill closed: ×: 17% Remaining", count: steps.count))
     }
 }
 
