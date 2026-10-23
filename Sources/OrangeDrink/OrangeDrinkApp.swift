@@ -21,6 +21,7 @@ struct OrangeDrinkApp: App {
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
     @State private var sections: PanelSections
+    @State private var lowPowerMode: LowPowerMode
     private let keyboard: PanelKeyboard
     private let history: Result<BatteryHistory, any Error>
     private let appEnergy: Result<AppEnergyHistory, any Error>
@@ -77,7 +78,9 @@ struct OrangeDrinkApp: App {
         _look = State(initialValue: look)
         let sections = PanelSections()
         _sections = State(initialValue: sections)
-        keyboard = PanelKeyboard(sections: sections, shortcuts: shortcutsModel, events: NSKeyEvents())
+        let lowPowerMode = LowPowerMode(helper: HelperClient(service: HelperRegistration.daemon.label))
+        _lowPowerMode = State(initialValue: lowPowerMode)
+        keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
         // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
@@ -127,7 +130,7 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, keyboard: keyboard, look: look, language: language)
+            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, keyboard: keyboard, look: look, language: language)
         } label: {
             StatusItemLabel(state: battery.state, icon: menuBarIcon)
         }

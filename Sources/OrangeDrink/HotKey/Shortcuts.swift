@@ -47,16 +47,21 @@ enum MenuShortcut: String, CaseIterable, Codable, Sendable, CodingKeyRepresentab
         }
     }
 
-    /// The panel section the letter expands or collapses; nil for a row whose target does not exist yet
-    /// (orange-admin-helper-b2q.0ld).
-    var section: PanelSections.Section? {
+    /// What the letter acts on while the panel is open.
+    var target: PanelTarget {
         switch self {
-        case .batteryInformation: .batteryInformation
-        case .appsUsingSignificantEnergy: .appsUsingSignificantEnergy
-        case .connectedDevices: .connectedDevices
-        case .lowPowerMode: nil
+        case .batteryInformation: .section(.batteryInformation)
+        case .appsUsingSignificantEnergy: .section(.appsUsingSignificantEnergy)
+        case .connectedDevices: .section(.connectedDevices)
+        case .lowPowerMode: .lowPowerMode
         }
     }
+}
+
+/// What a menu shortcut does in the open panel: expand or collapse a section, or flip Low Power Mode.
+enum PanelTarget: Equatable {
+    case section(PanelSections.Section)
+    case lowPowerMode
 }
 
 /// Every keyboard shortcut the user can set: the global one that opens the panel and a letter per menu row.

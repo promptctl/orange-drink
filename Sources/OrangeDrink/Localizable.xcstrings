@@ -904,6 +904,28 @@
         }
       }
     },
+    "Couldn't change Low Power Mode: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't change Low Power Mode: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de modifier le mode économie d’énergie : %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cambiar el modo de bajo consumo: %@"
+          }
+        }
+      }
+    },
     "Global Shortcut": {
       "localizations": {
         "en": {

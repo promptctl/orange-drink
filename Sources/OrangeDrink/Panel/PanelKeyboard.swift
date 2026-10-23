@@ -4,6 +4,12 @@ import OSLog
 /// A key with no modifier held but Shift, as the panel's single-key shortcuts see it.
 typealias PlainKey = Character
 
+/// One key down: the key, and whether it is the system repeating a key still held.
+struct KeyPress {
+    let key: PlainKey
+    let isRepeat: Bool
+}
+
 /// Where plain key presses come from while the panel is open.
 ///
 /// [LAW:effects-at-boundaries] Which keys do what is decided by `PanelSections`; this is the one
@@ -11,7 +17,7 @@ typealias PlainKey = Character
 @MainActor protocol KeyEvents {
     /// Calls `handle` for each plain key press this app receives until the listener is stopped. A press `handle`
     /// returns true for is consumed; any other goes on to whoever would have had it.
-    func listen(_ handle: @escaping @MainActor (PlainKey) -> Bool) -> any KeyListening
+    func listen(_ handle: @escaping @MainActor (KeyPress) -> Bool) -> any KeyListening
 }
 
 @MainActor protocol KeyListening: AnyObject {
@@ -24,12 +30,14 @@ typealias PlainKey = Character
 /// it closes. The system delivers keys typed in other apps to those apps, so closed means untouched.
 @MainActor final class PanelKeyboard {
     private let sections: PanelSections
+    private let lowPowerMode: LowPowerMode
     private let shortcuts: ShortcutsModel
     private let events: any KeyEvents
     private var listening: (any KeyListening)?
 
-    init(sections: PanelSections, shortcuts: ShortcutsModel, events: any KeyEvents) {
+    init(sections: PanelSections, lowPowerMode: LowPowerMode, shortcuts: ShortcutsModel, events: any KeyEvents) {
         self.sections = sections
+        self.lowPowerMode = lowPowerMode
         self.shortcuts = shortcuts
         self.events = events
     }
@@ -37,10 +45,18 @@ typealias PlainKey = Character
     /// `shown` is asked at each press which sections the panel is drawing now.
     func panelDidOpen(shown: @escaping @MainActor () -> Set<PanelSections.Section>) {
         listening?.stop()
-        listening = events.listen { [sections, shortcuts] key in
-            // A letter flips its section as clicking the section's header does, when the panel is drawing that section.
-            guard let letter = ShortcutLetter(key), let section = shortcuts.value.shortcut(for: letter)?.section, shown().contains(section) else { return false }
-            sections.toggle(section)
+        listening = events.listen { [sections, lowPowerMode, shortcuts] press in
+            guard let letter = ShortcutLetter(press.key), let target = shortcuts.value.shortcut(for: letter)?.target else { return false }
+            // Each letter does what clicking its row does: a section's header, when the panel is drawing that
+            // section, or the Low Power Mode switch, which is always drawn. A held letter is one press: its
+            // repeats are taken and do nothing.
+            switch target {
+            case .section(let section):
+                guard shown().contains(section) else { return false }
+                if !press.isRepeat { sections.toggle(section) }
+            case .lowPowerMode:
+                if !press.isRepeat { lowPowerMode.toggle() }
+            }
             return true
         }
     }
@@ -56,13 +72,13 @@ typealias PlainKey = Character
 @MainActor struct NSKeyEvents: KeyEvents {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
 
-    func listen(_ handle: @escaping @MainActor (PlainKey) -> Bool) -> any KeyListening {
+    func listen(_ handle: @escaping @MainActor (KeyPress) -> Bool) -> any KeyListening {
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let held = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             guard StatusItemPanel.isPanelWindow(event.window),
                   held.isDisjoint(with: [.command, .control, .option]),
                   let typed = event.charactersIgnoringModifiers, typed.count == 1, let key = typed.first else { return event }
-            return MainActor.assumeIsolated { handle(key) } ? nil : event
+            return MainActor.assumeIsolated { handle(KeyPress(key: key, isRepeat: event.isARepeat)) } ? nil : event
         }
         // [LAW:no-silent-failure] A monitor the system would not give is logged; the shortcuts then do nothing.
         if monitor == nil { Self.log.error("the panel's key shortcuts could not be listened for") }

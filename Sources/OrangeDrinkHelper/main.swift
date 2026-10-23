@@ -44,7 +44,27 @@ final class Session: NSObject, PrivilegedHelper {
         log.notice("identity for pid \(self.peer)")
         reply(executable, geteuid())
     }
+
+    func setLowPowerMode(_ on: Bool, until asked: Date, reply: @escaping @Sendable (String?) -> Void) {
+        // [LAW:single-enforcer] The helper bounds its own work: a caller's instant can shorten one call's
+        // budget, never stretch it, so no caller can hold the write queue behind a hung pmset.
+        let deadline = min(asked, HelperClient.workEnds())
+        let outcome = writes.sync {
+            Result { () throws(HelperFailure) in
+                try LowPowerModeWrite.perform(on, source: PmsetSource.current()) { arguments throws(HelperFailure) in
+                    try LowPowerModeWrite.pmset(arguments, until: deadline)
+                }
+            }
+        }
+        log.notice("\(LowPowerModeWrite.line(on, peer: self.peer, outcome), privacy: .public)")
+        reply(outcome.failure?.description)
+    }
 }
+
+/// [LAW:single-enforcer] The one order of the system settings this helper writes: each connection delivers on
+/// its own queue, so two connections' writes would run at once; here they run one at a time, in the order
+/// they reach the helper.
+let writes = DispatchQueue(label: "writes")
 
 final class Listener: NSObject, NSXPCListenerDelegate {
     /// [LAW:single-enforcer] Every connection that reaches here has met the listener's requirement.

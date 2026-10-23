@@ -13,7 +13,6 @@ private final class TestBundle {}
 /// job launchd refused shows up as a call that never answers (orange-admin-helper-b2q.qm0, cmt-4bc4dac4).
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["HELPER_CHECK"] != nil, "run by make helper-check once OrangeDrink is approved"))
 struct HelperLive {
-    static let deadline = 10
     static let refusalLine = "Dropping check-in message due to code signing requirement"
 
     let label: String
@@ -88,8 +87,61 @@ struct HelperLive {
         #expect(lines.contains { $0.hasPrefix("helper registration: ") && $0.hasSuffix("; registered; status enabled") }, "\(lines)")
     }
 
+    /// Low Power Mode through the helper, read back from pmset on the source the Mac is on, from the system as the
+    /// app reads it, and from the helper's log, with every other source left as it was; then put back
+    /// (orange-admin-helper-b2q.0ld).
+    @Test func setsLowPowerModeOnTheCurrentSourceOnly() throws {
+        let status = SMAppService.daemon(plistName: "\(label).plist").status
+        try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
+        let key = try PowerModeKey(listing: Self.pmset("-g"))
+        let source = try PmsetSource.current()
+        let start = try Self.values(of: key)
+        // The helper writes one bit, so it can put back only a 0 or a 1 (not High Power's 2).
+        let was = try #require(start[source.heading], "pmset -g custom lists no \(source.heading) \(key.rawValue): \(start)")
+        try #require(["0", "1"].contains(was), "\(source.heading) \(key.rawValue) is \(was); this check could not put that back, so it does not run")
+        let wasOn = was == "1"
+        let client = HelperClient(service: label)
+        defer { try? client.setLowPowerMode(wasOn) }
+
+        for on in [!wasOn, wasOn] {
+            try client.setLowPowerMode(on)
+            var expected = start
+            expected[source.heading] = on ? "1" : "0"
+            #expect(try Self.values(of: key) == expected, "\(key.rawValue) after asking for \(on) on \(source.heading)")
+            // The system's own state, as the app reads it, can lag the reply (it did, turning off on this Mac), so it
+            // is waited for.
+            for _ in 0..<10 where ProcessInfo.processInfo.isLowPowerModeEnabled != on { Thread.sleep(forTimeInterval: 0.5) }
+            #expect(ProcessInfo.processInfo.isLowPowerModeEnabled == on, "ProcessInfo after asking for \(on)")
+        }
+
+        let lines = [!wasOn, wasOn].map { LowPowerModeWrite.line($0, peer: getpid(), .success(key.arguments(on: $0, source: source))) }
+        var helperLog = try helperLogSinceStart()
+        for _ in 0..<10 where !lines.allSatisfy(helperLog.contains) {
+            Thread.sleep(forTimeInterval: 0.5)
+            helperLog = try helperLogSinceStart()
+        }
+        for line in lines { #expect(helperLog.contains(line), "helper log:\n\(helperLog)") }
+    }
+
+    static func pmset(_ arguments: String...) throws -> String {
+        let result = try ChildProcess.run("/usr/bin/pmset", arguments)
+        try #require(result.status == 0, "pmset \(arguments): \(result.transcript)")
+        return result.text
+    }
+
+    /// The key's value under each power source's heading in `pmset -g custom`.
+    static func values(of key: PowerModeKey) throws -> [String: String] {
+        var heading = "", values: [String: String] = [:]
+        for line in try pmset("-g", "custom").split(separator: "\n") {
+            let fields = line.split(separator: " ")
+            if !line.hasPrefix(" ") { heading = String(line) }
+            if fields.first == Substring(key.rawValue), let value = fields.dropFirst().first { values[heading] = String(value) }
+        }
+        return values
+    }
+
     func expectAppAccepted() throws {
-        let identity = try HelperClient(service: label).identity(within: Self.deadline)
+        let identity = try HelperClient(service: label).identity()
         #expect(identity.euid == 0)
         #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath().path == helperPath, "the helper that answered is \(identity.executable)")
     }
@@ -101,7 +153,7 @@ struct HelperLive {
     }
 
     /// One call from a HelperCheckClient build, which has a deadline of its own; the runner's is twice it.
-    func call(_ caller: URL) throws -> ChildProcess { try ChildProcess.run(caller.path, [label], deadline: 2 * Self.deadline) }
+    func call(_ caller: URL) throws -> ChildProcess { try ChildProcess.run(caller.path, [label], deadline: TimeInterval(2 * HelperClient.deadline)) }
 
     func codesign(_ arguments: String...) throws {
         let result = try ChildProcess.run("/usr/bin/codesign", arguments)

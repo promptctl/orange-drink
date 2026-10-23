@@ -7,6 +7,7 @@ struct PanelView: View {
     let deviceSettings: DeviceSettingsModel
     let appEnergy: Result<AppEnergyHistory, any Error>
     let sections: PanelSections
+    let lowPowerMode: LowPowerMode
     let keyboard: PanelKeyboard
     let look: AppAppearanceModel
     let language: AppLanguageModel
@@ -34,7 +35,7 @@ struct PanelView: View {
                     ConnectedDevicesView(connected: connected, failed: devices.failure != nil)
                 }
             }
-            ActionsCard()
+            ActionsCard(lowPowerMode: lowPowerMode)
         }
         .padding(12)
         .frame(width: 330)
@@ -151,8 +152,8 @@ struct CollapsibleCard<Content: View>: View {
 
 /// The actions card: one card of rows under hairlines, in `PanelAction` order.
 private struct ActionsCard: View {
+    let lowPowerMode: LowPowerMode
     @Environment(\.openWindow) private var openWindow
-    @State private var lowPowerMode = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -175,8 +176,15 @@ private struct ActionsCard: View {
         case .batterySettings:
             ActionRow(action: action) { NSWorkspace.shared.open(PanelAction.batteryPane) } trailing: { Chevron() }
         case .lowPowerMode:
-            // A placeholder until the admin helper epic can toggle it (orange-admin-helper-b2q.0ld).
-            ActionRow(action: action, run: nil) { Toggle("Low Power Mode", isOn: $lowPowerMode).labelsHidden().toggleStyle(.switch).disabled(true) }
+            // The row is the one input: a click asks for the other state, and the row is busy until the helper has
+            // answered. The switch only shows the system's state, so it moves when the system posts the change.
+            ActionRow(action: action, run: lowPowerMode.isAsking ? nil : { lowPowerMode.toggle() }) {
+                Toggle("Low Power Mode", isOn: .constant(lowPowerMode.isOn)).labelsHidden().toggleStyle(.switch).allowsHitTesting(false)
+            }
+            if let failure = lowPowerMode.failure {
+                PhraseText("Couldn't change Low Power Mode: \(failure)").font(.caption).foregroundStyle(.red).lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
+            }
         case .checkForUpdates:
             // A placeholder until the update check exists (orange-distribution-kg2.l9x).
             ActionRow(action: action, run: nil) { EmptyView() }

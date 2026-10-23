@@ -36,12 +36,12 @@ struct BatteryScreen: View {
 
     private func loadTimeline() {
         loaded = Result { try history.get().timeline(range: range) }
-        report(loaded?.error)
+        report(loaded?.failure)
     }
 
     private func loadOverview() {
         overview = Result { try history.get().overview() }
-        report(overview?.error)
+        report(overview?.failure)
     }
 
     private func report(_ failure: (any Error)?) {
@@ -137,8 +137,4 @@ private struct StatTile: View {
         case .info: .blue
         }
     }
-}
-
-private extension Result {
-    var error: Failure? { if case .failure(let error) = self { error } else { nil } }
 }

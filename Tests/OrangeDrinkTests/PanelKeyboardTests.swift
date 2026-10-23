@@ -11,7 +11,7 @@ import Testing
     static func store() -> UserDefaults { scratchDefaults() }
 
     static func keyboard(_ sections: PanelSections, _ events: FakeKeyEvents) -> PanelKeyboard {
-        PanelKeyboard(sections: sections, shortcuts: try! ShortcutsModel(defaults: scratchDefaults()), events: events)
+        PanelKeyboard(sections: sections, lowPowerMode: LowPowerModeTests.FakeSystem().model(), shortcuts: try! ShortcutsModel(defaults: scratchDefaults()), events: events)
     }
 
     @Test func eachKeyFlipsOnlyItsOwnSectionAndASecondPressFlipsItBack() {
