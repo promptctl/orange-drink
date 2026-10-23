@@ -24,6 +24,15 @@ settings:
     # the app group both extend.
     APP_BUNDLE_IDENTIFIER: dev.orangedrink.$(PROJECT_NAME)
     APP_GROUP: $(TeamIdentifierPrefix)$(APP_BUNDLE_IDENTIFIER)
+    # [LAW:one-source-of-truth] The privileged helper's launchd label, which is also its bundle identifier,
+    # its Mach service, and its plist's name. Each build has a label of its own, so no build can stop
+    # another's helper: one approval covers them all, and a deleted build's record wedges only its own job
+    # (orange-admin-helper-b2q.qm0, cmt-19709fc0). HELPER_COPY names the build: the Makefile passes one per
+    # derived-data directory, scripts/dmg passes it empty, so every installed copy of the app users install
+    # shares the one fixed label (HelperRegistration holds the record for all of them), and a build outside
+    # make gets this .xcode.
+    HELPER_COPY: .xcode
+    HELPER_LABEL: $(APP_BUNDLE_IDENTIFIER).Helper$(HELPER_COPY).$(CONFIGURATION)
   configs:
     # Xcode adds get-task-allow to every build it signs, so a debugger can attach under the Hardened
     # Runtime; the notary service refuses an app that carries it, and requires the secure timestamp,
@@ -41,10 +50,31 @@ targets:
   OrangeDrink:
     type: application
     platform: macOS
-    sources: [Sources/OrangeDrink, Sources/Shared]
+    sources: [Sources/OrangeDrink, Sources/Shared, Sources/HelperInterface]
     dependencies:
       - package: GRDB
       - target: OrangeDrinkWidgets
+      - target: OrangeDrinkHelper
+        copy:
+          destination: executables
+    # [LAW:one-source-of-truth] The helper's launchd plist, written from the build settings alone; Xcode
+    # signs the app after this phase, so the app's seal covers it.
+    postCompileScripts:
+      - name: Embed the helper's launchd plist
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchDaemons/$(HELPER_LABEL).plist
+        script: |
+          set -euo pipefail
+          plist="$SCRIPT_OUTPUT_FILE_0"
+          # The whole directory, since a plist left by a build under another label would make two.
+          rm -rf "$(dirname "$plist")"
+          mkdir -p "$(dirname "$plist")"
+          plutil -create xml1 "$plist"
+          plutil -insert Label -string "$HELPER_LABEL" "$plist"
+          plutil -insert BundleProgram -string "Contents/MacOS/OrangeDrinkHelper" "$plist"
+          # JSON values, because plutil reads the dots in a key path as nesting and the label is all dots.
+          plutil -insert MachServices -json "{\"$HELPER_LABEL\": true}" "$plist"
+          plutil -insert AssociatedBundleIdentifiers -json "[\"$APP_BUNDLE_IDENTIFIER\"]" "$plist"
     # The app stays unsandboxed; it shares the group with its sandboxed widget extension.
     entitlements:
       path: build/generated/OrangeDrink.entitlements
@@ -75,12 +105,54 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER).Widgets
+  # The root helper the app registers with SMAppService. It carries no entitlements: with the ones Xcode
+  # injects into a Debug build, taskgated refuses it and launchd never runs it (orange-admin-helper-b2q.qm0,
+  # cmt-4bc4dac4 §1). Its Info.plist is embedded in its own signature, which is where it reads it from.
+  OrangeDrinkHelper:
+    type: tool
+    platform: macOS
+    sources: [Sources/OrangeDrinkHelper, Sources/HelperInterface]
+    info:
+      path: build/generated/OrangeDrinkHelper-Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        OrangeDrinkAppIdentifier: $(APP_BUNDLE_IDENTIFIER)
+        OrangeDrinkAdmitsDebuggableCallers: $(HELPER_ADMITS_DEBUGGABLE_CALLERS)
+    settings:
+      # A caller with get-task-allow can be attached to and driven by other code of the same user. Only a
+      # Debug helper admits one, since its Debug app carries it; a Release helper, the shipped one included,
+      # refuses it.
+      configs:
+        Debug:
+          HELPER_ADMITS_DEBUGGABLE_CALLERS: "YES"
+        Release:
+          HELPER_ADMITS_DEBUGGABLE_CALLERS: "NO"
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(HELPER_LABEL)
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        # get-task-allow comes from the base entitlements; com.apple.application-identifier from a tool's
+        # required entitlements. taskgated refuses the second without a provisioning profile.
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        ENTITLEMENTS_REQUIRED: NO
+  # Calls the helper the way the app does, for HelperLive's refusal checks; it never ships.
+  HelperCheckClient:
+    type: tool
+    platform: macOS
+    sources: [Tests/HelperCheckClient, Sources/HelperInterface]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER).HelperCheckClient
   OrangeDrinkTests:
     type: bundle.unit-test
     platform: macOS
     sources: [Tests/OrangeDrinkTests]
     dependencies:
       - target: OrangeDrink
+      - target: HelperCheckClient
+        # A test bundle embeds nothing unless told to; without this the copy below never happens.
+        embed: true
+        copy:
+          destination: executables
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER)Tests
