@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Notarizes a signed app or disk image, staples the ticket to it, and asks Gatekeeper about it
+# the way a Mac that downloaded it would. Prints the target's path when Gatekeeper accepts it as
+# notarized.
+#
+#   scripts/notarize <path to .app or .dmg>
+#
+# [LAW:single-enforcer] The notary service is the one check of what a release must be: a
+# Developer ID signature, the Hardened Runtime, a secure timestamp, no get-task-allow. Nothing
+# here repeats those rules; on a refusal the service's log says which one failed.
+set -euo pipefail
+
+target=${1:?usage: scripts/notarize <path to .app or .dmg>}
+# A bundle is a directory, so completion leaves a slash that would hide its extension.
+target=${target%/}
+source "$(dirname "$0")/developer-id"
+
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-notarize.XXXXXX")
+trap 'rm -rf "$scratch"' EXIT
+
+# The notary service takes a disk image as it is and an app only inside an archive. Gatekeeper
+# judges an app as something to run and a disk image as something to open.
+case "$target" in
+  *.app)
+    submission="$scratch/$(basename "$target" .app).zip"
+    ditto -c -k --keepParent "$target" "$submission"
+    assess=(--type execute)
+    ;;
+  *.dmg)
+    submission=$target
+    assess=(--type open --context context:primary-signature)
+    ;;
+  *)
+    echo "notarize: $target is neither an .app nor a .dmg" >&2
+    exit 2
+    ;;
+esac
+
+# notarytool's exit status alone does not separate a refused submission from one that never
+# reached the service, and only the first has a log to fetch; the status field decides. Output
+# that is not JSON leaves the status empty, which fails below with the output printed.
+set +e
+result=$(xcrun notarytool submit "$submission" --keychain-profile "$notary_profile" --wait --output-format json)
+submitted=$?
+set -e
+status=$(jq -r '.status // empty' <<<"$result" 2>/dev/null || true)
+if [ "$status" != Accepted ]; then
+  echo "notarize: notarytool exited $submitted with status '${status:-none}': $result" >&2
+  id=$(jq -r '.id // empty' <<<"$result" 2>/dev/null || true)
+  if [ -n "$id" ]; then
+    xcrun notarytool log "$id" --keychain-profile "$notary_profile" >&2
+  fi
+  exit 1
+fi
+
+# The stapler's progress goes to stderr: stdout is the target's path and nothing else.
+xcrun stapler staple "$target" >&2
+xcrun stapler validate "$target" >&2
+assessment=$(spctl --assess "${assess[@]}" -vv "$target" 2>&1) || {
+  echo "notarize: Gatekeeper refuses $target: $assessment" >&2
+  exit 1
+}
+grep -q 'source=Notarized Developer ID' <<<"$assessment" || {
+  echo "notarize: Gatekeeper accepts $target, but not as notarized: $assessment" >&2
+  exit 1
+}
+echo "$assessment" >&2
+echo "$target"
