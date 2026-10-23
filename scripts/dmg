@@ -36,7 +36,11 @@ mkdir "$stage"
 ditto "$app" "$stage/$name.app"
 ln -s /Applications "$stage/Applications"
 
-dmg="$out/$name-$version.dmg"
-hdiutil create -volname "$name" -srcfolder "$stage" -format UDZO -ov "$dmg" >&2
+# Made in scratch and moved out only once notarized, so the output directory never holds an image
+# Gatekeeper would refuse, and a failed run leaves the last good one in place.
+dmg="$scratch/$name-$version.dmg"
+hdiutil create -volname "$name" -srcfolder "$stage" -format UDZO "$dmg" >&2
 codesign --sign "$identity" --timestamp "$dmg" >&2
-scripts/notarize "$dmg"
+notarized=$(scripts/notarize "$dmg")
+mv -f "$notarized" "$out/"
+echo "$out/$(basename "$notarized")"

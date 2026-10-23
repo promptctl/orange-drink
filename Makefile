@@ -5,6 +5,7 @@ DEST := platform=macOS,arch=arm64
 # scripts/dmg points it at a directory of its own so a release is a clean build.
 DERIVED_DATA := build/DerivedData
 PRODUCTS := $(DERIVED_DATA)/Build/Products
+RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA)
 
 # The certificate `release` signs with, named in full by scripts/dmg. Empty, the build keeps
@@ -79,23 +80,22 @@ app-energy-check: generate
 
 # [LAW:verifiable-goals] PROJECT.md's 0.1% steady-state CPU bar, measured on the Release build
 # launched as a user runs it. Prints the percent and the power state; fails over the bar.
-cpu-check:
-	@set -eo pipefail; app=$$($(MAKE) --no-print-directory release | tee /dev/stderr | tail -n 1); \
-	swift scripts/cpu-check.swift "$$app/Contents/MacOS/$(APP)"
+cpu-check: release
+	swift scripts/cpu-check.swift "$(RELEASE_APP)/Contents/MacOS/$(APP)"
 
 # The Release app, signed with SIGNING_IDENTITY when it names one. The last line printed is the
-# app's path, so no caller spells the configuration's directory or the app's name.
+# app's path, so scripts/dmg spells neither the configuration's directory nor the app's name.
 release: generate
 	$(call gated,build,-configuration Release $(release_signing))
-	@echo $(PRODUCTS)/Release/$(APP).app
+	@echo $(RELEASE_APP)
 
 # [LAW:verifiable-goals] "Zero warnings" is read from the result bundle, which counts every
 # build issue. Grepping xcodebuild's output would count tool chatter (appintentsmetadataprocessor
 # prints a "warning:" line whenever no target links AppIntents) and is not the compiler's map.
 define gated
-rm -rf build/$(1).xcresult
-$(XCB) -resultBundlePath build/$(1).xcresult $(1) $(2)
-xcrun xcresulttool get build-results --path build/$(1).xcresult | python3 -c 'import json, sys; n = json.load(sys.stdin)["warningCount"]; print(f"build warnings: {n}"); sys.exit(n != 0)'
+rm -rf $(DERIVED_DATA)/$(1).xcresult
+$(XCB) -resultBundlePath $(DERIVED_DATA)/$(1).xcresult $(1) $(2)
+xcrun xcresulttool get build-results --path $(DERIVED_DATA)/$(1).xcresult | python3 -c 'import json, sys; n = json.load(sys.stdin)["warningCount"]; print(f"build warnings: {n}"); sys.exit(n != 0)'
 endef
 
 # The shared settings components through the accessibility tree of the running app's component

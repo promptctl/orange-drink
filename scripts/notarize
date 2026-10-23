@@ -43,10 +43,10 @@ set +e
 result=$(xcrun notarytool submit "$submission" --keychain-profile "$notary_profile" --wait --output-format json)
 submitted=$?
 set -e
-status=$(jq -r '.status // empty' <<<"$result" 2>/dev/null || true)
+status=$(jq -r '.status // empty' <<<"$result" || true)
 if [ "$status" != Accepted ]; then
   echo "notarize: notarytool exited $submitted with status '${status:-none}': $result" >&2
-  id=$(jq -r '.id // empty' <<<"$result" 2>/dev/null || true)
+  id=$(jq -r '.id // empty' <<<"$result" || true)
   if [ -n "$id" ]; then
     xcrun notarytool log "$id" --keychain-profile "$notary_profile" >&2
   fi
