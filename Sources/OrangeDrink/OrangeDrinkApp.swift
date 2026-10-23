@@ -21,6 +21,7 @@ struct OrangeDrinkApp: App {
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
     @State private var chargeLimit: ChargeLimitModel
+    @State private var chargeHold: AppChargeHold
     @State private var sections: PanelSections
     @State private var lowPowerMode: LowPowerMode
     private let keyboard: PanelKeyboard
@@ -119,14 +120,22 @@ struct OrangeDrinkApp: App {
         // without either the app runs without it, and says so in the log.
         appEnergy = Result { try AppEnergyHistory(store: store.get(), changes: changes, source: RusageEnergySource()) }
         if case .failure(let error) = appEnergy { log.error("no app energy history: \(error)") }
+        // [LAW:no-ambient-temporal-coupling] Before the battery model: its init hands the hold the first state at
+        // once, and the hold's first ask waits on `launching`, which passes at once while it is empty, so the
+        // registration's work must be in it before any ask can exist.
+        HelperRegistration.holdUntilExit()
+        let chargeHold = AppChargeHold(limit: chargeLimit.value, helper: HelperAccess(daemon: HelperRegistration.daemon))
+        chargeHold.follow(chargeLimit)
+        _chargeHold = State(initialValue: chargeHold)
         _battery = State(initialValue: BatteryModel(
             readings: BatteryMonitor.readings(), onState: { state in
                 widgets.publish(MacBattery(state))
+                // Every state, an ended stream included: readings that stop let charging run.
+                chargeHold.observe(state)
                 guard case .known(let reading) = state else { return }
                 alerts.observe(reading)
                 if case .success(let recording) = history { recording.observe(reading) }
             }))
-        HelperRegistration.holdUntilExit()
         #if DEBUG
         ComponentGallery.showIfRequested()
         #endif
@@ -140,7 +149,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, battery: battery, history: history, appEnergy: appEnergy) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy) }
     }
 }
 

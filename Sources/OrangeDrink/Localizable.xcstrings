@@ -5722,6 +5722,50 @@
         }
       }
     },
+    "Allow %@ in the background to hold the charge limit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow %@ in the background to hold the charge limit."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez %@ en arrière-plan pour maintenir la limite de charge."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que %@ funcione en segundo plano para mantener el límite de carga."
+          }
+        }
+      }
+    },
+    "Couldn't hold the charge limit: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't hold the charge limit: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de maintenir la limite de charge : %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo mantener el límite de carga: %@"
+          }
+        }
+      }
+    },
     "Open Login Items & Extensions…": {
       "localizations": {
         "en": {

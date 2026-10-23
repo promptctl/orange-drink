@@ -35,6 +35,18 @@ struct HelperAccess {
         try Self.explained({ () throws(HelperCallError) in try client.setLowPowerMode(on) }, status: status)
     }
 
+    func pauseCharging(lost: @escaping @Sendable (ObjectIdentifier) -> Void) throws(HelperUseFailure) -> ChargeLease {
+        try Self.explained({ () throws(HelperCallError) in try client.pauseCharging(lost: lost) }, status: status)
+    }
+
+    func release(_ lease: ChargeLease) throws(HelperUseFailure) {
+        try Self.explained({ () throws(HelperCallError) in try lease.release() }, status: status)
+    }
+
+    func resumeCharging() throws(HelperUseFailure) {
+        try Self.explained({ () throws(HelperCallError) in try client.resumeCharging() }, status: status)
+    }
+
     /// [LAW:one-source-of-truth] Read fresh: the user approves or revokes in System Settings at any time.
     func status() -> SMAppService.Status { SMAppService.daemon(plistName: plistName).status }
 

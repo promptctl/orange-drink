@@ -14,6 +14,13 @@ import Security
     /// `deadline`, the instant the caller's budget leaves for the reply. The reply is nil once pmset has written it, or what
     /// went wrong. [LAW:types-are-the-program] One bit in: the caller names no key, no source, no argument.
     func setLowPowerMode(_ on: Bool, until deadline: Date, reply: @escaping @Sendable (String?) -> Void)
+
+    /// Holds charging paused for as long as this connection lives, or until it resumes. The reply is
+    /// `ChargingFailure.reply`'s kind and words.
+    func pauseCharging(until deadline: Date, reply: @escaping @Sendable (Int, String?) -> Void)
+
+    /// Lets go of this connection's pause, if it holds one, and brings CHTE to what the remaining holders want.
+    func resumeCharging(until deadline: Date, reply: @escaping @Sendable (Int, String?) -> Void)
 }
 
 /// The pmset setting that holds Low Power Mode on this Mac. A Mac with an Energy Mode lists `powermode`
@@ -213,6 +220,8 @@ enum HelperCallError: Error, CustomStringConvertible, Equatable {
     case noReply(seconds: Int, service: String)
     /// The helper answered that the operation did not happen, and why.
     case failed(String)
+    /// The helper answered that this Mac cannot do it at all, and why: asking again will not change it.
+    case unsupported(String)
 
     var description: String {
         switch self {
@@ -220,11 +229,23 @@ enum HelperCallError: Error, CustomStringConvertible, Equatable {
         case .noReply(let seconds, let service):
             "no reply in \(seconds) s: launchd may have refused or wedged the job; see `launchctl print system/\(service)` (last exit reason)"
         case .failed(let reason): "the helper failed: \(reason)"
+        case .unsupported(let reason): ChargingFailure.unsupported(reason).description
+        }
+    }
+
+    /// A charging call's reply, read back.
+    static func charging(kind: Int, description: String?) -> Result<Void, HelperCallError> {
+        ChargingFailure.parse(kind: kind, description: description).mapError { failure in
+            switch failure {
+            case .unsupported(let reason): .unsupported(reason)
+            case .failed(let reason): .failed(reason)
+            }
         }
     }
 }
 
-/// Calls the helper the way the app does. One connection per call, so a call never holds the helper alive.
+/// Calls the helper the way the app does. One connection per call, so a call never holds the helper alive; the one
+/// exception is a charging pause, whose kept connection is the pause (`ChargeLease`).
 /// Each call blocks until the reply or its deadline, so the app makes it off the main thread.
 struct HelperClient {
     let service: String
@@ -251,15 +272,52 @@ struct HelperClient {
         }
     }
 
-    /// [LAW:one-type-per-behavior] Every operation's connection, deadline, and outcome: `invoke` sends one
-    /// message and calls `finish` from its reply.
+    /// Lets go of nothing and has the helper bring CHTE to what its holders want: at launch, this starts the helper,
+    /// whose start ends a pause a helper that died left behind.
+    func resumeCharging() throws(HelperCallError) {
+        try call { helper, deadline, finish in
+            helper.resumeCharging(until: deadline) { kind, description in finish(HelperCallError.charging(kind: kind, description: description)) }
+        }
+    }
+
+    /// Holds charging paused on a connection kept for it; the lease is that connection. `lost` hears, once, that the
+    /// helper ended a lease it had granted; a lease this call fails to grant is ended here and never reported.
+    func pauseCharging(lost: @escaping @Sendable (ObjectIdentifier) -> Void) throws(HelperCallError) -> ChargeLease {
+        let lease = ChargeLease(connection: connect(), service: service, lost: lost)
+        do {
+            try Self.send(on: lease.connection, service: service) { helper, deadline, finish in
+                helper.pauseCharging(until: deadline) { kind, description in finish(HelperCallError.charging(kind: kind, description: description)) }
+            }
+            try lease.arm()
+        } catch {
+            lease.end()
+            throw error
+        }
+        return lease
+    }
+
+    private func connect() -> NSXPCConnection {
+        let connection = NSXPCConnection(machServiceName: service, options: .privileged)
+        connection.remoteObjectInterface = NSXPCInterface(with: PrivilegedHelper.self)
+        return connection
+    }
+
+    /// One call on a connection of its own, ended with the call.
     private func call<Value: Sendable>(
         _ invoke: (PrivilegedHelper, Date, @escaping @Sendable (Result<Value, HelperCallError>) -> Void) -> Void
     ) throws(HelperCallError) -> Value {
-        let connection = NSXPCConnection(machServiceName: service, options: .privileged)
-        connection.remoteObjectInterface = NSXPCInterface(with: PrivilegedHelper.self)
+        let connection = connect()
         connection.resume()
         defer { connection.invalidate() }
+        return try Self.send(on: connection, service: service, invoke)
+    }
+
+    /// [LAW:one-type-per-behavior] Every operation's deadline and outcome, on whichever connection carries it:
+    /// `invoke` sends one message and calls `finish` from its reply.
+    fileprivate static func send<Value: Sendable>(
+        on connection: NSXPCConnection, service: String,
+        _ invoke: (PrivilegedHelper, Date, @escaping @Sendable (Result<Value, HelperCallError>) -> Void) -> Void
+    ) throws(HelperCallError) -> Value {
         // The first of the reply and the error wins; the other, if it comes, is dropped.
         let result = OSAllocatedUnfairLock<Result<Value, HelperCallError>?>(initialState: nil)
         let done = DispatchSemaphore(value: 0)
@@ -276,5 +334,69 @@ struct HelperClient {
             throw .noReply(seconds: Self.deadline, service: service)
         }
         return try outcome.get()
+    }
+}
+
+/// A pause of charging the helper holds for the app: the one connection the app keeps open to it.
+///
+/// [LAW:no-ambient-temporal-coupling] The connection is the lease, so either side's death ends it: the app's quit or
+/// crash closes it and the helper lets go; the helper's exit interrupts it and `lost` is told. A lease ends exactly
+/// once, and only an end the app did not cause is reported: `lost` is armed by the reply that granted the lease, and
+/// `release`, a failed grant, and deinit each end it unarmed.
+final class ChargeLease: @unchecked Sendable {
+    // [LAW:types-are-the-program] exception: @unchecked, because NSXPCConnection is not marked Sendable; Apple
+    // documents it as safe to message from any thread, and `stage` is the lease's only other state, under its lock.
+    fileprivate let connection: NSXPCConnection
+    private let service: String
+    private let lost: @Sendable (ObjectIdentifier) -> Void
+    private let stage = OSAllocatedUnfairLock(initialState: Stage.granting)
+
+    private enum Stage { case granting, armed, ended }
+
+    fileprivate init(connection: NSXPCConnection, service: String, lost: @escaping @Sendable (ObjectIdentifier) -> Void) {
+        self.connection = connection
+        self.service = service
+        self.lost = lost
+        // Weak, so the connection's handlers do not keep the lease alive past its holder.
+        connection.interruptionHandler = { [weak self] in self?.end() }
+        connection.invalidationHandler = { [weak self] in self?.end() }
+        connection.resume()
+    }
+
+    /// The grant's reply landed: from here, an end the app did not ask for is reported. A connection that ended while
+    /// the reply crossed was never a lease.
+    fileprivate func arm() throws(HelperCallError) {
+        let armed = stage.withLock { stage in
+            guard stage == .granting else { return false }
+            stage = .armed
+            return true
+        }
+        guard armed else { throw .failed("the helper went away before the pause was held") }
+    }
+
+    /// Ends the lease. Only an armed lease's first end is reported: the helper's exit, or the system's end of the
+    /// connection. Every later end, and every end of an unarmed lease, is silent by construction.
+    fileprivate func end() {
+        let wasArmed = stage.withLock { stage in
+            defer { stage = .ended }
+            return stage == .armed
+        }
+        connection.invalidate()
+        if wasArmed { lost(ObjectIdentifier(self)) }
+    }
+
+    /// Lets go of the pause: the helper is told on this connection, then the connection ends. The lease is used up
+    /// whatever the reply; a failure says the helper did not confirm it.
+    func release() throws(HelperCallError) {
+        stage.withLock { $0 = .ended }
+        defer { connection.invalidate() }
+        try HelperClient.send(on: connection, service: service) { helper, deadline, finish in
+            helper.resumeCharging(until: deadline) { kind, description in finish(HelperCallError.charging(kind: kind, description: description)) }
+        }
+    }
+
+    deinit {
+        stage.withLock { $0 = .ended }
+        connection.invalidate()
     }
 }
