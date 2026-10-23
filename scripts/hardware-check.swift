@@ -19,6 +19,7 @@ enum CheckError: Error, CustomStringConvertible {
     case unknownResult(test: String, String)
     case malformedRecord(comment: String, String)
     case noTicket(String)
+    case notBuilt(String)
 
     var description: String {
         switch self {
@@ -29,6 +30,7 @@ enum CheckError: Error, CustomStringConvertible {
         case .unknownResult(let test, let result): "\(test) ended as \"\(result)\", which is not Passed or Failed"
         case .malformedRecord(let comment, let detail): "comment \(comment) starts as a hardware check record but \(detail)"
         case .noTicket(let branch): "the branch \(branch) names no lit ticket; hardware results are posted on the ticket the branch names"
+        case .notBuilt(let path): "the covered path \(path) is not on disk, so the test cannot build it; nothing was run"
         }
     }
 }
@@ -38,20 +40,15 @@ enum CheckError: Error, CustomStringConvertible {
 /// Runs a command to completion and returns its standard output, trimmed. Its standard error reaches the terminal, and
 /// a non-zero exit throws.
 @discardableResult
-func capture(_ command: [String], input: String? = nil, environment: [String: String] = [:]) throws -> String {
+func capture(_ command: [String], environment: [String: String] = [:]) throws -> String {
     let process = Process()
     process.executableURL = URL(filePath: "/usr/bin/env")
     process.arguments = command
     process.environment = ProcessInfo.processInfo.environment.merging(environment) { $1 }
     let output = Pipe()
     process.standardOutput = output
-    let stdin = Pipe()
-    process.standardInput = input == nil ? FileHandle.nullDevice : stdin
+    process.standardInput = FileHandle.nullDevice
     try process.run()
-    if let input {
-        stdin.fileHandleForWriting.write(Data(input.utf8))
-        try stdin.fileHandleForWriting.close()
-    }
     let data = output.fileHandleForReading.readDataToEndOfFile()
     process.waitUntilExit()
     guard process.terminationStatus == 0 else { throw CheckError.failed(command, status: process.terminationStatus) }
@@ -93,9 +90,14 @@ func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
 // MARK: - What a run covered
 
 /// The git object id of each covered path in `tree`: a content hash that changes exactly when a file under the path
-/// changes. [LAW:one-source-of-truth] run and status both hash through here; they differ only in the tree they pass.
+/// changes. A path the tree does not hold has no entry. [LAW:one-source-of-truth] run and status both hash through
+/// here; they differ only in the tree they pass.
 func objectIDs(of paths: [String], in tree: String) throws -> [String: String] {
-    try Dictionary(uniqueKeysWithValues: paths.map { ($0, try capture(["git", "rev-parse", "--verify", "\(tree):\($0)"])) })
+    // One path per listing: given a path and another inside it, ls-tree descends and lists the outer one's children.
+    try paths.reduce(into: [:]) { ids, path in
+        let id = try capture(["git", "ls-tree", "--format=%(objectname)", tree, "--", path])
+        ids[path] = id.isEmpty ? nil : id
+    }
 }
 
 /// The covered paths as they are on disk, uncommitted and untracked files included, as a tree: the code the test is
@@ -111,7 +113,8 @@ func workingTree(_ paths: [String]) throws -> String {
 /// The ticket the current branch names. Branches here are ticket ids.
 func ticket() throws -> String {
     let branch = try capture(["git", "symbolic-ref", "--short", "HEAD"])
-    guard try capture(["lit", "show", branch, "--field", "id"]) == branch else { throw CheckError.noTicket(branch) }
+    // lit exits 4, entity_not_found, when no ticket has the id.
+    do { try capture(["lit", "show", branch, "--field", "id"]) } catch CheckError.failed(_, status: 4) { throw CheckError.noTicket(branch) }
     return branch
 }
 
@@ -180,6 +183,7 @@ struct Recorded {
     let outcome: Outcome
     let commit: String
     let covers: [String: String]
+    let failures: [String]
 
     /// The record in a comment: nil when the comment is not one of `check`'s records (its first line is not
     /// `hardware check: <check>`), and an error naming the comment when it starts as one and does not parse.
@@ -196,7 +200,7 @@ struct Recorded {
             return (parts[1], parts[0])
         }
         guard !covers.isEmpty else { throw malformed("covers no paths") }
-        return Recorded(outcome: outcome, commit: commit, covers: Dictionary(covers) { $1 })
+        return Recorded(outcome: outcome, commit: commit, covers: Dictionary(covers) { $1 }, failures: values("failure"))
     }
 }
 
@@ -226,6 +230,11 @@ func run(check: String, test: String, bundle: String, covers paths: [String], qu
     let ticket = try ticket()
     let commit = try capture(["git", "rev-parse", "HEAD"])
     let built = try objectIDs(of: paths, in: try workingTree(paths))
+    let covers = try paths.map { path in
+        guard let id = built[path] else { throw CheckError.notBuilt(path) }
+        return (path: path, id: id)
+    }
+    // A covered path HEAD does not hold is new on disk: uncommitted, like any other path whose code is not HEAD's.
     let committed = try objectIDs(of: paths, in: "HEAD")
 
     let (status, printed) = try stream(command)
@@ -233,10 +242,14 @@ func run(check: String, test: String, bundle: String, covers paths: [String], qu
     // A passing test under a failing run is a failed check, so the ticket and make's exit status say the same thing.
     let exited = status == 0 ? [] : ["\(command[0]) exited \(status)"]
     let outcome = exited.isEmpty ? tested : .fail
-    let record = Record(check: check, outcome: outcome, commit: commit, covers: paths.map { ($0, built[$0]!) },
+    let record = Record(check: check, outcome: outcome, commit: commit, covers: covers,
                         uncommitted: paths.filter { built[$0] != committed[$0] }, printed: printed,
                         failures: testFailures + exited, answers: questions.map { ($0, ask($0)) })
-    try capture(["lit", "comment", "add", ticket, "--by", "make \(check)", "--body-file", "-"], input: record.body)
+    // Posted from a file, so a failed post leaves the person's run and answers on disk, and the error names the
+    // command that posts them.
+    let file = "build/\(check).record"
+    try record.body.write(toFile: file, atomically: true, encoding: .utf8)
+    try capture(["lit", "comment", "add", ticket, "--by", "make \(check)", "--body-file", file])
     print("\n\(check): \(outcome.rawValue), posted on \(ticket)")
     return outcome == .pass ? 0 : 1
 }
@@ -263,10 +276,11 @@ func status(checks: [(name: String, paths: [String])]) throws {
     for (name, paths) in checks {
         let latest = try comments.compactMap { try Recorded.parse($0, check: name) }.last
         let head = try objectIDs(of: paths, in: "HEAD")
-        // A path the record does not cover (one declared since) counts as changed.
-        let line = switch latest.map({ recorded in (recorded, paths.filter { recorded.covers[$0] != head[$0] }) }) {
+        // A path the record does not cover (one declared since), or one HEAD no longer holds, counts as changed.
+        let line = switch latest.map({ recorded in (recorded, paths.filter { recorded.covers[$0] == nil || recorded.covers[$0] != head[$0] }) }) {
         case nil: "never run"
-        case let (recorded, changed)? where changed.isEmpty: "stands (\(recorded.outcome.rawValue), \(recorded.commit.prefix(7)))"
+        case let (recorded, changed)? where changed.isEmpty:
+            "stands (\(recorded.outcome.rawValue), \(recorded.commit.prefix(7)))" + recorded.failures.map { "\n    failure: \($0)" }.joined()
         case let (_, changed)?: "stale: \(changed.joined(separator: " "))"
         }
         print("  \(name): \(line)")

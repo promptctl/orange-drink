@@ -2,7 +2,7 @@ APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
 
-.PHONY: generate build test app-energy-check cpu-check ax-check
+.PHONY: generate build test hardware-check-test app-energy-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -16,6 +16,11 @@ build: generate
 test: generate
 	$(call gated,test)
 	$(MAKE) ax-check
+	$(MAKE) hardware-check-test
+
+# The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
+hardware-check-test:
+	scripts/hardware-check-test.sh
 
 # [LAW:one-type-per-behavior] The checks that need a person at a cable or a screen are one recipe, and each is only
 # data declared beside its target: its test (Suite/function()), the source paths that test covers, and the questions
@@ -25,12 +30,13 @@ HARDWARE_CHECKS := unplug-check iphone-check devices-check pill-check position-c
 .PHONY: $(HARDWARE_CHECKS) hardware-status
 
 $(HARDWARE_CHECKS): generate
-	rm -rf build/$@.xcresult
+	rm -rf build/$@.xcresult build/$@.record
 	swift scripts/hardware-check.swift run $@ --test '$($@.test)' --bundle build/$@.xcresult --covers $($@.covers) \
 	  --ask $($@.ask) -- $(XCB) -resultBundlePath build/$@.xcresult '-only-testing:$(APP)Tests/$($@.test)' test
 
-# For the branch's ticket, each check's latest result: "stands" while the code it covered is unchanged at HEAD,
-# "stale" naming the paths that changed since, or "never run". A check is worth a person's time only when it is not standing.
+# For the branch's ticket, each check's latest result: "stands" while the code it covered is unchanged at HEAD, with a
+# failed result's failures beneath it, "stale" naming the paths that changed since, or "never run". A standing pass needs
+# no one; a standing fail needs a change to the code, or to the setup its failures name, before it is worth a person's time.
 hardware-status:
 	swift scripts/hardware-check.swift status $(foreach check,$(HARDWARE_CHECKS),--check $(check) $($(check).covers))
 
@@ -55,8 +61,8 @@ iphone-check.ask := 'Did macOS show a Local Network prompt? (y/n)' \
 # type, and level to compare with Control Center. project.yml is covered for the Bluetooth usage description.
 devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
 devices-check.test := DevicesLive/matchesSystemProfiler()
-devices-check.covers := Sources/OrangeDrink/Devices project.yml Tests/OrangeDrinkTests/DevicesTests.swift \
-  Tests/OrangeDrinkTests/PrintForTheRecord.swift
+devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
+  Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
 # The alert pill: put an app full screen, then click the × of the pill that appears
 # at the centre of the screen and again at the top, then once more at the centre with the screen glow.
