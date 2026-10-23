@@ -20,7 +20,7 @@ import Testing
 
     @Test func aLowAlertAtTopOfScreenShowsOnePillForTheReadingThatCrossedIt() throws {
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
-        defer { pills.close() }
+        defer { pills.close(.closeButton) }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)])
         for percent in [16, 15, 14] { center.observe(try Self.reading(percent)) }
@@ -35,7 +35,7 @@ import Testing
 
     @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
-        defer { pills.close() }
+        defer { pills.close(.closeButton) }
         let center = try Self.center(pills, alerts: [
             Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
             Alert(kind: .low, threshold: 10, position: .top, glow: false, sound: false),
@@ -50,13 +50,13 @@ import Testing
         pills.show(PillContent(Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
                                reading: try Self.reading(19)))
         #expect(pills.shownGlowFrame == screen)
-        pills.close()
+        pills.close(.closeButton)
         #expect(pills.shownGlowFrame == nil)
     }
 
     @Test func aCenterAlertSitsAtTheMiddleOfTheScreen() throws {
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
-        defer { pills.close() }
+        defer { pills.close(.closeButton) }
         pills.show(PillContent(Alert(kind: .low, threshold: 5, position: .center, glow: false, sound: false),
                                reading: try Self.reading(4)))
         let screen = try #require(NSScreen.main ?? NSScreen.screens.first).visibleFrame
@@ -70,7 +70,7 @@ import Testing
         pills.show(PillContent(low, reading: try Self.reading(14)))
         pills.show(PillContent(low, reading: try Self.reading(13)))
         #expect(pills.shown?.headline.english == "13% Remaining")
-        pills.close()
+        pills.close(.closeButton)
         #expect(pills.shown == nil && pills.shownFrame == nil)
     }
 
@@ -84,9 +84,77 @@ import Testing
         pills.show(PillContent(low, reading: try Self.reading(13)))
         await Task.yield()
         #expect(!released)
-        pills.close()
+        pills.close(.closeButton)
         await waiter.value
         #expect(released)
+    }
+
+    static func countdown(_ clock: ManualTimekeeper) -> PillController {
+        PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), timekeeper: clock)
+    }
+
+    /// The `alerts` log lines that name this headline: other suites log in the same category at
+    /// the same time, so each countdown test reads only its own pill's lines.
+    static func lines(_ log: BatteryLog, about headline: String) throws -> [String] {
+        try log.messages().filter { $0.hasSuffix(": \(headline)") }
+    }
+
+    @Test func aPillAndItsGlowLeaveByThemselvesOnceShownForHasPassed() async throws {
+        let clock = ManualTimekeeper()
+        let pills = Self.countdown(clock)
+        let log = try BatteryLog(category: "alerts")
+        pills.show(PillContent(Alert(kind: .low, threshold: 31, position: .center, glow: true, sound: false),
+                               reading: try Self.reading(31)))
+        let waiter = Task { await pills.untilClosed() }
+        await clock.asleep()
+
+        clock.advance(by: PillController.shownFor - .seconds(1))
+        // The countdown is still asleep: `advance` wakes a due sleeper on the spot, so this needs no yield.
+        #expect(clock.sleeping == 1)
+        clock.advance(by: .seconds(1))
+        await waiter.value
+        #expect(pills.shown == nil && pills.shownGlowFrame == nil)
+        #expect(try Self.lines(log, about: "31% Remaining") == [
+            "pill shown at center for \(PillController.shownFor): 31% Remaining", "pill closed: timed out after \(PillController.shownFor): 31% Remaining"])
+    }
+
+    @Test func aReplacementGetsItsOwnFullTimeOnScreen() async throws {
+        let clock = ManualTimekeeper()
+        let pills = Self.countdown(clock)
+        let log = try BatteryLog(category: "alerts")
+        let low = Alert(kind: .low, threshold: 30, position: .top, glow: false, sound: false)
+        pills.show(PillContent(low, reading: try Self.reading(29)))
+        await clock.asleep()
+        clock.advance(by: .seconds(5))
+        pills.show(PillContent(low, reading: try Self.reading(28)))
+        // The first pill's countdown went with it. The second's has not started: its task waits
+        // for the main actor, which this test holds until its next await.
+        #expect(clock.sleeping == 0)
+        await clock.asleep()
+
+        let waiter = Task { await pills.untilClosed() }
+        clock.advance(by: PillController.shownFor - .seconds(1))
+        #expect(clock.sleeping == 1)
+        clock.advance(by: .seconds(1))
+        await waiter.value
+        #expect(pills.shown == nil)
+        #expect(try Self.lines(log, about: "29% Remaining") == ["pill shown at top for \(PillController.shownFor): 29% Remaining", "pill replaced: 29% Remaining"])
+        #expect(try Self.lines(log, about: "28% Remaining") == [
+            "pill shown at top for \(PillController.shownFor): 28% Remaining", "pill closed: timed out after \(PillController.shownFor): 28% Remaining"])
+    }
+
+    @Test func closingAPillEndsItsCountdown() async throws {
+        let clock = ManualTimekeeper()
+        let pills = Self.countdown(clock)
+        let log = try BatteryLog(category: "alerts")
+        pills.show(PillContent(Alert(kind: .low, threshold: 27, position: .top, glow: false, sound: false),
+                               reading: try Self.reading(26)))
+        await clock.asleep()
+        clock.advance(by: .seconds(3))
+        pills.close(.closeButton)
+        // Nothing is left counting down to take down whichever pill comes up next.
+        #expect(clock.sleeping == 0)
+        #expect(try Self.lines(log, about: "26% Remaining") == ["pill shown at top for \(PillController.shownFor): 26% Remaining", "pill closed: ×: 26% Remaining"])
     }
 
     @Test func pillWordingAndSeverityFollowTheAlertAndTheReading() throws {
@@ -116,7 +184,7 @@ import Testing
     @Test func theOverlayIsHandedTheLanguageTheAppSpeaksWhenThePillComesUp() throws {
         let language = AppLanguageTests.scratch()
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language)
-        defer { pills.close() }
+        defer { pills.close(.closeButton) }
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(.power("On Battery", severity: .orange, reading: try Self.reading(14)))
         #expect(pills.shownLanguage == AppLanguage(code: "fr"))
@@ -131,23 +199,26 @@ import Testing
     func pillsShowOverAFullScreenApp() async throws {
         // The appearance a person set on the General screen, as the app itself loads it.
         let pills = PillController(appearance: try NotificationAppearanceModel(defaults: .standard), language: try AppLanguageModel(defaults: .standard))
-        defer { pills.close() }
+        defer { pills.close(.closeButton) }
+        let log = try BatteryLog(category: "alerts")
         let sounds = AlertSounds()
         let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
             (.center, false, false), (.top, false, false), (.center, true, true)]
         for (position, glow, sound) in steps {
-            let alert = Alert(kind: .low, threshold: 15, position: position, glow: glow, sound: sound)
-            pills.deliver(.threshold(alert), reading: try Self.reading(15))
+            let alert = Alert(kind: .low, threshold: 17, position: position, glow: glow, sound: sound)
+            pills.deliver(.threshold(alert), reading: try Self.reading(17))
             sounds.deliver(.threshold(alert))
             FileHandle.standardError.write(Data(
                 ("\n>>> With an app full screen, find the pill at the \(position) of the screen"
                     + (glow ? ", with an orange glow around the screen edges," : "")
-                    + (sound ? " and a chime," : "") + " and click its ×.\n").utf8))
-            // [LAW:no-ambient-temporal-coupling] The wait is on the close itself; the deadline only bounds an absent person.
-            let deadline = Task { try await Task.sleep(for: .seconds(120)); pills.close() }
+                    + (sound ? " and a chime," : "")
+                    + " and click its × before it leaves by itself after \(PillController.shownFor).\n").utf8))
             await pills.untilClosed()
-            deadline.cancel()
         }
+        // A pill that timed out proves nothing about whether a person could see it.
+        #expect(try Self.lines(log, about: "17% Remaining") == steps.flatMap {
+            ["pill shown at \($0.position.rawValue) for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"]
+        })
     }
 }
 

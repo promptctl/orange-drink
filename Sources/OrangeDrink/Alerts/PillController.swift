@@ -35,30 +35,49 @@ private final class PillPanel: OverlayPanel {
     }
 }
 
+/// Why a pill came down, as its log line says it.
+enum PillEnd {
+    case closeButton
+    case timedOut
+
+    var said: String {
+        switch self {
+        case .closeButton: "×"
+        case .timedOut: "timed out after \(PillController.shownFor)"
+        }
+    }
+}
+
 /// The one pill on screen, with the screen glow its alert asks for: a new alert replaces both, and
-/// the close button clears both.
+/// the close button or `shownFor` passing clears both.
 ///
-/// [LAW:single-enforcer] `up` is the only record of whether a pill is up; its windows live and die together.
+/// [LAW:single-enforcer] `up` is the only record of whether a pill is up; its windows and its
+/// countdown live and die together.
 @MainActor final class PillController {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
+    /// How long a pill stays up unless its × or a newer alert takes it down first.
+    nonisolated static let shownFor: Duration = .seconds(8)
 
     @MainActor private struct Up {
         let content: PillContent
         let panel: PillPanel
         /// nil when the alert has Border Glow off.
         let glow: GlowPanel?
+        let expiry: Task<Void, any Error>
 
-        func close() { panel.close(); glow?.close() }
+        func close() { expiry.cancel(); panel.close(); glow?.close() }
     }
 
     private let appearance: NotificationAppearanceModel
     private let language: AppLanguageModel
+    private let timekeeper: any Timekeeper
     private var up: Up?
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
-    init(appearance: NotificationAppearanceModel, language: AppLanguageModel) {
+    init(appearance: NotificationAppearanceModel, language: AppLanguageModel, timekeeper: any Timekeeper = SystemTimekeeper()) {
         self.appearance = appearance
         self.language = language
+        self.timekeeper = timekeeper
     }
 
     var shown: PillContent? { up?.content }
@@ -85,31 +104,45 @@ private final class PillPanel: OverlayPanel {
     func deliver(_ firing: DeviceFiring) { show(PillContent(firing)) }
 
     func show(_ content: PillContent) {
-        dismiss()
-        // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost alert is logged.
+        // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
+        // alert is logged. A pill already up stays, and its own countdown takes it down.
         guard let screen = NSScreen.main ?? NSScreen.screens.first else {
-            Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .public)")
-            close()
+            Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .private)")
             return
         }
+        dismiss("replaced")
         let look = appearance.value
-        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, screen: screen, onClose: { [weak self] in self?.close() })
+        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, screen: screen, onClose: { [weak self] in self?.close(.closeButton) })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, screen: screen) : nil
         glow?.orderFrontRegardless()
         panel.orderFrontRegardless()
-        up = Up(content: content, panel: panel, glow: glow)
+        // [LAW:no-ambient-temporal-coupling] The countdown belongs to this pill's `Up`, which cancels it
+        // on any close or replacement. A replacement can land between the wake and this task's turn on
+        // the main actor; it has cancelled the task by then, so the check after the sleep is that state.
+        // It holds `self` strongly, at most for `shownFor`, so a pill comes down even if its controller is dropped.
+        let expiry = Task { [timekeeper] in
+            try await timekeeper.sleep(for: Self.shownFor)
+            try Task.checkCancellation()
+            self.close(.timedOut)
+        }
+        up = Up(content: content, panel: panel, glow: glow, expiry: expiry)
+        Self.log.info("pill shown at \(content.position.rawValue, privacy: .public) for \(Self.shownFor, privacy: .public): \(content.headline.english, privacy: .private)")
     }
 
     /// Takes down the pill showing, if any, without telling waiters: a replacement may follow.
-    private func dismiss() {
-        up?.close()
+    private func dismiss(_ why: String) {
+        if let up {
+            // A device pill's headline holds the device's name, which AlertCenter logs as private too.
+            Self.log.info("pill \(why, privacy: .public): \(up.content.headline.english, privacy: .private)")
+            up.close()
+        }
         up = nil
     }
 
-    func close() {
-        dismiss()
+    func close(_ end: PillEnd) {
+        dismiss("closed: \(end.said)")
         let released = waiters
         waiters = []
         for waiter in released { waiter.resume() }

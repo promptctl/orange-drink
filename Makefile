@@ -52,7 +52,8 @@ devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
 devices-check: test
 
 # Same shape for the alert pill: put an app full screen, then click the × of the pill that appears
-# at the centre of the screen and again at the top, then once more at the centre with the screen glow.
+# at the centre of the screen and again at the top, then once more at the centre with the screen glow,
+# each within the 8 s it stays up. A pill that leaves by itself fails the check: no one saw it.
 pill-check: export TEST_RUNNER_PILL_CHECK = 1
 pill-check: test
 
