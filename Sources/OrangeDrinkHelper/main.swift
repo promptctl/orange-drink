@@ -4,8 +4,8 @@ import os
 import Security
 
 // The privileged helper: a launchd daemon, started on demand for its Mach service, that serves only its app.
-// It runs until launchd stops it, which the app's unregister does at launch and at exit
-// (HelperRegistration), so a helper that a rebuild replaced on disk never outlives the app's next launch.
+// It runs until launchd stops it, which the app's unregister does (HelperRegistration), or until its own
+// file changes on disk.
 
 let signer: Signer
 do { signer = try Signer(signingInformation: SigningInformation.ofSelf()) } catch {
@@ -15,7 +15,26 @@ do { signer = try Signer(signingInformation: SigningInformation.ofSelf()) } catc
 }
 let log = Logger(subsystem: signer.app, category: "helper")
 // The path the kernel ran. Bundle.main would name the enclosing app, since the helper lives in its Contents/MacOS.
-let executable = executablePath(of: getpid()) ?? "unknown (proc_pidpath: errno \(errno))"
+let executable: String
+if let path = Processes.executablePath(of: getpid()) { executable = path } else {
+    log.fault("helper exits: proc_pidpath of itself failed, errno \(errno)")
+    exit(EX_OSERR)
+}
+
+// [LAW:one-source-of-truth] The code that serves is the file on disk. A rebuild or an update that rewrites,
+// replaces or removes it ends this process, and launchd runs the new file at the next call, even while a
+// running copy of the app still holds the record and so never unregisters.
+let binary = open(executable, O_EVTONLY)
+if binary < 0 {
+    log.fault("helper exits: cannot watch \(executable, privacy: .public), errno \(errno)")
+    exit(EX_OSERR)
+}
+let replaced = DispatchSource.makeFileSystemObjectSource(fileDescriptor: binary, eventMask: [.write, .extend, .delete, .rename, .revoke], queue: .main)
+replaced.setEventHandler {
+    log.notice("helper exits: \(executable, privacy: .public) changed on disk (\(replaced.data.rawValue))")
+    exit(0)
+}
+replaced.resume()
 
 final class Session: NSObject, PrivilegedHelper {
     let peer: pid_t

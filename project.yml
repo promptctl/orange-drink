@@ -25,11 +25,12 @@ settings:
     APP_BUNDLE_IDENTIFIER: dev.orangedrink.$(PROJECT_NAME)
     APP_GROUP: $(TeamIdentifierPrefix)$(APP_BUNDLE_IDENTIFIER)
     # [LAW:one-source-of-truth] The privileged helper's launchd label, which is also its bundle identifier,
-    # its Mach service, and its plist's name. Each copy of the app has a label of its own, so no copy can
-    # stop another's helper: one approval covers them all, and a deleted copy's record wedges only its own
-    # job (orange-admin-helper-b2q.qm0, cmt-19709fc0). HELPER_COPY names the copy: the Makefile passes one
-    # per derived-data directory, scripts/dmg passes it empty for the app users install, and a build
-    # outside make gets this .xcode.
+    # its Mach service, and its plist's name. Each build has a label of its own, so no build can stop
+    # another's helper: one approval covers them all, and a deleted build's record wedges only its own job
+    # (orange-admin-helper-b2q.qm0, cmt-19709fc0). HELPER_COPY names the build: the Makefile passes one per
+    # derived-data directory, scripts/dmg passes it empty, so every installed copy of the app users install
+    # shares the one fixed label (HelperRegistration holds the record for all of them), and a build outside
+    # make gets this .xcode.
     HELPER_COPY: .xcode
     HELPER_LABEL: $(APP_BUNDLE_IDENTIFIER).Helper$(HELPER_COPY).$(CONFIGURATION)
   configs:

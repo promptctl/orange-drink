@@ -61,14 +61,46 @@ struct HelperBuildTests {
         #expect(try Self.selfMeets(release.callerRequirement) == errSecCSReqFailed)
     }
 
-    @Test func registrationLineSaysWhatHappened() {
+    @Test func recordLinesSayWhatHappened() {
         let refusal = "SMAppServiceErrorDomain 1 Operation not permitted"
-        #expect(HelperRegistration(before: .unregistered(error: nil), outcome: .registered(status: "enabled")).line
+        #expect(HelperRegistration.Event.launched(.unregistered(error: nil), .registered(status: "enabled")).line
                 == "helper registration: cleared ok; registered; status enabled")
-        #expect(HelperRegistration(before: .unregistered(error: refusal), outcome: .refused(error: refusal, status: "requiresApproval")).line
+        #expect(HelperRegistration.Event.launched(.unregistered(error: refusal), .refused(error: refusal, status: "requiresApproval")).line
                 == "helper registration: cleared \(refusal); refused (\(refusal)); status requiresApproval")
-        #expect(HelperRegistration(before: .heldBy(pids: [41, 42]), outcome: .registered(status: "enabled")).line
+        #expect(HelperRegistration.Event.launched(.heldBy(pids: [41, 42]), .registered(status: "enabled")).line
                 == "helper registration: kept for pid 41, 42; registered; status enabled")
+        #expect(HelperRegistration.Event.exited(.unregistered(error: nil), status: "notRegistered").line
+                == "helper at exit: cleared ok; status notRegistered")
+        #expect(HelperRegistration.Event.exited(.heldBy(pids: [41]), status: "enabled").line
+                == "helper at exit: kept for pid 41; status enabled")
+        #expect(HelperRegistration.Event.exited(.holdersUnread(errno: 5), status: "enabled").line
+                == "helper at exit: kept, process table unreadable (errno 5); status enabled")
+    }
+
+    /// A copy holds the record by the label it embeds, wherever it is: the shipped app's copies share one.
+    @Test func aCopyHoldsTheRecordByItsLabel() throws {
+        #expect(HelperRegistration.runsThisLabel(try #require(Processes.executablePath(of: getpid()))))
+        #expect(try !HelperRegistration.otherHolders().contains(getpid()))
+
+        let scratch = FileManager.default.temporaryDirectory.appending(path: "helper-holders-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: scratch) }
+        func copy(_ name: String, label: String?) throws -> String {
+            let contents = scratch.appending(path: "\(name)/OrangeDrink.app/Contents")
+            let executable = contents.appending(path: "MacOS/\(try #require(app.executableURL?.lastPathComponent))")
+            try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data().write(to: executable)
+            if let label {
+                let daemons = contents.appending(path: "Library/LaunchDaemons")
+                try FileManager.default.createDirectory(at: daemons, withIntermediateDirectories: true)
+                let plist: [String: Any] = ["Label": label, "MachServices": [label: true], "BundleProgram": daemon.program]
+                try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: daemons.appending(path: "\(label).plist"))
+            }
+            return executable.path
+        }
+        #expect(HelperRegistration.runsThisLabel(try copy("same", label: daemon.label)))
+        #expect(!HelperRegistration.runsThisLabel(try copy("other", label: daemon.label + ".other")))
+        #expect(!HelperRegistration.runsThisLabel(try copy("none", label: nil)))
+        #expect(!HelperRegistration.runsThisLabel("/usr/bin/true"))
     }
 
     func helperSigning() throws -> [String: Any] {

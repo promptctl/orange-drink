@@ -102,13 +102,6 @@ struct Signer: Equatable {
     }
 }
 
-/// The path the kernel ran for a process, any user's, or nil once it has gone.
-func executablePath(of pid: pid_t) -> String? {
-    var path = [UInt8](repeating: 0, count: Int(MAXPATHLEN))
-    let length = proc_pidpath(pid, &path, UInt32(path.count))
-    return length > 0 ? String(decoding: path.prefix(Int(length)), as: UTF8.self) : nil
-}
-
 struct HelperIdentity: Equatable, Sendable {
     let executable: String
     let euid: UInt32

@@ -47,12 +47,11 @@ struct HelperLive {
         // app is still accepted, so the refusal came from a reachable helper.
         let adHoc = try copy(client, to: scratch, as: "ad-hoc")
         try codesign("-f", "-s", "-", "-i", identifier, adHoc.path)
-        var refused = 0
-        for caller in [client, adHoc] {
-            let call = try run(caller, label)
-            #expect(call.status == 1, "\(caller.lastPathComponent): \(call.output)")
-            #expect(call.output.contains("domain=NSCocoaErrorDomain code=4097"), "\(caller.lastPathComponent): \(call.output)")
-            refused += 1
+        let refused = [client, adHoc]
+        for caller in refused {
+            let call = try call(caller)
+            #expect(call.status == 1, "\(caller.lastPathComponent): \(call.transcript)")
+            #expect(call.text.contains("domain=NSCocoaErrorDomain code=4097"), "\(caller.lastPathComponent): \(call.transcript)")
             try expectAppAccepted()
         }
 
@@ -60,13 +59,13 @@ struct HelperLive {
         // identifier, not one build's hash, which is why it survives a rebuild.
         let teamSigned = try copy(client, to: scratch, as: "team-signed")
         try codesign("-f", "-s", try Self.ownSigningIdentity(), "-o", "runtime", "-i", identifier, teamSigned.path)
-        let control = try run(teamSigned, label)
-        #expect(control.status == 0, "team-signed: \(control.output)")
-        let controlPid = try #require(control.output.firstMatch(of: /pid (\d+)/)?.1, "team-signed printed no pid: \(control.output)")
+        let control = try call(teamSigned)
+        #expect(control.status == 0, "team-signed: \(control.transcript)")
+        let controlPid = try #require(control.text.firstMatch(of: /pid (\d+)/)?.1, "team-signed printed no pid: \(control.transcript)")
 
         // The helper's log separates a refusal from an unreachable helper.
         let helperLog = try helperLogSinceStart()
-        #expect(helperLog.components(separatedBy: Self.refusalLine).count - 1 >= refused, "helper log:\n\(helperLog)")
+        #expect(helperLog.components(separatedBy: Self.refusalLine).count - 1 >= refused.count, "helper log:\n\(helperLog)")
         #expect(helperLog.contains("accepted pid \(controlPid)"), "helper log:\n\(helperLog)")
 
         // This launch's registration, as the app logged it. It runs off the main thread, so it is waited for.
@@ -93,9 +92,12 @@ struct HelperLive {
         return destination
     }
 
+    /// One call from a HelperCheckClient build, which has a deadline of its own; the runner's is twice it.
+    func call(_ caller: URL) throws -> ChildProcess { try ChildProcess.run(caller.path, [label], deadline: 2 * Self.deadline) }
+
     func codesign(_ arguments: String...) throws {
-        let result = try run(URL(fileURLWithPath: "/usr/bin/codesign"), arguments)
-        try #require(result.status == 0, "codesign \(arguments): \(result.output)")
+        let result = try ChildProcess.run("/usr/bin/codesign", arguments)
+        try #require(result.status == 0, "codesign \(arguments): \(result.transcript)")
     }
 
     /// This copy's helper's log since the test started; every copy's helper has the same name, so the
@@ -104,29 +106,10 @@ struct HelperLive {
         let start = DateFormatter()
         start.locale = Locale(identifier: "en_US_POSIX")
         start.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let result = try run(URL(fileURLWithPath: "/usr/bin/log"), ["show", "--start", start.string(from: started.addingTimeInterval(-1)), "--style", "compact",
-                                                                  "--predicate", "processImagePath == \"\(helperPath)\""])
-        try #require(result.status == 0, "log show: \(result.output)")
-        return result.output
-    }
-
-    func run(_ executable: URL, _ arguments: String...) throws -> (status: Int32, output: String) { try run(executable, arguments) }
-
-    /// Runs a process with stdout and stderr together, killed at twice the call deadline if still running.
-    func run(_ executable: URL, _ arguments: [String]) throws -> (status: Int32, output: String) {
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        try process.run()
-        let killer = DispatchWorkItem { process.terminate() }
-        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(2 * Self.deadline), execute: killer)
-        let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-        killer.cancel()
-        return (process.terminationStatus, output)
+        let result = try ChildProcess.run("/usr/bin/log", ["show", "--start", start.string(from: started.addingTimeInterval(-1)), "--style", "compact",
+                                                           "--predicate", "processImagePath == \"\(helperPath)\""])
+        try #require(result.status == 0, "log show: \(result.transcript)")
+        return result.text
     }
 
     /// The name of the certificate this test host is signed with, so the control is signed by the same team.
