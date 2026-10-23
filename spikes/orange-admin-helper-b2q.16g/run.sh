@@ -25,16 +25,22 @@ observe() { local o; o=$("$smc" observe) || exit 1; echo "$(now) $o"; }
 field() { sed -E "s/.*[ ]$1=([^ ]+).*/\1/" <<<" $2"; }
 # The Charge Limit policy powerd keeps, on one line: the archived ChargeCtrlPolicy's fields. powerd
 # rewrites this file on its own (isEndOfCharge flips at the limit), so it is recorded, never waited on.
-# [LAW:dataflow-not-control-flow] No policies file, or no policy in it, is a state of its own.
+# [LAW:dataflow-not-control-flow] No policies file, no policies key, or no policy in it, is a state of
+# its own; only a file plutil cannot read fails the caller.
 policy() {
-  if [ -e "$policies" ]; then
-    plutil -extract policies raw -o - "$policies" | base64 -d | plutil -p - |
-      awk '/"(soclimit|terminated|drain|isEndOfCharge|noChargeToFull)"|"[A-Za-z]*ChargeLimit"/ { $1 = $1; printf "%s  ", $0; n++ }
-           END { if (!n) printf "no charge policy"; print "" }'
-  else
-    echo "no policies file"
-  fi
+  local outer
+  [ -e "$policies" ] || { echo "no policies file"; return; }
+  outer=$(plutil -p "$policies") || return 1
+  case $outer in
+    *'"policies" =>'*)
+      plutil -extract policies raw -o - "$policies" | base64 -d | plutil -p - |
+        awk '/"(soclimit|terminated|drain|isEndOfCharge|noChargeToFull)"|"[A-Za-z]*ChargeLimit"/ { $1 = $1; printf "%s  ", $0; n++ }
+             END { if (!n) printf "no charge policy"; print "" }' ;;
+    *) echo "no policies key" ;;
+  esac
 }
+# A dead log stream would make an empty powerd.log read as "powerd said nothing".
+logging() { kill -0 "$log_pid" || { echo "log stream stopped: powerd.log is incomplete"; exit 1; }; }
 
 # [LAW:no-ambient-temporal-coupling] Every wait is a named condition polled every 5 s against a deadline;
 # the run never sleeps on the hope that something has happened. A miss returns 1 and the caller says
@@ -87,7 +93,9 @@ echo "manual restore if this run dies uncaught: sudo $smc write $key $baseline"
 restore() {
   local status=$?
   # Every step runs and reports its own failure; and the write comes first, because after a closed
-  # Terminal nothing printed before it would survive.
+  # Terminal nothing printed before it would survive. A second ^C must not kill the write: ignored
+  # signals stay ignored in the children.
+  trap '' INT TERM HUP
   set +e
   "$smc" write "$key" "$baseline" || echo "RESTORE FAILED: run  sudo $smc write $key $baseline"
   echo "$(now) exit $status: $key restored to"
@@ -115,7 +123,9 @@ echo "$refusal"
 [[ $refusal == *kIOReturnNotPrivileged* ]] || { echo "the unprivileged write failed, but not for privilege; stopping"; exit 1; }
 held=$("$smc" read "$key")
 echo "$key after the unprivileged attempt: $held (baseline $baseline)"
+[ "$held" = "$baseline" ] || { echo "UNEXPECTED: the refused write changed $key; stopping, since the root write can no longer be told apart"; exit 1; }
 
+logging
 step "2. pause: write $key $pause as root; the writer exits before anything is observed"
 "$smc" write "$key" "$pause"
 # Without a pause, every event below would record ordinary charging; the miss is the finding.
@@ -125,7 +135,9 @@ step "3a. unplug the charger now, and leave it out until told"
 if await "unplugged" 180 external 0; then
   settle
   step "3a. plug the charger back in"
-  if await "replugged" 180 external 1; then settle; else echo "event not driven: replug"; fi
+  # Every step after this one needs the charger in.
+  await "replugged" 180 external 1 || { echo "event not driven: replug; the rest of the run needs the charger"; exit 1; }
+  settle
 else
   echo "event not driven: unplug"
 fi
@@ -149,5 +161,6 @@ echo "$key holds $held before resume (wrote $pause)"
 "$smc" write "$key" "$baseline"
 await "charging resumed" 60 charging || echo "NOT RESUMED within 60 s"
 
+logging
 step "powerd and PowerUIAgent on charging, for the whole run"
 grep -iE 'charg|inhibit|CHNC|limit' "$here/powerd.log" || echo "no charging lines in powerd.log"

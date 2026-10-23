@@ -131,12 +131,12 @@ func ioReturn(_ kr: kern_return_t) -> String {
 }
 
 func parseHex(_ s: String) throws -> [UInt8] {
-    let chars = Array(s)
-    guard chars.count % 2 == 0, !chars.isEmpty else { throw Failure(description: "hex '\(s)' is not whole bytes") }
-    return try stride(from: 0, to: chars.count, by: 2).map {
-        guard let byte = UInt8(String(chars[$0...$0 + 1]), radix: 16) else { throw Failure(description: "hex '\(s)' is not hex") }
-        return byte
+    // Digit by digit, so a sign UInt8(_:radix:) would accept ("+1000000") is not hex.
+    let digits = s.compactMap(\.hexDigitValue)
+    guard digits.count == s.count, !digits.isEmpty, digits.count % 2 == 0 else {
+        throw Failure(description: "hex '\(s)' is not whole bytes of hex")
     }
+    return stride(from: 0, to: digits.count, by: 2).map { UInt8(digits[$0] << 4 | digits[$0 + 1]) }
 }
 
 func battery() throws -> [String: Any] {
