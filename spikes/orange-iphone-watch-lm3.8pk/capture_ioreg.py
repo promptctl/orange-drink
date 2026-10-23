@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Captures the cleaned IORegistry IOPMPowerSource reply of every device usbmuxd lists (cable or Wi-Fi) into the directory
-# given as the argument, one XML plist per device, named <ProductType>-<ProductVersion>-<udid>.plist. Each file holds the
-# relay reply plus a top-level "Device" dict (ProductType, ProductVersion, DeviceClass, ConnectionType) so a fixture cut
+# given as the argument, one XML plist per listing, named <ProductType>-<ProductVersion>-<udid>-<ConnectionType>.plist
+# (a device on both cable and Wi-Fi is listed, and captured, twice). Each file holds the relay reply plus a top-level "Device" dict (ProductType, ProductVersion, DeviceClass, ConnectionType) so a fixture cut
 # from it can name the device and OS it came from. Same lockdown and relay flow as spikes/orange-iphone-watch-lm3.6gk/battery_ioreg.py.
 # IOPMPowerSource, not AppleSmartBattery: the Vision Pro answers only to the superclass (orange-iphone-watch-lm3.7iy cmt-9996a69e).
 # Run from this directory: python3 -I capture_ioreg.py /tmp/lm3.7iy/captures
@@ -46,7 +46,7 @@ def capture(d):
     while len(raw) < n: raw += r.recv(n - len(raw))
     reply = plistlib.loads(re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", b"", raw))
     reply["Device"] = device
-    path = os.path.join(out_dir, f"{device['ProductType']}-{device['ProductVersion']}-{udid}.plist")
+    path = os.path.join(out_dir, f"{device['ProductType']}-{device['ProductVersion']}-{udid}-{conn}.plist")
     with open(path, "wb") as f: f.write(plistlib.dumps(reply, fmt=plistlib.FMT_XML))
     entry = reply.get("Diagnostics", {}).get("IORegistry")
     print(path, device, "entry keys:", len(entry) if entry else f"NO ENTRY: {reply}")

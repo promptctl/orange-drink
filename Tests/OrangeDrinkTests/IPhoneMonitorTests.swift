@@ -8,8 +8,8 @@ import Testing
 // switch are stand-ins; time passes only when the test advances the clock.
 @Suite(.serialized) struct IPhoneMonitorDecisions {
     private static let reading = IPhoneBatteryReading(level: 80, cycleCount: 312,
-                                                      designCapacity: Located(value: 3_274, place: .topLevel),
-                                                      nominalChargeCapacity: Located(value: 2_980, place: .topLevel),
+                                                      designCapacity: EntryCapacity(mAh: 3_274, place: .topLevel),
+                                                      nominalChargeCapacity: EntryCapacity(mAh: 2_980, place: .topLevel),
                                                       storedMaximumCapacity: nil)
 
     private static func usb(_ handle: Int, _ udid: String) -> AttachedDevice {

@@ -16,6 +16,9 @@ enum IPhoneReadError: Error, Equatable {
     case lockdown(String)
     /// The device answered with an Error: PasswordProtected while locked, InvalidHostID once trust is revoked.
     case refused(String)
+    /// The relay answered Success with no entry: what it does for a class the device does not publish (the Vision Pro
+    /// asked for AppleSmartBattery, cmt-9996a69e).
+    case noPowerSource
     case parse(IPhoneParseError)
     case encoding(String)
     case unsupported(String)
@@ -456,9 +459,16 @@ private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReadi
     let relay = PlistStream(socket: try usbmuxConnect(handle: handle, port: port))
     if service["EnableServiceSSL"] as? Bool == true { try relay.startTLS(identity: lockdown.identity) }
     let reply = try decodeReply(try relay.request(["Request": "IORegistry", "EntryClass": "IOPMPowerSource"]))
-    guard let diagnostics = reply["Diagnostics"] as? [String: Any],
-          let entry = diagnostics["IORegistry"] as? [String: Any] else {
-        throw IPhoneReadError.lockdown("Diagnostics.IORegistry")
+    return try parseIPhoneBattery(try powerSourceEntry(reply))
+}
+
+/// The entry inside an IORegistry reply. A Success with no Diagnostics is the relay's way of saying it found none.
+func powerSourceEntry(_ reply: [String: Any]) throws(IPhoneReadError) -> [String: Any] {
+    guard let diagnostics = reply["Diagnostics"] else {
+        throw reply["Status"] as? String == "Success" ? .noPowerSource : .lockdown("Diagnostics")
     }
-    return try parseIPhoneBattery(entry)
+    guard let entry = (diagnostics as? [String: Any])?["IORegistry"] as? [String: Any] else {
+        throw .lockdown("Diagnostics.IORegistry")
+    }
+    return entry
 }

@@ -13,32 +13,32 @@ import Testing
 
     static func reading(level: Int, cycles: Int, design: Int, nominal: Int, from place: EntryPlace,
                         stored: Int? = nil) -> IPhoneBatteryReading {
-        IPhoneBatteryReading(level: level, cycleCount: cycles, designCapacity: Located(value: design, place: place),
-                             nominalChargeCapacity: Located(value: nominal, place: place), storedMaximumCapacity: stored)
+        IPhoneBatteryReading(level: level, cycleCount: cycles, designCapacity: EntryCapacity(mAh: design, place: place),
+                             nominalChargeCapacity: EntryCapacity(mAh: nominal, place: place), storedMaximumCapacity: stored)
     }
 
     @Test func iPhoneOniOS27ReadsCapacitiesFromBatteryData() throws {
         let reading = try parseIPhoneBattery(try Self.entry(iPhone16_2_iOS27ReplyXML))
         #expect(reading == Self.reading(level: 25, cycles: 584, design: 4395, nominal: 3761, from: .batteryData))
-        #expect(reading.maximumCapacityPercent == 86)
+        #expect(reading.maximumCapacity.percent == 86)
     }
 
     @Test func iPhoneOniOS18ReadsCapacitiesFromTheTopLevelAndCapsHealthAt100() throws {
         let reading = try parseIPhoneBattery(try Self.entry(iPhone17_1_iOS18ReplyXML))
         #expect(reading == Self.reading(level: 8, cycles: 16, design: 3544, nominal: 3637, from: .topLevel))
-        #expect(reading.maximumCapacityPercent == 100)
+        #expect(reading.maximumCapacity.percent == 100)
     }
 
     @Test func olderIPadReadsCapacitiesFromTheTopLevel() throws {
         let reading = try parseIPhoneBattery(try Self.entry(iPadOlderReplyXML))
         #expect(reading == Self.reading(level: 87, cycles: 395, design: 9633, nominal: 8648, from: .topLevel))
-        #expect(reading.maximumCapacityPercent == 90)
+        #expect(reading.maximumCapacity.percent == 90)
     }
 
     @Test func iPadOniPadOS27ReadsCapacitiesFromBatteryData() throws {
         let reading = try parseIPhoneBattery(try Self.entry(iPad13_4_iPadOS27ReplyXML))
         #expect(reading == Self.reading(level: 32, cycles: 580, design: 7596, nominal: 6891, from: .batteryData))
-        #expect(reading.maximumCapacityPercent == 91)
+        #expect(reading.maximumCapacity.percent == 91)
     }
 
     @Test func visionProReadsPercentFromTheTopLevelAndShowsItsStoredHealth() throws {
@@ -47,15 +47,40 @@ import Testing
         #expect((entry["BatteryData"] as? [String: Any])?["CurrentCapacity"] as? Int == 2730)
         let reading = try parseIPhoneBattery(entry)
         #expect(reading == Self.reading(level: 100, cycles: 209, design: 3060, nominal: 2700, from: .topLevel, stored: 93))
-        #expect(reading.maximumCapacityPercent == 93)
+        #expect(reading.maximumCapacity.percent == 93)
     }
 
-    @Test func theReadsLogLineNamesWhereEachCapacityCameFrom() throws {
-        // readIPhoneBattery logs String(describing: reading); the place each capacity came from is on that line.
-        let line = String(describing: try parseIPhoneBattery(try Self.entry(iPhone16_2_iOS27ReplyXML)))
-        #expect(line.contains("value: 4395, place: OrangeDrink.EntryPlace.batteryData"))
-        #expect(line.contains("value: 3761, place: OrangeDrink.EntryPlace.batteryData"))
-        #expect(line.contains("storedMaximumCapacity: nil"))
+    @Test func theReadsLogLineNamesWhereEachCapacityAndTheHealthFigureCameFrom() throws {
+        // readIPhoneBattery logs, and the hardware check records, String(describing: reading).
+        #expect(String(describing: try parseIPhoneBattery(try Self.entry(iPhone16_2_iOS27ReplyXML)))
+            == "level 25%, cycles 584, design 4395 mAh (BatteryData), nominal 3761 mAh (BatteryData), max capacity 86% (ratio 85.6%)")
+        #expect(String(describing: try parseIPhoneBattery(try Self.entry(iPhone17_1_iOS18ReplyXML)))
+            == "level 8%, cycles 16, design 3544 mAh (top level), nominal 3637 mAh (top level), max capacity 100% (ratio 102.6%)")
+        #expect(String(describing: try parseIPhoneBattery(try Self.entry(visionPro_visionOS27ReplyXML)))
+            == "level 100%, cycles 209, design 3060 mAh (top level), nominal 2700 mAh (top level), max capacity 93% (stored)")
+    }
+
+    @Test(arguments: [("CycleCount", -1), ("NominalChargeCapacity", 0), ("DesignCapacity", 0), ("MaxCapacity", 0),
+                      ("CurrentCapacity", -1)])
+    func aValueOutOfRangeIsRejected(key: String, value: Int) throws {
+        var entry = try Self.entry(iPhone17_1_iOS18ReplyXML)
+        entry[key] = value
+        #expect(throws: IPhoneParseError.invalid(key)) { try parseIPhoneBattery(entry) }
+    }
+
+    @Test(arguments: [0, 101, 255])
+    func aStoredHealthFigureOutOfRangeIsRejected(value: Int) throws {
+        var entry = try Self.entry(visionPro_visionOS27ReplyXML)
+        entry["BatteryHealthData"] = ["BatteryHealthMaxCapacity": value]
+        #expect(throws: IPhoneParseError.invalid("BatteryHealthMaxCapacity")) { try parseIPhoneBattery(entry) }
+    }
+
+    @Test func aRelaySuccessWithNoEntryIsNoPowerSourceNotAProtocolFault() throws {
+        #expect(throws: IPhoneReadError.noPowerSource) { try powerSourceEntry(["Status": "Success"]) }
+        #expect(throws: IPhoneReadError.lockdown("Diagnostics")) { try powerSourceEntry(["Status": "Failure"]) }
+        #expect(throws: IPhoneReadError.lockdown("Diagnostics.IORegistry")) { try powerSourceEntry(["Diagnostics": [:]]) }
+        let entry = try powerSourceEntry(try plistDictionary(Data(iPhone17_1_iOS18ReplyXML.utf8)))
+        #expect(try parseIPhoneBattery(entry) == parseIPhoneBattery(try Self.entry(iPhone17_1_iOS18ReplyXML)))
     }
 
     @Test func aCapacityInNeitherPlaceIsATypedError() throws {
@@ -68,18 +93,6 @@ import Testing
         var entry = try Self.entry(iPhone17_1_iOS18ReplyXML)
         entry["CycleCount"] = "16"
         #expect(throws: IPhoneParseError.wrongType("CycleCount")) { try parseIPhoneBattery(entry) }
-    }
-
-    @Test func zeroDesignCapacityIsRejectedNotDividedBy() throws {
-        var entry = try Self.entry(iPhone17_1_iOS18ReplyXML)
-        entry["DesignCapacity"] = 0
-        #expect(throws: IPhoneParseError.invalid("DesignCapacity")) { try parseIPhoneBattery(entry) }
-    }
-
-    @Test func zeroMaxCapacityIsRejected() throws {
-        var entry = try Self.entry(iPhone17_1_iOS18ReplyXML)
-        entry["MaxCapacity"] = 0
-        #expect(throws: IPhoneParseError.invalid("MaxCapacity")) { try parseIPhoneBattery(entry) }
     }
 
     @Test func aLevelAboveMaxCapacityIsRejectedNotShownAsAPercent() throws {
