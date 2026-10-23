@@ -16,6 +16,12 @@ import Testing
         #expect(card.progress == 0.78)
     }
 
+    @Test func aChargeTheLimitStopsShowsNoTimeUntilFull() throws {
+        let card = ChargeCard(try Events.atTheLimit())
+        #expect(card.status.title == "Charging")
+        #expect(card.estimate == "–")
+    }
+
     @Test func dischargingShowsTheTimeToEmptyInItsPlace() throws {
         let card = ChargeCard(try Events.reading(Events.Fixtures.discharging(timeToEmpty: 200), percent: 60))
         #expect(card.status.title == "On Battery")

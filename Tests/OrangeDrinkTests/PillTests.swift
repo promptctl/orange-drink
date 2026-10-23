@@ -167,6 +167,21 @@ import Testing
         #expect(content.headline.english == "80% Charged" && content.severity == .green)
     }
 
+    // orange-alerts-cjt.c2g: under an 80% Charge Limit the reading that crosses 80 still says
+    // charging with powerd's estimate to 100%; the pill must not promise a full charge.
+    @Test func aChargedPillAtTheChargeLimitSaysNoTimeUntilFull() throws {
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        defer { pills.close(.closeButton) }
+        let center = try Self.center(
+            pills, alerts: [Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false)])
+        center.observe(try BatteryEvents.reading(BatteryEvents.Fixtures.charging(timeToFull: 50), percent: 79))
+        center.observe(try BatteryEvents.atTheLimit())
+
+        let shown = try #require(pills.shown)
+        #expect(shown.headline.english == "80% Charged")
+        #expect(shown.subline == nil)
+    }
+
     @Test func aPillSaysItsWordingInFrenchAndSpanish() throws {
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         let content = PillContent(low, reading: try Self.reading(14, minutes: 192))

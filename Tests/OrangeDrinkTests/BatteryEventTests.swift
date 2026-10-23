@@ -8,10 +8,16 @@ import Testing
 @Suite struct BatteryEvents {
     typealias Fixtures = BatteryReadingParse
 
-    static func reading(_ powerSource: [String: Any], percent: Int = 80) throws -> BatteryReading {
+    static func reading(_ powerSource: [String: Any], percent: Int = 80,
+                        registry: [String: Any] = Fixtures.registry) throws -> BatteryReading {
         var source = powerSource
         source[kIOPSCurrentCapacityKey] = percent
-        return try Fixtures.parse(source)
+        return try Fixtures.parse(source, registry: registry)
+    }
+    /// The reading the charged-80 alert fires on under an 80% Charge Limit: charging, powerd's
+    /// estimate to 100%, and the charger reporting the limit in force.
+    static func atTheLimit(percent: Int = 80) throws -> BatteryReading {
+        try reading(Fixtures.charging(timeToFull: 48), percent: percent, registry: Fixtures.limitInForce)
     }
     static var onAdapter: BatteryReading { get throws { try reading(Fixtures.onACNotCharging(charged: false)) } }
     static var onBattery: BatteryReading { get throws { try reading(Fixtures.discharging(timeToEmpty: 192)) } }
