@@ -206,7 +206,7 @@ import Testing
         clock.advance(by: PillController.shownFor)
         await waiter.value
         #expect(try Self.lines(log, about: "80% Charged") == [
-            "pill shown at top for \(PillController.shownFor): 80% Charged", "pill held: 80% Charged", "pill held: 80% Charged",
+            "pill shown at top, held: 80% Charged", "pill held: 80% Charged", "pill held: 80% Charged",
             "pill counting \(PillController.shownFor) again: 80% Charged", "pill closed: timed out after \(PillController.shownFor): 80% Charged"])
         #expect(try log.messages().contains("screen hidden by displayAsleep, locked"))
     }

@@ -9,8 +9,10 @@ import Testing
     @Test func theWorkspaceStartsAndEndsFoldIntoTheHidersInForce() async throws {
         let workspace = NotificationCenter()
         let rows = ScreenMonitor.signals.filter { $0.center == .workspace }
-        var hidden = ScreenMonitor.hidden(rows, workspace: workspace).makeAsyncIterator()
+        var hidden = ScreenMonitor.hidden(rows, initial: [], workspace: workspace).makeAsyncIterator()
         func post(_ name: Notification.Name) { workspace.post(name: name, object: nil) }
+
+        #expect(await hidden.next() == [])
 
         post(NSWorkspace.screensDidSleepNotification)
         #expect(await hidden.next() == [.displayAsleep])
@@ -25,6 +27,17 @@ import Testing
         post(NSWorkspace.sessionDidResignActiveNotification)
         #expect(await hidden.next() == [.switchedOut])
         post(NSWorkspace.sessionDidBecomeActiveNotification)
+        #expect(await hidden.next() == [])
+    }
+
+    // An app relaunched behind a locked screen hears no lock, only the unlock; the system is asked instead.
+    @Test func theHidersInForceAtTheStartComeFirstAndEndLikeAnyOther() async {
+        let workspace = NotificationCenter()
+        let rows = ScreenMonitor.signals.filter { $0.center == .workspace }
+        // `.locked` has no row here, so nothing could end it.
+        var hidden = ScreenMonitor.hidden(rows, initial: [.displayAsleep, .locked], workspace: workspace).makeAsyncIterator()
+        #expect(await hidden.next() == [.displayAsleep])
+        workspace.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
         #expect(await hidden.next() == [])
     }
 
@@ -49,14 +62,15 @@ import Testing
         let id = UUID().uuidString
         let row = ScreenMonitor.Signal(hider: .locked, center: .distributed,
                                        starts: Notification.Name("OrangeDrinkTests.locked.\(id)"), ends: Notification.Name("OrangeDrinkTests.unlocked.\(id)"))
-        let hidden = ScreenMonitor.hidden([row], workspace: NotificationCenter(), distributed: center)
+        let hidden = ScreenMonitor.hidden([row], initial: [], workspace: NotificationCenter(), distributed: center)
         let was = center.suspended
         center.suspended = true
         defer { center.suspended = was }
         // Posted without deliverImmediately, so only the observer's own suspension behavior lets it through.
         center.postNotificationName(row.starts, object: nil, userInfo: nil, deliverImmediately: false)
         let arrived = await withTaskGroup(of: Set<ScreenHider>?.self) { group in
-            group.addTask { await hidden.first { _ in true } }
+            // Past the empty set the stream starts with.
+            group.addTask { await hidden.dropFirst().first { _ in true } }
             group.addTask { try? await Task.sleep(for: .seconds(5)); return nil }
             defer { group.cancelAll() }
             return await group.next() ?? nil
