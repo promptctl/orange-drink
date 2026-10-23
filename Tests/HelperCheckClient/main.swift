@@ -19,6 +19,6 @@ do {
     switch error {
     case .connection: exit(1)
     case .noReply: exit(2)
-    case .failed: exit(3)
+    case .failed, .unsupported: exit(3)
     }
 }
