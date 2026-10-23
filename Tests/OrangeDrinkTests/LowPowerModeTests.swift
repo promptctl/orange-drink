@@ -204,10 +204,23 @@ import Testing
         system.refusal = nil
         await model.toggle().value
         #expect(model.failure == nil)
-        #expect(system.events == [.asked(true, failure: unapproved), .openedLoginItems, .asked(true, failure: nil)])
+        #expect(system.events == [.asked(true, failure: unapproved), .openedLoginItems, .dismissed(unapproved), .asked(true, failure: nil)])
     }
 
-    /// Any other failure says what went wrong, and closing the panel forgets it too; the log keeps it.
+    /// A reply that lands after the panel closed is shown when it opens again: nobody has seen it yet.
+    @Test func aFailureThatLandsWhileThePanelIsClosedWaitsForItToOpen() async {
+        let system = FakeSystem()
+        let model = system.model()
+        let unapproved = HelperUseFailure(call: Self.unapproved, status: .requiresApproval)
+        system.refusal = unapproved
+        let asking = model.toggle()
+        model.panelDidClose()
+        await asking.value
+        #expect(model.failure == unapproved)
+        #expect(system.events == [.asked(true, failure: unapproved)])
+    }
+
+    /// Any other failure says what went wrong, and closing the panel forgets it too; the log says so.
     @Test func aFailureTheUserCannotFixSaysWhatWentWrong() async {
         let system = FakeSystem()
         let model = system.model()
@@ -217,7 +230,7 @@ import Testing
         #expect(LowPowerMode.explanation(of: failure, appName: "App") == "Couldn't change Low Power Mode: \("the helper failed: pmset -c powermode 1 exited 1")")
         model.panelDidClose()
         #expect(model.failure == nil)
-        #expect(system.events == [.asked(true, failure: failure)])
+        #expect(system.events == [.asked(true, failure: failure), .dismissed(failure)])
     }
 
     /// What an unapproved helper's call answers, measured (orange-admin-helper-b2q.1d4): launchd has no job to look up.
@@ -231,6 +244,8 @@ import Testing
                     == "low power mode on failed: call failed: domain=NSCocoaErrorDomain code=4099 Couldn’t communicate with a helper application. (helper status requiresApproval)")
         #expect(LowPowerMode.Event.changed(true).line == "low power mode is on")
         #expect(LowPowerMode.Event.openedLoginItems.line == "opened Login Items & Extensions to allow the helper")
+        #expect(LowPowerMode.Event.dismissed(HelperUseFailure(call: .failed("x"), status: .enabled)).line
+                    == "panel closed; no longer showing: the helper failed: x (helper status enabled)")
     }
 
     @Test func theLowPowerModeLetterFlipsItAndAHeldLetterIsOnePress() async throws {

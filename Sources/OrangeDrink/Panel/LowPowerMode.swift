@@ -17,6 +17,8 @@ import ServiceManagement
         case changed(Bool)
         /// The user took the way the row offers to allow the helper.
         case openedLoginItems
+        /// The panel closed while the row showed this failure, so it shows no longer.
+        case dismissed(HelperUseFailure)
 
         /// [LAW:effects-at-boundaries] The log line, a pure function of the event.
         var line: String {
@@ -25,6 +27,7 @@ import ServiceManagement
             case .asked(let on, let failure?): "low power mode \(on ? "on" : "off") failed: \(failure.description)"
             case .changed(let on): "low power mode is \(on ? "on" : "off")"
             case .openedLoginItems: "opened Login Items & Extensions to allow the helper"
+            case .dismissed(let failure): "panel closed; no longer showing: \(failure.description)"
             }
         }
     }
@@ -43,8 +46,9 @@ import ServiceManagement
     /// call's reply, and nothing else ends it. Meanwhile a press does nothing, so one call is in flight and its
     /// reply is the only one there is to land.
     private(set) var isAsking = false
-    /// Why the last change asked for did not happen, while the panel that shows it is open; nil once a change has
-    /// happened, the system has moved, or the panel has closed, since the user may have fixed it meanwhile.
+    /// Why the last change asked for did not happen; nil once a change has happened, the system has moved, or the
+    /// panel that showed it has closed, since the user may have taken its advice meanwhile. A reply that lands while
+    /// the panel is closed is shown when it next opens: nobody has seen it yet.
     private(set) var failure: HelperUseFailure?
 
     @ObservationIgnored private let read: () -> Bool
@@ -104,8 +108,9 @@ import ServiceManagement
     }
 
     /// The panel closed: the failure it showed is forgotten, so a reopened panel does not repeat advice the user may
-    /// have taken meanwhile; the log keeps it.
+    /// have taken meanwhile, and the log says it was.
     func panelDidClose() {
+        if let failure { record(.dismissed(failure)) }
         failure = nil
     }
 

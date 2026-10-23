@@ -17,12 +17,12 @@ struct HelperUseFailure: Error, Equatable, CustomStringConvertible {
 }
 
 /// [LAW:single-enforcer] The app's one way to the privileged helper: every helper-backed control calls through
-/// here, so every failure arrives explained.
+/// here, and the client is private, so every failure arrives explained.
 struct HelperAccess {
-    let client: HelperClient
+    private let client: HelperClient
     /// The daemon's plist, which names its SMAppService. The service is made at each read, since it is not
     /// Sendable and a control's write runs off the main actor.
-    let plistName: String
+    private let plistName: String
 
     init(daemon: LaunchDaemon) { self.init(service: daemon.label, plistName: daemon.plistName) }
 

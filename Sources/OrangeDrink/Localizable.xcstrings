@@ -5717,7 +5717,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permite %@ en segundo plano para cambiar el modo de bajo consumo."
+            "value": "Permite que %@ funcione en segundo plano para cambiar el modo de bajo consumo."
           }
         }
       }
@@ -5733,7 +5733,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrir les réglages Ouverture et extensions…"
+            "value": "Ouvrir « Ouverture et extensions »…"
           }
         },
         "es": {
