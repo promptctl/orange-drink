@@ -71,15 +71,13 @@ extension SettingEdits where Value: Stored {
 ///
 /// [LAW:no-silent-failure] The editor draws the failure itself, so no content can hold the edits and drop
 /// what they report.
-struct SettingEditor<Value, Content: View>: View {
-    /// The edits, given where to report what each one did.
-    let edits: (@escaping (SettingEvent) -> Void) -> SettingEdits<Value>
+struct SettingEditor<Value: Stored, Content: View>: View {
+    let model: StoredModel<Value>
     @ViewBuilder let content: (SettingEdits<Value>) -> Content
     @State private var failure: String?
 
-    init(setting: String, read: @escaping () -> Value, update: @escaping ((inout Value) -> Void) throws -> Void,
-         @ViewBuilder content: @escaping (SettingEdits<Value>) -> Content) {
-        edits = { SettingEdits(setting: setting, read: read, update: update, record: $0) }
+    init(_ model: StoredModel<Value>, @ViewBuilder content: @escaping (SettingEdits<Value>) -> Content) {
+        self.model = model
         self.content = content
     }
 
@@ -88,14 +86,7 @@ struct SettingEditor<Value, Content: View>: View {
             if let failure {
                 Label("Could not save: \(failure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
             }
-            content(edits { failure = $0.failure })
+            content(SettingEdits(model) { failure = $0.failure })
         }
-    }
-}
-
-extension SettingEditor where Value: Stored {
-    init(_ model: StoredModel<Value>, @ViewBuilder content: @escaping (SettingEdits<Value>) -> Content) {
-        edits = { SettingEdits(model, record: $0) }
-        self.content = content
     }
 }

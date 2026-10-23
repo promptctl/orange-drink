@@ -4,13 +4,13 @@ import os
 
 /// The settings the user edited and the engine running over them, fed by the battery's readings.
 ///
-/// [LAW:one-source-of-truth] `settings` is the live copy views observe, written through to the
-/// store on every change, with this the only writer.
+/// [LAW:one-source-of-truth] `model` keeps the settings; the Alerts screen edits them through it, and
+/// the engines read them from it.
 @Observable @MainActor final class AlertCenter {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
 
-    private(set) var settings: AlertSettings
-    @ObservationIgnored private let store: AlertSettingsStore
+    @ObservationIgnored let model: AlertSettingsModel
+    var settings: AlertSettings { model.value }
     @ObservationIgnored private var engine = AlertEngine()
     @ObservationIgnored private var deviceEngine = DeviceAlertEngine()
     /// Where a firing goes to be shown; the pill, glow, and sound subscribe here.
@@ -20,23 +20,12 @@ import os
 
     /// [LAW:no-silent-failure] Stored settings that do not decode fail the launch loudly.
     init(
-        store: AlertSettingsStore, deliver: @escaping @MainActor (Firing, BatteryReading) -> Void,
+        defaults: UserDefaults, deliver: @escaping @MainActor (Firing, BatteryReading) -> Void,
         deliverDevice: @escaping @MainActor (DeviceFiring) -> Void = { _ in }
     ) throws {
-        self.store = store
         self.deliver = deliver
         self.deliverDevice = deliverDevice
-        settings = try store.load()
-    }
-
-    /// The defaults key the settings are kept under, which the settings log names them by.
-    var storageKey: String { store.key }
-
-    func update(_ edit: (inout AlertSettings) -> Void) throws {
-        var edited = settings
-        edit(&edited)
-        try store.save(edited)
-        settings = edited
+        model = try AlertSettingsModel(defaults: defaults)
     }
 
     /// A Mac with no battery has no level to cross.

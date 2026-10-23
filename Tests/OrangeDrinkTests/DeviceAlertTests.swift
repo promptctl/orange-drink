@@ -112,9 +112,9 @@ import Testing
 
     private func center(_ delivered: Box) throws -> AlertCenter {
         let defaults = UserDefaults(suiteName: "DeviceAlertTests.\(UUID())")!
-        let center = try AlertCenter(store: AlertSettingsStore(defaults: defaults), deliver: { _, _ in },
+        let center = try AlertCenter(defaults: defaults, deliver: { _, _ in },
                                      deliverDevice: { delivered.firings.append($0) })
-        try center.update { $0.alerts = [alert] }
+        try center.model.update { $0.alerts = [alert] }
         return center
     }
 
@@ -130,11 +130,11 @@ import Testing
     @Test func theMasterSwitchOffDeliversNothingButKeepsTracking() throws {
         let delivered = Box()
         let center = try center(delivered)
-        try center.update { $0.enabled = false }
+        try center.model.update { $0.enabled = false }
         for level in aroundTwenty { center.observe(devices: list([Self.mouse: level]), watching: [Self.mouse]) }
         #expect(delivered.firings.isEmpty)
         // Tracking ran with the switch off, so switching on while still below does not announce the crossing it missed.
-        try center.update { $0.enabled = true }
+        try center.model.update { $0.enabled = true }
         center.observe(devices: list([Self.mouse: 18]), watching: [Self.mouse])
         #expect(delivered.firings.isEmpty)
     }

@@ -8,7 +8,7 @@ struct AlertsScreen: View {
     let center: AlertCenter
 
     var body: some View {
-        SettingEditor(setting: center.storageKey, read: { center.settings }, update: center.update) { edits in
+        SettingEditor(center.model) { edits in
             let settings = edits.value
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {

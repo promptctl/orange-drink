@@ -41,8 +41,9 @@ import Testing
         #expect(ChargeTarget.all.contains(.standard))
     }
 
-    /// The bytes this release keeps, written out rather than encoded, so a field added without a default or a
-    /// level no longer offered fails here instead of failing a user's next launch.
+    /// The bytes this release keeps, written out rather than encoded, so a new field the decoder requires (the
+    /// synthesized one requires every field, defaulted or not) or a level no longer offered fails here instead
+    /// of failing a user's next launch.
     @Test(arguments: [50, 55, 60, 65, 70, 75, 80, 85, 90, 95])
     func aLimitThisReleaseKeptStillLoads(percent: Int) throws {
         let defaults = AlertSettingsPersistence.suite()

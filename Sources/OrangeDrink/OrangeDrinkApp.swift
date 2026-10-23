@@ -49,7 +49,7 @@ struct OrangeDrinkApp: App {
             chargeLimit = try ChargeLimitModel(defaults: .standard)
             pills = PillController(appearance: appearance, language: language)
             pills.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
-            alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
+            alerts = try AlertCenter(defaults: .standard, deliver: {
                 pills.deliver($0, reading: $1)
                 sounds.deliver($0)
             }, deliverDevice: {
