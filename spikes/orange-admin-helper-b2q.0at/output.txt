@@ -82,7 +82,7 @@ rc=0
 call failed: domain=NSCocoaErrorDomain code=4097 Couldn’t communicate with a helper application.
 impostor pid 17540
 rc=1
-## helper-state, 3 s after the refusal
+## helper-state, 3 s after the refusal (the two-tab `state = active` lines are the Mach endpoints, not the job)
 	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
 	state = not running
 	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
@@ -171,7 +171,7 @@ rc=0
 call failed: domain=NSCocoaErrorDomain code=4097 Couldn’t communicate with a helper application.
 impostor pid 19957
 rc=1
-## helper-state, 3 s after the refusal
+## helper-state, 3 s after the refusal (the two-tab `state = active` lines are the Mach endpoints, not the job)
 	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
 	state = not running
 	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper

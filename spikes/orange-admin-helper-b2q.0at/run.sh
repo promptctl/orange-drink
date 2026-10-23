@@ -60,12 +60,14 @@ ship() {
 
 place() {
   mkdir -p "$2"
-  rm -rf "$2/HelperSpike.app" "$remote_dir/Impostor" "$remote_dir/unpacked"
+  # Absolute, so every later command finds the app from whatever directory it runs in.
+  dir=$(cd "$2" && pwd)
+  rm -rf "$dir/HelperSpike.app" "$remote_dir/Impostor" "$remote_dir/unpacked"
   ditto -x -k "$1" "$remote_dir/unpacked"
-  mv "$remote_dir/unpacked/HelperSpike.app" "$2/"
+  mv "$remote_dir/unpacked/HelperSpike.app" "$dir/"
   mv "$remote_dir/unpacked/Impostor" "$remote_dir/"
   rm -rf "$remote_dir/unpacked"
-  echo "$2/HelperSpike.app" >"$placed_file"
+  echo "$dir/HelperSpike.app" >"$placed_file"
   # The impostor is other code wearing the app's identifier, signed the way any local process can sign.
   codesign -f -s - -i "$(plutil -extract CFBundleIdentifier raw "$(app)/Contents/Info.plist")" "$remote_dir/Impostor" 2>&1
   for code in "$(app)" "$(app)/Contents/MacOS/HelperSpikeHelper" "$remote_dir/Impostor"; do
@@ -99,8 +101,9 @@ call() { run_app call; }
 
 impostor() { "$remote_dir/Impostor" "$(app)"; }
 
+# The job's own keys sit one tab in; deeper `state = active` lines are its Mach endpoints.
 helper-state() {
-  launchctl print "system/$(label)" 2>&1 | grep -E '^\s+(state|pid|program|path) =' || echo "launchd has no system/$(label)"
+  launchctl print "system/$(label)" 2>&1 | grep -E $'^\t(state|pid|program|path) =' || echo "launchd has no system/$(label)"
 }
 
 stop-helper() {
@@ -150,11 +153,11 @@ uninstall() {
   # BTM keeps a daemon's record after unregister and after the app is deleted; what must not survive
   # into the next variant is an approval, so every HelperSpikeHelper record has to read "disallowed".
   btm=$(sudo -n sfltool dumpbtm)
-  dispositions=$(awk '/Name: HelperSpikeHelper$/ { found = 1 } found && /Disposition:/ { print; found = 0 }' <<<"$btm")
+  dispositions=$(awk '/UUID:/ { found = 0 } /Name: HelperSpikeHelper$/ { found = 1 } found && /Disposition:/ { print; found = 0 }' <<<"$btm")
   echo "BTM HelperSpikeHelper records: ${dispositions:-none}"
   if [ -n "$dispositions" ] && grep -v -q disallowed <<<"$dispositions"; then echo "a HelperSpikeHelper record is still allowed" >&2; exit 1; fi
 }
 
-command=${1:?"usage: run.sh build|ship|place|register|status|unregister|call|impostor|helper-state|stop-helper|uninstall (see the top of run.sh)"}
+command=${1:?"usage: run.sh build|ship|place|register|status|unregister|call|impostor|helper-state|stop-helper|bootstrap|bootout|uninstall (see the top of run.sh)"}
 shift
 "$command" "$@"
