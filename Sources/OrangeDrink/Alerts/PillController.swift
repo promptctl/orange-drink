@@ -208,8 +208,8 @@ enum PillEnd {
     /// [LAW:no-ambient-temporal-coupling] The countdown belongs to the pill's `Up`, which cancels it
     /// on any close, replacement, or change of `hidden`. One of those can land between the wake and
     /// this task's turn on the main actor; it has cancelled the task by then, so the check after the
-    /// sleep is that state. It holds `self` strongly, at most for `shownFor`, so a pill comes down
-    /// even if its controller is dropped.
+    /// sleep is that state. It holds `self` strongly, at most for `shownFor`, so a counting pill comes
+    /// down even if its controller is dropped.
     private func countdown() -> Task<Void, any Error>? {
         hidden.isEmpty ? Task { [timekeeper] in
             try await timekeeper.sleep(for: Self.shownFor)
