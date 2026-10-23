@@ -1,0 +1,60 @@
+# An app that registers a privileged helper with SMAppService, the helper, and an impostor client.
+# run.sh supplies the signing identity; nothing else differs between its two variants.
+# [LAW:one-source-of-truth] Info.plists are generated from this file into build/; the helper's label
+# and Mach service are written only in App/dev.orangedrink.helperspike.helper.plist.
+name: HelperSpike
+options:
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ARCHS: arm64
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: 1
+    # The app's own base signing (project.yml at the repo root): ad hoc, no team, Hardened Runtime.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: YES
+targets:
+  HelperSpike:
+    type: application
+    platform: macOS
+    sources:
+      - App/main.swift
+      - Shared
+      - path: App/dev.orangedrink.helperspike.helper.plist
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchDaemons
+    dependencies:
+      - target: HelperSpikeHelper
+        copy:
+          destination: executables
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.orangedrink.helperspike
+    info:
+      path: build/generated/App-Info.plist
+      properties:
+        LSUIElement: true
+  HelperSpikeHelper:
+    type: tool
+    platform: macOS
+    sources: [Helper, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.orangedrink.helperspike.helper
+        # The build number lands inside the helper's own bytes, so a rebuild changes its cdhash too.
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+    info:
+      path: build/generated/Helper-Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+  Impostor:
+    type: tool
+    platform: macOS
+    sources: [Impostor, Shared]
