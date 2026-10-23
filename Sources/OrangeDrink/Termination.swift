@@ -62,3 +62,21 @@ enum TerminationRequest: Equatable {
         return .terminateNow
     }
 }
+
+/// Ends the app on SIGTERM the way a menu Quit does. `kill`, launchd, and `Process.terminate()` send it,
+/// and its default action would end the process before anything ran. Routed to `terminate:` instead, the
+/// app's normal end runs, TerminationLog's stack names this handler, and `exit()` releases the helper's
+/// record (HelperRegistration). A crash or SIGKILL still skips all of that.
+@MainActor enum SignalTermination {
+    private static var source: DispatchSourceSignal?
+
+    /// [LAW:no-ambient-temporal-coupling] Called once, from the app's launch. The default action is turned
+    /// off only once the source that replaces it exists.
+    static func start() {
+        let sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        sigterm.setEventHandler { MainActor.assumeIsolated { NSApplication.shared.terminate(nil) } }
+        sigterm.resume()
+        signal(SIGTERM, SIG_IGN)
+        source = sigterm
+    }
+}

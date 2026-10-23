@@ -6,9 +6,13 @@ DEST := platform=macOS,arch=arm64
 DERIVED_DATA := build/DerivedData
 PRODUCTS := $(DERIVED_DATA)/Build/Products
 RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
-XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA)
+# [LAW:one-source-of-truth] Which copy of the app a build is, for the helper's label (project.yml's
+# HELPER_LABEL): one per derived-data directory, so no two checkouts share a helper. scripts/dmg passes
+# it empty, which gives the app users install the one fixed label.
+HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
+XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release test unplug-check iphone-check devices-check pill-check position-check app-energy-check cpu-check ax-check
+.PHONY: generate build release test unplug-check iphone-check devices-check pill-check position-check app-energy-check cpu-check ax-check helper-check
 
 generate:
 	xcodegen generate --use-cache
@@ -49,6 +53,12 @@ pill-check: test
 # them, and checks the bar follows the list, including over a position left by a ⌘-drag.
 position-check: export TEST_RUNNER_POSITION_CHECK = 1
 position-check: test
+
+# The privileged helper's check on a real Mac, with OrangeDrink approved under System Settings › General ›
+# Login Items & Extensions › Allow in the Background: the helper, running as root from this build, accepts
+# the app and refuses other code, including a copy re-signed with the app's identifier. Same TEST_RUNNER_ shape.
+helper-check: export TEST_RUNNER_HELPER_CHECK = 1
+helper-check: test
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

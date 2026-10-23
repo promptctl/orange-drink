@@ -26,7 +26,8 @@ cd "$(dirname "$0")/.."
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-dmg.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
 
-built=$(make --no-print-directory release DERIVED_DATA="$scratch/DerivedData" | tee /dev/stderr | tail -n 1)
+# HELPER_COPY is empty for the app users install, so its helper has the one fixed label across releases.
+built=$(make --no-print-directory release DERIVED_DATA="$scratch/DerivedData" HELPER_COPY= | tee /dev/stderr | tail -n 1)
 app=$(scripts/notarize "$built")
 
 name=$(basename "$app" .app)
