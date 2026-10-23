@@ -27,7 +27,8 @@ import Testing
         case .adapter(let watts, let charging):
             let adapterWatts = ac.firstMatch(of: /Wattage = (\d+)W/)?.1
             #expect(watts == adapterWatts.map { .init(value: Double($0)!, unit: .watts) })
-            if case .charging(let timeToFull) = charging { #expect(estimates.contains(timeToFull)) }
+            // A limited charge deliberately carries no estimate: pmset prints powerd's, which is to 100%.
+            if case .charging(.toFull(let timeToFull)) = charging { #expect(estimates.contains(timeToFull)) }
         }
     }
 

@@ -119,7 +119,7 @@ struct MenuBarPreview: View {
     /// The sample the preview shows: 75% and charging with 1:22 to go, so every Display value has
     /// something to print and the Status colors switch has a colour to turn on and off.
     static let samplePercent = 75
-    static let samplePower = PowerSource.adapter(nil, .charging(timeToFull: .seconds(82 * 60)))
+    static let samplePower = PowerSource.adapter(nil, .charging(.toFull(in: .seconds(82 * 60))))
 
     /// [LAW:one-source-of-truth] The same `MenuBarIcon` the status item is made of, handed the
     /// sample and the mockup's own dark bar.

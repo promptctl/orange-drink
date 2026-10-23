@@ -96,6 +96,8 @@ import Testing
         #expect(try text(Events.Fixtures.discharging(timeToEmpty: 192)) == "3:12")
         #expect(try text(Events.Fixtures.charging(timeToFull: 82)) == "1:22")
         #expect(try text(Events.Fixtures.onACNotCharging(charged: false)) == "–")
+        let limited = try Self.icon(Events.atTheLimit()) { $0.display = .timeRemaining }.battery?.text
+        #expect(limited == "–")
     }
 
     @Test func darkDrawsADarkerGlyphThanLight() throws {

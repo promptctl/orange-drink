@@ -2,11 +2,12 @@ import Foundation
 
 extension PowerSource {
     /// The estimate the system is counting toward: empty on battery, full while charging. nil
-    /// while it has no estimate yet, and when nothing is being counted (held or full on the adapter).
+    /// while it has no estimate yet, and when nothing is being counted (held or full on the
+    /// adapter, or a charge a limit will stop short of full).
     var estimate: Duration? {
         switch self {
         case .battery(let timeToEmpty): timeToEmpty
-        case .adapter(_, .charging(let timeToFull)): timeToFull
+        case .adapter(_, .charging(.toFull(let timeToFull))): timeToFull
         case .adapter: nil
         }
     }
