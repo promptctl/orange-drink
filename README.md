@@ -31,7 +31,7 @@ make build
 
 The Xcode project is generated from `project.yml`, so change that file and never edit the project by hand. Run `make test` to run the unit tests.
 
-Some checks need a real Mac and a person at the keyboard. Each one has a make target: `make unplug-check`, `make devices-check`, `make pill-check`, and `make position-check`. `make ax-check` also needs your terminal trusted for Accessibility.
+Some checks need a real Mac and a person at the keyboard. Each one has a make target: `make unplug-check`, `make iphone-check`, `make devices-check`, `make pill-check`, and `make position-check`. Run one on a branch named after its lit ticket, and it posts its result on that ticket. `make hardware-status` shows which results still hold for the current code. `make ax-check` also needs your terminal trusted for Accessibility.
 
 [PROJECT.md](PROJECT.md) describes every feature and the quality bar the app must meet. [design-docs/](design-docs/README.md) describes each settings screen.
 

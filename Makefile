@@ -2,7 +2,7 @@ APP  := OrangeDrink
 DEST := platform=macOS,arch=arm64
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath build/DerivedData
 
-.PHONY: generate build test unplug-check iphone-check devices-check pill-check position-check app-energy-check cpu-check ax-check
+.PHONY: generate build test hardware-check-test app-energy-check cpu-check ax-check
 
 generate:
 	xcodegen generate --use-cache
@@ -16,32 +16,67 @@ build: generate
 test: generate
 	$(call gated,test)
 	$(MAKE) ax-check
+	$(MAKE) hardware-check-test
+
+# The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
+hardware-check-test:
+	scripts/hardware-check-test.sh
+
+# [LAW:one-type-per-behavior] The checks that need a person at a cable or a screen are one recipe, and each is only
+# data declared beside its target: its test (Suite/function()), the source paths that test covers, and the questions
+# only the person can answer. scripts/hardware-check.swift runs the test alone, asks the questions once at the end, and
+# posts the result on the lit ticket the branch names; make hardware-status says which results still hold for HEAD.
+HARDWARE_CHECKS := unplug-check iphone-check devices-check pill-check position-check
+.PHONY: $(HARDWARE_CHECKS) hardware-status
+
+$(HARDWARE_CHECKS): generate
+	rm -rf build/$@.xcresult build/$@.record
+	swift scripts/hardware-check.swift run $@ --test '$($@.test)' --bundle build/$@.xcresult --covers $($@.covers) \
+	  --ask $($@.ask) -- $(XCB) -resultBundlePath build/$@.xcresult '-only-testing:$(APP)Tests/$($@.test)' test
+
+# For the branch's ticket, each check's latest result: "stands" while the code it covered is unchanged at HEAD, with a
+# failed result's failures beneath it, "stale" naming the paths that changed since, or "never run". A standing pass needs
+# no one; a standing fail needs a change to the code, or to the setup its failures name, before it is worth a person's time.
+hardware-status:
+	swift scripts/hardware-check.swift status $(foreach check,$(HARDWARE_CHECKS),--check $(check) $($(check).covers))
 
 # The ticket's step on a real Mac: unplug the adapter, wait a few seconds, plug it back in.
 # The variable reaches the test host as UNPLUG_CHECK (xcodebuild strips TEST_RUNNER_) and
 # enables the one test that needs a person at the cable.
 unplug-check: export TEST_RUNNER_UNPLUG_CHECK = 1
-unplug-check: test
+unplug-check.test := BatteryLive/plugAndUnplug()
+unplug-check.covers := Sources/OrangeDrink/Battery Tests/OrangeDrinkTests/BatteryLiveTests.swift Tests/OrangeDrinkTests/BatteryLog.swift
 
-# The iPhone & iPad ticket's step on a real Mac: with a trusted iPhone cabled, prints its battery level, health,
-# cycle count, and lifetime stats, then waits for the cable to be pulled and prints the disconnect. Same TEST_RUNNER_ shape.
+# The iPhone & iPad ticket's step on a real Mac: with one trusted iPhone cabled, switches its Wi-Fi sync off, then has the
+# monitor switch it on and read the phone over the cable, waits for the cable to be pulled, and reads it over Wi-Fi.
+# project.yml is covered for the Info.plist keys macOS's Local Network decision reads.
 iphone-check: export TEST_RUNNER_IPHONE_CHECK = 1
-iphone-check: test
+iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled()
+iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
+  Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
+iphone-check.ask := 'Did macOS show a Local Network prompt? (y/n)' \
+  'Did the app appear under System Settings > Privacy & Security > Local Network? (y/n)'
 
 # The devices ticket's step on a real Mac: with paired devices connected, prints each one's name,
-# type, and level to compare with Control Center. Same TEST_RUNNER_ shape as unplug-check.
+# type, and level to compare with Control Center. project.yml is covered for the Bluetooth usage description.
 devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
-devices-check: test
+devices-check.test := DevicesLive/matchesSystemProfiler()
+devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
+  Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
-# Same shape for the alert pill: put an app full screen, then click the × of the pill that appears
+# The alert pill: put an app full screen, then click the × of the pill that appears
 # at the centre of the screen and again at the top, then once more at the centre with the screen glow.
 pill-check: export TEST_RUNNER_PILL_CHECK = 1
-pill-check: test
+pill-check.test := PillTests/pillsShowOverAFullScreenApp()
+pill-check.covers := Sources/OrangeDrink/Alerts Sources/OrangeDrink/Settings/AppLanguage.swift \
+  Sources/OrangeDrink/Battery/BatteryReading.swift Tests/OrangeDrinkTests/PillTests.swift
 
 # The pinned devices ticket on the real menu bar: puts three status items in it for a moment, reorders
 # them, and checks the bar follows the list, including over a position left by a ⌘-drag.
 position-check: export TEST_RUNNER_POSITION_CHECK = 1
-position-check: test
+position-check.test := PinnedPositionCheck/theBarFollowsTheListEvenOverASavedPosition()
+position-check.covers := Sources/OrangeDrink/MenuBar/PinnedItems.swift Sources/OrangeDrink/Devices/PinnedOrder.swift \
+  Sources/OrangeDrink/Devices/Device.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

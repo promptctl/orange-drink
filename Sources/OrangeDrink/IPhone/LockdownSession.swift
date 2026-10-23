@@ -300,6 +300,12 @@ func usbmuxRequest(_ body: [String: Any]) throws(IPhoneReadError) -> [String: An
     }
 }
 
+/// Every device usbmuxd has attached now, over the cable or Wi-Fi.
+func usbmuxListDevices() throws(IPhoneReadError) -> [AttachedDevice] {
+    let reply = try usbmuxRequest(["MessageType": "ListDevices", "ClientVersionString": "orange-drink", "ProgName": "orange-drink"])
+    return try typedReadErrors { try usbmuxDeviceList(reply) }
+}
+
 /// A usbmuxd connection subscribed with Listen. After the reply the same socket carries Attached, Detached, and
 /// Paired messages.
 func usbmuxListen() throws(IPhoneReadError) -> TimedSocket {
@@ -394,19 +400,20 @@ func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPh
 /// one-second wake-up. A step added to openLockdown or readBattery is a step added here.
 let readWorstCase = (callDeadline + .seconds(1)) * 9
 
-/// Switches on the cabled device's Wi-Fi sync, the box Finder labels "Show this iPhone when on Wi-Fi", so usbmuxd
-/// reaches it over the network once the cable is out. Every outcome leaves one line in the log.
+/// Switches the device's Wi-Fi sync, the box Finder labels "Show this iPhone when on Wi-Fi", on or off. On, usbmuxd
+/// reaches the device over the network once the cable is out. Every outcome leaves one line in the log.
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
-func enableIPhoneWifiSync(handle: Int, udid: String) throws(IPhoneReadError) {
+func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String) throws(IPhoneReadError) {
+    let state = on ? "on" : "off"
     do {
         try typedReadErrors {
             let lockdown = try openLockdown(handle: handle, udid: udid)
             _ = try decodeReply(try lockdown.stream.request(["Request": "SetValue", "Domain": "com.apple.mobile.wireless_lockdown",
-                                                             "Key": "EnableWifiConnections", "Value": true]))
+                                                             "Key": "EnableWifiConnections", "Value": on]))
         }
-        IPhoneMonitor.log.info("iphone wifi sync on: \(udid, privacy: .public) handle \(handle)")
+        IPhoneMonitor.log.info("iphone wifi sync \(state, privacy: .public): \(udid, privacy: .public) handle \(handle)")
     } catch {
-        IPhoneMonitor.log.error("iphone wifi sync failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
+        IPhoneMonitor.log.error("iphone wifi sync \(state, privacy: .public) failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
         throw error
     }
 }
