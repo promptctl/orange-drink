@@ -90,7 +90,6 @@ struct MenuBarScreen: View {
             PinnedDevicesCard(devices: devices, settings: deviceSettings).padding(.top, 16)
         }
         .padding(24)
-        .background(SettingsBackground())
     }
 }
 

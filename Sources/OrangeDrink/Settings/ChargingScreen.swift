@@ -23,6 +23,5 @@ struct ChargingScreen: View {
             }
         }
         .padding(24)
-        .background(SettingsBackground())
     }
 }

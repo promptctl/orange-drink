@@ -54,7 +54,6 @@ struct ShortcutsScreen: View {
             }
         }
         .padding(24)
-        .background(SettingsBackground())
         .keyCapture(isActive: recording != nil, onKey: capture, onCancel: endRecording)
         .onDisappear(perform: endRecording)
     }

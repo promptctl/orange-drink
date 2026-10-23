@@ -38,6 +38,16 @@ struct SettingsView: View {
 
 extension SettingsScreen {
     var tileColor: Color { Color(hue: tileHue / 360, saturation: 0.75, brightness: 0.9) }
+
+    /// The glows behind the screen, from its design doc's "Background" line where it has one.
+    var backdrop: SettingsBackground {
+        switch self {
+        case .alerts: SettingsBackground(glows: [.init(color: .green, center: .topTrailing), .init(color: .red, center: .center, opacity: 0.1, radius: 360)])
+        case .devices, .battery: SettingsBackground(glows: [.init(color: .green, center: .top)])
+        case .appUsage: SettingsBackground(glows: [.init(color: .indigo, center: .top)])
+        case .general, .menuBar, .charging, .widgets, .shortcuts, .iphoneIpad: SettingsBackground()
+        }
+    }
 }
 
 /// A rounded square in the screen's colour with its white glyph.
@@ -104,6 +114,9 @@ private struct ScreenView: View {
                 }
             }
         }
+        // [LAW:decomposition] The backdrop is the pane's, not the content's: drawn behind the scroll view it
+        // fills the pane however short the screen, and stays put while a tall one scrolls over it.
+        .background(screen.backdrop)
     }
 }
 

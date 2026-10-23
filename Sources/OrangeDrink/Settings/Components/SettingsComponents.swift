@@ -183,13 +183,23 @@ struct SegmentedPills<Value: Hashable>: View {
 
 /// Near-black (near-white in a light appearance) with large, soft, low-opacity glows of colour: decoration that tracks no data.
 struct SettingsBackground: View {
-    var glow: Color = .green
-    var glowCenter: UnitPoint = .topTrailing
+    /// A soft radial wash of colour, fading to nothing at `radius`.
+    struct Glow {
+        var color: Color
+        var center: UnitPoint
+        var opacity = 0.18
+        var radius: CGFloat = 420
+    }
+
+    var glows = [Glow(color: .green, center: .topTrailing)]
 
     var body: some View {
         ZStack {
             AdaptiveColor(light: Color(white: 0.96), dark: Color(white: 0.06))
-            RadialGradient(colors: [glow.opacity(0.18), .clear], center: glowCenter, startRadius: 0, endRadius: 420)
+            ForEach(glows.indices, id: \.self) { index in
+                let glow = glows[index]
+                RadialGradient(colors: [glow.color.opacity(glow.opacity), .clear], center: glow.center, startRadius: 0, endRadius: glow.radius)
+            }
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)

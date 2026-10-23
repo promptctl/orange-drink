@@ -82,7 +82,6 @@ struct DevicesScreen: View {
             }
         }
         .padding(24)
-        .background(SettingsBackground(glow: .green, glowCenter: .top))
     }
 
     @ViewBuilder private func detectedCard(_ detected: DetectedDevices, _ edits: SettingEdits<DeviceSettings>) -> some View {
