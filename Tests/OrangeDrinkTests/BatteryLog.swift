@@ -21,4 +21,14 @@ struct BatteryLog {
                                                               IOKitBattery.logSubsystem, category))
             .map(\.composedMessage)
     }
+
+    /// Polls the log until a line contains `fragment`: log entries reach OSLogStore shortly after they are written.
+    func logged(_ fragment: String) async throws -> Bool {
+        let end = ContinuousClock.now.advanced(by: .seconds(5))
+        while ContinuousClock.now < end {
+            if try messages().contains(where: { $0.contains(fragment) }) { return true }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        return false
+    }
 }

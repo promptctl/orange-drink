@@ -2,7 +2,9 @@
 # is written in project.yml, which signs every build with it, and read back from there; the
 # certificate names end with it in parentheses.
 developer_team=$(awk '$1 == "DEVELOPMENT_TEAM:" { print $2 }' "$(dirname "${BASH_SOURCE[0]}")/../project.yml")
-[ -n "$developer_team" ] || { echo "no DEVELOPMENT_TEAM in project.yml" >&2; exit 1; }
+# [LAW:parse-dont-validate] A team id is ten capitals and digits; a quoted, commented, or repeated
+# value is refused here rather than at the codesign that follows a full build.
+[[ $developer_team =~ ^[A-Z0-9]{10}$ ]] || { echo "project.yml's DEVELOPMENT_TEAM is not one team id: '$developer_team'" >&2; exit 1; }
 developer_id="Brandon Fryslie ($developer_team)"
 # The notarytool keychain profile a releasing Mac stores the notary credentials under, once:
 # `xcrun notarytool store-credentials orange-drink-notary`.

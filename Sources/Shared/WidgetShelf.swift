@@ -6,8 +6,8 @@ import Security
 /// What the Mac Battery widget draws.
 ///
 /// [LAW:types-are-the-program] The app's battery state plus the app's own lifetime, so the widget
-/// can tell a level from "no more readings" from "the app is gone", and no failure is drawn as a
-/// stale level.
+/// can tell a level from "no more readings" from "the app quit". An end that skips the quit (a crash,
+/// a kill) writes nothing, and the last level stays drawn until the app runs again.
 enum MacBattery: Codable, Equatable, Sendable {
     case level(percent: Int, charging: Bool)
     case noBattery

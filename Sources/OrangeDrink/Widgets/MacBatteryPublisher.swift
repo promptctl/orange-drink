@@ -16,7 +16,8 @@ extension MacBattery {
 
 /// Keeps the widget shelf holding what the widgets should draw, and asks them to redraw when it changes.
 @MainActor final class MacBatteryPublisher {
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "widgets")
+    static let logCategory = "widgets"
+    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: logCategory)
 
     private let directory: URL
     private let reload: @MainActor () -> Void
@@ -32,10 +33,15 @@ extension MacBattery {
     /// host quitting beside the installed app) is corrected by this one's next state. A shelf that
     /// cannot be read does not hold the value, so it is written.
     func publish(_ battery: MacBattery) {
-        guard (try? WidgetShelf.read(from: directory).get()) != battery else { return }
+        let value = String(describing: battery)
+        guard (try? WidgetShelf.read(from: directory).get()) != battery else {
+            Self.log.info("widget shelf unchanged: \(value, privacy: .public)")
+            return
+        }
         do {
             try WidgetShelf.write(battery, to: directory)
             reload()
+            Self.log.info("widget shelf written, reload asked: \(value, privacy: .public)")
         } catch {
             // [LAW:no-silent-failure] Logged; the shelf still differs, so the next state retries.
             Self.log.error("widget shelf write failed: \(String(describing: error), privacy: .public)")
