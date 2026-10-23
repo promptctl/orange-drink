@@ -7,6 +7,7 @@ struct PanelView: View {
     let deviceSettings: DeviceSettingsModel
     let appEnergy: Result<AppEnergyHistory, any Error>
     let sections: PanelSections
+    let lowPowerMode: LowPowerMode
     let keyboard: PanelKeyboard
     let look: AppAppearanceModel
     let language: AppLanguageModel
@@ -34,7 +35,7 @@ struct PanelView: View {
                     ConnectedDevicesView(connected: connected, failed: devices.failure != nil)
                 }
             }
-            ActionsCard()
+            ActionsCard(lowPowerMode: lowPowerMode)
         }
         .padding(12)
         .frame(width: 330)
@@ -151,8 +152,8 @@ struct CollapsibleCard<Content: View>: View {
 
 /// The actions card: one card of rows under hairlines, in `PanelAction` order.
 private struct ActionsCard: View {
+    let lowPowerMode: LowPowerMode
     @Environment(\.openWindow) private var openWindow
-    @State private var lowPowerMode = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -175,8 +176,14 @@ private struct ActionsCard: View {
         case .batterySettings:
             ActionRow(action: action) { NSWorkspace.shared.open(PanelAction.batteryPane) } trailing: { Chevron() }
         case .lowPowerMode:
-            // A placeholder until the admin helper epic can toggle it (orange-admin-helper-b2q.0ld).
-            ActionRow(action: action, run: nil) { Toggle("Low Power Mode", isOn: $lowPowerMode).labelsHidden().toggleStyle(.switch).disabled(true) }
+            // The switch shows the system's state and asks for the other one; it moves when the system does.
+            ActionRow(action: action) { lowPowerMode.toggle() } trailing: {
+                Toggle("Low Power Mode", isOn: Binding(get: { lowPowerMode.isOn }, set: { _ in lowPowerMode.toggle() })).labelsHidden().toggleStyle(.switch)
+            }
+            if let failure = lowPowerMode.failure {
+                PhraseText("Couldn't change Low Power Mode: \(failure)").font(.caption).foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 30).padding(.bottom, 6)
+            }
         case .checkForUpdates:
             // A placeholder until the update check exists (orange-distribution-kg2.l9x).
             ActionRow(action: action, run: nil) { EmptyView() }

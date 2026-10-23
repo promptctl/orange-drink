@@ -44,6 +44,33 @@ final class Session: NSObject, PrivilegedHelper {
         log.notice("identity for pid \(self.peer)")
         reply(executable, geteuid())
     }
+
+    func setLowPowerMode(_ on: Bool, reply: @escaping @Sendable (String?) -> Void) {
+        let outcome = Result { () throws(HelperFailure) in try LowPowerModeWrite.perform(on, pmset: pmset) }
+        log.notice("\(LowPowerModeWrite.line(on, peer: self.peer, outcome), privacy: .public)")
+        reply(outcome.failure?.description)
+    }
+}
+
+/// Runs /usr/bin/pmset to its end: its output, or a failure with its exit status and what it printed.
+func pmset(_ arguments: [String]) throws(HelperFailure) -> String {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+    process.arguments = arguments
+    let output = Pipe()
+    process.standardOutput = output
+    process.standardError = output
+    do { try process.run() } catch { throw HelperFailure("pmset \(arguments.joined(separator: " ")) did not start: \(error)") }
+    let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    process.waitUntilExit()
+    guard process.terminationStatus == 0 else { throw HelperFailure("pmset \(arguments.joined(separator: " ")) exited \(process.terminationStatus): \(text)") }
+    return text
+}
+
+extension Result {
+    var failure: Failure? {
+        if case .failure(let failure) = self { failure } else { nil }
+    }
 }
 
 final class Listener: NSObject, NSXPCListenerDelegate {

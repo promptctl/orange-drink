@@ -1,7 +1,8 @@
 import Foundation
 
 // HelperCheckClient SERVICE: calls the helper at SERVICE once, the way the app does, and exits 0 with its
-// identity, 1 with the error that ended the connection, or 2 when nothing came back in time. HelperLive runs
+// identity, 1 with the error that ended the connection, 2 when nothing came back in time, or 3 when the helper
+// answered with a failure. HelperLive runs
 // it as built and re-signed, to see whom the helper refuses. The first line is always this process's pid,
 // which the helper's log names when it accepts a connection.
 guard CommandLine.arguments.count == 2 else {
@@ -18,5 +19,6 @@ do {
     switch error {
     case .connection: exit(1)
     case .noReply: exit(2)
+    case .failed: exit(3)
     }
 }

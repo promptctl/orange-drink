@@ -23,7 +23,7 @@ import Testing
             sections = PanelSections(defaults: scratchDefaults())
             let model = try ShortcutsModel(defaults: defaults)
             controller = ShortcutsController(model: model, hotKeys: keys, panel: panel)
-            keyboard = PanelKeyboard(sections: sections, shortcuts: model, events: events)
+            keyboard = PanelKeyboard(sections: sections, lowPowerMode: LowPowerModeTests.FakeSystem().model(), shortcuts: model, events: events)
             try controller.start()
             keyboard.panelDidOpen(shown: { [.batteryInformation, .connectedDevices] })
         }

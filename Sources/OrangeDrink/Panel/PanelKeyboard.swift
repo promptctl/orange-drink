@@ -24,12 +24,14 @@ typealias PlainKey = Character
 /// it closes. The system delivers keys typed in other apps to those apps, so closed means untouched.
 @MainActor final class PanelKeyboard {
     private let sections: PanelSections
+    private let lowPowerMode: LowPowerMode
     private let shortcuts: ShortcutsModel
     private let events: any KeyEvents
     private var listening: (any KeyListening)?
 
-    init(sections: PanelSections, shortcuts: ShortcutsModel, events: any KeyEvents) {
+    init(sections: PanelSections, lowPowerMode: LowPowerMode, shortcuts: ShortcutsModel, events: any KeyEvents) {
         self.sections = sections
+        self.lowPowerMode = lowPowerMode
         self.shortcuts = shortcuts
         self.events = events
     }
@@ -37,10 +39,17 @@ typealias PlainKey = Character
     /// `shown` is asked at each press which sections the panel is drawing now.
     func panelDidOpen(shown: @escaping @MainActor () -> Set<PanelSections.Section>) {
         listening?.stop()
-        listening = events.listen { [sections, shortcuts] key in
-            // A letter flips its section as clicking the section's header does, when the panel is drawing that section.
-            guard let letter = ShortcutLetter(key), let section = shortcuts.value.shortcut(for: letter)?.section, shown().contains(section) else { return false }
-            sections.toggle(section)
+        listening = events.listen { [sections, lowPowerMode, shortcuts] key in
+            guard let letter = ShortcutLetter(key), let target = shortcuts.value.shortcut(for: letter)?.target else { return false }
+            // Each letter does what clicking its row does: a section's header, when the panel is drawing that
+            // section, or the Low Power Mode switch, which is always drawn.
+            switch target {
+            case .section(let section):
+                guard shown().contains(section) else { return false }
+                sections.toggle(section)
+            case .lowPowerMode:
+                lowPowerMode.toggle()
+            }
             return true
         }
     }

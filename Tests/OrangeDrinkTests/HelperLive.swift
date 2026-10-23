@@ -88,6 +88,54 @@ struct HelperLive {
         #expect(lines.contains { $0.hasPrefix("helper registration: ") && $0.hasSuffix("; registered; status enabled") }, "\(lines)")
     }
 
+    /// Low Power Mode through the helper, read back from pmset on every power source, from the system as the
+    /// app reads it, and from the helper's log; then put back as it was (orange-admin-helper-b2q.0ld).
+    @Test func setsLowPowerModeOnEverySource() throws {
+        let status = SMAppService.daemon(plistName: "\(label).plist").status
+        try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
+        let key = try PowerModeKey(listing: Self.pmset("-g"))
+        // The helper writes one bit to every source, so it can put back only a state that is one bit on every source.
+        let start = try Self.values(of: key)
+        try #require(Set(start).count == 1 && ["0", "1"].contains(start[0]),
+                     "\(key.rawValue) is \(start) across power sources; this check could not put that back, so it does not run")
+        let wasOn = start[0] == "1"
+        let client = HelperClient(service: label)
+        defer { try? client.setLowPowerMode(wasOn, within: Self.deadline) }
+
+        for on in [!wasOn, wasOn] {
+            try client.setLowPowerMode(on, within: Self.deadline)
+            var values = try Self.values(of: key)
+            for _ in 0..<10 where values.contains(where: { $0 != (on ? "1" : "0") }) || ProcessInfo.processInfo.isLowPowerModeEnabled != on {
+                Thread.sleep(forTimeInterval: 0.5)
+                values = try Self.values(of: key)
+            }
+            #expect(values == Array(repeating: on ? "1" : "0", count: start.count), "\(key.rawValue) after asking for \(on): \(values)")
+            #expect(ProcessInfo.processInfo.isLowPowerModeEnabled == on)
+        }
+
+        let lines = [!wasOn, wasOn].map { LowPowerModeWrite.line($0, peer: getpid(), .success(key.arguments(on: $0))) }
+        var helperLog = try helperLogSinceStart()
+        for _ in 0..<10 where !lines.allSatisfy(helperLog.contains) {
+            Thread.sleep(forTimeInterval: 0.5)
+            helperLog = try helperLogSinceStart()
+        }
+        for line in lines { #expect(helperLog.contains(line), "helper log:\n\(helperLog)") }
+    }
+
+    static func pmset(_ arguments: String...) throws -> String {
+        let result = try ChildProcess.run("/usr/bin/pmset", arguments)
+        try #require(result.status == 0, "pmset \(arguments): \(result.transcript)")
+        return result.text
+    }
+
+    /// The key's value on each power source, from `pmset -g custom`.
+    static func values(of key: PowerModeKey) throws -> [String] {
+        try pmset("-g", "custom").split(separator: "\n").compactMap { line in
+            let fields = line.split(separator: " ")
+            return fields.first == Substring(key.rawValue) ? fields.dropFirst().first.map(String.init) : nil
+        }
+    }
+
     func expectAppAccepted() throws {
         let identity = try HelperClient(service: label).identity(within: Self.deadline)
         #expect(identity.euid == 0)
