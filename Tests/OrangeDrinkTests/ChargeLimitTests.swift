@@ -4,12 +4,12 @@ import Testing
 
 // [LAW:behavior-not-structure] The contract is what the Charging screen's switch and target come out as
 // through the edits the screen makes, and what a relaunch loads back.
-@MainActor @Suite(.serialized) struct ChargeLimitTests {
+@MainActor @Suite struct ChargeLimitTests {
     static func model(_ defaults: UserDefaults) throws -> ChargeLimitModel { try ChargeLimitModel(defaults: defaults) }
 
     /// The edits the screen makes to `model`, with what they reported.
-    static func edits(_ model: ChargeLimitModel, events: Box<[SettingEdits<ChargeLimit>.Event]>) -> SettingEdits<ChargeLimit> {
-        SettingEdits(setting: ChargeLimit.storageKey, read: { model.value }, update: model.update, record: { events.value.append($0) })
+    static func edits(_ model: ChargeLimitModel, events: SettingEvents) -> SettingEdits<ChargeLimit> {
+        SettingEdits(setting: ChargeLimit.storageKey, read: { model.value }, update: model.update, record: events.record)
     }
 
     static func target(_ percent: Int) throws -> ChargeTarget { try #require(ChargeTarget.all.first { $0.percent == percent }) }
@@ -21,19 +21,19 @@ import Testing
 
     @Test func theSwitchAndTargetComeBackAsSetWhenLoadedAsARelaunchWould() throws {
         let defaults = AlertSettingsPersistence.suite()
-        let events = Box<[SettingEdits<ChargeLimit>.Event]>([])
+        let events = SettingEvents()
         let edits = Self.edits(try Self.model(defaults), events: events)
         edits.binding(\.isOn).wrappedValue = true
         edits.binding(\.target).wrappedValue = try Self.target(90)
         #expect(try Self.model(defaults).value == ChargeLimit(isOn: true, target: try Self.target(90)))
-        #expect(events.value.map(\.line) == [
-            "charging.limit saved: \(ChargeLimit(isOn: true, target: .standard))",
-            "charging.limit saved: \(ChargeLimit(isOn: true, target: try Self.target(90)))",
+        #expect(events.all == [
+            .saved(setting: "charging.limit", value: "\(ChargeLimit(isOn: true, target: .standard))"),
+            .saved(setting: "charging.limit", value: "\(ChargeLimit(isOn: true, target: try Self.target(90)))"),
         ])
     }
 
     @Test func turningTheLimitOffKeepsTheTargetForWhenItIsTurnedBackOn() throws {
-        let edits = Self.edits(try Self.model(AlertSettingsPersistence.suite()), events: Box([]))
+        let edits = Self.edits(try Self.model(AlertSettingsPersistence.suite()), events: SettingEvents())
         let ninety = try Self.target(90)
         edits.perform { $0.isOn = true; $0.target = ninety }
         edits.binding(\.isOn).wrappedValue = false
@@ -54,8 +54,3 @@ import Testing
     }
 }
 
-/// A value a closure can append to and a test can read afterwards.
-final class Box<Value> {
-    var value: Value
-    init(_ value: Value) { self.value = value }
-}

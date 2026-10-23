@@ -1,40 +1,33 @@
 import OSLog
 import SwiftUI
 
+/// What happened to one settings edit, as the log, the failure line, and the tests read it.
+enum SettingEvent: Equatable {
+    /// The change was kept; `value` is the setting as it now stands.
+    case saved(setting: String, value: String)
+    /// The change could not be kept, and the setting is as it was.
+    case notSaved(setting: String, reason: String)
+
+    /// What the view shows above its controls after this change: nothing once a change is kept.
+    var failure: String? {
+        switch self {
+        case .saved: nil
+        case .notSaved(_, let reason): reason
+        }
+    }
+}
+
 /// What a settings view edits one kept value with: its current value, a change to it, and bindings
 /// that make a change when a control sets them.
 ///
-/// [LAW:single-enforcer] Every settings edit goes through `perform`, so "a change that cannot be kept is
-/// shown, not dropped" is enforced here and nowhere else.
+/// [LAW:single-enforcer] Every screen that edits a kept value directly goes through `perform`, so "a change
+/// that cannot be kept is shown, not dropped" is enforced here for all of them. (Shortcuts are recorded
+/// through ShortcutsController, which also registers them with the system and refuses taken keys.)
 @MainActor struct SettingEdits<Value> {
-    /// What happened to one change, as the log, the failure line, and the tests read it.
-    enum Event: Equatable {
-        /// The change was kept; `value` is the setting as it now stands.
-        case saved(setting: String, value: String)
-        /// The change could not be kept, and the setting is as it was.
-        case notSaved(setting: String, reason: String)
-
-        /// [LAW:effects-at-boundaries] The log line, a pure function of the event.
-        var line: String {
-            switch self {
-            case .saved(let setting, let value): "\(setting) saved: \(value)"
-            case .notSaved(let setting, let reason): "\(setting) not saved: \(reason)"
-            }
-        }
-
-        /// What the view shows above its controls after this change: nothing once a change is kept.
-        var failure: String? {
-            switch self {
-            case .saved: nil
-            case .notSaved(_, let reason): reason
-            }
-        }
-    }
-
     let setting: String
     let read: () -> Value
     let update: ((inout Value) -> Void) throws -> Void
-    let record: (Event) -> Void
+    let record: (SettingEvent) -> Void
 
     var value: Value { read() }
 
@@ -80,7 +73,11 @@ struct SettingEditor<Value, Content: View>: View {
                 Label("Could not save: \(failure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
             }
             content(SettingEdits(setting: setting, read: read, update: update) { event in
-                settingsLog.notice("\(event.line, privacy: .public)")
+                // A value can name the user's devices, so it is private; which setting, and why a save failed, are not.
+                switch event {
+                case .saved(let setting, let value): settingsLog.notice("\(setting, privacy: .public) saved: \(value, privacy: .private)")
+                case .notSaved(let setting, let reason): settingsLog.error("\(setting, privacy: .public) not saved: \(reason, privacy: .public)")
+                }
                 failure = event.failure
             })
         }
