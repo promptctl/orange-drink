@@ -7,7 +7,8 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] || { echo "run as: sudo ./run.sh" >&2; exit 64; }
 
-exec > >(tee "$here/output.txt") 2>&1
+# tee ignores ^C, so the exit trap's output still reaches the file and the screen.
+exec > >(tee -i "$here/output.txt") 2>&1
 
 smc=$here/build/smc
 sudo -u "$SUDO_USER" mkdir -p "$here/build"
@@ -16,10 +17,14 @@ sudo -u "$SUDO_USER" swiftc -O "$here/smc.swift" -o "$smc"
 policies=/Library/Preferences/com.apple.powerd.charging.plist
 step() { printf '\n== %s\n' "$*"; }
 now() { date +%H:%M:%S; }
-observe() { echo "$(now) $("$smc" observe)"; }
+# [LAW:no-silent-failure] A substitution inside echo's arguments drops its exit status, so each one is
+# assigned on its own line first; and the conditions below run where errexit is off, so they exit
+# themselves when the observer fails rather than reading its silence as "not yet".
+observe() { local o; o=$("$smc" observe) || exit 1; echo "$(now) $o"; }
 # One field of an observe line, e.g. `field IsCharging "$line"`.
 field() { sed -E "s/.*[ ]$1=([^ ]+).*/\1/" <<<" $2"; }
-policy_digest() { plutil -extract policies raw -o - "$policies" | shasum | cut -c1-12; }
+# [LAW:dataflow-not-control-flow] No policies file is a state of its own, compared like any digest.
+policy_digest() { if [ -e "$policies" ]; then shasum < "$policies" | cut -c1-12; else echo absent; fi; }
 
 # [LAW:no-ambient-temporal-coupling] Every wait is a named condition polled every 5 s against a deadline;
 # the run never sleeps on the hope that something has happened. A miss returns 1 and the caller says
@@ -33,17 +38,19 @@ await() {
   echo "$(now) reached: $what"
 }
 
-paused() { local l; l=$(observe); echo "$l"; [ "$(field IsCharging "$l")" = 0 ] && [ "$(field ChargingCurrent "$l")" = 0 ]; }
-charging() { local l; l=$(observe); echo "$l"; [ "$(field IsCharging "$l")" = 1 ] && [ "$(field ChargingCurrent "$l")" -gt 0 ]; }
-external() { local l; l=$(observe); echo "$l"; [ "$(field ExternalConnected "$l")" = "$1" ]; }
+paused() { local l; l=$(observe) || exit 1; echo "$l"; [ "$(field IsCharging "$l")" = 0 ] && [ "$(field ChargingCurrent "$l")" = 0 ]; }
+charging() { local l; l=$(observe) || exit 1; echo "$l"; [ "$(field IsCharging "$l")" = 1 ] && [ "$(field ChargingCurrent "$l")" -gt 0 ]; }
+external() { local l; l=$(observe) || exit 1; echo "$l"; [ "$(field ExternalConnected "$l")" = "$1" ]; }
 woke_since() { [ "$(sysctl -n kern.waketime)" != "$1" ]; }
 policy_changed_from() { [ "$(policy_digest)" != "$1" ]; }
 
 # What powerd did after an event: the pause key and the outside view, every 5 s for 30 s.
 settle() {
-  local end=$(( SECONDS + 30 ))
+  local end=$(( SECONDS + 30 )) held line
   while (( SECONDS < end )); do
-    echo "$(now) $key=$("$smc" read "$key") $("$smc" observe)"
+    held=$("$smc" read "$key")
+    line=$(observe)
+    echo "$line $key=$held"
     sleep 5
   done
 }
@@ -51,8 +58,10 @@ settle() {
 step "0. machine, keys, baseline"
 sw_vers; sysctl -n machdep.cpu.brand_string
 "$smc" list | tee "$here/build/list.txt"
-echo "Charge Limit policies digest: $(policy_digest)"
-observe
+digest=$(policy_digest)
+echo "Charge Limit policies digest: $digest"
+# A pause can only be told from the native limit if the Mac is charging when the run starts.
+charging || { echo "not charging at the start (on battery, or held at the Charge Limit): nothing to pause"; exit 1; }
 
 # [LAW:dataflow-not-control-flow] The candidates are data, in the order prior art ranks them: an inhibit
 # key first, the adapter cut (which discharges rather than pauses) last. The first one this SMC
@@ -74,10 +83,13 @@ echo "manual restore if this run dies uncaught: sudo $smc write $key $baseline"
 
 restore() {
   local status=$?
-  echo "$(now) exit: restoring $key to $baseline"
+  # Every step runs and reports its own failure; and the write comes first, because after a closed
+  # Terminal nothing printed before it would survive.
+  set +e
   "$smc" write "$key" "$baseline" || echo "RESTORE FAILED: run  sudo $smc write $key $baseline"
-  echo "$(now) $key=$("$smc" read "$key")"
-  kill "$log_pid"
+  echo "$(now) exit $status: $key restored to"
+  "$smc" read "$key"
+  kill "$log_pid" || echo "log stream had already stopped"
   exit "$status"
 }
 
@@ -88,9 +100,11 @@ trap restore EXIT
 
 step "1. the same write without root"
 if sudo -u "$SUDO_USER" "$smc" write "$key" "$pause"; then
-  echo "UNEXPECTED: the SMC accepted an unprivileged write"
+  echo "UNEXPECTED: the SMC accepted an unprivileged write; stopping, since the root write can no longer be told apart"
+  exit 1
 fi
-echo "$key after the unprivileged attempt: $("$smc" read "$key") (baseline $baseline)"
+held=$("$smc" read "$key")
+echo "$key after the unprivileged attempt: $held (baseline $baseline)"
 
 step "2. pause: write $key $pause as root; the writer exits before anything is observed"
 "$smc" write "$key" "$pause"
@@ -113,12 +127,13 @@ if await "woke" 180 woke_since "$before"; then settle; else echo "event not driv
 step "3c. System Settings > Battery > Charging > Charge Limit: turn it off"
 digest=$(policy_digest)
 if await "Charge Limit policy changed" 180 policy_changed_from "$digest"; then
-  echo "policies digest now $(policy_digest)"
+  digest=$(policy_digest)
+  echo "policies digest now $digest"
   settle
   step "3c. now turn Charge Limit back on"
-  digest=$(policy_digest)
   if await "Charge Limit policy changed" 180 policy_changed_from "$digest"; then
-    echo "policies digest now $(policy_digest)"
+    digest=$(policy_digest)
+    echo "policies digest now $digest"
     settle
   else
     echo "event not driven: Charge Limit on"
@@ -128,6 +143,9 @@ else
 fi
 
 step "4. resume: write the baseline back"
+# What the key holds now says whether anything but this run wrote it while paused.
+held=$("$smc" read "$key")
+echo "$key holds $held before resume (wrote $pause)"
 "$smc" write "$key" "$baseline"
 await "charging resumed" 60 charging || echo "NOT RESUMED within 60 s"
 

@@ -85,7 +85,13 @@ final class SMC {
 
     func info(_ key: Key) throws -> Info {
         let out = try call(.keyInfo, key.code)
-        return Info(size: Int(get32(out, Offset.dataSize)), type: fourCC(get32(out, Offset.dataType)))
+        let size = Int(get32(out, Offset.dataSize))
+        // [LAW:parse-dont-validate] The one place a size meets the 32 data bytes the struct carries, so
+        // read and write never index past it.
+        guard size <= Offset.structSize - Offset.bytes else {
+            throw Failure(description: "keyInfo \(key): \(size) bytes, more than the SMC struct carries")
+        }
+        return Info(size: size, type: fourCC(get32(out, Offset.dataType)))
     }
 
     func read(_ key: Key) throws -> [UInt8] {
