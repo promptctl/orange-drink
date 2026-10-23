@@ -25,10 +25,7 @@ enum PillPlacement {
 
 /// The pill's window: it takes the close button's clicks without taking focus.
 private final class PillPanel: OverlayPanel {
-    let language: AppLanguage
-
     init(_ content: PillContent, scale: Double, language: AppLanguage, screen: NSScreen, onClose: @escaping () -> Void) {
-        self.language = language
         super.init(
             frame: PillPlacement.frame(content.position, on: screen.visibleFrame, scale: scale), level: .pill,
             content: PillView(content: content, scale: scale, onClose: onClose).speaking(language))
@@ -49,29 +46,43 @@ enum PillEnd {
 }
 
 /// The one pill on screen, with the screen glow its alert asks for: a new alert replaces both, and
-/// the close button or `shownFor` passing clears both.
+/// the close button or `shownFor` of the screen being seen clears both.
 ///
 /// [LAW:single-enforcer] `up` is the only record of whether a pill is up; its windows and its
-/// countdown live and die together.
+/// countdown live and die together. What moves them is two separate inputs: `hidden` decides
+/// whether the countdown runs, and a change of displays decides where the windows are.
 @MainActor final class PillController {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
-    /// How long a pill stays up unless its × or a newer alert takes it down first.
+    /// How long a pill stays up while the screen can be seen, unless its × or a newer alert takes it
+    /// down first. Each return to being seen starts it again, in full.
     nonisolated static let shownFor: Duration = .seconds(8)
 
-    @MainActor private struct Up {
-        let content: PillContent
+    @MainActor private struct Windows {
         let panel: PillPanel
         /// nil when the alert has Border Glow off.
         let glow: GlowPanel?
-        let expiry: Task<Void, any Error>
 
-        func close() { expiry.cancel(); panel.close(); glow?.close() }
+        func close() { panel.close(); glow?.close() }
+    }
+
+    @MainActor private struct Up {
+        let content: PillContent
+        /// The look and language the pill came up with: moving it to another screen keeps them.
+        let look: NotificationAppearance
+        let language: AppLanguage
+        var windows: Windows
+        /// nil while the screen is hidden.
+        var countdown: Task<Void, any Error>?
+
+        func close() { countdown?.cancel(); windows.close() }
     }
 
     private let appearance: NotificationAppearanceModel
     private let language: AppLanguageModel
     private let timekeeper: any Timekeeper
     private var up: Up?
+    /// A launched app has someone in front of it, so nothing hides the screen until the system says so.
+    private var hidden: Set<ScreenHider> = []
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     init(appearance: NotificationAppearanceModel, language: AppLanguageModel, timekeeper: any Timekeeper = SystemTimekeeper()) {
@@ -82,13 +93,15 @@ enum PillEnd {
 
     var shown: PillContent? { up?.content }
     /// The panel's frame in screen coordinates while a pill is up.
-    var shownFrame: CGRect? { up?.panel.frame }
+    var shownFrame: CGRect? { up?.windows.panel.frame }
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
-    var shownGlowFrame: CGRect? { up?.glow?.frame }
+    var shownGlowFrame: CGRect? { up?.windows.glow?.frame }
     /// The language the shown pill was handed: the app's at the moment it came up.
-    var shownLanguage: AppLanguage? { up?.panel.language }
+    var shownLanguage: AppLanguage? { up?.language }
     /// The strength the shown glow was built at.
-    var shownGlowStrength: NotificationAppearance.GlowStrength? { up?.glow?.strength }
+    var shownGlowStrength: NotificationAppearance.GlowStrength? { up?.windows.glow?.strength }
+    /// Whether the shown pill's `shownFor` is running: not while the screen is hidden.
+    var shownCounting: Bool? { up.map { $0.countdown != nil } }
 
     /// The sink an `AlertCenter` delivers to. The temperature warning has no pill so far.
     func deliver(_ firing: Firing, reading: BatteryReading) {
@@ -105,30 +118,88 @@ enum PillEnd {
 
     func show(_ content: PillContent) {
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
-        // alert is logged. A pill already up stays, and its own countdown takes it down.
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else {
+        // alert is logged. A pill already up stays, with the countdown `hidden` gave it.
+        guard let screen = Self.screen else {
             Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .private)")
             return
         }
         dismiss("replaced")
         let look = appearance.value
-        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, screen: screen, onClose: { [weak self] in self?.close(.closeButton) })
+        let spoken = language.value
+        up = Up(content: content, look: look, language: spoken, windows: windows(content, look: look, language: spoken, on: screen), countdown: countdown())
+        Self.log.info("pill shown at \(content.position.rawValue, privacy: .public) for \(Self.shownFor, privacy: .public): \(content.headline.english, privacy: .private)")
+    }
+
+    /// What hides the screen now. Every change gives the pill up a new countdown from `countdown()`.
+    func screen(hidden: Set<ScreenHider>) {
+        self.hidden = hidden
+        let said = hidden.isEmpty ? "seen" : "hidden by \(hidden.map(\.rawValue).sorted().joined(separator: ", "))"
+        Self.log.info("screen \(said, privacy: .public)")
+        guard var pill = up else { return }
+        pill.countdown?.cancel()
+        pill.countdown = countdown()
+        up = pill
+        let counting = pill.countdown == nil ? "held" : "counting \(Self.shownFor) again"
+        Self.log.info("pill \(counting, privacy: .public): \(pill.content.headline.english, privacy: .private)")
+    }
+
+    /// The displays changed: the pill up moves onto the current main screen, keeping its countdown.
+    func screensChanged() {
+        guard var pill = up else { return }
+        // [LAW:no-silent-failure] With no screen the pill stays where it was, and the next change places it.
+        guard let screen = Self.screen else {
+            Self.log.error("no screen to place the pill on: \(pill.content.headline.english, privacy: .private)")
+            return
+        }
+        pill.windows.close()
+        pill.windows = windows(pill.content, look: pill.look, language: pill.language, on: screen)
+        up = pill
+        Self.log.info("pill placed on the current screen: \(pill.content.headline.english, privacy: .private)")
+    }
+
+    /// Feeds the controller what hides the screen and when the displays change, for as long as it lives.
+    func follow(screen hiders: AsyncStream<Set<ScreenHider>>, layout: AsyncStream<Void>) {
+        Task { [weak self] in
+            for await hidden in hiders {
+                guard let self else { return }
+                self.screen(hidden: hidden)
+            }
+        }
+        Task { [weak self] in
+            for await _ in layout {
+                guard let self else { return }
+                self.screensChanged()
+            }
+        }
+    }
+
+    private static var screen: NSScreen? { NSScreen.main ?? NSScreen.screens.first }
+
+    /// [LAW:one-source-of-truth] The one place a pill's windows are built, for `show` and for a move alike.
+    private func windows(_ content: PillContent, look: NotificationAppearance, language: AppLanguage, on screen: NSScreen) -> Windows {
+        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language, screen: screen, onClose: { [weak self] in self?.close(.closeButton) })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, screen: screen) : nil
         glow?.orderFrontRegardless()
         panel.orderFrontRegardless()
-        // [LAW:no-ambient-temporal-coupling] The countdown belongs to this pill's `Up`, which cancels it
-        // on any close or replacement. A replacement can land between the wake and this task's turn on
-        // the main actor; it has cancelled the task by then, so the check after the sleep is that state.
-        // It holds `self` strongly, at most for `shownFor`, so a pill comes down even if its controller is dropped.
-        let expiry = Task { [timekeeper] in
+        return Windows(panel: panel, glow: glow)
+    }
+
+    /// [LAW:single-enforcer] The one place a countdown is made, from `hidden` alone: none while the
+    /// screen is hidden, a full `shownFor` while it is seen.
+    ///
+    /// [LAW:no-ambient-temporal-coupling] The countdown belongs to the pill's `Up`, which cancels it
+    /// on any close, replacement, or change of `hidden`. One of those can land between the wake and
+    /// this task's turn on the main actor; it has cancelled the task by then, so the check after the
+    /// sleep is that state. It holds `self` strongly, at most for `shownFor`, so a pill comes down
+    /// even if its controller is dropped.
+    private func countdown() -> Task<Void, any Error>? {
+        hidden.isEmpty ? Task { [timekeeper] in
             try await timekeeper.sleep(for: Self.shownFor)
             try Task.checkCancellation()
             self.close(.timedOut)
-        }
-        up = Up(content: content, panel: panel, glow: glow, expiry: expiry)
-        Self.log.info("pill shown at \(content.position.rawValue, privacy: .public) for \(Self.shownFor, privacy: .public): \(content.headline.english, privacy: .private)")
+        } : nil
     }
 
     /// Takes down the pill showing, if any, without telling waiters: a replacement may follow.

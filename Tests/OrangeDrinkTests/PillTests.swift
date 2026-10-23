@@ -157,6 +157,87 @@ import Testing
         #expect(try Self.lines(log, about: "26% Remaining") == ["pill shown at top for \(PillController.shownFor): 26% Remaining", "pill closed: ×: 26% Remaining"])
     }
 
+    // orange-alerts-cjt.3ns: an alert fires once per crossing, so its pill's time is time the screen
+    // can be seen. A pill held through a sleep gets all of it once someone is back.
+    @Test func aPillHeldWhileNoOneCanSeeTheScreenGetsItsFullTimeOnceSeen() async throws {
+        let clock = ManualTimekeeper()
+        let pills = Self.countdown(clock)
+        let log = try BatteryLog(category: "alerts")
+        pills.show(PillContent(Alert(kind: .low, threshold: 25, position: .center, glow: true, sound: false),
+                               reading: try Self.reading(24)))
+        await clock.asleep()
+        clock.advance(by: .seconds(1))
+        pills.screen(hidden: [.displayAsleep])
+        #expect(clock.sleeping == 0)
+        clock.advance(by: PillController.shownFor * 10)
+        #expect(pills.shown != nil && pills.shownCounting == false)
+
+        pills.screen(hidden: [])
+        let waiter = Task { await pills.untilClosed() }
+        await clock.asleep()
+        clock.advance(by: PillController.shownFor - .seconds(1))
+        #expect(clock.sleeping == 1)
+        clock.advance(by: .seconds(1))
+        await waiter.value
+        #expect(pills.shown == nil && pills.shownGlowFrame == nil)
+        #expect(try Self.lines(log, about: "24% Remaining") == [
+            "pill shown at center for \(PillController.shownFor): 24% Remaining", "pill held: 24% Remaining",
+            "pill counting \(PillController.shownFor) again: 24% Remaining", "pill closed: timed out after \(PillController.shownFor): 24% Remaining"])
+        #expect(try log.messages().contains("screen hidden by displayAsleep") && log.messages().contains("screen seen"))
+    }
+
+    @Test func aPillShownWhileTheScreenIsHiddenWaitsUntilEveryHiderHasEnded() async throws {
+        let clock = ManualTimekeeper()
+        let pills = Self.countdown(clock)
+        let log = try BatteryLog(category: "alerts")
+        pills.screen(hidden: [.locked])
+        pills.show(PillContent(Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false),
+                               reading: try Self.reading(80)))
+        await Task.yield()
+        #expect(pills.shownCounting == false && clock.sleeping == 0)
+        // The display sleeps and wakes again on the lock screen: still no one can see the pill.
+        pills.screen(hidden: [.locked, .displayAsleep])
+        pills.screen(hidden: [.locked])
+        #expect(pills.shownCounting == false)
+
+        pills.screen(hidden: [])
+        let waiter = Task { await pills.untilClosed() }
+        await clock.asleep()
+        clock.advance(by: PillController.shownFor)
+        await waiter.value
+        #expect(try Self.lines(log, about: "80% Charged") == [
+            "pill shown at top for \(PillController.shownFor): 80% Charged", "pill held: 80% Charged", "pill held: 80% Charged",
+            "pill counting \(PillController.shownFor) again: 80% Charged", "pill closed: timed out after \(PillController.shownFor): 80% Charged"])
+        #expect(try log.messages().contains("screen hidden by displayAsleep, locked"))
+    }
+
+    @Test func aChangeOfDisplaysPlacesThePillOnTheMainScreenAndKeepsItsCountdownAndLanguage() async throws {
+        let clock = ManualTimekeeper()
+        let language = AppLanguageTests.scratch()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, timekeeper: clock)
+        let log = try BatteryLog(category: "alerts")
+        try language.update { $0 = AppLanguage(code: "fr") }
+        pills.show(PillContent(Alert(kind: .low, threshold: 22, position: .top, glow: true, sound: false),
+                               reading: try Self.reading(21)))
+        await clock.asleep()
+        clock.advance(by: .seconds(5))
+        try language.update { $0 = AppLanguage(code: "es") }
+
+        pills.screensChanged()
+        let screen = try #require(NSScreen.main ?? NSScreen.screens.first)
+        #expect(pills.shownFrame == PillPlacement.frame(.top, on: screen.visibleFrame, scale: 1))
+        #expect(pills.shownGlowFrame == screen.frame)
+        #expect(pills.shownLanguage == AppLanguage(code: "fr"))
+        // The same countdown, three seconds from its end.
+        #expect(clock.sleeping == 1)
+        let waiter = Task { await pills.untilClosed() }
+        clock.advance(by: PillController.shownFor - .seconds(5))
+        await waiter.value
+        #expect(try Self.lines(log, about: "21% Remaining") == [
+            "pill shown at top for \(PillController.shownFor): 21% Remaining", "pill placed on the current screen: 21% Remaining",
+            "pill closed: timed out after \(PillController.shownFor): 21% Remaining"])
+    }
+
     @Test func pillWordingAndSeverityFollowTheAlertAndTheReading() throws {
         let low = { (threshold: Int) in Alert(kind: .low, threshold: threshold, position: .top, glow: false, sound: false) }
         #expect(PillContent(low(5), reading: try Self.reading(4)).severity == .red)
