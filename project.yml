@@ -149,6 +149,8 @@ targets:
     dependencies:
       - target: OrangeDrink
       - target: HelperCheckClient
+        # A test bundle embeds nothing unless told to; without this the copy below never happens.
+        embed: true
         copy:
           destination: executables
     settings:
