@@ -13,7 +13,7 @@ struct HistorySample: Equatable, Sendable {
     init(_ reading: BatteryReading, at: Date) {
         self.at = at
         level = reading.chargePercent
-        if case .adapter(_, .charging) = reading.power { charging = true } else { charging = false }
+        charging = reading.power.isCharging
         health = reading.capacity.full.value / reading.capacity.design.value
         temperature = reading.temperature
     }

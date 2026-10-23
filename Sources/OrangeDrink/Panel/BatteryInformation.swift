@@ -74,15 +74,13 @@ struct BatteryInformation: Equatable {
         let volts = reading.voltage.converted(to: .volts).value
         let watts = abs(reading.batteryPower.value)
         let normal = Self.normalVolts.contains(volts)
-        let charging: Bool
-        if case .adapter(_, .charging) = reading.power { charging = true } else { charging = false }
         electrical = Electrical(
             power: Self.one(watts, "W"), current: "\(Int(abs(milliamps).rounded())) mA",
             flow: milliamps > 0 ? .intoBattery : milliamps < 0 ? .outOfBattery : nil,
             voltage: String(format: "%.2f V", volts),
             voltageStatus: ChargeCard(reading).status.title,
             voltageNote: normal ? "Normal voltage" : "Unusual voltage",
-            voltageCondition: normal ? .good : .warning, charging: charging)
+            voltageCondition: normal ? .good : .warning, charging: reading.power.isCharging)
 
         func mAh(_ capacity: Measurement<UnitElectricCharge>) -> String { "\(Int(capacity.converted(to: .milliampereHours).value.rounded())) mAh" }
         capacity = Capacity(

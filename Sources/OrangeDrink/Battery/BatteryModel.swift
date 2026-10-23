@@ -24,8 +24,9 @@ import Observation
     private(set) var readingAt: Date?
     @ObservationIgnored private let timekeeper: any Timekeeper
     @ObservationIgnored private let read: @Sendable () throws -> BatteryReading?
-    /// Told of every reading the model takes, so what acts on readings (alerts) never watches `state`.
-    @ObservationIgnored private let onReading: @MainActor (BatteryReading?) -> Void
+    /// Told of every state the model holds, the first included, so what acts on them (alerts,
+    /// history, widgets) never watches `state`.
+    @ObservationIgnored private let onState: @MainActor (State) -> Void
     /// [LAW:types-are-the-program] exception: set once, in init, but Swift will not let the
     /// task capture `self` before every stored property holds a value, so it cannot be a let.
     /// Written on the main actor and read only by deinit, which no other access can overlap;
@@ -41,11 +42,12 @@ import Observation
         readings: Readings,
         read: @escaping @Sendable () throws -> BatteryReading? = IOKitBattery.read,
         timekeeper: any Timekeeper = SystemTimekeeper(),
-        onReading: @escaping @MainActor (BatteryReading?) -> Void = { _ in }
+        onState: @escaping @MainActor (State) -> Void = { _ in }
     ) where Readings.Element == BatteryReading? {
         self.read = read
         self.timekeeper = timekeeper
-        self.onReading = onReading
+        self.onState = onState
+        onState(state)
         // [LAW:no-ambient-temporal-coupling] The model owns the subscription: it lives exactly
         // as long as the model does, and a dropped model cancels it before the next publish
         // rather than letting the task keep the model alive through it.
@@ -64,7 +66,7 @@ import Observation
             guard let self else { return }
             let reason = ending.map { String(describing: $0) } ?? "the stream finished"
             IOKitBattery.log.error("battery subscription ended: \(reason, privacy: .public)")
-            self.state = .ended(ending)
+            self.set(.ended(ending))
         }
 
         // The refresh waits out the interval since the latest reading, however it arrived, and
@@ -86,7 +88,7 @@ import Observation
             IOKitBattery.log.info("battery refresh: reading taken")
         } catch {
             IOKitBattery.log.error("battery refresh failed: \(String(describing: error), privacy: .public)")
-            state = .ended(error)
+            set(.ended(error))
         }
     }
 
@@ -97,8 +99,13 @@ import Observation
 
     private func take(_ reading: BatteryReading?) {
         readingAt = timekeeper.now()
-        state = .known(reading)
-        onReading(reading)
+        set(.known(reading))
+    }
+
+    /// [LAW:single-enforcer] Every state change goes through here, so `onState` hears each one.
+    private func set(_ new: State) {
+        state = new
+        onState(new)
     }
 
     /// How long until a reading is due: the interval less the age of the one held. The refresher

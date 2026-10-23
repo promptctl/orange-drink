@@ -39,6 +39,11 @@ enum PowerSource: Equatable, Sendable {
     case adapter(Measurement<UnitPower>?, Charging)
 }
 
+extension PowerSource {
+    /// [LAW:one-source-of-truth] The one meaning of "charging": on an adapter with charge flowing in.
+    var isCharging: Bool { if case .adapter(_, .charging) = self { true } else { false } }
+}
+
 enum Charging: Equatable, Sendable {
     case charging(ChargeOutlook)
     /// On an adapter with no charge flowing: held under a charge limit, or paused by the system.

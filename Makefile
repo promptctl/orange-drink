@@ -8,18 +8,6 @@ PRODUCTS := $(DERIVED_DATA)/Build/Products
 RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA)
 
-# The certificate `release` signs with, named in full by scripts/dmg. Empty, the build keeps
-# project.yml's ad-hoc identity. [LAW:one-type-per-behavior] A release and a local Release build
-# are one recipe run with two values. Settings on xcodebuild's command line reach every target,
-# GRDB's included, and a package target signs automatically and refuses a named identity
-# without a team, so the identity also brings manual signing and the team read from the
-# parentheses that end its name. [LAW:one-source-of-truth] The identity is the only input.
-SIGNING_IDENTITY :=
-lparen := (
-rparen := )
-release_signing = $(if $(SIGNING_IDENTITY),'CODE_SIGN_IDENTITY=$(SIGNING_IDENTITY)' \
-  DEVELOPMENT_TEAM=$(patsubst %$(rparen),%,$(lastword $(subst $(lparen), ,$(SIGNING_IDENTITY)))) CODE_SIGN_STYLE=Manual)
-
 .PHONY: generate build release test unplug-check iphone-check devices-check pill-check position-check app-energy-check cpu-check ax-check
 
 generate:
@@ -84,10 +72,10 @@ app-energy-check: generate
 cpu-check: release
 	swift scripts/cpu-check.swift "$(RELEASE_APP)/Contents/MacOS/$(APP)"
 
-# The Release app, signed with SIGNING_IDENTITY when it names one. The last line printed is the
-# app's path, so scripts/dmg spells neither the configuration's directory nor the app's name.
+# The Release app. The last line printed is the app's path, so scripts/dmg spells neither the
+# configuration's directory nor the app's name.
 release: generate
-	$(call gated,build,-configuration Release $(release_signing))
+	$(call gated,build,-configuration Release)
 	@echo $(RELEASE_APP)
 
 # [LAW:verifiable-goals] "Zero warnings" is read from the result bundle, which counts every
