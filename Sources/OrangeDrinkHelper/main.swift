@@ -76,10 +76,13 @@ final class Session: NSObject, PrivilegedHelper {
         reply(executable, geteuid())
     }
 
+    /// [LAW:single-enforcer] The helper bounds its own work: a caller's instant can shorten one call's budget, never
+    /// stretch it, so no caller can hold the write queue behind a hung pmset, nor have a charging call run after it
+    /// stopped waiting.
+    private func budget(_ asked: Date) -> Date { min(asked, HelperClient.workEnds()) }
+
     func setLowPowerMode(_ on: Bool, until asked: Date, reply: @escaping @Sendable (String?) -> Void) {
-        // [LAW:single-enforcer] The helper bounds its own work: a caller's instant can shorten one call's
-        // budget, never stretch it, so no caller can hold the write queue behind a hung pmset.
-        let deadline = min(asked, HelperClient.workEnds())
+        let deadline = budget(asked)
         let outcome = writes.sync {
             Result { () throws(HelperFailure) in
                 try LowPowerModeWrite.perform(on, source: PmsetSource.current()) { arguments throws(HelperFailure) in
@@ -91,16 +94,15 @@ final class Session: NSObject, PrivilegedHelper {
         reply(outcome.failure?.description)
     }
 
-    // [LAW:single-enforcer] As for Low Power Mode, a caller's instant can shorten a charging call's budget, never
-    // stretch it; the holds check it when the call's turn on the write queue comes.
+    // The holds check a charging call's budget when its turn on the write queue comes.
     func pauseCharging(until asked: Date, reply: @escaping @Sendable (Int, String?) -> Void) {
-        let holder = ObjectIdentifier(self), deadline = min(asked, HelperClient.workEnds())
+        let holder = ObjectIdentifier(self), deadline = budget(asked)
         let answer = ChargingFailure.reply(logged { $0.pause(for: holder, by: deadline) })
         reply(answer.kind, answer.description)
     }
 
     func resumeCharging(until asked: Date, reply: @escaping @Sendable (Int, String?) -> Void) {
-        let holder = ObjectIdentifier(self), deadline = min(asked, HelperClient.workEnds())
+        let holder = ObjectIdentifier(self), deadline = budget(asked)
         let answer = ChargingFailure.reply(logged { $0.resume(for: holder, by: deadline) })
         reply(answer.kind, answer.description)
     }

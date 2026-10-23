@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 /// design-docs/charging.md: the Charge Limit switch, its explanation, and, while it is on, the target. `ChargeHold`
@@ -6,6 +5,7 @@ import SwiftUI
 struct ChargingScreen: View {
     let limit: ChargeLimitModel
     let hold: AppChargeHold
+    @Environment(\.controlActiveState) private var window
 
     static let limitHelp: Phrase = "When the battery reaches your target, charging pauses and your Mac runs on the charger. Charging resumes once the level drops below the target. Turn the limit off, or quit \(appName), and your Mac charges normally."
 
@@ -36,9 +36,9 @@ struct ChargingScreen: View {
             }
         }
         .padding(24)
-        // The user may have allowed the helper in System Settings meanwhile: the screen appearing, or a window coming
-        // back to the front while it shows, asks again about a failure it holds.
+        // The user may have allowed the helper in System Settings meanwhile: the screen appearing, or its own window
+        // coming back to the front, asks again about a failure it holds.
         .onAppear { hold.recheck() }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in hold.recheck() }
+        .onChange(of: window) { _, state in if state == .key { hold.recheck() } }
     }
 }

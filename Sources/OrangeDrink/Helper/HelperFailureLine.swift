@@ -8,12 +8,15 @@ struct HelperFailureLine: View {
     let explanation: Phrase
     let openLoginItems: () -> Void
 
+    /// The way to the setting that allows the helper.
+    static let openLoginItemsTitle: Phrase = "Open Login Items & Extensions…"
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             let text = PhraseText(explanation)
             if failure.needsApproval {
                 text.fixedSize(horizontal: false, vertical: true)
-                Button { openLoginItems() } label: { PhraseText(LowPowerMode.openLoginItemsTitle) }
+                Button { openLoginItems() } label: { PhraseText(Self.openLoginItemsTitle) }
                     .buttonStyle(.link)
             } else {
                 text.foregroundStyle(.red).lineLimit(3)

@@ -73,22 +73,22 @@ final class FakeMarker: PauseRecord {
         #expect(chte.writes == [] && marker.changes == [] && holds.state == .supported(holders: []))
     }
 
-    /// A pause the SMC refuses was never written, so the refusal is final even with the record just made; the next
-    /// helper's start clears that record without writing.
-    @Test func aRefusedPauseIsFinalAndItsRecordIsClearedAtTheNextStart() {
+    /// A pause the SMC refuses leaves the record it just made, so the refusal is not final: a closed helper would leave
+    /// that record for the next one, which would end whatever pause CHTE then held. The connection's end clears it,
+    /// without writing.
+    @Test func aRefusedPauseLeavesNoRecordOnceItsConnectionEnds() {
         final class Refusing: ChargeInhibitAccess {
             var bytes: [UInt8] = [0, 0, 0, 0]
             func read() throws(ChargingFailure) -> (inhibit: ChargingInhibit?, bytes: [UInt8]) { (ChargingInhibit(bytes: bytes), bytes) }
             func write(_ inhibit: ChargingInhibit) throws(ChargingFailure) { throw .unsupported("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged)") }
         }
-        let key = Refusing(), marker = FakeMarker(marked: false)
+        let key = Refusing(), marker = FakeMarker(marked: false), lease = FakeLease()
         let holds = ChargingHolds(open: { () throws(ChargingFailure) in key }, marker: marker)
-        let refused = ChargingFailure.unsupported("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged)")
-        #expect(holds.pause(for: ObjectIdentifier(FakeLease()), by: .distantFuture).result.failure == refused)
-        #expect(holds.state == .closed(refused))
-        let next = ChargingHolds(open: { () throws(ChargingFailure) in key }, marker: marker)
-        #expect(next.check("helper start").result.failure == nil)
-        #expect(marker.changes == ["mark", "unmark"] && next.state == .supported(holders: []))
+        let paused = holds.pause(for: ObjectIdentifier(lease), by: .distantFuture)
+        #expect(paused.result.failure == .failed("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged); the pause record stays, so it is tried again"))
+        #expect(marker.marked)
+        #expect(holds.drop(ObjectIdentifier(lease)).result.failure == nil)
+        #expect(marker.changes == ["mark", "unmark"] && holds.state == .supported(holders: []))
     }
 
     @Test func aHelperThatEndedPausesNoMore() {
@@ -140,7 +140,7 @@ final class FakeMarker: PauseRecord {
         let key = Flaky(), marker = FakeMarker(marked: true)
         let holds = ChargingHolds(open: { () throws(ChargingFailure) in key }, marker: marker)
         // Reported as a failure, not as this Mac's final answer, so the app asks again too.
-        #expect(holds.check("helper start").result.failure == .failed("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged); a pause of this helper's may still hold charging, so it is tried again"))
+        #expect(holds.check("helper start").result.failure == .failed("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged); the pause record stays, so it is tried again"))
         #expect(holds.state == .supported(holders: []) && marker.marked)
         key.refuse = false
         _ = holds.end("helper exits: SIGTERM")

@@ -38,9 +38,6 @@ import ServiceManagement
         failure.needsApproval ? "Allow \(appName) in the background to change Low Power Mode." : "Couldn't change Low Power Mode: \(failure.call.description)"
     }
 
-    /// The row's way to the setting that allows the helper.
-    static let openLoginItemsTitle: Phrase = "Open Login Items & Extensions…"
-
     private(set) var isOn: Bool
     /// [LAW:no-ambient-temporal-coupling] Whether a change asked of the helper is unanswered: from a press to that
     /// call's reply, and nothing else ends it. Meanwhile a press does nothing, so one call is in flight and its

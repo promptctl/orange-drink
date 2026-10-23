@@ -109,11 +109,11 @@ final class ChargingHolds {
         }
         change(&holders)
         state = .supported(holders: holders)
-        // Whether a pause of ours may be holding CHTE, as far as this reconcile knows.
-        var outstanding = false
+        // Whether the record of a pause of ours is on disk, as the steps so far leave it.
+        var recorded = false
         do {
             let marked = try marker.isMarked()
-            outstanding = marked
+            recorded = marked
             // With no holder and no pause of ours, the rule leaves CHTE alone whatever it holds, so the SMC is not
             // opened: a helper that stays up for Low Power Mode costs a file check per power change, no more.
             guard !holders.isEmpty || marked else {
@@ -121,19 +121,20 @@ final class ChargingHolds {
             }
             let key = try open()
             let read = try key.read()
-            // A refused write changes nothing, so from here a pause of ours holds CHTE only if CHTE is not allowed.
-            outstanding = marked && read.inhibit != .allowed
             let steps = ChargingInhibit.reconcile(leases: holders.count, marked: marked, read: read.inhibit)
-            for step in steps { try perform(step, on: key) }
+            for step in steps {
+                try perform(step, on: key)
+                recorded = (recorded || step == .mark) && step != .unmark
+            }
             let did = steps.isEmpty ? "nothing to do" : steps.map(\.text).joined(separator: ", ")
             return Outcome(result: .success(()), line: "charging \(trigger): \(holders.count) holding, marked \(marked), \(ChargingInhibit.key) \(Self.hex(read.bytes)): \(did)")
         } catch {
-            // [LAW:one-source-of-truth] A refusal is this Mac's final answer only while no pause of ours may be holding
-            // CHTE, and only a final one is reported as unsupported, so the app stops asking exactly when the helper
-            // does. A refusal met while a pause of ours may hold is a failure: the record stays, and every later
-            // reconcile tries again.
+            // [LAW:one-source-of-truth] A closed helper never touches the record again, so a refusal is this Mac's final
+            // answer only while there is no record, even one this reconcile just made; and only a final one is reported
+            // as unsupported, so the app stops asking exactly when the helper does. A refusal met with a record on disk
+            // is a failure: the record stays, and the next reconcile, the connection's end included, answers for it.
             let reported: ChargingFailure = switch error {
-            case .unsupported(let reason) where outstanding: .failed("\(reason); a pause of this helper's may still hold charging, so it is tried again")
+            case .unsupported(let reason) where recorded: .failed("\(reason); the pause record stays, so it is tried again")
             case .unsupported, .failed: error
             }
             if case .unsupported = reported { state = .closed(reported) }
