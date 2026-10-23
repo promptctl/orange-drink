@@ -138,9 +138,10 @@ private extension Charging {
     /// BatteryTimeRemaining.m, packageKernelPowerSource), so it is read only on that branch.
     init(powerSource: [String: Any], registry: [String: Any]) throws {
         if try field(kIOPSIsChargingKey, in: powerSource, "power source") {
-            self = .charging(try chargeLimitInForce(registry)
-                ? .limited
-                : .toFull(in: duration(minutes: try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source"))))
+            // [LAW:dataflow-not-control-flow] Both facts are read on every charging reading; the
+            // limit report only decides which of them the reading keeps.
+            let timeToFull = duration(minutes: try field(kIOPSTimeToFullChargeKey, in: powerSource, "power source"))
+            self = .charging(try chargeLimitInForce(registry) ? .limited : .toFull(in: timeToFull))
         } else if try field(kIOPSIsChargedKey, in: powerSource, "power source") {
             self = .full
         } else {

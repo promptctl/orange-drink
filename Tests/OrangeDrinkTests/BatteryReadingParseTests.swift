@@ -91,12 +91,25 @@ import Testing
         #expect(String(describing: reading.power).contains("limited"))
     }
 
-    // The bit outlives the hold for a while on battery, so a replug below the limit can carry it:
-    // the charge is still heading to the limit, not to full.
-    @Test func aChargeBelowTheLimitThatCarriesTheReportIsLimited() throws {
+    // The charger's report alone decides, whatever the level: the parse claims no more than it.
+    @Test func theLimitReportDecidesAtAnyLevel() throws {
         var source = Self.charging(timeToFull: 55)
         source[kIOPSCurrentCapacityKey] = 76
         #expect(try Self.parse(source, registry: Self.limitInForce).power == .adapter(Self.eightySixWatts, .charging(.limited)))
+    }
+
+    // Every charging reading below the limit on this Mac: the charger data present, the reason 0.
+    @Test func chargingWithNoReasonKeepsTheEstimate() throws {
+        let reading = try Self.parse(Self.charging(timeToFull: 48), registry: Self.charger(reason: 0))
+        #expect(reading.power == .adapter(Self.eightySixWatts, .charging(.toFull(in: .seconds(48 * 60)))))
+    }
+
+    @Test func theLimitReportDoesNotExcuseAMissingEstimate() {
+        var source = Self.charging(timeToFull: 48)
+        source[kIOPSTimeToFullChargeKey] = nil
+        #expect(throws: BatteryReadError.invalid(key: kIOPSTimeToFullChargeKey, source: "power source")) {
+            try Self.parse(source, registry: Self.limitInForce)
+        }
     }
 
     @Test func onlyTheLimitBitIsRead() throws {
