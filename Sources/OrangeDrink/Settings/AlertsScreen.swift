@@ -47,12 +47,6 @@ struct AlertsScreen: View {
             }
         }
         .padding(24)
-        .background {
-            ZStack {
-                SettingsBackground()
-                RadialGradient(colors: [.red.opacity(0.1), .clear], center: .center, startRadius: 0, endRadius: 360)
-            }
-        }
     }
 }
 

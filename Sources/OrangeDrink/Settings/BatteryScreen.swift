@@ -25,7 +25,6 @@ struct BatteryScreen: View {
             }
         }
         .padding(24)
-        .background(SettingsBackground(glow: .green, glowCenter: .top))
         // The timeline is read again when the range changes and whenever the history is written.
         .task(id: Refresh(range: range, revision: (try? history.get())?.changes.revision)) { loadTimeline() }
         // The overview does not depend on the range, so switching it reads nothing more.

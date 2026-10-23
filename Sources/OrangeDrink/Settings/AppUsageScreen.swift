@@ -31,7 +31,6 @@ struct AppUsageScreen: View {
             }
         }
         .padding(24)
-        .background(SettingsBackground(glow: .indigo, glowCenter: .top))
         .sheet(item: $detail) { AppDetailSheet(subject: $0) }
         .task(id: Refresh(range: range, revision: (try? appEnergy.get())?.changes.revision)) {
             let ranking = Result { try appEnergy.get().ranking(range: range) }

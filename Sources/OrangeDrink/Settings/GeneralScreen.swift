@@ -13,7 +13,6 @@ struct GeneralScreen: View {
             NotificationAppearanceSection(appearance: appearance)
         }
         .padding(24)
-        .background(SettingsBackground())
     }
 }
 
