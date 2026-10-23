@@ -11,7 +11,7 @@ import Security
     func identity(reply: @escaping @Sendable (String, UInt32) -> Void)
 
     /// Turns macOS Low Power Mode on or off on the power source the Mac is on now, if that can be done before
-    /// `deadline`, the instant the caller stops waiting. The reply is nil once pmset has written it, or what
+    /// `deadline`, the instant the caller's budget leaves for the reply. The reply is nil once pmset has written it, or what
     /// went wrong. [LAW:types-are-the-program] One bit in: the caller names no key, no source, no argument.
     func setLowPowerMode(_ on: Bool, until deadline: Date, reply: @escaping @Sendable (String?) -> Void)
 }
@@ -232,6 +232,12 @@ struct HelperClient {
     /// [LAW:one-source-of-truth] The one bound on a call, in seconds: the app's, the check client's, and the
     /// live tests'. A job launchd refused shows up as a call that never answers.
     static let deadline = 10
+    /// The last part of a call's budget, kept for the reply to cross back: the helper's work ends this long
+    /// before the caller stops waiting, so a write the helper reports done is never one the caller gave up on.
+    static let replyAllowance: TimeInterval = 1
+
+    /// The instant a call that starts now must have its helper's work done by.
+    static func workEnds() -> Date { Date(timeIntervalSinceNow: TimeInterval(deadline) - replyAllowance) }
 
     func identity() throws(HelperCallError) -> HelperIdentity {
         try call { helper, _, finish in
@@ -265,10 +271,8 @@ struct HelperClient {
             let error = error as NSError
             finish(.failure(.connection(domain: error.domain, code: error.code, description: error.localizedDescription)))
         } as! PrivilegedHelper
-        // One instant: the helper is told it, and this call stops waiting at it.
-        let deadline = Date(timeIntervalSinceNow: TimeInterval(Self.deadline))
-        invoke(helper, deadline, finish)
-        guard done.wait(timeout: .now() + deadline.timeIntervalSinceNow) == .success, let outcome = result.withLock({ $0 }) else {
+        invoke(helper, Self.workEnds(), finish)
+        guard done.wait(timeout: .now() + .seconds(Self.deadline)) == .success, let outcome = result.withLock({ $0 }) else {
             throw .noReply(seconds: Self.deadline, service: service)
         }
         return try outcome.get()

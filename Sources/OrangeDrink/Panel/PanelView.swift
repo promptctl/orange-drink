@@ -176,8 +176,8 @@ private struct ActionsCard: View {
         case .batterySettings:
             ActionRow(action: action) { NSWorkspace.shared.open(PanelAction.batteryPane) } trailing: { Chevron() }
         case .lowPowerMode:
-            // The row is the one input: a click asks for the other state, and the row is busy until the system has
-            // answered. The switch only shows the system's state, so it moves when the system does.
+            // The row is the one input: a click asks for the other state, and the row is busy until the helper has
+            // answered. The switch only shows the system's state, so it moves when the system posts the change.
             ActionRow(action: action, run: lowPowerMode.isAsking ? nil : { lowPowerMode.toggle() }) {
                 Toggle("Low Power Mode", isOn: .constant(lowPowerMode.isOn)).labelsHidden().toggleStyle(.switch).allowsHitTesting(false)
             }

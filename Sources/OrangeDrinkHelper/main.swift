@@ -45,7 +45,10 @@ final class Session: NSObject, PrivilegedHelper {
         reply(executable, geteuid())
     }
 
-    func setLowPowerMode(_ on: Bool, until deadline: Date, reply: @escaping @Sendable (String?) -> Void) {
+    func setLowPowerMode(_ on: Bool, until asked: Date, reply: @escaping @Sendable (String?) -> Void) {
+        // [LAW:single-enforcer] The helper bounds its own work: a caller's instant can shorten one call's
+        // budget, never stretch it, so no caller can hold the write queue behind a hung pmset.
+        let deadline = min(asked, HelperClient.workEnds())
         let outcome = writes.sync {
             Result { () throws(HelperFailure) in
                 try LowPowerModeWrite.perform(on, source: PmsetSource.current()) { arguments throws(HelperFailure) in

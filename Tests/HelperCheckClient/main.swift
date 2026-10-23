@@ -1,10 +1,10 @@
 import Foundation
 
 // HelperCheckClient SERVICE: calls the helper at SERVICE once, the way the app does, and exits 0 with its
-// identity, 1 with the error that ended the connection, 2 when nothing came back in time, or 3 when the helper
-// answered with a failure. HelperLive runs
-// it as built and re-signed, to see whom the helper refuses. The first line is always this process's pid,
-// which the helper's log names when it accepts a connection.
+// identity, 1 with the error that ended the connection, or 2 when nothing came back in time; 3, a failure the
+// helper answered, is one identity never gives. HelperLive runs it as built and re-signed, to see whom the
+// helper refuses. The first line is always this process's pid, which the helper's log names when it accepts
+// a connection.
 guard CommandLine.arguments.count == 2 else {
     FileHandle.standardError.write(Data("usage: HelperCheckClient MACH-SERVICE\n".utf8))
     exit(64)
