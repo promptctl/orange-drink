@@ -1,0 +1,295 @@
+orange-admin-helper-b2q.0at: runs on mmu.local (macOS 26.3, 25D125, Apple Silicon, SIP disabled) and on the
+building Mac (macOS 26.5.2, 25F84, SIP enabled), 2026-10-23. Built on the Mac holding
+"Developer ID Application: Brandon Fryslie (6R988MUU27)". Every block is pasted output; lines starting
+with "#" are not, and stderr lines can land a line or two out of order. Times are each Mac's local time.
+
+######## 1. SMAppService register on mmu, both variants, before any approval
+# adhoc, built by section 4's revision: `run.sh ship adhoc 1 mmu.local /Applications`, then register, status, helper-state, dumpbtm
+== /Applications/HelperSpike.app
+Identifier=dev.orangedrink.helperspike
+CDHash=960c6591c43764e96a23d8f128172ef06f2d8e88
+Signature=adhoc
+TeamIdentifier=not set
+register failed: Error Domain=SMAppServiceErrorDomain Code=1 "Operation not permitted" UserInfo={NSLocalizedFailureReason=Operation not permitted}
+status requiresApproval
+launchd has no system/dev.orangedrink.helperspike.helper
+    Bundle Identifier: dev.orangedrink.helperspike
+  Embedded Item Identifiers:
+    #1: 16.dev.orangedrink.helperspike.helper
+
+ #36:
+                 UUID: C4C554D4-4821-4E8E-B90E-E161ECB90FB8
+                 Name: HelperSpikeHelper
+       Developer Name: (null)
+                 Type: daemon (0x10)
+                Flags: [  ] (0)
+          Disposition: [enabled, disallowed, not notified] (0x1)
+           Identifier: 16.dev.orangedrink.helperspike.helper
+                  URL: Contents/Library/LaunchDaemons/dev.orangedrink.helperspike.helper.plist
+# devid: `run.sh ship devid 1 mmu.local /Applications`, then register, status, dumpbtm, unregister
+## register
+## status
+register failed: Error Domain=SMAppServiceErrorDomain Code=1 "Operation not permitted" UserInfo={NSLocalizedFailureReason=Operation not permitted}
+status requiresApproval
+## BTM
+                 UUID: C4C554D4-4821-4E8E-B90E-E161ECB90FB8
+                 Name: HelperSpikeHelper
+       Developer Name: (null)
+                 Type: daemon (0x10)
+                Flags: [  ] (0)
+          Disposition: [enabled, disallowed, not notified] (0x1)
+           Identifier: 16.dev.orangedrink.helperspike.helper
+                  URL: Contents/Library/LaunchDaemons/dev.orangedrink.helperspike.helper.plist
+      Executable Path: Contents/MacOS/HelperSpikeHelper
+           Generation: 4
+    Parent Identifier: 2.dev.orangedrink.helperspike
+
+
+######## 2. Authentication on mmu, adhoc. The helper is loaded with `run.sh bootstrap` (launchd, the
+######## legacy way, no approval), because nobody could approve on mmu (locked screen). Same helper code.
+# `run.sh ship adhoc 1 mmu.local /Applications`
+== /Applications/HelperSpike.app
+Identifier=dev.orangedrink.helperspike
+CDHash=f253a11cf0faceb81b5b643f1d7a0181f942ebab
+Signature=adhoc
+TeamIdentifier=not set
+# designated => cdhash H"f253a11cf0faceb81b5b643f1d7a0181f942ebab"
+== /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+Identifier=dev.orangedrink.helperspike.helper
+CDHash=b34217cc153dec65e8c65ce7f3426702fee9ee67
+Signature=adhoc
+TeamIdentifier=not set
+# designated => cdhash H"b34217cc153dec65e8c65ce7f3426702fee9ee67"
+== /tmp/orange-admin-helper-b2q.0at/Impostor
+Identifier=dev.orangedrink.helperspike
+CDHash=fed97e60b8e27897cb579c8d0ec8826e8633d365
+Signature=adhoc
+TeamIdentifier=not set
+# designated => cdhash H"fed97e60b8e27897cb579c8d0ec8826e8633d365"
+## bootstrap
+	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
+	state = not running
+	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+## call (app)
+app /Applications/HelperSpike.app
+helper pid=31851 euid=0 identifier=dev.orangedrink.helperspike.helper team=none cdhash=b34217cc153dec65e8c65ce7f3426702fee9ee67
+helper app: /Applications/HelperSpike.app
+helper enforces: cdhash H"f253a11cf0faceb81b5b643f1d7a0181f942ebab"
+caller pid=31846 identifier=dev.orangedrink.helperspike team=none cdhash=f253a11cf0faceb81b5b643f1d7a0181f942ebab
+rc=0
+## impostor
+call failed: domain=NSCocoaErrorDomain code=4097 Couldn’t communicate with a helper application.
+impostor pid 31872
+rc=1
+## call (app) after the impostor
+app /Applications/HelperSpike.app
+helper pid=32363 euid=0 identifier=dev.orangedrink.helperspike.helper team=none cdhash=b34217cc153dec65e8c65ce7f3426702fee9ee67
+helper app: /Applications/HelperSpike.app
+helper enforces: cdhash H"f253a11cf0faceb81b5b643f1d7a0181f942ebab"
+caller pid=32385 identifier=dev.orangedrink.helperspike team=none cdhash=f253a11cf0faceb81b5b643f1d7a0181f942ebab
+rc=0
+## helper-state
+	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
+	state = not running
+	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+		state = active
+		state = active
+# Rebuild: `run.sh ship adhoc 2 mmu.local /Applications` over the loaded helper, then call, impostor, cleanup
+== /Applications/HelperSpike.app
+CDHash=4f9c021bb91ace810f536f06fa11cec426ea0c32
+== /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+CDHash=324ddf7ee01acb1f66fe031d832f3c189e69b1bd
+== /tmp/orange-admin-helper-b2q.0at/Impostor
+CDHash=fed97e60b8e27897cb579c8d0ec8826e8633d365
+## call (rebuilt app; launchd starts the rebuilt helper)
+app /Applications/HelperSpike.app
+helper pid=32951 euid=0 identifier=dev.orangedrink.helperspike.helper team=none cdhash=324ddf7ee01acb1f66fe031d832f3c189e69b1bd
+helper app: /Applications/HelperSpike.app
+helper enforces: cdhash H"4f9c021bb91ace810f536f06fa11cec426ea0c32"
+caller pid=32947 identifier=dev.orangedrink.helperspike team=none cdhash=4f9c021bb91ace810f536f06fa11cec426ea0c32
+rc=0
+## impostor
+call failed: domain=NSCocoaErrorDomain code=4097 Couldn’t communicate with a helper application.
+impostor pid 32965
+rc=1
+launchd has no system/dev.orangedrink.helperspike.helper
+unregistered; status notRegistered
+BTM lists no helperspike
+
+######## 3. Authentication on mmu, devid, the same steps
+# `run.sh ship devid 1 mmu.local /Applications`
+== /Applications/HelperSpike.app
+Identifier=dev.orangedrink.helperspike
+CDHash=85a5505184eee448fa79d2c583ef04f31beb9e9a
+Authority=Developer ID Application: Brandon Fryslie (6R988MUU27)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=6R988MUU27
+designated => anchor apple generic and identifier "dev.orangedrink.helperspike" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "6R988MUU27")
+== /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+Identifier=dev.orangedrink.helperspike.helper
+CDHash=5e69af10c244d1052feb1b84b4f6cc826315dfa5
+Authority=Developer ID Application: Brandon Fryslie (6R988MUU27)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=6R988MUU27
+designated => anchor apple generic and identifier "dev.orangedrink.helperspike.helper" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "6R988MUU27")
+== /tmp/orange-admin-helper-b2q.0at/Impostor
+Identifier=dev.orangedrink.helperspike
+CDHash=639ff9c43e432f462eddd9ed168040027c23f638
+Signature=adhoc
+TeamIdentifier=not set
+# designated => cdhash H"639ff9c43e432f462eddd9ed168040027c23f638"
+## bootstrap
+	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
+	state = not running
+	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+## call (app)
+app /Applications/HelperSpike.app
+helper pid=34646 euid=0 identifier=dev.orangedrink.helperspike.helper team=6R988MUU27 cdhash=5e69af10c244d1052feb1b84b4f6cc826315dfa5
+helper app: /Applications/HelperSpike.app
+helper enforces: anchor apple generic and identifier "dev.orangedrink.helperspike" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "6R988MUU27")
+caller pid=34642 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=85a5505184eee448fa79d2c583ef04f31beb9e9a
+rc=0
+## impostor
+call failed: domain=NSCocoaErrorDomain code=4097 Couldn’t communicate with a helper application.
+impostor pid 34698
+rc=1
+## call (app) after the impostor
+app /Applications/HelperSpike.app
+helper pid=35563 euid=0 identifier=dev.orangedrink.helperspike.helper team=6R988MUU27 cdhash=5e69af10c244d1052feb1b84b4f6cc826315dfa5
+helper app: /Applications/HelperSpike.app
+helper enforces: anchor apple generic and identifier "dev.orangedrink.helperspike" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "6R988MUU27")
+caller pid=35572 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=85a5505184eee448fa79d2c583ef04f31beb9e9a
+rc=0
+# Rebuild: `run.sh ship devid 2 mmu.local /Applications`, call, the helper log for sections 2 and 3, cleanup
+== /Applications/HelperSpike.app
+CDHash=81524e55b62cbe835ed55c15ebceb47d62576cfd
+== /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+CDHash=c40c3b5799f57cc7e367d3827c434d2ce443ebc8
+== /tmp/orange-admin-helper-b2q.0at/Impostor
+CDHash=639ff9c43e432f462eddd9ed168040027c23f638
+## call (rebuilt app; launchd starts the rebuilt helper)
+app /Applications/HelperSpike.app
+helper pid=36167 euid=0 identifier=dev.orangedrink.helperspike.helper team=6R988MUU27 cdhash=c40c3b5799f57cc7e367d3827c434d2ce443ebc8
+helper app: /Applications/HelperSpike.app
+helper enforces: anchor apple generic and identifier "dev.orangedrink.helperspike" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "6R988MUU27")
+caller pid=36163 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=81524e55b62cbe835ed55c15ebceb47d62576cfd
+rc=0
+## log: refusals and accepts, last 6 minutes
+Timestamp               Ty Process[PID:TID]
+2026-10-23 03:46:11.258 E  HelperSpikeHelper[21416:be4a319] (XPCSupport) xpc_support_check_token: <private> error: <private> status: -67050
+2026-10-23 03:46:11.258 Df HelperSpikeHelper[21416:be4a319] [com.apple.xpc:connection] [0x10558ca40] Dropping check-in message due to code signing requirement: <private>
+2026-10-23 03:50:05.360 I  HelperSpikeHelper[31851:be53253] [dev.orangedrink.helperspike:helper] accepted pid 31846 identifier=dev.orangedrink.helperspike team=none cdhash=f253a11cf0faceb81b5b643f1d7a
+2026-10-23 03:50:15.494 E  HelperSpikeHelper[32363:be539c5] (XPCSupport) xpc_support_check_token: <private> error: <private> status: -67050
+2026-10-23 03:50:15.494 Df HelperSpikeHelper[32363:be539c5] [com.apple.xpc:connection] [0x101492640] Dropping check-in message due to code signing requirement: <private>
+2026-10-23 03:50:15.588 I  HelperSpikeHelper[32363:be539c5] [dev.orangedrink.helperspike:helper] accepted pid 32385 identifier=dev.orangedrink.helperspike team=none cdhash=f253a11cf0faceb81b5b643f1d7a
+2026-10-23 03:50:28.524 I  HelperSpikeHelper[32951:be541fe] [dev.orangedrink.helperspike:helper] accepted pid 32947 identifier=dev.orangedrink.helperspike team=none cdhash=4f9c021bb91ace810f536f06fa11
+2026-10-23 03:50:38.679 E  HelperSpikeHelper[33473:be548b8] (XPCSupport) xpc_support_check_token: <private> error: <private> status: -67050
+2026-10-23 03:50:38.679 Df HelperSpikeHelper[33473:be548b8] [com.apple.xpc:connection] [0x101329b60] Dropping check-in message due to code signing requirement: <private>
+2026-10-23 03:50:57.006 I  HelperSpikeHelper[34646:be5586a] [dev.orangedrink.helperspike:helper] accepted pid 34642 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=85a5505184eee448fa79d2
+2026-10-23 03:51:07.187 E  HelperSpikeHelper[35563:be56291] (XPCSupport) xpc_support_check_token: <private> error: <private> status: -67050
+2026-10-23 03:51:07.187 Df HelperSpikeHelper[35563:be56291] [com.apple.xpc:connection] [0x1053db0c0] Dropping check-in message due to code signing requirement: <private>
+2026-10-23 03:51:07.276 I  HelperSpikeHelper[35563:be56291] [dev.orangedrink.helperspike:helper] accepted pid 35572 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=85a5505184eee448fa79d2
+2026-10-23 03:51:20.304 I  HelperSpikeHelper[36167:be56aa1] [dev.orangedrink.helperspike:helper] accepted pid 36163 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=81524e55b62cbe835ed55c
+launchd has no system/dev.orangedrink.helperspike.helper
+unregistered; status notRegistered
+BTM lists no helperspike
+
+######## 4. An earlier revision of the helper, which stayed running after a call (no exit on invalidation):
+######## a helper started before a rebuild, asked by the rebuilt app. adhoc first, then devid.
+# adhoc: app rebuilt from cdhash 960c6591… to 8c5235d7…; helper pid 11257 still enforces the old cdhash
+## helper-state (helper from before the rebuild)
+	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
+	state = running
+	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+	pid = 11257
+		state = active
+		state = active
+## call (rebuilt app, old helper)
+app /Applications/HelperSpike.app
+rc=1
+## stop-helper
+call failed: domain=NSCocoaErrorDomain code=4097 Couldn’t communicate with a helper application.
+	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
+	state = not running
+	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+		state = active
+		state = active
+## call (rebuilt app, launchd starts the helper afresh)
+app /Applications/HelperSpike.app
+helper pid=16456 euid=0 identifier=dev.orangedrink.helperspike.helper team=none cdhash=4726f2963531b5ebd23e4a96ef1a2fa00d3ccf5f
+helper app: /Applications/HelperSpike.app
+helper enforces: cdhash H"8c5235d74390c8807589d56675395619179a24c6"
+caller pid=16451 identifier=dev.orangedrink.helperspike team=none cdhash=8c5235d74390c8807589d56675395619179a24c6
+rc=0
+## impostor
+impostor pid 16476
+rc=1
+## call (app) after the impostor
+call failed: domain=NSCocoaErrorDomain code=4097 Couldn’t communicate with a helper application.
+app /Applications/HelperSpike.app
+helper pid=16456 euid=0 identifier=dev.orangedrink.helperspike.helper team=none cdhash=4726f2963531b5ebd23e4a96ef1a2fa00d3ccf5f
+helper app: /Applications/HelperSpike.app
+helper enforces: cdhash H"8c5235d74390c8807589d56675395619179a24c6"
+caller pid=16486 identifier=dev.orangedrink.helperspike team=none cdhash=8c5235d74390c8807589d56675395619179a24c6
+rc=0
+# its log: the 03:44:39 drop is the rebuilt app, refused by pid 11257
+2026-10-23 03:44:39.898 E  HelperSpikeHelper[11257:be42176] (XPCSupport) xpc_support_check_token: <private> error: <private> status: -67050
+2026-10-23 03:44:39.898 Df HelperSpikeHelper[11257:be42176] [com.apple.xpc:connection] [0x1030d6a80] Dropping check-in message due to code signing requirement: <private>
+2026-10-23 03:44:39.898 Df HelperSpikeHelper[11257:be42176] (libxpc.dylib) Bogus check-in attempt. Ignoring.
+2026-10-23 03:44:41.180 Df HelperSpikeHelper[16456:be4630f] (libxpc.dylib) Code-signing requirement (cdhash H"8c5235d74390c8807589d56675395619179a24c6") set on connection
+2026-10-23 03:44:41.180 I  HelperSpikeHelper[16456:be4630f] [dev.orangedrink.helperspike:helper] helper pid=16456 euid=0 identifier=dev.orangedrink.helperspike.helper team=none cdhash=4726f2963531b5ebd23e4a96ef1a2fa00d3ccf5f app /Applications/HelperSpike.app s
+2026-10-23 03:44:41.186 I  HelperSpikeHelper[16456:be46310] [dev.orangedrink.helperspike:helper] accepted pid 16451 identifier=dev.orangedrink.helperspike team=none cdhash=8c5235d74390c8807589d56675395619179a24c6
+2026-10-23 03:44:41.307 E  HelperSpikeHelper[16456:be46310] (XPCSupport) xpc_support_check_token: <private> error: <private> status: -67050
+2026-10-23 03:44:41.307 Df HelperSpikeHelper[16456:be46310] [com.apple.xpc:connection] [0x101112a80] Dropping check-in message due to code signing requirement: <private>
+2026-10-23 03:44:41.307 Df HelperSpikeHelper[16456:be46310] (libxpc.dylib) Bogus check-in attempt. Ignoring.
+2026-10-23 03:44:41.370 I  HelperSpikeHelper[16456:be46310] [dev.orangedrink.helperspike:helper] accepted pid 16486 identifier=dev.orangedrink.helperspike team=none cdhash=8c5235d74390c8807589d56675395619179a24c6
+# devid: app rebuilt from cdhash e245e8e4… to d27d36ca…, helper from 340d5a2e… to 4a9ae20b…
+## helper-state (helper from before the rebuild)
+	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
+	state = running
+	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+	pid = 21416
+		state = active
+		state = active
+## call (rebuilt app, old helper)
+app /Applications/HelperSpike.app
+helper pid=21416 euid=0 identifier=dev.orangedrink.helperspike.helper team=6R988MUU27 cdhash=340d5a2e5b75e1a26cd65f23d1887e57c9fec614
+helper app: /Applications/HelperSpike.app
+helper enforces: anchor apple generic and identifier "dev.orangedrink.helperspike" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "6R988MUU27")
+caller pid=22150 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=d27d36ca5a306318de459ca31cad4e38486710ef
+rc=0
+## stop-helper
+	path = /private/tmp/orange-admin-helper-b2q.0at/manual.plist
+	state = not running
+	program = /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+		state = active
+		state = active
+## call (rebuilt app, launchd starts the rebuilt helper)
+app /Applications/HelperSpike.app
+helper pid=22248 euid=0 identifier=dev.orangedrink.helperspike.helper team=6R988MUU27 cdhash=4a9ae20bf2f33262eb9498c62dd8275d3cca7d7f
+helper app: /Applications/HelperSpike.app
+helper enforces: anchor apple generic and identifier "dev.orangedrink.helperspike" and (certificate leaf[field.1.2.840.113635.100.6.1.9] /* exists */ or certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "6R988MUU27")
+caller pid=22243 identifier=dev.orangedrink.helperspike team=6R988MUU27 cdhash=d27d36ca5a306318de459ca31cad4e38486710ef
+rc=0
+
+######## 5. SMAppService on the building Mac (SIP enabled), adhoc, final revision. It is still waiting for approval:
+######## the person at the Mac had not turned on HelperSpike in Login Items an hour after register.
+# `run.sh build adhoc 1`, `run.sh place build/HelperSpike-adhoc-1.zip /Applications`, register, status, helper-state
+== /Applications/HelperSpike.app
+CDHash=f253a11cf0faceb81b5b643f1d7a0181f942ebab
+# designated => cdhash H"f253a11cf0faceb81b5b643f1d7a0181f942ebab"
+== /Applications/HelperSpike.app/Contents/MacOS/HelperSpikeHelper
+CDHash=b34217cc153dec65e8c65ce7f3426702fee9ee67
+# designated => cdhash H"b34217cc153dec65e8c65ce7f3426702fee9ee67"
+== /tmp/orange-admin-helper-b2q.0at/Impostor
+CDHash=fed97e60b8e27897cb579c8d0ec8826e8633d365
+# designated => cdhash H"fed97e60b8e27897cb579c8d0ec8826e8633d365"
+## register
+register failed: Error Domain=SMAppServiceErrorDomain Code=1 "Operation not permitted" UserInfo={NSLocalizedFailureReason=Operation not permitted}
+## status
+status requiresApproval
+launchd has no system/dev.orangedrink.helperspike.helper
+# 04:51:25, an hour later: `run.sh status`
+status requiresApproval
