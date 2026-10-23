@@ -275,9 +275,13 @@ struct HelperClient {
     /// Lets go of nothing and has the helper bring CHTE to what its holders want: at launch, this starts the helper,
     /// whose start ends a pause a helper that died left behind.
     func resumeCharging() throws(HelperCallError) {
-        try call { helper, deadline, finish in
-            helper.resumeCharging(until: deadline) { kind, description in finish(HelperCallError.charging(kind: kind, description: description)) }
-        }
+        try call(Self.resume)
+    }
+
+    /// [LAW:one-source-of-truth] The resume message, on whichever connection carries it: its own, or a lease's.
+    fileprivate static func resume(_ helper: PrivilegedHelper, _ deadline: Date,
+                                   _ finish: @escaping @Sendable (Result<Void, HelperCallError>) -> Void) {
+        helper.resumeCharging(until: deadline) { kind, description in finish(HelperCallError.charging(kind: kind, description: description)) }
     }
 
     /// Holds charging paused on a connection kept for it; the lease is that connection. `lost` hears, once, that the
@@ -389,9 +393,7 @@ final class ChargeLease: @unchecked Sendable {
     func release() throws(HelperCallError) {
         stage.withLock { $0 = .ended }
         defer { connection.invalidate() }
-        try HelperClient.send(on: connection, service: service) { helper, deadline, finish in
-            helper.resumeCharging(until: deadline) { kind, description in finish(HelperCallError.charging(kind: kind, description: description)) }
-        }
+        try HelperClient.send(on: connection, service: service, HelperClient.resume)
     }
 
     deinit {

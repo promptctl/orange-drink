@@ -39,10 +39,10 @@ extension ChargingInhibit {
     /// it: how many connections hold a pause, whether a pause of this helper's may be outstanding (the marker, which
     /// outlives the helper), and what CHTE holds now (nil: neither value).
     ///
-    /// A helper ends only a pause it made: with no holder and no marker, CHTE is another writer's and is left alone,
-    /// whatever it holds.
+    /// A helper ends only a pause it made: it marks only with its own write, so a pause already in CHTE stays another
+    /// writer's, and with no holder and no marker CHTE is left alone, whatever it holds.
     static func reconcile(leases: Int, marked: Bool, read: ChargingInhibit?) -> [ChargingStep] {
-        if leases > 0 { return (marked ? [] : [.mark]) + (read == .paused ? [] : [.write(.paused)]) }
+        if leases > 0 { return read == .paused ? [] : (marked ? [] : [.mark]) + [.write(.paused)] }
         guard marked else { return [] }
         return (read == .allowed ? [] : [.write(.allowed)]) + [.unmark]
     }

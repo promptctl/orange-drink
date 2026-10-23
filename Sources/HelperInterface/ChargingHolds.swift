@@ -44,11 +44,11 @@ struct PauseMarkerFile: PauseRecord {
 /// [LAW:single-enforcer] The one owner of CHTE in the helper. It is not thread-safe: the helper reaches it only
 /// through `Confined`, on its one queue of system writes.
 final class ChargingHolds {
-    /// [LAW:types-are-the-program] A Mac that cannot pause charging stays so for the helper's life: nothing reads the
-    /// SMC again, and every call answers with the reason at once.
+    /// [LAW:types-are-the-program] A closed helper touches the SMC no more and answers every call with its failure at
+    /// once, for the rest of its life: unsupported on a Mac that cannot pause charging, failed once it is exiting.
     enum State: Equatable {
         case supported(holders: Set<ObjectIdentifier>)
-        case unsupported(ChargingFailure)
+        case closed(ChargingFailure)
     }
 
     private(set) var state = State.supported(holders: [])
@@ -61,10 +61,15 @@ final class ChargingHolds {
         self.marker = marker
     }
 
-    /// A connection holds charging paused until it resumes, or until it ends.
-    func pause(for holder: ObjectIdentifier) -> Outcome { reconcile("pause", holders: { $0.insert(holder) }) }
+    /// A connection holds charging paused until it resumes, or until it ends. `deadline` is the instant its caller
+    /// stops waiting.
+    func pause(for holder: ObjectIdentifier, by deadline: Date) -> Outcome {
+        reconcile("pause", by: deadline, holders: { $0.insert(holder) })
+    }
 
-    func resume(for holder: ObjectIdentifier) -> Outcome { reconcile("resume", holders: { $0.remove(holder) }) }
+    func resume(for holder: ObjectIdentifier, by deadline: Date) -> Outcome {
+        reconcile("resume", by: deadline, holders: { $0.remove(holder) })
+    }
 
     /// A connection ended, so what it held is let go.
     func drop(_ holder: ObjectIdentifier) -> Outcome { reconcile("connection ended", holders: { $0.remove(holder) }) }
@@ -72,8 +77,12 @@ final class ChargingHolds {
     /// Something may have changed CHTE under the helper: its start, or a power-source change.
     func check(_ trigger: String) -> Outcome { reconcile(trigger, holders: { _ in }) }
 
-    /// The helper is ending on purpose: every hold is let go, so charging is given back before it exits.
-    func end(_ reason: String) -> Outcome { reconcile(reason, holders: { $0.removeAll() }) }
+    /// The helper is ending on purpose: every hold is let go, so charging is given back before it exits, and the
+    /// helper closes, so no call that reaches it before the exit pauses again.
+    func end(_ reason: String) -> Outcome {
+        defer { state = .closed(.failed("not run: \(reason)")) }
+        return reconcile(reason, holders: { $0.removeAll() })
+    }
 
     /// What one reconcile did, as the helper logs it and a call replies with it.
     struct Outcome {
@@ -82,18 +91,29 @@ final class ChargingHolds {
     }
 
     /// [LAW:dataflow-not-control-flow] Every trigger runs the same steps: change the holders, read the marker and
-    /// CHTE, and perform what `ChargingInhibit.reconcile` says; only the holders vary.
-    private func reconcile(_ trigger: String, holders change: (inout Set<ObjectIdentifier>) -> Void) -> Outcome {
+    /// CHTE, and perform what `ChargingInhibit.reconcile` says; only the holders vary. A trigger no caller waits on has
+    /// no deadline.
+    private func reconcile(_ trigger: String, by deadline: Date = .distantFuture,
+                           holders change: (inout Set<ObjectIdentifier>) -> Void) -> Outcome {
         var holders: Set<ObjectIdentifier>
         switch state {
-        case .unsupported(let failure): return Outcome(result: .failure(failure), line: "charging \(trigger): \(failure)")
+        case .closed(let failure): return Outcome(result: .failure(failure), line: "charging \(trigger): \(failure)")
         case .supported(let held): holders = held
+        }
+        // [LAW:single-enforcer] Checked at the call's turn on the write queue, after any wait for it: a caller that
+        // stopped waiting is ending the connection, which lets go of anything it held.
+        let left = deadline.timeIntervalSinceNow
+        guard left > 0 else {
+            let failure = ChargingFailure.failed("not run: the call's deadline passed \((-left).formatted(.number.precision(.fractionLength(1)))) s ago")
+            return Outcome(result: .failure(failure), line: "charging \(trigger): \(failure)")
         }
         change(&holders)
         state = .supported(holders: holders)
-        var marked = false
+        // Whether a pause of ours may be holding CHTE, as far as this reconcile knows.
+        var outstanding = false
         do {
-            marked = try marker.isMarked()
+            let marked = try marker.isMarked()
+            outstanding = marked
             // With no holder and no pause of ours, the rule leaves CHTE alone whatever it holds, so the SMC is not
             // opened: a helper that stays up for Low Power Mode costs a file check per power change, no more.
             guard !holders.isEmpty || marked else {
@@ -101,15 +121,23 @@ final class ChargingHolds {
             }
             let key = try open()
             let read = try key.read()
+            // A refused write changes nothing, so from here a pause of ours holds CHTE only if CHTE is not allowed.
+            outstanding = marked && read.inhibit != .allowed
             let steps = ChargingInhibit.reconcile(leases: holders.count, marked: marked, read: read.inhibit)
             for step in steps { try perform(step, on: key) }
             let did = steps.isEmpty ? "nothing to do" : steps.map(\.text).joined(separator: ", ")
             return Outcome(result: .success(()), line: "charging \(trigger): \(holders.count) holding, marked \(marked), \(ChargingInhibit.key) \(Self.hex(read.bytes)): \(did)")
         } catch {
-            // A Mac that cannot pause stops being asked, but only while no pause of ours may be outstanding: a refusal
-            // met while giving charging back leaves the record, and every later reconcile tries again.
-            if case .unsupported = error, !marked { state = .unsupported(error) }
-            return Outcome(result: .failure(error), line: "charging \(trigger) failed: \(error)")
+            // [LAW:one-source-of-truth] A refusal is this Mac's final answer only while no pause of ours may be holding
+            // CHTE, and only a final one is reported as unsupported, so the app stops asking exactly when the helper
+            // does. A refusal met while a pause of ours may hold is a failure: the record stays, and every later
+            // reconcile tries again.
+            let reported: ChargingFailure = switch error {
+            case .unsupported(let reason) where outstanding: .failed("\(reason); a pause of this helper's may still hold charging, so it is tried again")
+            case .unsupported, .failed: error
+            }
+            if case .unsupported = reported { state = .closed(reported) }
+            return Outcome(result: .failure(reported), line: "charging \(trigger) failed: \(reported)")
         }
     }
 

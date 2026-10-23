@@ -41,7 +41,8 @@ let charging = Confined(ChargingHolds(open: { () throws(ChargingFailure) in try 
 }
 
 /// [LAW:no-ambient-temporal-coupling] Every way the helper ends on purpose comes here, so charging is given back
-/// before the process goes: launchd's stop at the app's unregister, and a rebuild of the helper's own file.
+/// before the process goes: launchd's stop at the app's unregister, and a rebuild of the helper's own file. The
+/// holds close as they give it back, so a call still reaching the helper cannot pause again before the exit.
 func end(_ reason: String) -> Never {
     logged { $0.end("helper exits: \(reason)") }
     exit(0)
@@ -90,24 +91,18 @@ final class Session: NSObject, PrivilegedHelper {
         reply(outcome.failure?.description)
     }
 
+    // [LAW:single-enforcer] As for Low Power Mode, a caller's instant can shorten a charging call's budget, never
+    // stretch it; the holds check it when the call's turn on the write queue comes.
     func pauseCharging(until asked: Date, reply: @escaping @Sendable (Int, String?) -> Void) {
-        let holder = ObjectIdentifier(self)
-        let answer = ChargingFailure.reply(inTime(asked) { logged { $0.pause(for: holder) } })
+        let holder = ObjectIdentifier(self), deadline = min(asked, HelperClient.workEnds())
+        let answer = ChargingFailure.reply(logged { $0.pause(for: holder, by: deadline) })
         reply(answer.kind, answer.description)
     }
 
     func resumeCharging(until asked: Date, reply: @escaping @Sendable (Int, String?) -> Void) {
-        let holder = ObjectIdentifier(self)
-        let answer = ChargingFailure.reply(inTime(asked) { logged { $0.resume(for: holder) } })
+        let holder = ObjectIdentifier(self), deadline = min(asked, HelperClient.workEnds())
+        let answer = ChargingFailure.reply(logged { $0.resume(for: holder, by: deadline) })
         reply(answer.kind, answer.description)
-    }
-
-    /// [LAW:single-enforcer] A charging call that waited past its caller's instant is not run: the caller has stopped
-    /// waiting and is ending the connection, which lets go of anything it held.
-    private func inTime(_ asked: Date, _ work: () -> Result<Void, ChargingFailure>) -> Result<Void, ChargingFailure> {
-        let left = min(asked, HelperClient.workEnds()).timeIntervalSinceNow
-        guard left > 0 else { return .failure(.failed("not run: the call's deadline passed \((-left).formatted(.number.precision(.fractionLength(1)))) s ago")) }
-        return work()
     }
 }
 

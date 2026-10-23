@@ -49,6 +49,55 @@ final class FakeMarker: PauseRecord {
         #expect(ChargingInhibit.reconcile(leases: holders, marked: true, read: .allowed) == [.write(.paused)])
         #expect(ChargingInhibit.reconcile(leases: holders, marked: true, read: .paused) == [])
         #expect(ChargingInhibit.reconcile(leases: holders, marked: true, read: nil) == [.write(.paused)])
+        #expect(ChargingInhibit.reconcile(leases: holders, marked: false, read: nil) == [.mark, .write(.paused)])
+        // A pause already there is another writer's: marking it would make it ours to end.
+        #expect(ChargingInhibit.reconcile(leases: holders, marked: false, read: .paused) == [])
+    }
+
+    /// Two builds' helpers share the one CHTE: a holder of the second does not take over the first's pause, so letting
+    /// go of it does not end that pause.
+    @Test func aHolderLeavesAnotherWritersPauseToItsWriter() {
+        let chte = FakeCHTE(Self.paused), marker = FakeMarker(marked: false)
+        let holds = Self.holds(chte, marker)
+        let lease = FakeLease()
+        _ = holds.pause(for: ObjectIdentifier(lease), by: .distantFuture)
+        _ = holds.drop(ObjectIdentifier(lease))
+        #expect(chte.writes == [] && marker.changes == [] && chte.bytes == Self.paused)
+    }
+
+    @Test func aCallWhoseDeadlinePassedWhileItWaitedIsNotRun() {
+        let chte = FakeCHTE(Self.allowed), marker = FakeMarker(marked: false)
+        let holds = Self.holds(chte, marker)
+        let outcome = holds.pause(for: ObjectIdentifier(FakeLease()), by: Date(timeIntervalSinceNow: -2))
+        #expect(outcome.line.hasPrefix("charging pause: not run: the call's deadline passed 2."))
+        #expect(chte.writes == [] && marker.changes == [] && holds.state == .supported(holders: []))
+    }
+
+    /// A pause the SMC refuses was never written, so the refusal is final even with the record just made; the next
+    /// helper's start clears that record without writing.
+    @Test func aRefusedPauseIsFinalAndItsRecordIsClearedAtTheNextStart() {
+        final class Refusing: ChargeInhibitAccess {
+            var bytes: [UInt8] = [0, 0, 0, 0]
+            func read() throws(ChargingFailure) -> (inhibit: ChargingInhibit?, bytes: [UInt8]) { (ChargingInhibit(bytes: bytes), bytes) }
+            func write(_ inhibit: ChargingInhibit) throws(ChargingFailure) { throw .unsupported("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged)") }
+        }
+        let key = Refusing(), marker = FakeMarker(marked: false)
+        let holds = ChargingHolds(open: { () throws(ChargingFailure) in key }, marker: marker)
+        let refused = ChargingFailure.unsupported("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged)")
+        #expect(holds.pause(for: ObjectIdentifier(FakeLease()), by: .distantFuture).result.failure == refused)
+        #expect(holds.state == .closed(refused))
+        let next = ChargingHolds(open: { () throws(ChargingFailure) in key }, marker: marker)
+        #expect(next.check("helper start").result.failure == nil)
+        #expect(marker.changes == ["mark", "unmark"] && next.state == .supported(holders: []))
+    }
+
+    @Test func aHelperThatEndedPausesNoMore() {
+        let chte = FakeCHTE(Self.allowed), marker = FakeMarker(marked: false)
+        let holds = Self.holds(chte, marker)
+        _ = holds.end("helper exits: SIGTERM")
+        let late = holds.pause(for: ObjectIdentifier(FakeLease()), by: .distantFuture)
+        #expect(late.result.failure == .failed("not run: helper exits: SIGTERM"))
+        #expect(chte.writes == [] && marker.changes == [])
     }
 
     @Test func withNoHolderOnlyAPauseOfOursIsEnded() {
@@ -90,7 +139,8 @@ final class FakeMarker: PauseRecord {
         }
         let key = Flaky(), marker = FakeMarker(marked: true)
         let holds = ChargingHolds(open: { () throws(ChargingFailure) in key }, marker: marker)
-        #expect(holds.check("helper start").result.failure != nil)
+        // Reported as a failure, not as this Mac's final answer, so the app asks again too.
+        #expect(holds.check("helper start").result.failure == .failed("write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged); a pause of this helper's may still hold charging, so it is tried again"))
         #expect(holds.state == .supported(holders: []) && marker.marked)
         key.refuse = false
         _ = holds.end("helper exits: SIGTERM")
@@ -113,10 +163,10 @@ final class FakeMarker: PauseRecord {
         let leases = (FakeLease(), FakeLease())
         let first = ObjectIdentifier(leases.0), second = ObjectIdentifier(leases.1)
         defer { withExtendedLifetime(leases) {} }
-        _ = holds.pause(for: first)
-        _ = holds.pause(for: second)
+        _ = holds.pause(for: first, by: .distantFuture)
+        _ = holds.pause(for: second, by: .distantFuture)
         #expect(chte.writes == [.paused] && marker.changes == ["mark"])
-        _ = holds.resume(for: first)
+        _ = holds.resume(for: first, by: .distantFuture)
         #expect(chte.writes == [.paused])
         // The firmware let charging run again under a holder: the next power change puts the pause back.
         chte.bytes = Self.allowed
@@ -130,7 +180,7 @@ final class FakeMarker: PauseRecord {
     @Test func endingLetsGoOfEveryHolder() {
         let chte = FakeCHTE(Self.allowed), marker = FakeMarker(marked: false)
         let holds = Self.holds(chte, marker)
-        _ = holds.pause(for: ObjectIdentifier(FakeLease()))
+        _ = holds.pause(for: ObjectIdentifier(FakeLease()), by: .distantFuture)
         #expect(holds.end("helper exits: SIGTERM").line == "charging helper exits: SIGTERM: 0 holding, marked true, CHTE 01000000: allowed, unmarked")
         #expect(chte.bytes == Self.allowed && !marker.marked)
     }
@@ -152,11 +202,11 @@ final class FakeMarker: PauseRecord {
             throw .unsupported("read CHTE: SMC result 0x84 (key not found)")
         }, marker: FakeMarker(marked: false))
         _ = holds.check("helper start")
-        let paused = holds.pause(for: ObjectIdentifier(FakeLease()))
+        let paused = holds.pause(for: ObjectIdentifier(FakeLease()), by: .distantFuture)
         _ = holds.check("power source changed")
         #expect(opens.count == 1)
         #expect(paused.result.failure == .unsupported("read CHTE: SMC result 0x84 (key not found)"))
-        #expect(holds.state == .unsupported(.unsupported("read CHTE: SMC result 0x84 (key not found)")))
+        #expect(holds.state == .closed(.unsupported("read CHTE: SMC result 0x84 (key not found)")))
     }
 
     @Test func aCHTEOfAnyOtherShapeIsAMacThatCannotPause() throws {
