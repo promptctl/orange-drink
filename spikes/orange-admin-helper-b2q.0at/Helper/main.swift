@@ -12,6 +12,8 @@ func fail(_ message: String) -> Never {
 
 /// [LAW:one-source-of-truth] The peer requirement is the app's own designated requirement, read off
 /// its signature at launch: `cdhash H"…"` for an ad-hoc app, its identifier and team for a Developer ID one.
+/// For an ad-hoc app that pins whatever bundle is at this path when the helper launches, so anyone who can
+/// rewrite the path chooses whom the root helper trusts; only the Developer ID requirement pins a signer.
 func designatedRequirement(of app: URL) -> String {
     var code: SecStaticCode?
     var requirement: SecRequirement?
@@ -56,14 +58,33 @@ final class Session: NSObject, HelperProtocol {
     }
 }
 
+/// The helper exits once it has held no accepted connection for `idle`, counted from launch too, and
+/// launchd starts it again for the next caller. So a call is answered by the helper and requirement
+/// now on disk, not by one started before a rebuild, including one launched only for a refused
+/// caller, which never reaches the delegate. A connection still being served keeps it alive.
+final class Lifetime: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "lifetime")
+    private let idle: DispatchTimeInterval = .seconds(2)
+    private var open = 0  // read and written only on `queue`
+
+    func opened() { queue.async { self.open += 1 } }
+    func closed() { queue.async { self.open -= 1; self.exitWhenIdle() } }
+    func launched() { queue.async { self.exitWhenIdle() } }
+
+    private func exitWhenIdle() {
+        queue.asyncAfter(deadline: .now() + idle) { if self.open == 0 { exit(0) } }
+    }
+}
+
+let lifetime = Lifetime()
+
 final class Listener: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         log.info("accepted pid \(connection.processIdentifier) \(signing(ofPid: connection.processIdentifier), privacy: .public)")
         connection.exportedInterface = NSXPCInterface(with: HelperProtocol.self)
         connection.exportedObject = Session(peer: connection.processIdentifier)
-        // One call per connection; launchd starts the helper again on the next, so every call is
-        // answered by the helper now on disk, never by one started before a rebuild.
-        connection.invalidationHandler = { exit(0) }
+        lifetime.opened()
+        connection.invalidationHandler = { lifetime.closed() }
         connection.resume()
         return true
     }
@@ -74,5 +95,6 @@ let listener = NSXPCListener(machServiceName: service)
 listener.setConnectionCodeSigningRequirement(requirement)
 listener.delegate = delegate
 listener.resume()
+lifetime.launched()
 log.info("\(me, privacy: .public) app \(app.path, privacy: .public) service \(service, privacy: .public) enforces \(requirement, privacy: .public)")
 dispatchMain()

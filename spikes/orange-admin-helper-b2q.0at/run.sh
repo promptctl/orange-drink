@@ -54,12 +54,13 @@ ship() {
   zip=$(build "$1" "$2")
   ssh "$3" mkdir -p "$remote_dir"
   scp -q "$zip" "$here/run.sh" "$3:$remote_dir/"
-  ssh "$3" bash "$remote_dir/run.sh" place "$remote_dir/$(basename "$zip")" "$4"
+  # ssh joins its arguments into one remote command line, so each is quoted for the remote shell.
+  ssh "$3" bash "$remote_dir/run.sh" place "$(printf %q "$remote_dir/$(basename "$zip")")" "$(printf %q "$4")"
 }
 
 place() {
   mkdir -p "$2"
-  rm -rf "$2/HelperSpike.app" "$remote_dir/Impostor"
+  rm -rf "$2/HelperSpike.app" "$remote_dir/Impostor" "$remote_dir/unpacked"
   ditto -x -k "$1" "$remote_dir/unpacked"
   mv "$remote_dir/unpacked/HelperSpike.app" "$2/"
   mv "$remote_dir/unpacked/Impostor" "$remote_dir/"
@@ -96,10 +97,7 @@ status() { run_app status; }
 unregister() { run_app unregister; }
 call() { run_app call; }
 
-# The Mach service is the one key of the plist's MachServices.
-service() { /usr/libexec/PlistBuddy -c 'Print :MachServices' "$(app)"/Contents/Library/LaunchDaemons/*.plist | awk '$2 == "=" { print $1 }'; }
-
-impostor() { "$remote_dir/Impostor" "$(service)"; }
+impostor() { "$remote_dir/Impostor" "$(app)"; }
 
 helper-state() {
   launchctl print "system/$(label)" 2>&1 | grep -E '^\s+(state|pid|program|path) =' || echo "launchd has no system/$(label)"
@@ -142,12 +140,14 @@ uninstall() {
   rm -f "$placed_file" "$remote_dir/Impostor"
   # Reading BTM takes root; where sudo needs a password, unregister's status is the evidence.
   if ! sudo -n true 2>/dev/null; then echo "BTM unread: sudo needs a password here"; return; fi
-  if sudo -n sfltool dumpbtm | grep -q helperspike; then
-    echo "BTM still lists helperspike:" >&2
-    sudo -n sfltool dumpbtm | grep -B3 -A12 helperspike >&2
-    exit 1
-  fi
-  echo "BTM lists no helperspike"
+  # Read whole first: `grep -q` stops at the first match, and under pipefail the writer's SIGPIPE
+  # would turn a match into the pipeline's failure.
+  # BTM keeps a daemon's record after unregister and after the app is deleted; what must not survive
+  # into the next variant is an approval, so every HelperSpikeHelper record has to read "disallowed".
+  btm=$(sudo -n sfltool dumpbtm)
+  dispositions=$(awk '/Name: HelperSpikeHelper$/ { found = 1 } found && /Disposition:/ { print; found = 0 }' <<<"$btm")
+  echo "BTM HelperSpikeHelper records: ${dispositions:-none}"
+  if grep -v -q disallowed <<<"$dispositions"; then echo "a HelperSpikeHelper record is still allowed" >&2; exit 1; fi
 }
 
 command=${1:?"usage: run.sh build|ship|place|register|status|unregister|call|impostor|helper-state|stop-helper|uninstall (see the top of run.sh)"}

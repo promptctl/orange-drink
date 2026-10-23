@@ -12,7 +12,8 @@ Run in this order. The first step runs on a Mac that holds the Developer ID iden
 
 1. `./run.sh ship adhoc|devid VERSION HOST DIR` (or `build`, then `place` on the same Mac). This places the app in `DIR` and
    prints the signatures and designated requirements of the app, the helper and the impostor.
-2. `run.sh register`, then `run.sh status`. Approve HelperSpike under System Settings › General › Login Items &
+2. `run.sh register`, then `run.sh status`. Until the daemon is approved, `register` fails with SMAppServiceErrorDomain 1
+   "Operation not permitted" and `status` says `requiresApproval`. `status` is the evidence. Approve HelperSpike under System Settings › General › Login Items &
    Extensions › Allow in the Background, then run `status` again.
 3. `run.sh call`, then `run.sh impostor`, then `run.sh call`.
 4. Rebuild by re-running step 1 with the next VERSION and the same `DIR`, then `run.sh status` and `run.sh call`.
