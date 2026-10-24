@@ -13,6 +13,15 @@ enum UsbmuxFrameError: Error, Equatable {
     case noPairRecord
 }
 
+/// One request to usbmuxd: its MessageType and fields, with the client's name and the protocol version every request
+/// carries. Version 3 is what makes Listen report Wi-Fi devices: without it usbmuxd sends a Listen client only USB
+/// attaches and detaches, so a Wi-Fi device's arrivals and departures never reach the monitor, and ListDevices is the
+/// only place it ever shows up (orange-iphone-watch-lm3.1tt hardware runs, 2026-10-23).
+func usbmuxMessage(_ type: String, _ fields: [String: Any] = [:]) -> [String: Any] {
+    fields.merging(["MessageType": type, "ClientVersionString": "orange-drink", "ProgName": "orange-drink",
+                    "kLibUSBMuxVersion": 3]) { _, request in request }
+}
+
 /// How usbmuxd reaches a device: the cable, or Wi-Fi sync (Finder's "Show this iPhone when on Wi-Fi").
 enum Transport: Equatable, Sendable {
     case usb

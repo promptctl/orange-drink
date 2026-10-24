@@ -304,7 +304,7 @@ func usbmuxRequest(_ body: [String: Any]) throws(IPhoneReadError) -> [String: An
 
 /// Every device usbmuxd has attached now, over the cable or Wi-Fi.
 func usbmuxListDevices() throws(IPhoneReadError) -> [AttachedDevice] {
-    let reply = try usbmuxRequest(["MessageType": "ListDevices", "ClientVersionString": "orange-drink", "ProgName": "orange-drink"])
+    let reply = try usbmuxRequest(usbmuxMessage("ListDevices"))
     return try typedReadErrors { try usbmuxDeviceList(reply) }
 }
 
@@ -314,8 +314,7 @@ func usbmuxListen() throws(IPhoneReadError) -> TimedSocket {
     try typedReadErrors {
         let socket = try openUsbmux()
         let deadline = Deadline(after: callDeadline)
-        try sendUsbmux(socket, ["MessageType": "Listen", "ClientVersionString": "orange-drink", "ProgName": "orange-drink"],
-                       until: deadline)
+        try sendUsbmux(socket, usbmuxMessage("Listen"), until: deadline)
         try usbmuxCheckResult(try readUsbmuxFrame(socket, until: deadline))
         return socket
     }
@@ -328,9 +327,8 @@ func usbmuxConnect(handle: Int, port: Int) throws(IPhoneReadError) -> TimedSocke
     return try typedReadErrors {
         let socket = try openUsbmux()
         let deadline = Deadline(after: callDeadline)
-        try sendUsbmux(socket, ["MessageType": "Connect", "DeviceID": handle,
-                                "PortNumber": Int(wirePort.bigEndian),
-                                "ClientVersionString": "orange-drink", "ProgName": "orange-drink"], until: deadline)
+        try sendUsbmux(socket, usbmuxMessage("Connect", ["DeviceID": handle, "PortNumber": Int(wirePort.bigEndian)]),
+                       until: deadline)
         try usbmuxCheckResult(try readUsbmuxFrame(socket, until: deadline))
         return socket
     }
@@ -435,8 +433,7 @@ private func openLockdown(handle: Int, udid: String) throws -> Lockdown {
     // the host key into a keychain. Checked first, so the pair record's private key is never loaded on a Mac that
     // cannot use it. Whether the deployment target moves to 15 is the owner's call.
     guard #available(macOS 15.0, *) else { throw IPhoneReadError.unsupported("reading an iPhone needs macOS 15") }
-    let record = try usbmuxRequest(["MessageType": "ReadPairRecord", "PairRecordID": udid,
-                                    "ClientVersionString": "orange-drink", "ProgName": "orange-drink"])
+    let record = try usbmuxRequest(usbmuxMessage("ReadPairRecord", ["PairRecordID": udid]))
     let pair = try plistDictionary(try usbmuxPairRecord(record))
     guard let hostID = pair["HostID"] as? String, let systemBUID = pair["SystemBUID"] as? String,
           let certPEM = pair["HostCertificate"] as? Data, let keyPEM = pair["HostPrivateKey"] as? Data else {

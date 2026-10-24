@@ -36,6 +36,19 @@ import Testing
         #expect(throws: UsbmuxFrameError.lengthOutOfRange(4)) { try reader.next() }
     }
 
+    // Without protocol version 3, usbmuxd sends a Listen client USB attaches only, and a Wi-Fi device's arrival never
+    // reaches the monitor (lm3.1tt hardware runs, 2026-10-23). A request's own fields never override the client's.
+    @Test func everyRequestAsksForTheProtocolThatReportsWiFiDevices() {
+        let listen = usbmuxMessage("Listen")
+        #expect(listen["MessageType"] as? String == "Listen")
+        #expect(listen["kLibUSBMuxVersion"] as? Int == 3)
+        let connect = usbmuxMessage("Connect", ["DeviceID": 7, "PortNumber": 32498, "MessageType": "Listen"])
+        #expect(connect["MessageType"] as? String == "Connect")
+        #expect(connect["DeviceID"] as? Int == 7)
+        #expect(connect["PortNumber"] as? Int == 32498)
+        #expect(connect["kLibUSBMuxVersion"] as? Int == 3)
+    }
+
     @Test func attachedUSBAndNetworkDevicesDecode() throws {
         let usb = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 7,
                                    "Properties": ["ConnectionType": "USB", "SerialNumber": "UDID-1"]])
