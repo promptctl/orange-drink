@@ -9,13 +9,13 @@ CH0E hex_ 8 0000000000000000
 CH0H ui64 8 0000000000000000
 CH0J refused: keyInfo CH0J: kern_return 0xe00002c1 (kIOReturnNotPrivileged)
 CH0R hex_ 4 00000000
-CH0V ui32 4 692c0000
+CH0V ui32 4 492d0000
 CHA1 ui32 4 a0100000
 CHA2 ui32 4 00000000
 CHAI ui32 4 00000000
 CHAS ui32 4 a0100000
-CHBI ui32 4 0c180000
-CHBV ui32 4 fd0e0000
+CHBI ui32 4 2b170000
+CHBV ui32 4 750f0000
 CHCC ui8  1 01
 CHCE ui8  1 01
 CHCF hex_ 1 03
@@ -40,7 +40,7 @@ CHLT hex_ 3 000000
 CHM2 hex_ 12 000000000000000000000000
 CHNC hex_ 8 0000000000000000
 CHND refused: read CHND: SMC result 0x85
-CHNI si32 4 6f190000
+CHNI si32 4 b6130000
 CHOC ui32 4 00000000
 CHPS ui32 4 01000000
 CHRT ui8  1 00
@@ -56,7 +56,7 @@ CHTM ui32 4 00000000
 CHTU ui32 4 04100000
 bfD0 hex_ 2 0000
 Charge Limit policy: no charge policy
-00:18:04 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000000000
+12:00:11 IsCharging=1 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=4230 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=5931 CHNC=0000000000000000
 CHTE ui32 4 00000000
 pause key CHTE: baseline 00000000, pause value 01000000
 manual restore if this run dies uncaught: sudo /Users/bmf/code/orange-drink/.claude/worktrees/spike-16g/spikes/orange-admin-helper-b2q.16g/build/smc write CHTE 00000000
@@ -67,609 +67,248 @@ CHTE after the unprivileged attempt: 00000000 (baseline 00000000)
 
 == 2. pause: write CHTE 01000000 as root; the writer exits before anything is observed
 wrote CHTE 01000000
-00:18:04 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000000000
-00:18:09 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:14 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:19 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:24 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:29 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:34 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:40 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:45 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:50 IsCharging=1 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=4929 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6008 CHNC=0000000000008000
-00:18:55 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:18:55 reached: charging stopped
+12:00:11 IsCharging=1 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=4230 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=5931 CHNC=0000000000000000
+12:00:16 IsCharging=1 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=4230 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=5931 CHNC=0000000000008000
+12:00:21 IsCharging=1 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=4230 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=5931 CHNC=0000000000008000
+12:00:26 IsCharging=0 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
+12:00:26 reached: charging stopped
 
 == 3a. unplug the charger now, and leave it out until told
-00:18:55 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:00 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:05 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:11 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:16 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:21 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:26 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:31 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:36 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:42 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:47 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:52 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:19:57 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:02 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:07 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:12 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:17 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:22 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:27 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:32 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:38 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:43 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:48 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:53 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:20:58 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:03 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:08 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:13 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:18 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:23 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:28 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:34 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:39 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:44 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:49 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:54 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:59 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-00:21:59 deadline: unplugged
-event not driven: unplug
+12:00:26 IsCharging=0 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
+12:00:31 IsCharging=0 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
+12:00:36 IsCharging=0 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000
+12:00:41 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000
+12:00:41 reached: unplugged
+12:00:41 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000 CHTE=01000000
+12:00:46 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000 CHTE=01000000
+12:00:51 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000 CHTE=01000000
+12:00:56 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000 CHTE=01000000
+12:01:01 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000 CHTE=01000000
+12:01:06 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000 CHTE=01000000
+
+== 3a. plug the charger back in
+12:01:11 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000
+12:01:16 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000
+12:01:21 IsCharging=0 ExternalConnected=0 CurrentCapacity=13 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=8000000000008000
+12:01:26 IsCharging=0 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=-2610 NotChargingReason=36028797018964096 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
+12:01:26 reached: replugged
+12:01:26 IsCharging=0 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=-2610 NotChargingReason=36028797018964096 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:01:31 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:01:36 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:01:41 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:01:46 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:01:51 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
 
 == 3b. sleep, woken by the machine 40 s later
 Sleeping now...
-00:23:01 reached: woke
-00:23:02 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:23:07 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:23:12 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:23:17 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:23:22 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:23:27 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:02:06 reached: woke
+12:02:06 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:02:11 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:02:16 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:02:21 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:02:26 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:02:31 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
 
 == 3c. Charge Limit off and on again, in System Settings > Battery > Charging
-Charge Limit turned off, then press Return: 00:27:36 Charge Limit turned off: policy "drain" => true  "isEndOfCharge" => true  "noChargeToFull" => false  "soclimit" => 80  "terminated" => false  3 => "manualChargeLimit"  
-00:27:39 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:27:51 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:27:59 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-00:28:06 IsCharging=0 ExternalConnected=1 CurrentCapacity=4 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-Charge Limit turned back on, then press Return: 11:52:01 Charge Limit turned back on: policy no charge policy
-11:52:01 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-11:52:07 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-11:52:12 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-11:52:17 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-11:52:22 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
-11:52:27 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+Charge Limit turned off, then press Return: 12:03:13 Charge Limit turned off: policy "drain" => true  "isEndOfCharge" => true  "noChargeToFull" => false  "soclimit" => 95  "terminated" => false  3 => "manualChargeLimit"  
+12:03:13 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:03:18 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:03:23 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:03:28 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:03:33 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:03:38 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+Charge Limit turned back on, then press Return: 12:03:48 Charge Limit turned back on: policy "drain" => true  "isEndOfCharge" => true  "noChargeToFull" => false  "soclimit" => 95  "terminated" => false  3 => "manualChargeLimit"  
+12:03:48 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:03:53 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:03:58 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:04:03 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:04:08 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
+12:04:13 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000 CHTE=01000000
 
 == 4. resume: write the baseline back
 CHTE holds 01000000 before resume (wrote 01000000)
 wrote CHTE 00000000
-11:52:33 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
-11:52:38 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
-11:52:43 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
-11:52:48 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
-11:52:53 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
-11:52:58 IsCharging=0 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
-11:53:03 IsCharging=1 ExternalConnected=1 CurrentCapacity=7 InstantAmperage=4184 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=6321 CHNC=0000000000000000
-11:53:03 reached: charging resumed
+12:04:18 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000008000
+12:04:23 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:04:28 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:04:33 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:04:38 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:04:43 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:04:48 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:04:53 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:04:58 IsCharging=0 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=0 NotChargingReason=36028797018963968 ChargerInhibitReason=0 ChargingCurrent=0 CHNC=0000000000000000
+12:05:03 IsCharging=1 ExternalConnected=1 CurrentCapacity=14 InstantAmperage=4499 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=5675 CHNC=0000000000000000
+12:05:03 reached: charging resumed
 
 == powerd and PowerUIAgent on charging, for the whole run
-2026-10-24 00:18:23.700 Df powerd[339:19c9c80b] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:18:29.733 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:18:53.045 Df powerd[339:19ca4682] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:21:02.258 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:utilities] Concatenated 0 events
-2026-10-24 00:21:02.303 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:utilities] timeline event exists: (null)
-2026-10-24 00:21:02.723 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Legitimate Usage = 1
-2026-10-24 00:21:12.354 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Plugin date set to <private>, plugin battery level to 3
-2026-10-24 00:21:12.675 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:desktopModeModel] Plugin date set to <private>, plugin battery level to 3
-2026-10-24 00:21:12.726 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Reported Plugin Metrics to CoreAnalytics <private>
-2026-10-24 00:21:14.957 Df PowerUIAgent[410:19cb3b03] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:21:14.957 Df PowerUIAgent[410:19cb3b03] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:21:14.958 Df PowerUIAgent[410:19cb3b03] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:21:14.958 Df PowerUIAgent[410:19cb3b03] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:21:14.959 Df powerd[339:19cb3e7e] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:21:22.816 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:utilities] Not desktop device: 0.54 < 0.95
-2026-10-24 00:21:22.816 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Next desktop evaluation date Sun Oct 25 00:21:22 2026
-2026-10-24 00:21:22.816 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Reported Desktop mode evaluation event to CoreAnalytics <private>
-2026-10-24 00:21:23.791 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Desktop model returned NonDesktop Mode
-2026-10-24 00:21:42.150 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:analyticsmanager] Sent engagementEvent: EventType: 6 - Mode: 6 - SoC: 4 - TargetSoC: 100 - PredictedEoC: 0.000000
-2026-10-24 00:22:01.771 E  PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:trialmanager] No feature factor found for feature: useSleepBasedPredictor
-2026-10-24 00:22:01.771 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:chargingcontroller] Did not get string value for key chargeTokenMCL
-2026-10-24 00:22:03.792 Df powerd[339:19cb92c6] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:22:08.161 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:chargingcontroller] Created new charge limit token: <private> for reason: manualChargeLimit
-2026-10-24 00:22:08.322 Df powerd[339:19cb92c6] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:22:08.324 Df powerd[339:19cb92c6] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:08.328 Df powerd[339:19cb92c6] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:08.329 Df powerd[339:19cb92c6] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:22:08.329 Df powerd[339:19cb92c6] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:22:08.676 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:chargingcontroller] Limited charging to 80% for reason 'manualChargeLimit'
-2026-10-24 00:22:08.676 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:22:08.676 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:22:08.676 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:22:08.729 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:22:08.921 Df powerd[339:19cba6c3] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 00:22:08.954 Df powerd[339:19cb59e8] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:22:08.954 Df powerd[339:19cba6c3] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Charging VBUS:1 UISOC:4 CHNC:80000000000000 Type:2 TLC:Sat Oct 24 00:21:53 2026
-2026-10-24 00:22:08.955 Df PowerUIAgent[410:19cb4c29] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:22:08.955 Df PowerUIAgent[410:19cb4c29] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:22:08.957 Df powerd[339:19cb59e8] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:22:09.175 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:22:13.186 Df powerd[339:19cba6c3] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:22:14.328 Df powerd[339:19cba6c3] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:14.328 Df powerd[339:19cba6c3] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:14.328 Df powerd[339:19cba6c3] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:22:14.328 Df powerd[339:19cba6c3] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:22:15.086 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:22:15.086 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:22:15.087 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:22:15.811 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:22:16.194 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:22:17.261 Df powerd[339:19cba6c3] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:22:17.365 Df powerd[339:19cba6c3] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:17.390 Df powerd[339:19cba6c3] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:17.485 Df powerd[339:19cba6c3] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:22:17.638 Df powerd[339:19cba6c3] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:22:18.076 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:22:18.076 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:22:18.076 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:22:18.120 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:22:18.256 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:22:18.346 Df powerd[339:19cba6c3] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:22:18.349 Df powerd[339:19cba6c3] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:18.350 Df powerd[339:19cba6c3] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:18.350 Df powerd[339:19cba6c3] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:22:18.350 Df powerd[339:19cba6c3] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:22:18.866 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:22:18.866 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:22:18.866 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:22:18.967 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:22:19.069 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:22:19.086 Df powerd[339:19cb59e8] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:22:19.099 Df powerd[339:19cb59e8] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:19.099 Df powerd[339:19cb59e8] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:19.099 Df powerd[339:19cb59e8] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:22:19.099 Df powerd[339:19cb59e8] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:22:19.306 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:22:19.306 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:22:19.306 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:22:19.386 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:22:19.450 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:22:19.529 Df powerd[339:19cb59e8] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:22:19.532 Df powerd[339:19cb59e8] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:19.559 Df powerd[339:19cb59e8] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:22:19.560 Df powerd[339:19cb59e8] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:22:19.560 Df powerd[339:19cb59e8] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:22:20.126 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:22:20.126 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:22:20.126 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:22:21.285 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:22:45.356 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:sleepwakemonitor] Next wake request with checkpoint = 0, battery level = 4, isExternalConnected = 1, fullChargeDeadline = (null)
-2026-10-24 00:22:45.356 Df PowerUIAgent[410:19c9cfcd] [com.apple.powerui.smartcharging:sleepwakemonitor] Wake Date: Sat Oct 24 01:38:45 2026
-2026-10-24 00:23:21.280 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:23:23.833 Df powerd[339:19cc4aae] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:23:23.834 Df powerd[339:19cc4aae] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:23:23.834 Df powerd[339:19cc4aae] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:23:23.834 Df powerd[339:19cc4aae] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:23:23.834 Df powerd[339:19cc4aae] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:23:38.959 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:23:39.756 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:23:39.756 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:23:43.522 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:23:46.530 Df powerd[339:19cc4aae] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:24:07.092 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:24:07.092 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:24:08.930 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:24:10.013 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:24:20.504 Df powerd[339:19cc940f] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:24:59.846 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:24:59.847 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:24:59.849 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:24:59.849 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:24:59.850 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:24:59.851 Df powerd[339:19cd1f21] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:24:59.852 Df powerd[339:19cce5d5] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 00:24:59.852 Df powerd[339:19cce5d5] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Disconnected VBUS:0 UISOC:4 CHNC:80000000000000 Type:0 TLC:Sat Oct 24 00:24:59 2026
-2026-10-24 00:24:59.850 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:24:59.856 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:24:59.856 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:24:59.861 Df powerd[339:19cd3718] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 00:17:48 2026
-2026-10-24 00:24:59.888 Df powerd[339:19cd3717] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:24:59.890 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:24:59.890 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:24:59.896 Df powerd[339:19cd3718] [com.apple.powerd:batterygauging] Last full charge date was 6.0 days ago too recent
-2026-10-24 00:24:59.896 Df powerd[339:19cd3718] [com.apple.powerd:batterygauging] Charge To Full Request:0
-2026-10-24 00:24:59.899 Df powerd[339:19cd312f] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 0
-2026-10-24 00:25:07.230 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:07.230 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:07.232 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:07.228 Df powerd[339:19cd312f] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:07.233 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:07.238 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:07.230 Df powerd[339:19cd312f] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 00:25:07.231 Df powerd[339:19cd312f] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Charging VBUS:1 UISOC:4 CHNC:80000000000080 Type:0 TLC:Sat Oct 24 00:25:07 2026
-2026-10-24 00:25:07.238 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:07.240 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:07.235 Df powerd[339:19cd312f] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:07.239 Df powerd[339:19cd312f] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:07.242 Df powerd[339:19cd371b] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:07.240 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:07.243 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:07.243 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:07.285 Df powerd[339:19cd392d] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:07.290 Df powerd[339:19cd392d] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:07.293 Df powerd[339:19cd392d] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:07.599 Df powerd[339:19cd371b] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 00:24:59 2026
-2026-10-24 00:25:07.640 Df powerd[339:19cd371b] [com.apple.powerd:batterygauging] Last full charge date was 6.0 days ago too recent
-2026-10-24 00:25:07.640 Df powerd[339:19cd371b] [com.apple.powerd:batterygauging] Charge To Full Request:0
-2026-10-24 00:25:07.666 Df powerd[339:19cd312f] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 0
-2026-10-24 00:25:25.961 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:25:33.907 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:33.908 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:33.910 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:33.911 Df PowerUIAgent[410:19cd3722] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:33.912 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:33.912 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:33.913 Df powerd[339:19cd4239] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:33.915 Df powerd[339:19cd4238] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 00:25:07 2026
-2026-10-24 00:25:33.916 Df powerd[339:19cd392f] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 00:25:33.916 Df powerd[339:19cd392f] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Disconnected VBUS:0 UISOC:4 CHNC:80000000000000 Type:0 TLC:Sat Oct 24 00:25:33 2026
-2026-10-24 00:25:33.919 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:33.920 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:33.956 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:33.955 Df powerd[339:19cd392f] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:33.956 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:33.981 Df powerd[339:19cd4238] [com.apple.powerd:batterygauging] Last full charge date was 6.0 days ago too recent
-2026-10-24 00:25:33.981 Df powerd[339:19cd4238] [com.apple.powerd:batterygauging] Charge To Full Request:0
-2026-10-24 00:25:34.013 Df powerd[339:19cd4197] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 0
-2026-10-24 00:25:37.618 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:37.618 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:37.621 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:37.613 Df powerd[339:19cd4197] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:37.618 Df powerd[339:19cd4197] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 00:25:37.618 Df powerd[339:19cd4197] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Charging VBUS:1 UISOC:4 CHNC:80000000000080 Type:0 TLC:Sat Oct 24 00:25:37 2026
-2026-10-24 00:25:37.623 Df powerd[339:19cd4197] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:37.621 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:37.629 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:37.629 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:37.631 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:37.631 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:37.630 Df powerd[339:19cd371a] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:37.632 Df powerd[339:19cd4239] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:37.632 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 00:25:37.633 Df PowerUIAgent[410:19cd423c] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 00:25:37.670 Df powerd[339:19cd4239] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:37.678 Df powerd[339:19cd371a] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:37.682 Df powerd[339:19cd436a] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 00:25:37.830 Df powerd[339:19cd4197] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 00:25:33 2026
-2026-10-24 00:25:37.840 Df powerd[339:19cd4197] [com.apple.powerd:batterygauging] Last full charge date was 6.0 days ago too recent
-2026-10-24 00:25:37.840 Df powerd[339:19cd4197] [com.apple.powerd:batterygauging] Charge To Full Request:0
-2026-10-24 00:25:37.847 Df powerd[339:19cd371b] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 0
-2026-10-24 00:25:54.097 Df powerd[339:19cd371b] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:25:54.097 Df powerd[339:19cd371b] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:25:54.097 Df powerd[339:19cd371b] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:25:54.097 Df powerd[339:19cd371b] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:25:54.097 Df powerd[339:19cd371b] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:26:40.717 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:26:42.024 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:26:42.024 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:27:59.750 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:28:14.814 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:29:10.660 Df powerd[339:19cd8add] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:29:11.902 Df powerd[339:19cd8add] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:29:14.133 Df powerd[339:19cd8add] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:29:14.979 Df powerd[339:19cd8add] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:29:15.833 Df powerd[339:19cd8add] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:29:41.920 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:29:41.920 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:29:41.920 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:29:54.448 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:30:29.094 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:30:35.689 Df powerd[339:19cdb7d6] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:30:36.062 Df powerd[339:19cdb7d6] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:30:37.317 Df powerd[339:19cdb7d6] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:30:38.052 Df powerd[339:19cdb7d6] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:30:38.514 Df powerd[339:19cdb7d6] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:30:49.057 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:30:49.057 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:30:49.057 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:30:58.514 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:31:02.287 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:31:08.422 Df powerd[339:19cdbc2e] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:31:08.423 Df powerd[339:19cdbc2e] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:31:08.423 Df powerd[339:19cdbc2e] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:31:08.423 Df powerd[339:19cdbc2e] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:31:08.423 Df powerd[339:19cdbc2e] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:31:24.050 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:31:24.536 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:31:25.225 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:31:29.111 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:31:32.224 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:31:36.352 Df powerd[339:19cdccda] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:31:37.673 Df powerd[339:19cdccda] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:31:38.122 Df powerd[339:19cdccda] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:31:38.122 Df powerd[339:19cdccda] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:31:38.122 Df powerd[339:19cdccda] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:31:58.146 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:31:58.146 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:31:58.146 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:32:01.048 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:32:05.678 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:32:10.643 Df powerd[339:19cdd305] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:32:12.384 Df powerd[339:19cdd305] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:32:13.958 Df powerd[339:19cdd305] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:32:13.958 Df powerd[339:19cdd305] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:32:13.958 Df powerd[339:19cdd305] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:32:28.398 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:32:28.398 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:32:28.398 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:32:29.948 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:32:31.540 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:32:34.948 Df powerd[339:19cdd305] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:32:34.949 Df powerd[339:19cdd305] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:32:34.949 Df powerd[339:19cdd305] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:32:34.949 Df powerd[339:19cdd305] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:32:34.949 Df powerd[339:19cdd305] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:32:51.159 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:32:51.611 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:32:51.611 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:32:53.060 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:32:57.108 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:32:59.560 Df powerd[339:19cdf988] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:33:00.456 Df powerd[339:19cdf988] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:33:01.055 Df powerd[339:19cdf988] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:33:02.504 Df powerd[339:19cdf988] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:33:02.504 Df powerd[339:19cdf988] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:33:23.260 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:33:23.260 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:33:23.871 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:33:34.384 Df PowerUIAgent[410:19cc4591] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:47:27.828 Df PowerUIAgent[410:19cebab3] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling periodic check for callback
-2026-10-24 00:47:27.828 Df PowerUIAgent[410:19cebab3] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:47:27.829 Df powerd[339:19cf6603] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:47:27.829 Df powerd[339:19cf6603] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:47:27.829 Df powerd[339:19cf6603] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:47:27.829 Df powerd[339:19cf6603] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:47:27.829 Df powerd[339:19cf6603] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:47:27.833 Df PowerUIAgent[410:19cebab3] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:47:27.833 Df PowerUIAgent[410:19cebab3] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:47:27.833 Df PowerUIAgent[410:19cebab3] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:47:27.833 Df PowerUIAgent[410:19cebab3] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 00:50:09.389 Df PowerUIAgent[410:19cfc084] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 00:50:12.336 Df powerd[339:19cfa804] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 00:50:12.336 Df powerd[339:19cfa804] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:50:12.336 Df powerd[339:19cfa804] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 00:50:12.336 Df powerd[339:19cfa804] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 00:50:12.336 Df powerd[339:19cfa804] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 00:50:38.508 Df PowerUIAgent[410:19cfc084] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 00:50:38.508 Df PowerUIAgent[410:19cfc084] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 00:50:38.508 Df PowerUIAgent[410:19cfc084] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 00:50:43.460 Df PowerUIAgent[410:19cfc084] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 01:00:40.668 Df PowerUIAgent[410:19cf7044] [com.apple.powerui.smartcharging:utilities] Concatenated 0 events
-2026-10-24 01:00:40.668 Df PowerUIAgent[410:19cf7044] [com.apple.powerui.smartcharging:utilities] timeline event exists: Sat Oct 24 00:17:49 2026
-2026-10-24 01:00:40.668 Df PowerUIAgent[410:19cf7044] [com.apple.powerui.smartcharging:smartChargeManager] Legitimate Usage = 1
-2026-10-24 01:04:16.126 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling periodic check for callback
-2026-10-24 01:04:16.149 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:04:16.150 Df powerd[339:19d12347] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 01:04:16.150 Df powerd[339:19d12347] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 01:04:16.150 Df powerd[339:19d12347] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 01:04:16.150 Df powerd[339:19d12347] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 01:04:16.150 Df powerd[339:19d12347] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 01:04:16.153 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 80% SoC
-2026-10-24 01:04:16.153 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 01:04:16.153 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 01:04:16.214 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/14) - decisionDate: Fri Oct 23 22:23:01 2026 - MoO: (7/7)
-2026-10-24 01:11:34.666 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 80%, chargingOverrideAllowed: 0
-2026-10-24 01:11:34.667 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:46.873 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> requests MCL limit: 95
-2026-10-24 01:11:46.878 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] Set Checkpoint: 0 from <private>
-2026-10-24 01:11:46.883 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
-2026-10-24 01:11:46.891 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:analyticsmanager] Sent engagementEvent: EventType: 5 - Mode: 6 - SoC: 4 - TargetSoC: -1 - PredictedEoC: 0.000000
-2026-10-24 01:11:46.892 Df PowerUIAgent[410:19d0d398] [com.apple.powerui.smartcharging:smartChargeManager] Charge limit was set to: 95
-2026-10-24 01:11:46.894 Df powerd[339:19d1fe0d] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 01:11:46.894 Df powerd[339:19d1fe0d] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 01:11:46.894 Df powerd[339:19d1fe0d] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
-2026-10-24 01:11:46.894 Df powerd[339:19d1fe0d] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 01:11:46.894 Df powerd[339:19d1fe0d] [com.apple.powerd:charging] SOC limit policy:<private>
-2026-10-24 01:11:46.893 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:11:46.899 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
-2026-10-24 01:11:46.899 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
-2026-10-24 01:11:47.072 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Found 39 events for featurization
-2026-10-24 01:11:47.073 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] maxValue in buckets = 104.8399347510733
-2026-10-24 01:11:47.074 E  PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Error saving latest features: Error Domain=NSCocoaErrorDomain Code=4 UserInfo={NSUserStringVariant=<private>, NSFilePath=<private>, NSURL=<private>, NSDebugDescription=<private>, NSUnderlyingError=0xb24e19d70 {Error Domain=NSPOSIXErrorDomain Code=2 "No such file or directory"}}
-2026-10-24 01:11:47.074 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Engagement model raw output <private>
-2026-10-24 01:11:47.077 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Engagement model says NO (Prob 0.739913 < Threshold 0.750000)
-2026-10-24 01:11:47.077 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] MLTwoStageModel output -99999.000000 hours
-2026-10-24 01:11:47.077 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] SmartCharge: Distant Past duration post adjustment of 0.000000 hours, is -99999.000000 hours
-2026-10-24 01:11:47.081 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
-2026-10-24 01:11:47.085 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 03:22:46 2026
-2026-10-24 01:11:47.085 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
-2026-10-24 01:11:47.085 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
-2026-10-24 01:11:47.103 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=4, externalConnected=1 - current checkpoint: 0
-2026-10-24 01:11:47.103 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=4, externalConnected=1
-2026-10-24 01:11:47.106 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (14/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
-2026-10-24 01:11:47.109 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
-2026-10-24 01:11:47.111 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:11:47.111 Df PowerUIAgent[410:19d20446] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:47.112 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:11:47.112 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:47.114 Df powerd[339:19d1fe0d] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:11:48.268 Df PowerUIAgent[410:19d20443] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:52.710 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> requests MCL tmp disablement
-2026-10-24 01:11:52.716 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:analyticsmanager] Sent engagementEvent: EventType: 3 - Mode: 6 - SoC: -1 - TargetSoC: -1 - PredictedEoC: 0.000000
-2026-10-24 01:11:52.717 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Set Checkpoint: 6 from <private>
-2026-10-24 01:11:52.717 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Saving Checkpoint: 6 to defaults
-2026-10-24 01:11:52.723 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:chargingcontroller] Clearing current charge limit token for (<private>)
-2026-10-24 01:11:52.724 Df powerd[339:19d1f81b] [com.apple.powerd:charging] received SOC limit from 410: <private>
-2026-10-24 01:11:52.724 Df powerd[339:19d1f81b] [com.apple.powerd:charging] OnHold And Override dict <private>
-2026-10-24 01:11:52.724 Df powerd[339:19d1f81b] [com.apple.powerd:charging] SOC limit disabled
-2026-10-24 01:11:52.729 Df powerd[339:19d1fe0d] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 01:11:52.729 Df powerd[339:19d1fe0d] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Charging VBUS:1 UISOC:4 CHNC:80000000000000 Type:2 TLC:Sat Oct 24 01:11:43 2026
-2026-10-24 01:11:52.735 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Feature disabled until: Sat Oct 24 06:00:00 2026
-2026-10-24 01:11:52.737 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] MCL has been temp disabled until Sat Oct 24 06:00:00 2026
-2026-10-24 01:11:52.740 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:11:52.741 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:53.121 Df powerd[339:19d1f81b] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:11:53.123 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:11:53.123 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:53.125 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:11:53.125 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:53.135 Df powerd[339:19d1f81b] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:11:53.137 Df powerd[339:19d1fe0d] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:11:58.567 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] <private> requests state: Temporarily Disabled
-2026-10-24 01:11:58.568 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Feature disabled until: Sat Oct 24 06:00:00 2026
-2026-10-24 01:11:58.605 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:analyticsmanager] Sent engagementEvent: EventType: 3 - Mode: 6 - SoC: 4 - TargetSoC: 100 - PredictedEoC: 454522307.079260
-2026-10-24 01:11:58.613 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
-2026-10-24 01:11:58.613 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Set Checkpoint: 11 from <private>
-2026-10-24 01:11:58.613 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Saving Checkpoint: 11 to defaults
-2026-10-24 01:11:58.621 Df powerd[339:19d1fe0d] [com.apple.powerd:BDC] Received notification for com.apple.smartcharging.charging.
-2026-10-24 01:11:58.624 Df PowerUIAgent[410:19d206b1] [com.apple.powerui.smartcharging:smartChargeManager] xpcRegister event handler called
-2026-10-24 01:11:58.624 Df PowerUIAgent[410:19d206b1] [com.apple.powerui.smartcharging:smartChargeManager] incoming xpc connection event: currentSmartChargingStateRequest
-2026-10-24 01:11:58.625 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:NotificationManager] Removing all notifications
-2026-10-24 01:11:58.625 Df PowerUIAgent[410:19d20444] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications
-2026-10-24 01:11:58.625 Df PowerUIAgent[410:19d20444] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications
-2026-10-24 01:11:58.625 E  PowerUIAgent[410:19d206b2] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications failed with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process.}
-2026-10-24 01:11:58.627 E  PowerUIAgent[410:19d206b2] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated from this process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated from this process.}
-2026-10-24 01:11:58.657 Df PowerUIAgent[410:19d206b2] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:11:58.668 Df PowerUIAgent[410:19d206b2] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:58.669 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:analyticsmanager] Sent engagementEvent: EventType: 3 - Mode: 2 - SoC: 4 - TargetSoC: -1 - PredictedEoC: 0.000000
-2026-10-24 01:11:58.681 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] DEoC cached prediction is invalid, do not engage DEoC: (null)
-2026-10-24 01:11:58.694 Df powerd[339:19d1fe0d] [com.apple.powerd:BDC] Sending data to powerlog for group BDC_SmartCharging
-2026-10-24 01:11:59.031 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:11:59.032 Df PowerUIAgent[410:19d206b2] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:11:59.054 Df powerd[339:19d1fe0d] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:12:31.548 Df powerd[339:19d1f81b] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 1
-2026-10-24 01:12:31.618 Df PowerUIAgent[410:19d21334] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:12:31.621 Df PowerUIAgent[410:19d20444] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:12:31.877 Df powerd[339:19d21318] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:12:31.912 Df PowerUIAgent[410:19d2138e] [com.apple.powerui.smartcharging:smartChargeManager] LPM state changed, reevaluate DEoC
-2026-10-24 01:12:32.029 Df PowerUIAgent[410:19d21334] [com.apple.powerui.smartcharging:smartChargeManager] DEoC cached prediction is invalid, do not engage DEoC: (null)
-2026-10-24 01:15:40.815 Df PowerUIAgent[410:19d21334] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:15:40.822 Df PowerUIAgent[410:19d21334] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:15:42.617 Df powerd[339:19d266a2] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 2
-2026-10-24 01:15:42.689 Df PowerUIAgent[410:19d21334] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:15:42.707 Df PowerUIAgent[410:19d268f1] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:15:43.027 Df powerd[339:19d268d7] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:08.504 Df powerd[339:19d266a2] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:08.501 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:08.501 Df PowerUIAgent[410:19d271db] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:08.594 Df powerd[339:19d266a2] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 01:16:08.595 Df powerd[339:19d266a2] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Disconnected VBUS:0 UISOC:4 CHNC:80000000000000 Type:0 TLC:Sat Oct 24 01:16:08 2026
-2026-10-24 01:16:08.628 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:08.629 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:08.698 Df PowerUIAgent[410:19d271db] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:08.698 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:08.795 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:08.795 Df PowerUIAgent[410:19d271db] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:08.768 Df powerd[339:19d266a2] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:09.078 Df powerd[339:19d271e5] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 00:25:37 2026
-2026-10-24 01:16:09.253 Df powerd[339:19d271de] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 2
-2026-10-24 01:16:09.549 Df powerd[339:19d271e5] [com.apple.powerd:batterygauging] Last full charge date was 6.0 days ago too recent
-2026-10-24 01:16:09.549 Df powerd[339:19d271e5] [com.apple.powerd:batterygauging] Charge To Full Request:0
-2026-10-24 01:16:33.241 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:16:40.532 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:NotificationManager] Removing all notifications
-2026-10-24 01:16:40.532 Df PowerUIAgent[410:19d268fe] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications
-2026-10-24 01:16:40.532 Df PowerUIAgent[410:19d268fe] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications
-2026-10-24 01:16:43.487 E  PowerUIAgent[410:19d279ac] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications failed with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process.}
-2026-10-24 01:16:44.027 E  PowerUIAgent[410:19d279ac] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated from this process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated from this process.}
-2026-10-24 01:16:47.861 Df powerd[339:19d27dfd] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:47.864 Df powerd[339:19d27dfd] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
-2026-10-24 01:16:47.864 Df powerd[339:19d27dfd] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Charging VBUS:1 UISOC:4 CHNC:80000000000080 Type:0 TLC:Sat Oct 24 01:16:47 2026
-2026-10-24 01:16:47.870 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:47.871 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:47.871 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] MCL temp disablement date of Sat Oct 24 06:00:00 2026 still upcoming
-2026-10-24 01:16:47.874 Df powerd[339:19d271e6] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:47.877 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:47.878 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:47.878 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] MCL temp disablement date of Sat Oct 24 06:00:00 2026 still upcoming
-2026-10-24 01:16:47.879 Df powerd[339:19d27e19] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:47.880 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:47.880 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:47.880 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] MCL temp disablement date of Sat Oct 24 06:00:00 2026 still upcoming
-2026-10-24 01:16:47.881 Df powerd[339:19d27e19] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:47.882 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:47.882 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:47.883 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] MCL temp disablement date of Sat Oct 24 06:00:00 2026 still upcoming
-2026-10-24 01:16:47.930 Df powerd[339:19d27dfd] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:47.937 Df powerd[339:19d27e25] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:47.944 Df powerd[339:19d27e25] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:48.218 Df powerd[339:19d27e16] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:09 2026
-2026-10-24 01:16:48.262 Df powerd[339:19d27e16] [com.apple.powerd:batterygauging] Last full charge date was 6.0 days ago too recent
-2026-10-24 01:16:48.262 Df powerd[339:19d27e16] [com.apple.powerd:batterygauging] Charge To Full Request:0
-2026-10-24 01:16:48.266 Df powerd[339:19d271e6] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 2
-2026-10-24 01:16:48.591 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:48.591 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:48.595 Df powerd[339:19d27e19] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:48.597 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:48.598 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:48.605 Df powerd[339:19d27e19] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:54.585 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:54.586 Df PowerUIAgent[410:19d279ac] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:54.588 Df powerd[339:19d27dfd] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:16:54.598 Df PowerUIAgent[410:19d280f5] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:16:54.599 Df PowerUIAgent[410:19d280f5] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:16:54.595 Df powerd[339:19d27e19] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:17:00.591 Df PowerUIAgent[410:19d280f5] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:17:00.591 Df PowerUIAgent[410:19d280f5] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:17:00.594 Df powerd[339:19d27e19] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:17:00.595 Df PowerUIAgent[410:19d282c2] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 3 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 01:17:00.595 Df PowerUIAgent[410:19d282c2] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 01:17:00.599 Df powerd[339:19d27e25] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 01:17:04.896 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Potential disconnect, debounce for 300.000000 seconds
-2026-10-24 01:17:14.746 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:17:25.458 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Plugged in within debounce limit, ignore previous unplug
-2026-10-24 01:17:46.230 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 11
-2026-10-24 01:18:08.683 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
-2026-10-24 01:18:09.192 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Set Checkpoint: 0 from <private>
-2026-10-24 01:18:09.638 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Saving Checkpoint: 0 to defaults
-2026-10-24 01:18:56.497 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=7, externalConnected=1 - current checkpoint: 0
-2026-10-24 01:19:32.572 Df powerd[339:19d2d0a3] [com.apple.powerd:BDC] Received notification for com.apple.smartcharging.charging.
-2026-10-24 01:19:32.573 Df PowerUIAgent[410:19d282c2] [com.apple.powerui.smartcharging:smartChargeManager] xpcRegister event handler called
-2026-10-24 01:19:32.573 Df PowerUIAgent[410:19d282c2] [com.apple.powerui.smartcharging:smartChargeManager] incoming xpc connection event: currentSmartChargingStateRequest
-2026-10-24 01:19:32.580 Df powerd[339:19d2d0a3] [com.apple.powerd:BDC] Sending data to powerlog for group BDC_SmartCharging
-2026-10-24 01:19:35.022 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (11/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
-2026-10-24 01:19:45.108 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
-2026-10-24 01:19:48.249 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:19:54.025 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:20:09.889 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:20:14.180 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:20:17.615 Df PowerUIAgent[410:19d268fe] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 01:21:40.934 Df PowerUIAgent[410:19d2d32e] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling periodic check for callback
-2026-10-24 01:21:40.934 Df PowerUIAgent[410:19d2d32e] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
-2026-10-24 02:08:20.130 Df powerd[339:19d809c1] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 02:09:13.654 Df PowerUIAgent[410:19d7e5d1] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
-2026-10-24 02:16:51.039 Df powerd[339:19d861b7] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 03:16:55.586 Df powerd[339:19dd9ded] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 04:16:56.576 Df powerd[339:19e463b4] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 05:16:59.347 Df powerd[339:19eb0996] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 06:01:00.128 Df PowerUIAgent[410:19dc6dbd] [com.apple.powerui.smartcharging:smartChargeManager] Set Checkpoint: 6 from <private>
-2026-10-24 06:01:00.128 Df PowerUIAgent[410:19dc6dbd] [com.apple.powerui.smartcharging:smartChargeManager] Saving Checkpoint: 6 to defaults
-2026-10-24 06:01:00.135 Df PowerUIAgent[410:19f04121] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 06:01:00.135 Df PowerUIAgent[410:19f04121] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 06:01:00.136 Df PowerUIAgent[410:19f04121] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 06:01:00.137 Df PowerUIAgent[410:19f04121] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 06:01:00.138 Df PowerUIAgent[410:19dc6dbd] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
-2026-10-24 06:01:00.138 Df powerd[339:19f0218a] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 06:17:01.636 Df powerd[339:19f20fe6] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 07:00:39.138 Df PowerUIAgent[410:19f0c9a2] [com.apple.powerui.smartcharging:smartChargeManager] Legitimate Usage = 1
-2026-10-24 07:17:04.970 Df powerd[339:19f8a8e5] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 08:17:08.654 Df powerd[339:19ffaff2] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 09:17:13.001 Df powerd[339:1a069eae] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-    "com.apple.groupkit.limitedPeersCrypto",
-    "com.apple.groupkit.limitedPeersMetadata",
-    "com.apple.energykit.ami.LimitedPeers",
-2026-10-24 10:17:16.805 Df powerd[339:1a0d3285] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 11:17:22.493 Df powerd[339:1a136750] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
-2026-10-24 11:46:11.189 Df powerd[339:1a16a20d] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
-2026-10-24 11:52:47.950 Df PowerUIAgent[410:1a16adfc] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
-2026-10-24 11:52:47.950 Df PowerUIAgent[410:1a16adfc] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
-2026-10-24 11:52:59.108 Df PowerUIAgent[410:1a16adfc] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:26.120 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:26.120 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 6
+2026-10-24 12:00:26.121 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: -1
+2026-10-24 12:00:26.121 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: -1
+2026-10-24 12:00:26.132 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 6
+2026-10-24 12:00:26.135 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (6/6) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 6
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: -1
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: -1
+2026-10-24 12:00:35.549 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 6
+2026-10-24 12:00:35.549 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (6/6) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:00:36.522 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.522 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:00:36.529 Df powerd[339:1a1d8053] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
+2026-10-24 12:00:36.529 Df powerd[339:1a1d8053] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Disconnected VBUS:0 UISOC:13 CHNC:80000000000000 Type:0 TLC:Sat Oct 24 12:00:36 2026
+2026-10-24 12:00:36.533 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
+2026-10-24 12:00:36.544 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Last full charge date was 6.5 days ago too recent
+2026-10-24 12:00:36.544 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Charge To Full Request:0
+2026-10-24 12:00:36.545 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 2
+2026-10-24 12:00:36.564 Df powerd[339:1a1d805c] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
+2026-10-24 12:00:36.569 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.569 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:00:36.570 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] MCL temp disablement date of Sat Oct 24 06:00:00 2026 has passed, reenable feature
+2026-10-24 12:00:36.570 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Set Checkpoint: 0 from <private>
+2026-10-24 12:00:36.570 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Saving Checkpoint: 0 to defaults
+2026-10-24 12:00:36.574 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
+2026-10-24 12:00:36.580 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:analyticsmanager] Sent engagementEvent: EventType: 5 - Mode: 6 - SoC: 13 - TargetSoC: -1 - PredictedEoC: 0.000000
+2026-10-24 12:00:36.581 Df PowerUIAgent[410:1a1d807f] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:36.581 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.582 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d807f] [com.apple.powerui.smartcharging:NotificationManager] Removing all notifications
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d807f] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d807f] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications
+2026-10-24 12:00:36.584 E  PowerUIAgent[410:1a1d3af2] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications failed with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process.}
+2026-10-24 12:00:36.584 E  PowerUIAgent[410:1a1d3af2] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process.}
+2026-10-24 12:00:36.585 Df PowerUIAgent[410:1a1d807f] [com.apple.powerui.smartcharging:smartChargeManager] Potential disconnect, debounce for 300.000000 seconds
+2026-10-24 12:00:36.586 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:36.586 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Potential disconnect, debounce for 299.995225 more seconds
+2026-10-24 12:00:36.587 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.587 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:23.851 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:23.851 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Plugged in within debounce limit, ignore previous unplug
+2026-10-24 12:01:23.853 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:chargingcontroller] Did not get string value for key chargeTokenMCL
+2026-10-24 12:01:23.853 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:23.857 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:chargingcontroller] Created new charge limit token: <private> for reason: manualChargeLimit
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:23.859 Df powerd[339:1a1deb9a] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
+2026-10-24 12:01:23.859 Df powerd[339:1a1deb9a] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Disconnected VBUS:0 UISOC:13 CHNC:80000000000080 Type:2 TLC:Sat Oct 24 12:01:23 2026
+2026-10-24 12:01:23.868 Df powerd[339:1a1deb9a] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
+2026-10-24 12:01:23.870 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:23.870 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:23.873 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:23.873 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:23.902 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 12:00:36 2026
+2026-10-24 12:01:23.912 Df powerd[339:1a1d7e94] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
+2026-10-24 12:01:23.912 Df powerd[339:1a1d7e94] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Charging VBUS:1 UISOC:13 CHNC:80000000000080 Type:0 TLC:Sat Oct 24 12:01:23 2026
+2026-10-24 12:01:23.921 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 2
+2026-10-24 12:01:23.922 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Last full charge date was 6.5 days ago too recent
+2026-10-24 12:01:23.922 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Charge To Full Request:0
+2026-10-24 12:01:23.932 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:chargingcontroller] Limited charging to 95% for reason 'manualChargeLimit'
+2026-10-24 12:01:23.933 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:23.933 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:23.953 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:23.953 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:23.958 Df powerd[339:1a1d7e94] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
+2026-10-24 12:01:23.966 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:23 2026
+2026-10-24 12:01:23.966 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:23.966 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:23.995 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:23.996 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:23.996 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:23.997 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.027 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.027 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.034 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.034 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.035 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.035 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.035 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.036 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.036 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.036 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:24.037 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.055 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.055 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.055 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.056 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.056 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.056 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:24.137 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.139 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.139 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.140 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.140 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.141 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.141 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.141 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.143 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.143 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.144 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:24.359 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.362 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.362 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.362 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.364 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.364 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.365 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:27.005 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:27.005 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:27.712 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:27.712 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:27.723 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:27.727 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:27.727 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:27.727 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:02:27 2026
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:27.729 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=14, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:27.729 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=14, externalConnected=1
+2026-10-24 12:01:27.729 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:02:01.721 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:sleepwakemonitor] Next wake request with checkpoint = 0, battery level = 14, isExternalConnected = 1, fullChargeDeadline = Thu May 28 10:11:47 2015
+2026-10-24 12:02:01.721 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:sleepwakemonitor] Wake Date: Sat Oct 24 13:08:01 2026
+2026-10-24 12:02:27.190 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:02:27.190 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:05:03.102 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
 wrote CHTE 00000000
-11:53:03 exit 0: CHTE restored to
+12:05:03 exit 0: CHTE restored to
 00000000
 Charge Limit at the start: no charge policy
-Charge Limit now:          no charge policy
+Charge Limit now:          "drain" => true  "isEndOfCharge" => true  "noChargeToFull" => false  "soclimit" => 95  "terminated" => false  3 => "manualChargeLimit"  
 If Charge Limit is off, turn it back on: System Settings > Battery > Charging
