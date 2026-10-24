@@ -308,3 +308,16 @@ Successfully reset SystemPolicyAppData approval status for dev.orangedrink.widge
 status 0
 "would like" not found in display 1 0,0 1512x982 by tree and pixels, merged; 809 runs read; ...
 2026-10-22 22:16:53.924 I  OrangeWidgetSpike[21603:17b1d748] [dev.orangedrink.widgetspike:host] wrote seq 0 percent 100 to /Users/bmf/Library/Group Containers/6R988MUU27.dev.orangedrink.widgetspike/level.json
+
+######## 5. WidgetKit's reload budget, on the Mac that builds (u2, macOS 26.5.2), 2026-10-23. Release
+######## installed with `run.sh install`, the widget placed on the desktop, then `run.sh reload 4 150 1000`
+######## (05:36:00–05:46:21). chronod files every app reload as budgeted, and honours every one:
+# /tmp/burst-q.sh: chronod's lines for the widget since 05:35:59, times cut, counted
+ 150  [com.apple.chrono:timeline.store] Scheduling reload with configuration: [externalRequest(src, reason: WidgetCenterServer)-immediate-budgeted-1]
+ 150  [com.apple.chrono:timeline.store] scheduled [externalRequest(src, reason: WidgetCenterServer)-immediate-budgeted-1]
+ 150  [com.apple.chrono:timeline.store] reload: succeeded
+ 150  [com.apple.chrono:timeline.store] Reload with configuration [externalRequest(src, reason: WidgetCenterServer)-immediate-budgeted-1]
+ 150  [com.apple.chrono:timeline.store] on local reload: succeeded with 1 entries
+# The query: log show --start '2026-10-23 05:35:59' --style compact --predicate 'process == "chronod" AND
+# eventMessage CONTAINS "widgetspike" AND (eventMessage CONTAINS "Scheduling reload" OR ... "reload: succeeded"
+# OR "Reload failure" OR [c] "budget" OR [c] "throttl" OR [c] "defer")'. No failure, throttle or deferral line.

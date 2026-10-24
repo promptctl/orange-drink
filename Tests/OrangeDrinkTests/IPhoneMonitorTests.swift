@@ -73,16 +73,6 @@ import Testing
         while counter.withLock({ $0 }) < count { try await Task.sleep(for: .milliseconds(5)) }
     }
 
-    /// Polls the log until a line contains `fragment`: log entries reach OSLogStore shortly after they are written.
-    private func logged(_ fragment: String, in log: BatteryLog) async throws -> Bool {
-        let end = ContinuousClock.now.advanced(by: .seconds(5))
-        while ContinuousClock.now < end {
-            if try log.messages().contains(where: { $0.contains(fragment) }) { return true }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        return false
-    }
-
     @Test(.timeLimit(.minutes(1)))
     func pluggingInSwitchesOnWifiSyncOnceAndReadsOverTheCableEachPollInterval() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
@@ -98,7 +88,7 @@ import Testing
         await harness.nextPoll()
         #expect(await events.next() == .reading(udid: "B", over: .usb, Self.reading))
         #expect(syncs.withLock { $0 } == 1)
-        #expect(try await logged("iphone read delivered: B over usb", in: log))
+        #expect(try await log.logged("iphone read delivered: B over usb"))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -119,7 +109,7 @@ import Testing
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
         #expect(await events.next() == .disconnected(udid: "B"))
         #expect(reads.withLock { $0 } == 1)
-        #expect(try await logged(Self.decision(.attached(Self.usb(5, "B")), []), in: log))
+        #expect(try await log.logged(Self.decision(.attached(Self.usb(5, "B")), [])))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -131,7 +121,7 @@ import Testing
 
         #expect(await Self.next(2, of: &events) == Self.described([.reading(udid: "B", over: .usb, Self.reading), .wifiSyncOn(udid: "B")]))
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
-        #expect(try await logged(Self.decision(.detached(handle: 5), [.pace(udid: "B")]), in: log))
+        #expect(try await log.logged(Self.decision(.detached(handle: 5), [.pace(udid: "B")])))
         #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
     }
 
@@ -150,10 +140,10 @@ import Testing
         #expect(await events.next() == .wifiSyncOn(udid: "B"))
         try await reached(1, cableReads)
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
-        #expect(try await logged(Self.decision(.detached(handle: 5), [.pace(udid: "B")]), in: log))
+        #expect(try await log.logged(Self.decision(.detached(handle: 5), [.pace(udid: "B")])))
         #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
         cableReadMayFinish.signal()
-        #expect(try await logged("iphone read dropped: B handle 5: its pacer was replaced or stopped", in: log))
+        #expect(try await log.logged("iphone read dropped: B handle 5: its pacer was replaced or stopped"))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -172,7 +162,7 @@ import Testing
         try harness.send(["MessageType": "Paired", "DeviceID": 6])
         #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
         firstReadMayFinish.signal()
-        #expect(try await logged("iphone read dropped: B handle 6: its pacer was replaced or stopped", in: log))
+        #expect(try await log.logged("iphone read dropped: B handle 6: its pacer was replaced or stopped"))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -190,7 +180,7 @@ import Testing
         await harness.clock.asleep()
         try harness.send(["MessageType": "Detached", "DeviceID": 6])
         #expect(await events.next() == .disconnected(udid: "E"))
-        #expect(try await logged("iphone pacer ended: E: replaced, disconnected, or stopped", in: log))
+        #expect(try await log.logged("iphone pacer ended: E: replaced, disconnected, or stopped"))
         harness.clock.advance(by: IPhoneMonitor.pollInterval)
         // A pacer that outlived its device would read on that advance; the device's return is read once, by its new pacer.
         try harness.send(Self.attachedFrame(7, "E", "Network"))
@@ -207,7 +197,7 @@ import Testing
         let consumer = Task { for await _ in harness.events { seen.withLock { $0 += 1 } } }
         try await reached(2, seen)
         consumer.cancel()
-        #expect(try await logged("iphone monitor ended: 2 pacers cancelled", in: log))
+        #expect(try await log.logged("iphone monitor ended: 2 pacers cancelled"))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -224,10 +214,9 @@ import Testing
         defer { close(harness.peer) }
         let consumer = Task { for await _ in harness.events {} }
         consumer.cancel()
-        #expect(try await logged("iphone monitor ended: 0 pacers cancelled", in: log))
+        #expect(try await log.logged("iphone monitor ended: 0 pacers cancelled"))
         ended.signal()
-        #expect(try await logged("iphone monitor stopped, not performed: \(DeviceMap.describe([.pace(udid: "D"), .enableWifiSync(handle: 6, udid: "D")]))",
-                                 in: log))
+        #expect(try await log.logged("iphone monitor stopped, not performed: \(DeviceMap.describe([.pace(udid: "D"), .enableWifiSync(handle: 6, udid: "D")]))"))
         #expect(reads.withLock { $0 } == 0)
         #expect(syncs.withLock { $0 } == 0)
     }
@@ -240,7 +229,7 @@ import Testing
         var events: [IPhoneEvent] = []
         for await event in harness.events { events.append(event) }
         #expect(events == [.failed(.closed)])
-        #expect(try await logged("iphone monitor failed: closed", in: log))
+        #expect(try await log.logged("iphone monitor failed: closed"))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -261,7 +250,7 @@ import Testing
         defer { close(harness.peer) }
         let consumer = Task { for await _ in harness.events {} }
         consumer.cancel()
-        #expect(try await logged("iphone monitor stopped", in: log))
+        #expect(try await log.logged("iphone monitor stopped"))
     }
 
     // The real usbmuxd, which every Mac runs: a UDID it holds no pair record for is a typed failure and one log line,
@@ -274,8 +263,8 @@ import Testing
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneBattery(handle: 1, udid: udid) }
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid) }
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(false, handle: 1, udid: udid) }
-        #expect(try await logged("iphone read failed: \(udid) handle 1: usbmux(", in: log))
-        #expect(try await logged("iphone wifi sync on failed: \(udid) handle 1: usbmux(", in: log))
-        #expect(try await logged("iphone wifi sync off failed: \(udid) handle 1: usbmux(", in: log))
+        #expect(try await log.logged("iphone read failed: \(udid) handle 1: usbmux("))
+        #expect(try await log.logged("iphone wifi sync on failed: \(udid) handle 1: usbmux("))
+        #expect(try await log.logged("iphone wifi sync off failed: \(udid) handle 1: usbmux("))
     }
 }

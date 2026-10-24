@@ -169,15 +169,9 @@ struct DeviceListTests {
 
     /// name → "Left"/"Right"/"Case"/"Main" → percent, for every connected device with a name.
     static func profilerConnected() throws -> [String: [String: Int]] {
-        let process = Process()
-        process.executableURL = URL(filePath: "/usr/sbin/system_profiler")
-        process.arguments = ["SPBluetoothDataType", "-json"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let profiler = try ChildProcess.run("/usr/sbin/system_profiler", ["SPBluetoothDataType", "-json"])
+        try #require(profiler.status == 0, "system_profiler exited \(profiler.status): \(profiler.errors)")
+        let root = try #require(try JSONSerialization.jsonObject(with: profiler.output) as? [String: Any])
         let controller = try #require((root["SPBluetoothDataType"] as? [[String: Any]])?.first)
         var result: [String: [String: Int]] = [:]
         for entry in controller["device_connected"] as? [[String: [String: Any]]] ?? [] {

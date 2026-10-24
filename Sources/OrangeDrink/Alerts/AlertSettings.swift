@@ -19,8 +19,10 @@ struct AlertSettings: Codable, Equatable, Sendable {
     }()
 }
 
-typealias AlertSettingsStore = DefaultsStore<AlertSettings>
-
-extension DefaultsStore where Value == AlertSettings {
-    init(defaults: UserDefaults) { self.init(key: "alerts.settings", initial: .initial, defaults: defaults) }
+/// [LAW:one-type-per-behavior] Kept like every other setting; a first launch starts from the reference setup.
+extension AlertSettings: Stored {
+    static let storageKey = "alerts.settings"
+    init() { self = .initial }
 }
+
+typealias AlertSettingsModel = StoredModel<AlertSettings>

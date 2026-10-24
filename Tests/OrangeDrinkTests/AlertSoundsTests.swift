@@ -9,9 +9,9 @@ import Testing
         var chimes = 0
         let sounds = AlertSounds(play: { chimes += 1 })
         let center = try AlertCenter(
-            store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()),
+            defaults: AlertSettingsPersistence.suite(),
             deliver: { firing, _ in sounds.deliver(firing) })
-        try center.update {
+        try center.model.update {
             $0.alerts = [
                 Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: true),
                 Alert(kind: .low, threshold: 10, position: .top, glow: false, sound: false),

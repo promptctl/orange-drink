@@ -1,5 +1,6 @@
 import SwiftUI
 import OSLog
+import WidgetKit
 
 // [LAW:one-source-of-truth] project.yml's `name` is the app's name; CFBundleName derives from
 // it, and the generated Info.plist always carries it, so absence here is a broken build, not
@@ -19,7 +20,10 @@ struct OrangeDrinkApp: App {
     @State private var menuBarIcon: MenuBarIconModel
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
+    @State private var chargeLimit: ChargeLimitModel
+    @State private var chargeHold: AppChargeHold
     @State private var sections: PanelSections
+    @State private var lowPowerMode: LowPowerMode
     private let keyboard: PanelKeyboard
     private let history: Result<BatteryHistory, any Error>
     private let appEnergy: Result<AppEnergyHistory, any Error>
@@ -33,6 +37,7 @@ struct OrangeDrinkApp: App {
         let look: AppAppearanceModel
         let language: AppLanguageModel
         let shortcutsModel: ShortcutsModel
+        let chargeLimit: ChargeLimitModel
         let pills: PillController
         let sounds = AlertSounds()
         do {
@@ -42,9 +47,10 @@ struct OrangeDrinkApp: App {
             look = try AppAppearanceModel(defaults: .standard)
             language = try AppLanguageModel(defaults: .standard)
             shortcutsModel = try ShortcutsModel(defaults: .standard)
+            chargeLimit = try ChargeLimitModel(defaults: .standard)
             pills = PillController(appearance: appearance, language: language)
             pills.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
-            alerts = try AlertCenter(store: AlertSettingsStore(defaults: .standard), deliver: {
+            alerts = try AlertCenter(defaults: .standard, deliver: {
                 pills.deliver($0, reading: $1)
                 sounds.deliver($0)
             }, deliverDevice: {
@@ -52,7 +58,7 @@ struct OrangeDrinkApp: App {
                 sounds.deliver($0)
             })
         } catch {
-            fatalError("stored alert, appearance, device, menu bar, app appearance, app language, or shortcut settings do not decode: \(error)")
+            fatalError("stored alert, appearance, device, menu bar, app appearance, app language, shortcut, or charge limit settings do not decode: \(error)")
         }
         let devices = DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
@@ -76,30 +82,59 @@ struct OrangeDrinkApp: App {
         _look = State(initialValue: look)
         let sections = PanelSections()
         _sections = State(initialValue: sections)
-        keyboard = PanelKeyboard(sections: sections, shortcuts: shortcutsModel, events: NSKeyEvents())
+        let lowPowerMode = LowPowerMode(helper: HelperAccess(daemon: HelperRegistration.daemon))
+        _lowPowerMode = State(initialValue: lowPowerMode)
+        keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
+        _chargeLimit = State(initialValue: chargeLimit)
         // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
         let store = Result { try HistoryStore(url: HistoryStore.defaultURL()) }
         let changes = HistoryChanges()
         let history = store.map { BatteryHistory(store: $0, changes: changes) }
         switch history {
-        case .success(let recording):
-            recording.follow(screen: ScreenMonitor.changes())
-            NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { recording.flush() }
-            }
+        case .success(let recording): recording.follow(screen: ScreenMonitor.changes())
         case .failure(let error): log.error("no battery history: \(error)")
         }
         self.history = history
+        // [LAW:one-source-of-truth] project.yml signs every build into the app group, so a missing
+        // container is a broken build, not a case to run past.
+        let widgets: MacBatteryPublisher
+        do {
+            widgets = MacBatteryPublisher(directory: try WidgetShelf.groupContainer()) {
+                WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.macBatteryKind)
+            }
+        } catch { fatalError("no widget shelf: \(error)") }
+        // [LAW:no-ambient-temporal-coupling] The one place the app's state is saved at its normal end: a menu
+        // Quit, logout, shutdown, and SIGTERM (routed to terminate by SignalTermination) arrive here; a
+        // crash or SIGKILL does not. The helper's record is released at exit() instead, which the test
+        // host's end reaches without this notification.
+        SignalTermination.start()
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                if case .success(let recording) = history { recording.flush() }
+                widgets.publish(.appNotRunning)
+            }
+        }
         // [LAW:no-silent-failure] App energy needs the history store and the system's responsibility symbol;
         // without either the app runs without it, and says so in the log.
         appEnergy = Result { try AppEnergyHistory(store: store.get(), changes: changes, source: RusageEnergySource()) }
         if case .failure(let error) = appEnergy { log.error("no app energy history: \(error)") }
+        // [LAW:no-ambient-temporal-coupling] Before the battery model: its init hands the hold the first state at
+        // once, and the hold's first ask waits on `launching`, which passes at once while it is empty, so the
+        // registration's work must be in it before any ask can exist.
+        HelperRegistration.holdUntilExit()
+        let chargeHold = AppChargeHold(limit: chargeLimit.value, helper: HelperAccess(daemon: HelperRegistration.daemon))
+        chargeHold.follow(chargeLimit)
+        _chargeHold = State(initialValue: chargeHold)
         _battery = State(initialValue: BatteryModel(
-            readings: BatteryMonitor.readings(), onReading: {
-                alerts.observe($0)
-                if case .success(let recording) = history { recording.observe($0) }
+            readings: BatteryMonitor.readings(), onState: { state in
+                widgets.publish(MacBattery(state))
+                // Every state, an ended stream included: readings that stop let charging run.
+                chargeHold.observe(state)
+                guard case .known(let reading) = state else { return }
+                alerts.observe(reading)
+                if case .success(let recording) = history { recording.observe(reading) }
             }))
         #if DEBUG
         ComponentGallery.showIfRequested()
@@ -108,13 +143,13 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, keyboard: keyboard, look: look, language: language)
+            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, keyboard: keyboard, look: look, language: language)
         } label: {
             StatusItemLabel(state: battery.state, icon: menuBarIcon)
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, battery: battery, history: history, appEnergy: appEnergy) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy) }
     }
 }
 

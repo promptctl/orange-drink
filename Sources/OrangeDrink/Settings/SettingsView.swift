@@ -10,6 +10,8 @@ struct SettingsView: View {
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
+    let chargeLimit: ChargeLimitModel
+    let chargeHold: AppChargeHold
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
@@ -28,7 +30,7 @@ struct SettingsView: View {
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
             ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
-                       deviceSettings: deviceSettings, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
+                       deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
         }
         .appLook(look, language)
         .frame(minWidth: 760, minHeight: 640)
@@ -37,6 +39,19 @@ struct SettingsView: View {
 
 extension SettingsScreen {
     var tileColor: Color { Color(hue: tileHue / 360, saturation: 0.75, brightness: 0.9) }
+
+    /// The glows behind the screen. Where its design doc has a "Background" line, they sit where that line puts them
+    /// with the screen at rest.
+    var backdrop: SettingsBackground {
+        switch self {
+        case .alerts: SettingsBackground(glows: [.standard, .init(color: .red, center: .center, opacity: 0.1, radius: 360)])
+        case .devices: SettingsBackground(glows: [.init(color: .green, center: .top)])
+        case .charging: SettingsBackground(glows: [.init(color: .green, center: .trailing)])
+        case .battery: SettingsBackground(glows: [.init(color: .green, center: .top)])
+        case .appUsage: SettingsBackground(glows: [.init(color: .indigo, center: .top)])
+        case .general, .menuBar, .widgets, .shortcuts, .iphoneIpad: SettingsBackground()
+        }
+    }
 }
 
 /// A rounded square in the screen's colour with its white glyph.
@@ -72,6 +87,8 @@ private struct ScreenView: View {
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
+    let chargeLimit: ChargeLimitModel
+    let chargeHold: AppChargeHold
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
@@ -93,6 +110,7 @@ private struct ScreenView: View {
                 case .general: GeneralScreen(appearance: appearance, look: look, language: language)
                 case .alerts: AlertsScreen(center: alerts)
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
+                case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold)
                 case .shortcuts: ShortcutsScreen(controller: shortcuts)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
                 case .appUsage: AppUsageScreen(appEnergy: appEnergy)
@@ -101,6 +119,11 @@ private struct ScreenView: View {
                 }
             }
         }
+        // Each screen is its own scroll, so a newly chosen screen opens at its top, not at the last one's offset.
+        .id(screen)
+        // [LAW:decomposition] The backdrop is the pane's, not the content's: drawn behind the scroll view it
+        // fills the pane however short the screen, and stays put while a tall one scrolls over it.
+        .background(screen.backdrop)
     }
 }
 

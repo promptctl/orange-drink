@@ -6,21 +6,13 @@ DEST := platform=macOS,arch=arm64
 DERIVED_DATA := build/DerivedData
 PRODUCTS := $(DERIVED_DATA)/Build/Products
 RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
-XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA)
+# [LAW:one-source-of-truth] Which copy of the app a build is, for the helper's label (project.yml's
+# HELPER_LABEL): one per derived-data directory, so no two checkouts share a helper. scripts/dmg passes
+# it empty, which gives the app users install the one fixed label.
+HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
+XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-# The certificate `release` signs with, named in full by scripts/dmg. Empty, the build keeps
-# project.yml's ad-hoc identity. [LAW:one-type-per-behavior] A release and a local Release build
-# are one recipe run with two values. Settings on xcodebuild's command line reach every target,
-# GRDB's included, and a package target signs automatically and refuses a named identity
-# without a team, so the identity also brings manual signing and the team read from the
-# parentheses that end its name. [LAW:one-source-of-truth] The identity is the only input.
-SIGNING_IDENTITY :=
-lparen := (
-rparen := )
-release_signing = $(if $(SIGNING_IDENTITY),'CODE_SIGN_IDENTITY=$(SIGNING_IDENTITY)' \
-  DEVELOPMENT_TEAM=$(patsubst %$(rparen),%,$(lastword $(subst $(lparen), ,$(SIGNING_IDENTITY)))) CODE_SIGN_STYLE=Manual)
-
-.PHONY: generate build release test hardware-check-test app-energy-check cpu-check ax-check
+.PHONY: generate build release test hardware-check-test app-energy-check cpu-check ax-check helper-check
 
 generate:
 	xcodegen generate --use-cache
@@ -99,6 +91,12 @@ position-check.test := PinnedPositionCheck/theBarFollowsTheListEvenOverASavedPos
 position-check.covers := Sources/OrangeDrink/MenuBar/PinnedItems.swift Sources/OrangeDrink/Devices/PinnedOrder.swift \
   Sources/OrangeDrink/Devices/Device.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift
 
+# The privileged helper's check on a real Mac, with OrangeDrink approved under System Settings › General ›
+# Login Items & Extensions › Allow in the Background: the helper, running as root from this build, accepts
+# the app and refuses other code, including a copy re-signed with the app's identifier. Same TEST_RUNNER_ shape.
+helper-check: export TEST_RUNNER_HELPER_CHECK = 1
+helper-check: test
+
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle
 # Mac (another busy app, such as a terminal hosting builds and agents, outranks it there too). Same TEST_RUNNER_ shape.
@@ -121,10 +119,10 @@ app-energy-check: generate
 cpu-check: release
 	swift scripts/cpu-check.swift "$(RELEASE_APP)/Contents/MacOS/$(APP)"
 
-# The Release app, signed with SIGNING_IDENTITY when it names one. The last line printed is the
-# app's path, so scripts/dmg spells neither the configuration's directory nor the app's name.
+# The Release app. The last line printed is the app's path, so scripts/dmg spells neither the
+# configuration's directory nor the app's name.
 release: generate
-	$(call gated,build,-configuration Release $(release_signing))
+	$(call gated,build,-configuration Release)
 	@echo $(RELEASE_APP)
 
 # [LAW:verifiable-goals] "Zero warnings" is read from the result bundle, which counts every

@@ -12,9 +12,9 @@ import Testing
 
     static func center(_ pills: PillController, alerts: [Alert]) throws -> AlertCenter {
         let center = try AlertCenter(
-            store: AlertSettingsStore(defaults: AlertSettingsPersistence.suite()),
+            defaults: AlertSettingsPersistence.suite(),
             deliver: { pills.deliver($0, reading: $1) })
-        try center.update { $0.alerts = alerts }
+        try center.model.update { $0.alerts = alerts }
         return center
     }
 

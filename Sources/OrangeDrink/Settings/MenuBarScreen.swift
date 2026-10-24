@@ -54,59 +54,42 @@ struct MenuBarScreen: View {
     let model: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
-    @State private var saveFailure: String?
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        let config = model.value
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "macwindow", color: .cyan, title: "Menu Bar Icon")
-            if let saveFailure {
-                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            }
-            SettingCard {
-                ForEach(MenuBarIconConfig.Style.allCases, id: \.self) { style in
-                    RadioRow(title: style.title(appName: appName), description: style.description(appName: appName), isSelected: config.style == style) {
-                        perform { $0.style = style }
+            SettingEditor(model) { edits in
+                let config = edits.value
+                SettingCard {
+                    ForEach(MenuBarIconConfig.Style.allCases, id: \.self) { style in
+                        RadioRow(title: style.title(appName: appName), description: style.description(appName: appName), isSelected: config.style == style) {
+                            edits.perform { $0.style = style }
+                        }
                     }
+                    Group {
+                        SettingRow(icon: ("checklist", .purple), title: "Display", description: "Choose what to display in the menu bar icon") {
+                            PopUpButton(selection: Binding(get: { edits.value.renderedDisplay }, set: { display in edits.perform { $0.display = display } }), options: config.style.displays, title: { $0.title.text(in: language) })
+                        }
+                        SettingRow(icon: ("circle.lefthalf.filled", .orange), title: "Color", description: "Match your menu bar style") {
+                            PopUpButton(selection: edits.binding(\.color), options: MenuBarIconConfig.Color.allCases, title: { $0.title.text(in: language) })
+                        }
+                        SettingRow(icon: ("textformat.size", .blue), title: "Size", description: "Make the icon and its text larger and easier to read") {
+                            PopUpButton(selection: edits.binding(\.size), options: MenuBarIconConfig.Size.allCases, title: { $0.title.text(in: language) })
+                        }
+                        SettingRow(icon: ("paintpalette.fill", .green), title: "Status colors",
+                                   description: "Green when charging, orange for low battery. Off keeps the icon neutral and only turns it red when critical.") {
+                            AccentSwitch(isOn: edits.binding(\.statusColors), tint: .indigo, label: "Status colors")
+                        }
+                    }
+                    .padding(.leading, 12)
                 }
-                Group {
-                    SettingRow(icon: ("checklist", .purple), title: "Display", description: "Choose what to display in the menu bar icon") {
-                        PopUpButton(selection: Binding(get: { config.renderedDisplay }, set: { display in perform { $0.display = display } }), options: config.style.displays, title: { $0.title.text(in: language) })
-                    }
-                    SettingRow(icon: ("circle.lefthalf.filled", .orange), title: "Color", description: "Match your menu bar style") {
-                        PopUpButton(selection: binding(\.color), options: MenuBarIconConfig.Color.allCases, title: { $0.title.text(in: language) })
-                    }
-                    SettingRow(icon: ("textformat.size", .blue), title: "Size", description: "Make the icon and its text larger and easier to read") {
-                        PopUpButton(selection: binding(\.size), options: MenuBarIconConfig.Size.allCases, title: { $0.title.text(in: language) })
-                    }
-                    SettingRow(icon: ("paintpalette.fill", .green), title: "Status colors",
-                               description: "Green when charging, orange for low battery. Off keeps the icon neutral and only turns it red when critical.") {
-                        AccentSwitch(isOn: binding(\.statusColors), tint: .indigo, label: "Status colors")
-                    }
-                }
-                .padding(.leading, 12)
+                Text("Preview").font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+                MenuBarPreview(config: config).frame(maxWidth: .infinity)
             }
-            Text("Preview").font(.callout).foregroundStyle(.secondary).padding(.top, 8)
-            MenuBarPreview(config: config).frame(maxWidth: .infinity)
             PinnedDevicesCard(devices: devices, settings: deviceSettings).padding(.top, 16)
         }
         .padding(24)
-        .background(SettingsBackground())
-    }
-
-    private func binding<Value>(_ keyPath: WritableKeyPath<MenuBarIconConfig, Value>) -> Binding<Value> {
-        Binding(get: { model.value[keyPath: keyPath] }, set: { value in perform { $0[keyPath: keyPath] = value } })
-    }
-
-    /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
-    private func perform(_ edit: (inout MenuBarIconConfig) -> Void) {
-        do {
-            try model.update(edit)
-            saveFailure = nil
-        } catch {
-            saveFailure = error.localizedDescription
-        }
     }
 }
 

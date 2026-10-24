@@ -6,70 +6,47 @@ struct AlertsScreen: View {
     private static let tint = Color.green
 
     let center: AlertCenter
-    @State private var saveFailure: String?
 
     var body: some View {
-        let settings = center.settings
-        VStack(alignment: .leading, spacing: 24) {
-            if let saveFailure {
-                Label("Could not save: \(saveFailure)", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                SettingsSectionHeader(symbol: "gearshape", color: .secondary, title: "General")
-                SettingCard {
-                    SettingRow(icon: ("bell.fill", .blue), title: "Enable Notifications",
-                               description: "Show battery alerts and notifications") {
-                        AccentSwitch(isOn: binding(\.enabled), tint: Self.tint, label: "Enable Notifications")
+        SettingEditor(center.model) { edits in
+            let settings = edits.value
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSectionHeader(symbol: "gearshape", color: .secondary, title: "General")
+                    SettingCard {
+                        SettingRow(icon: ("bell.fill", .blue), title: "Enable Notifications",
+                                   description: "Show battery alerts and notifications") {
+                            AccentSwitch(isOn: edits.binding(\.enabled), tint: Self.tint, label: "Enable Notifications")
+                        }
                     }
                 }
-            }
-            ThresholdSection(
-                kind: .low, header: (Alert.Kind.low.symbol, .red, "Low Battery Alerts"),
-                info: "Notify when battery goes below percentage", addTitle: "Add Low Battery Alert",
-                alerts: settings.alerts(.low), perform: perform)
-            ThresholdSection(
-                kind: .charged, header: (Alert.Kind.charged.symbol, .green, "Charged Alerts"),
-                info: "Notify when battery reaches percentage", addTitle: "Add Charged Alert",
-                alerts: settings.alerts(.charged), perform: perform)
-            VStack(alignment: .leading, spacing: 8) {
-                SettingsSectionHeader(symbol: "powerplug.fill", color: .orange, title: "Power Source Alerts")
-                SettingCard {
-                    SettingRow(icon: ("bolt.fill", .yellow), title: "Plugged In",
-                               description: "Notify when power adapter is connected") {
-                        AccentSwitch(isOn: binding(\.power.pluggedIn), tint: Self.tint, label: "Plugged In")
-                    }
-                    SettingRow(icon: ("bolt.slash.fill", .orange), title: "Unplugged",
-                               description: "Notify when power adapter is disconnected") {
-                        AccentSwitch(isOn: binding(\.power.unplugged), tint: Self.tint, label: "Unplugged")
-                    }
-                    SettingRow(title: "Sound", description: "Play a sound for these alerts") {
-                        AccentSwitch(isOn: binding(\.power.sound), tint: Self.tint, label: "Power Source Sound")
+                ThresholdSection(
+                    kind: .low, header: (Alert.Kind.low.symbol, .red, "Low Battery Alerts"),
+                    info: "Notify when battery goes below percentage", addTitle: "Add Low Battery Alert",
+                    alerts: settings.alerts(.low), perform: edits.perform)
+                ThresholdSection(
+                    kind: .charged, header: (Alert.Kind.charged.symbol, .green, "Charged Alerts"),
+                    info: "Notify when battery reaches percentage", addTitle: "Add Charged Alert",
+                    alerts: settings.alerts(.charged), perform: edits.perform)
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSectionHeader(symbol: "powerplug.fill", color: .orange, title: "Power Source Alerts")
+                    SettingCard {
+                        SettingRow(icon: ("bolt.fill", .yellow), title: "Plugged In",
+                                   description: "Notify when power adapter is connected") {
+                            AccentSwitch(isOn: edits.binding(\.power.pluggedIn), tint: Self.tint, label: "Plugged In")
+                        }
+                        SettingRow(icon: ("bolt.slash.fill", .orange), title: "Unplugged",
+                                   description: "Notify when power adapter is disconnected") {
+                            AccentSwitch(isOn: edits.binding(\.power.unplugged), tint: Self.tint, label: "Unplugged")
+                        }
+                        SettingRow(title: "Sound", description: "Play a sound for these alerts") {
+                            AccentSwitch(isOn: edits.binding(\.power.sound), tint: Self.tint, label: "Power Source Sound")
+                        }
                     }
                 }
             }
         }
         .padding(24)
-        .background {
-            ZStack {
-                SettingsBackground()
-                RadialGradient(colors: [.red.opacity(0.1), .clear], center: .center, startRadius: 0, endRadius: 360)
-            }
-        }
-    }
-
-    /// [LAW:no-silent-failure] A change that cannot be kept is shown, not dropped.
-    private func perform(_ edit: (inout AlertSettings) -> Void) {
-        do {
-            try center.update(edit)
-            saveFailure = nil
-        } catch {
-            saveFailure = error.localizedDescription
-        }
-    }
-
-    private func binding<Value>(_ keyPath: WritableKeyPath<AlertSettings, Value>) -> Binding<Value> {
-        Binding(get: { center.settings[keyPath: keyPath] }, set: { value in perform { $0[keyPath: keyPath] = value } })
     }
 }
 

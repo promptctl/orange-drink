@@ -25,7 +25,6 @@ struct BatteryScreen: View {
             }
         }
         .padding(24)
-        .background(SettingsBackground(glow: .green, glowCenter: .top))
         // The timeline is read again when the range changes and whenever the history is written.
         .task(id: Refresh(range: range, revision: (try? history.get())?.changes.revision)) { loadTimeline() }
         // The overview does not depend on the range, so switching it reads nothing more.
@@ -36,12 +35,12 @@ struct BatteryScreen: View {
 
     private func loadTimeline() {
         loaded = Result { try history.get().timeline(range: range) }
-        report(loaded?.error)
+        report(loaded?.failure)
     }
 
     private func loadOverview() {
         overview = Result { try history.get().overview() }
-        report(overview?.error)
+        report(overview?.failure)
     }
 
     private func report(_ failure: (any Error)?) {
@@ -137,8 +136,4 @@ private struct StatTile: View {
         case .info: .blue
         }
     }
-}
-
-private extension Result {
-    var error: Failure? { if case .failure(let error) = self { error } else { nil } }
 }

@@ -168,15 +168,8 @@ import Testing
     func readBattery() throws -> BatteryReading { try #require(try IOKitBattery.read()) }
 
     func run(_ command: String, _ arguments: String...) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: command)
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        try process.run()
-        let output = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        try #require(process.terminationStatus == 0, "\(command) exited \(process.terminationStatus)")
-        return String(decoding: output, as: UTF8.self)
+        let result = try ChildProcess.run(command, arguments)
+        try #require(result.status == 0, "\(command) exited \(result.status): \(result.errors)")
+        return result.text
     }
 }

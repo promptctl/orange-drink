@@ -10,7 +10,6 @@ enum ProcessEnergyError: Error, Equatable {
     /// macOS has no public per-app energy API; the owner of a helper or XPC service comes from this private
     /// symbol, and without it the energy would be attributed by a different rule.
     case noResponsibilitySymbol
-    case processList
 }
 
 /// [LAW:effects-at-boundaries] The one edge that reads process energy (the method the qvj spike chose):
@@ -33,14 +32,7 @@ final class RusageEnergySource: ProcessEnergySource, @unchecked Sendable {
     }
 
     func snapshot() throws -> [ProcessEnergy] {
-        // A null buffer asks how many pids there are now; room is left for processes started since.
-        let needed = proc_listallpids(nil, 0)
-        guard needed > 0 else { throw ProcessEnergyError.processList }
-        var pids = [pid_t](repeating: 0, count: Int(needed) + 64)
-        // The return value is a count of pids, not of bytes.
-        let count = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
-        guard count > 0 else { throw ProcessEnergyError.processList }
-        return pids.prefix(Int(count)).compactMap { pid -> ProcessEnergy? in
+        try Processes.all().compactMap { pid -> ProcessEnergy? in
             guard pid > 0, let usage = Self.usage(pid) else { return nil }
             guard let identity = owner(of: pid) else { return nil }
             return ProcessEnergy(key: .init(pid: pid, started: usage.ri_proc_start_abstime), age: Self.seconds(since: usage.ri_proc_start_abstime),
@@ -76,9 +68,7 @@ final class RusageEnergySource: ProcessEnergySource, @unchecked Sendable {
     }
 
     private func identity(ofProcess pid: pid_t) -> AppIdentity? {
-        var buffer = [CChar](repeating: 0, count: 4096)
-        guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
-        let path = String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        guard let path = Processes.executablePath(of: pid) else { return nil }
         return lock.withLock {
             if let known = identities[path] { return known }
             let made = Self.identity(executable: path)

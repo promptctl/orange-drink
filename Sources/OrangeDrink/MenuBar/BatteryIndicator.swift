@@ -32,9 +32,9 @@ struct BatteryIndicator: Equatable {
         case .iconOnly: nil
         }
         tint = switch (power, percent) {
-        case (_, ...Self.criticalPercent) where !charging(power): .red
+        case (_, ...Self.criticalPercent) where !power.isCharging: .red
         case _ where !statusColors: .neutral
-        case (.adapter(_, .charging), _): .green
+        case _ where power.isCharging: .green
         case (_, ...Self.lowPercent): .orange
         default: .neutral
         }
@@ -45,8 +45,4 @@ struct BatteryIndicator: Equatable {
         guard let minutes = estimate?.wholeMinutes else { return "–" }
         return "\(minutes / 60):" + String(format: "%02d", minutes % 60)
     }
-}
-
-private func charging(_ power: PowerSource) -> Bool {
-    if case .adapter(_, .charging) = power { true } else { false }
 }
