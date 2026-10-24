@@ -1,0 +1,873 @@
+Filtering the log data using "process == "powerd" OR process == "PowerUIAgent""
+Timestamp               Ty Process[PID:TID]
+# trimmed to the run's event windows (11:58-12:06 on 2026-10-24)
+2026-10-24 12:00:13.166 Df powerd[339:1a1cfcc1] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask 8D63208B-029D-4189-9A62-4E15D7A42F2F" age:00:00:03  id:51539646459 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:13.365 Df powerd[339:1a1cfcc1] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask B02BD309-A100-412C-9ECF-87C5FF0DFCD2" age:00:00:03  id:51539646461 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:26.041 Df powerd[339:1a1cc722] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864826
+2026-10-24 12:00:26.041 Df powerd[339:1a1cc722] [com.apple.powerd:battery] Battery time remaining posted(0x1000000004dffff) Time:-1 Source:AC
+2026-10-24 12:00:26.042 Df powerd[339:1a1cfcc1] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:00:26.043 Df powerd[339:1a1cfcc1] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:00:26.044 Df powerd[339:1a1cc722] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043039743
+2026-10-24 12:00:26.044 Df powerd[339:1a1cfcc1] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:00:26.044 Df powerd[339:1a1cfcc1] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:00:26.044 Df powerd[339:1a1cc722] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043039743
+2026-10-24 12:00:26.105 Df powerd[339:1a1d66ec] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864826
+2026-10-24 12:00:26.106 Df powerd[339:1a1d66ec] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:00:26.107 Df powerd[339:1a1d66ec] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:00:26.117 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:00:26.117 Df PowerUIAgent[410:1a1d3af2] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:00:26.118 Df PowerUIAgent[410:1a1d3af2] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:00:26.118 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:26.120 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:26.120 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 6
+2026-10-24 12:00:26.120 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613762 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:00:26.121 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: -1
+2026-10-24 12:00:26.121 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: -1
+2026-10-24 12:00:26.121 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:26.124 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:26.130 Df powerd[339:1a1d66ec] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613762 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:26.132 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 6
+2026-10-24 12:00:26.135 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (6/6) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:00:26.163 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:00:26.163 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask 1B81DEE7-ABD7-49F4-B6BF-DC31539BC095" age:00:00:00  id:51539646467 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:26.224 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:00:26.224 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask 92D5C462-1245-48FC-A6A1-A4EB3B551648" age:00:00:00  id:51539646469 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:26.920 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:00:26.920 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask 7C16747D-EF3A-4552-9FB9-D9A56486DF6A" age:00:00:00  id:51539646474 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:28.271 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:00:28.271 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask 750F603D-7DAE-4235-B56E-D5ACBD259B55" age:00:00:00  id:51539646476 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:29.465 Df powerd[339:1a1d66ec] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask 1B81DEE7-ABD7-49F4-B6BF-DC31539BC095" age:00:00:03  id:51539646467 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:29.465 Df powerd[339:1a1d66ec] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask 92D5C462-1245-48FC-A6A1-A4EB3B551648" age:00:00:03  id:51539646469 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:29.679 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:00:29.679 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask FF1AEF93-924D-4947-AC16-2C4E13DB725F" age:00:00:00  id:51539646478 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:30.222 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask 7C16747D-EF3A-4552-9FB9-D9A56486DF6A" age:00:00:03  id:51539646474 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:31.611 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask 750F603D-7DAE-4235-B56E-D5ACBD259B55" age:00:00:03  id:51539646476 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:00:31.696 E  powerd[339:1a1cc722] [com.apple.powerd:assertions] Pid 62401 is not privileged to set property AppliesOnLidClose
+2026-10-24 12:00:31.696 E  powerd[339:1a1cc722] [com.apple.powerd:assertions] _io_pm_assertion_create: PID 62401 is not entitled
+2026-10-24 12:00:32.988 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask FF1AEF93-924D-4947-AC16-2C4E13DB725F" age:00:00:03  id:51539646478 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.241 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 TurnedOff PreventUserIdleSystemSleep "com.apple.audio.BuiltInMicrophoneDevice.context.preventuseridlesleep" age:11:37:31  id:4295001206 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.280 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 TurnedOff PreventUserIdleSystemSleep "com.apple.audio.BuiltInSpeakerDevice.context.preventuseridlesleep" age:11:37:32  id:4295001204 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.599 Df powerd[339:1a1d66ed] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:00:33.890 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.context33689.preventuseridledisplaysleep" age:12:16:37  id:21474870381 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.892 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.context33689.preventuseridlesleep" age:12:16:37  id:4295001196 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.892 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.context33690.preventuseridledisplaysleep" age:12:16:37  id:21474870383 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.892 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.context33690.preventuseridlesleep" age:12:16:37  id:4295001198 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.892 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.context33691.preventuseridledisplaysleep" age:12:16:37  id:21474870385 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.892 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.context33691.preventuseridlesleep" age:12:16:37  id:4295001200 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.892 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.context33692.preventuseridledisplaysleep" age:12:16:37  id:21474870387 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.892 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.context33692.preventuseridlesleep" age:12:16:37  id:4295001202 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.BuiltInSpeakerDevice.context.preventuseridledisplaysleep" age:12:16:37  id:21474870389 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.BuiltInSpeakerDevice.context.preventuseridlesleep" age:11:37:33  id:4295001204 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.BuiltInMicrophoneDevice.context.preventuseridledisplaysleep" age:12:16:37  id:21474870391 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.BuiltInMicrophoneDevice.context.preventuseridlesleep" age:11:37:31  id:4295001206 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.context33695.preventuseridledisplaysleep" age:12:16:37  id:21474870393 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.context33695.preventuseridlesleep" age:12:16:37  id:4295001208 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.context33696.preventuseridledisplaysleep" age:12:16:37  id:21474870395 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.context33696.preventuseridlesleep" age:12:16:37  id:4295001210 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleDisplaySleep "com.apple.audio.context33697.preventuseridledisplaysleep" age:12:16:37  id:21474870397 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:33.893 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process coreaudiod.408 Released PreventUserIdleSystemSleep "com.apple.audio.context33697.preventuseridlesleep" age:12:16:37  id:4295001212 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:34.380 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process caffeinate.69434 ClientDied PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:03:59  id:4295005692 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:34.381 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:00:35.490 Df powerd[339:1a1d66ed] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:00:35.490 Df powerd[339:1a1d66ed] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864835
+2026-10-24 12:00:35.490 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:00:35.492 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:00:35.492 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:00:35.492 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79200
+2026-10-24 12:00:35.493 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:00:35.542 Df powerd[339:1a1cc722] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864835
+2026-10-24 12:00:35.544 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:00:35.544 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:00:35.545 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:00:35.545 Df PowerUIAgent[410:1a1d3af2] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:00:35.545 Df PowerUIAgent[410:1a1d3af2] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:00:35.545 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 6
+2026-10-24 12:00:35.546 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613776 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: -1
+2026-10-24 12:00:35.546 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: -1
+2026-10-24 12:00:35.546 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:35.547 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:35.548 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613776 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:35.549 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 6
+2026-10-24 12:00:35.549 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (6/6) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:00:36.516 Df powerd[339:1a1cc722] Clamshell state changed
+2026-10-24 12:00:36.516 Df powerd[339:1a1cc722] [com.apple.powerd:displayState] ClamshellState. Closed : 0. ClamshellSleepState: isSleepDisabled : 0
+2026-10-24 12:00:36.517 Df powerd[339:1a1d66ed] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:00:36.517 Df powerd[339:1a1d66ed] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864836
+2026-10-24 12:00:36.517 Df powerd[339:1a1d66ed] [com.apple.powerd:battery] Battery time remaining posted(0x2000000004cffff) Time:-1 Source:Batt
+2026-10-24 12:00:36.517 Df powerd[339:1a1d66ed] [com.apple.powerd:battery] Battery capacity change posted(0x8000d). Capacity:13 Source:Batt
+2026-10-24 12:00:36.517 Df powerd[339:1a1d66ed] [com.apple.powerd:battery] Power Source change. Source:Batt
+2026-10-24 12:00:36.517 Df powerd[339:1a1d66ed] [com.apple.powerd:battery] EvaluateClamshellSleepState on power source change
+2026-10-24 12:00:36.517 A  powerd[339:1a1cc722] (CoreFoundation) Loading Preferences From System CFPrefsD
+2026-10-24 12:00:36.519 Df powerd[339:1a1cc722] [com.apple.powerd:pmSettings] Settings change for power source change to Battery Power {
+2026-10-24 12:00:36.519 Df powerd[339:1a1cc722] [com.apple.powerd:pmSettings] Sleep timer 1 display timer 10
+2026-10-24 12:00:36.520 Df powerd[339:1a1cc722] [com.apple.powerd:pmSettings] Setting Hibernate mode to 3
+2026-10-24 12:00:36.520 Df powerd[339:1a1cc722] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:00:36.520 Df powerd[339:1a1cc722] [com.apple.powerd:assertions] Summary- [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:00:36.521 Df powerd[339:1a1cc722] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:00:36.521 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[62401].0x7a6c79200
+2026-10-24 12:00:36.521 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79e00
+2026-10-24 12:00:36.522 Df powerd[339:1a1d66ed] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 62401) either cancelled the connection or exited
+2026-10-24 12:00:36.521 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.522 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.522 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.522 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:00:36.522 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.527 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:00:36.527 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:00:36.527 Df powerd[339:1a1d7e94] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 144115188080902143
+2026-10-24 12:00:36.527 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79e00
+2026-10-24 12:00:36.528 Df powerd[339:1a1cc722] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:00:36.528 Df powerd[339:1a1d805c] TCPKeepAliveState: active
+2026-10-24 12:00:36.528 Df powerd[339:1a1d805c] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:00:36.528 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] HandleBatteryDataUpdate AC change detected run update and action policy
+2026-10-24 12:00:36.529 Df powerd[339:1a1d8053] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
+2026-10-24 12:00:36.529 Df powerd[339:1a1d8053] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Disconnected VBUS:0 UISOC:13 CHNC:80000000000000 Type:0 TLC:Sat Oct 24 12:00:36 2026
+2026-10-24 12:00:36.530 Df powerd[339:1a1d7e94] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 144115188080902143
+2026-10-24 12:00:36.530 Df powerd[339:1a1d7e94] [com.apple.powerd:BDC] Connected state changed to 0
+2026-10-24 12:00:36.529 Df powerd[339:1a1d805d] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79e00
+2026-10-24 12:00:36.531 Df powerd[339:1a1d805d] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:00:36.531 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Considered submitting monthly OBC analytics, but not enough time has passed since last submission: Sat Oct 24 01:16:48 2026
+2026-10-24 12:00:36.531 E  powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Invalid key for UsableBottomOcv
+2026-10-24 12:00:36.531 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: monitor: pluggedIn=0
+2026-10-24 12:00:36.533 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Last DOD0 Change: 2.1 days too recent
+2026-10-24 12:00:36.533 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 01:16:48 2026
+2026-10-24 12:00:36.540 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Last Qmax change was 2.1 days ago too recent
+2026-10-24 12:00:36.544 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Last DOD0 Change: 2.1 days too recent
+2026-10-24 12:00:36.544 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Last full charge date was 6.5 days ago too recent
+2026-10-24 12:00:36.544 Df powerd[339:1a1d805c] [com.apple.powerd:batterygauging] Charge To Full Request:0
+2026-10-24 12:00:36.545 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 2
+2026-10-24 12:00:36.545 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on battery: 0
+2026-10-24 12:00:36.545 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: com.apple.system.highpowermode current state: 1, new state: 0, pluggedin: 0, gamingOverrideProvided: 0supported on AC: 1, chosen on AC: 1 supported on batt: 1, chosen on batt: 0, chosen while gaming: 0
+2026-10-24 12:00:36.545 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: com.apple.system.highpowermode = 0
+2026-10-24 12:00:36.545 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: State is now OFF
+2026-10-24 12:00:36.549 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: Read defaults state=1 for com.apple.powerd.highpowermode.state
+2026-10-24 12:00:36.549 Df powerd[339:1a1d8053] TCPKeepAliveState: active
+2026-10-24 12:00:36.550 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: Read defaults date=2026-Oct-24 01:16:48 GMT-06:00 for com.apple.powerd.highpowermode.state
+2026-10-24 12:00:36.554 Df powerd[339:1a1d7e94] [com.apple.powerd:BDC] Sending data to powerlog for group BDC_OBC
+2026-10-24 12:00:36.557 Df powerd[339:1a1cc722] [com.apple.powerd:lowPowerMode] PMH: Saved state=0 date=2026-Oct-24 12:00:36 GMT-06:00 to defaults com.apple.powerd.highpowermode.state
+2026-10-24 12:00:36.564 Df powerd[339:1a1d805c] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[51839].0x7a6c79e00
+2026-10-24 12:00:36.564 Df powerd[339:1a1d805c] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79200
+2026-10-24 12:00:36.564 Df powerd[339:1a1d805c] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
+2026-10-24 12:00:36.564 Df powerd[339:1a1d805c] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 51839) either cancelled the connection or exited
+2026-10-24 12:00:36.565 Df powerd[339:1a1d805c] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:00:36.568 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.569 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.569 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.569 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:00:36.569 A  PowerUIAgent[410:1a1d3af2] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.570 Df PowerUIAgent[410:1a1d3af2] [com.apple.powerui.smartcharging:smartChargeManager] MCL temp disablement date of Sat Oct 24 06:00:00 2026 has passed, reenable feature
+2026-10-24 12:00:36.570 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Set Checkpoint: 0 from <private>
+2026-10-24 12:00:36.570 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Saving Checkpoint: 0 to defaults
+2026-10-24 12:00:36.572 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext setObject:forContextualKeyPath:
+2026-10-24 12:00:36.572 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.572 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.574 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Writing to PowerLog <private>
+2026-10-24 12:00:36.576 A  PowerUIAgent[410:1a1d807f] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:00:36.577 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.577 A  PowerUIAgent[410:1a1d7eaa] (BiomeFoundation) _BMXPCFileManager._fileHandleForFileAtPath:flags:protection:error:
+2026-10-24 12:00:36.577 Df PowerUIAgent[410:1a1d7eaa] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.biome.access.system
+2026-10-24 12:00:36.576 Df PowerUIAgent[410:1a1d807f] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:00:36.578 Df PowerUIAgent[410:1a1d807f] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:00:36.579 A  PowerUIAgent[410:1a1d7eaa] (BiomeFoundation) _BMXPCFileManager._fileHandleForFileAtPath:flags:protection:error:
+2026-10-24 12:00:36.580 A  PowerUIAgent[410:1a1d7eaa] (BiomeStreams) BMStoreSource.sendEvent
+2026-10-24 12:00:36.580 Df PowerUIAgent[410:1a1d7eaa] [com.apple.xpc:connection] [0xb2502d400] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-10-24 12:00:36.580 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:analyticsmanager] Sent engagementEvent: EventType: 5 - Mode: 6 - SoC: 13 - TargetSoC: -1 - PredictedEoC: 0.000000
+2026-10-24 12:00:36.581 A  PowerUIAgent[410:1a1d807f] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.581 Df PowerUIAgent[410:1a1d807f] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:36.581 A  PowerUIAgent[410:1a1d807f] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.581 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.581 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.581 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.582 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:00:36.582 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d807f] [com.apple.powerui.smartcharging:NotificationManager] Removing all notifications
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d807f] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d807f] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d7eaa] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.usernotifications.listener
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d7eaa] [com.apple.xpc:connection] [0xb2502d400] failed to do a bootstrap look-up: xpc_error=[3: No such process]
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d7eaa] [com.apple.xpc:connection] [0xb2502d400] invalidated after a failed init
+2026-10-24 12:00:36.583 Df PowerUIAgent[410:1a1d3af2] [com.apple.xpc:connection] [0xb25048d80] invalidated because the client process (pid 392) either cancelled the connection or exited
+2026-10-24 12:00:36.584 E  PowerUIAgent[410:1a1d3af2] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Getting delivered notifications failed with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process.}
+2026-10-24 12:00:36.584 E  PowerUIAgent[410:1a1d3af2] [com.apple.UserNotifications:Connections] [com.apple.powerui.smartcharging] Removing all delivered notifications with error: Error Domain=NSCocoaErrorDomain Code=4099 "The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process." UserInfo={NSDebugDescription=The connection to service named com.apple.usernotifications.listener was invalidated: Connection init failed at lookup with error 3 - No such process.}
+2026-10-24 12:00:36.585 Df PowerUIAgent[410:1a1d807f] [com.apple.powerui.smartcharging:smartChargeManager] Potential disconnect, debounce for 300.000000 seconds
+2026-10-24 12:00:36.585 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.586 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:00:36.586 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Potential disconnect, debounce for 299.995225 more seconds
+2026-10-24 12:00:36.586 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.587 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:36.587 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 1 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:00:36.587 Df PowerUIAgent[410:1a1d7eaa] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:00:36.587 A  PowerUIAgent[410:1a1d7eaa] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:00:44.307 Df powerd[339:1a1d805c] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79200
+2026-10-24 12:00:44.307 Df powerd[339:1a1d805c] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:00:52.981 Df powerd[339:1a1d805c] TCPKeepAliveState: active
+2026-10-24 12:00:53.021 Df powerd[339:1a1d805c] TCPKeepAliveState: active
+2026-10-24 12:00:56.383 Df powerd[339:1a1d805c] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:00:56.384 Df powerd[339:1a1d805c] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:00:56.384 Df powerd[339:1a1d805c] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:00:56.384 Df powerd[339:1a1d805c] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:04.208 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] Releasing power source id = 9401
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] Posted notifications for loss of power source id 9401
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] Releasing power source id = 9402
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:01:06.482 Df powerd[339:1a1d805c] [com.apple.powerd:battery] Posted notifications for loss of power source id 9402
+2026-10-24 12:01:06.482 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:01:06.483 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:06.484 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:01:06.484 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79e00
+2026-10-24 12:01:06.484 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:06.485 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:06.485 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79e00
+2026-10-24 12:01:06.485 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:06.486 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79e00
+2026-10-24 12:01:06.486 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:01:06.486 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:06.486 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:10.219 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:10.219 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:10.219 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:10.219 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:10.575 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:10.575 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:10.575 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:10.575 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:20.136 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Created new power source id 9403 for pid 722
+2026-10-24 12:01:20.136 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Received power source(psid:9403) update from pid 722: <private>
+2026-10-24 12:01:20.136 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:01:20.136 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:01:20.136 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Posted notifications for new power source id 9403
+2026-10-24 12:01:20.137 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Created new power source id 9404 for pid 722
+2026-10-24 12:01:20.137 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Received power source(psid:9404) update from pid 722: <private>
+2026-10-24 12:01:20.137 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:01:20.137 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:01:20.137 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Posted notifications for new power source id 9404
+2026-10-24 12:01:20.139 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:01:20.139 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:20.140 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:01:20.141 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:20.141 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:01:20.141 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:20.142 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:01:20.143 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:22.633 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Process caffeinate.73816 ClientDied PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:03:59  id:4295005859 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:01:22.633 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:22.633 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:22.633 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] DesktopMode check on Battery 0
+2026-10-24 12:01:22.633 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:23.763 Df powerd[339:1a1de7fd] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864883
+2026-10-24 12:01:23.766 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:01:23.766 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:23.827 Df powerd[339:1a1d7e94] Clamshell state changed
+2026-10-24 12:01:23.827 Df powerd[339:1a1d7e94] [com.apple.powerd:displayState] ClamshellState. Closed : 0. ClamshellSleepState: isSleepDisabled : 0
+2026-10-24 12:01:23.850 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:01:23.851 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:01:23.851 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:01:23.851 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.851 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:23.851 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Plugged in within debounce limit, ignore previous unplug
+2026-10-24 12:01:23.853 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:chargingcontroller] Did not get string value for key chargeTokenMCL
+2026-10-24 12:01:23.853 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.iokit.powerdxpc
+2026-10-24 12:01:23.853 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[410].0x7a6c79200
+2026-10-24 12:01:23.853 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:23.854 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] invalidated after the last release of the connection object
+2026-10-24 12:01:23.854 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 410) either cancelled the connection or exited
+2026-10-24 12:01:23.857 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:chargingcontroller] Created new charge limit token: <private> for reason: manualChargeLimit
+2026-10-24 12:01:23.857 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.iokit.powerdxpc
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[410].0x7a6c79200
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:23.857 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:23.859 Df powerd[339:1a1deb9a] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
+2026-10-24 12:01:23.859 Df powerd[339:1a1deb9a] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Disconnected VBUS:0 UISOC:13 CHNC:80000000000080 Type:2 TLC:Sat Oct 24 12:01:23 2026
+2026-10-24 12:01:23.860 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79e00
+2026-10-24 12:01:23.863 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:01:23.864 Df powerd[339:1a1d7e94] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864883
+2026-10-24 12:01:23.864 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Battery time remaining posted(0x1000000004dffff) Time:-1 Source:AC
+2026-10-24 12:01:23.864 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Battery capacity change posted(0x9000d). Capacity:13 Source:AC
+2026-10-24 12:01:23.864 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] Power Source change. Source:AC
+2026-10-24 12:01:23.864 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] EvaluateClamshellSleepState on power source change
+2026-10-24 12:01:23.865 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] HandleBatteryDataUpdate AC change detected run update and action policy
+2026-10-24 12:01:23.866 Df powerd[339:1a1deb9a] [com.apple.powerd:pmSettings] Settings change for power source change to AC Power {
+2026-10-24 12:01:23.866 Df powerd[339:1a1deb9a] [com.apple.powerd:pmSettings] Sleep timer 0 display timer 180
+2026-10-24 12:01:23.866 Df powerd[339:1a1deb9a] [com.apple.powerd:pmSettings] Setting Hibernate mode to 3
+2026-10-24 12:01:23.867 Df powerd[339:1a1deb9a] [com.apple.powerd:assertions] Summary- [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:01:23.867 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[51839].0x7a6c79800
+2026-10-24 12:01:23.867 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:23.868 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79c80] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[62401].0x7a6c79c80
+2026-10-24 12:01:23.868 Df powerd[339:1a1deb9a] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
+2026-10-24 12:01:23.868 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79e00] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79e00
+2026-10-24 12:01:23.868 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79c80] invalidated because the client process (pid 62401) either cancelled the connection or exited
+2026-10-24 12:01:23.870 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79c80] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79c80
+2026-10-24 12:01:23.869 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.870 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.870 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:23.870 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:23.870 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.871 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79c80] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:01:23.871 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.872 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.873 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:23.873 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:23.873 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.877 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79c80] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79c80
+2026-10-24 12:01:23.889 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79e00] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:23.889 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79f80] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79f80
+2026-10-24 12:01:23.891 Df powerd[339:1a1deb9a] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:01:23.891 Df powerd[339:1a1deb9a] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864883
+2026-10-24 12:01:23.891 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79f80] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:23.891 Df powerd[339:1a1deb9a] TCPKeepAliveState: active
+2026-10-24 12:01:23.898 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79c80] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:23.898 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79c80] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79c80
+2026-10-24 12:01:23.898 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Considered submitting monthly OBC analytics, but not enough time has passed since last submission: Sat Oct 24 12:00:36 2026
+2026-10-24 12:01:23.898 E  powerd[339:1a1debab] [com.apple.powerd:batterygauging] Invalid key for UsableBottomOcv
+2026-10-24 12:01:23.901 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79f80] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79f80
+2026-10-24 12:01:23.902 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Last DOD0 Change: 2.1 days too recent
+2026-10-24 12:01:23.897 Df powerd[339:1a1deb9b] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043039743
+2026-10-24 12:01:23.905 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: monitor: pluggedIn=1
+2026-10-24 12:01:23.906 Df powerd[339:1a1deb9a] [com.apple.xpc:connection] [0x7a6c79f80] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:23.902 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Not enough time has passed since last charge to full check: Sat Oct 24 12:00:36 2026
+2026-10-24 12:01:23.912 Df powerd[339:1a1d7e94] [com.apple.powerd:batterychargingstate] posted 'com.apple.system.powersources.chargingiconography'
+2026-10-24 12:01:23.912 Df powerd[339:1a1d7e94] [com.apple.powerd:batterychargingstate] handleChargingStateUpdate State:Charging VBUS:1 UISOC:13 CHNC:80000000000080 Type:0 TLC:Sat Oct 24 12:01:23 2026
+2026-10-24 12:01:23.914 Df powerd[339:1a1deb9b] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043039743
+2026-10-24 12:01:23.914 Df powerd[339:1a1deb9b] [com.apple.powerd:BDC] Connected state changed to 2
+2026-10-24 12:01:23.915 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79f80] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79f80
+2026-10-24 12:01:23.915 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Last Qmax change was 2.1 days ago too recent
+2026-10-24 12:01:23.916 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79f80] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:23.920 Df powerd[339:1a1deb9b] [com.apple.powerd:BDC] Sending data to powerlog for group BDC_OBC
+2026-10-24 12:01:23.921 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on charger: 2
+2026-10-24 12:01:23.921 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: User preference for custom powermode on battery: 0
+2026-10-24 12:01:23.921 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: com.apple.system.highpowermode current state: 0, new state: 1, pluggedin: 1, gamingOverrideProvided: 0supported on AC: 1, chosen on AC: 1 supported on batt: 1, chosen on batt: 0, chosen while gaming: 0
+2026-10-24 12:01:23.921 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: com.apple.system.highpowermode = 1
+2026-10-24 12:01:23.921 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: State is now ON
+2026-10-24 12:01:23.921 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: Read defaults state=0 for com.apple.powerd.highpowermode.state
+2026-10-24 12:01:23.922 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: Read defaults date=2026-Oct-24 12:00:36 GMT-06:00 for com.apple.powerd.highpowermode.state
+2026-10-24 12:01:23.922 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Last DOD0 Change: 2.1 days too recent
+2026-10-24 12:01:23.922 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Last full charge date was 6.5 days ago too recent
+2026-10-24 12:01:23.922 Df powerd[339:1a1debab] [com.apple.powerd:batterygauging] Charge To Full Request:0
+2026-10-24 12:01:23.927 Df powerd[339:1a1debae] [com.apple.powerd:lowPowerMode] PMH: Saved state=1 date=2026-Oct-24 12:01:23 GMT-06:00 to defaults com.apple.powerd.highpowermode.state
+2026-10-24 12:01:23.929 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79c80] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:01:23.932 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] invalidated after the last release of the connection object
+2026-10-24 12:01:23.932 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 410) either cancelled the connection or exited
+2026-10-24 12:01:23.932 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:chargingcontroller] Limited charging to 95% for reason 'manualChargeLimit'
+2026-10-24 12:01:23.933 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:23.933 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:23.936 Df powerd[339:1a1debab] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613801 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:23.937 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:01:23.938 Df powerd[339:1a1d7e94] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864883
+2026-10-24 12:01:23.938 Df powerd[339:1a1debab] [com.apple.powerd:assertions] EvaluateClamshell. Disable :  1 because {DesktopMode with AC: 0, assertions 1
+2026-10-24 12:01:23.938 Df powerd[339:1a1debab] [com.apple.powerd:systemLoad] Activity changes from 0x1 to 0x21. UseActiveState:1
+2026-10-24 12:01:23.938 Df powerd[339:1a1debab] [com.apple.powerd:systemLoad] hidActive:0 displayOff:0 assertionActivityValid:1 now:0x1115fe  hid_ts:0x1115cb assertion_ts:0x1115cb
+2026-10-24 12:01:23.941 Df powerd[339:1a1debab] [com.apple.powerd:systemLoad] Evaluating new PerfMode on UserActivity level change.
+2026-10-24 12:01:23.941 Df PowerUIAgent[410:1a1d8082] [com.apple.xpc:connection] [0xb25048d80] activating connection: mach=false listener=false peer=true name=com.apple.notifyd.matching.peer[392].0xb25048d80
+2026-10-24 12:01:23.941 Df powerd[339:1a1debab] [com.apple.powerd:assertions] Process PowerChime.9471 Created DisplayWake "com.apple.chimeOnAttach" age:00:00:00  id:60129581098 [System: PrevIdle DeclUser SRPrevSleep DispWake kCPU kDisp]
+2026-10-24 12:01:23.941 Df powerd[339:1a1debab] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 51839) either cancelled the connection or exited
+2026-10-24 12:01:23.942 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79800
+2026-10-24 12:01:23.943 Df powerd[339:1a1debab] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:01:23.943 Df powerd[339:1a1debab] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:01:23.943 Df powerd[339:1a1debab] [com.apple.powerd:coreSmartPowerNap] CoreSmartPowerNap: ActivityLevel: 33
+2026-10-24 12:01:23.943 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:23.953 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:23.953 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:23.954 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.957 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[51839].0x7a6c79200
+2026-10-24 12:01:23.958 Df powerd[339:1a1d7e94] [com.apple.powerd:batterychargingstate] batteryChargingStateRequest received
+2026-10-24 12:01:23.963 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 51839) either cancelled the connection or exited
+2026-10-24 12:01:23.966 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:23 2026
+2026-10-24 12:01:23.966 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:23.966 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:23.967 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.995 Df powerd[339:1a1deb9b] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613801 [System: PrevIdle DeclUser DispWake kDisp]
+2026-10-24 12:01:23.995 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:23.996 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:23.996 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.996 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:01:23.996 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:01:23.996 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:01:23.996 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:23.996 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.997 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:01:23.997 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:01:23.997 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:01:23.997 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:23.997 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:23.997 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.iokit.powerdxpc
+2026-10-24 12:01:23.997 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[410].0x7a6c79200
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:23.998 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.013 Df powerd[339:1a1deb9b] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864884
+2026-10-24 12:01:24.014 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:01:24.015 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:24.027 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 410) either cancelled the connection or exited
+2026-10-24 12:01:24.027 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] invalidated after the last release of the connection object
+2026-10-24 12:01:24.027 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.027 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.031 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613803 [System: PrevIdle DeclUser SRPrevSleep DispWake kCPU kDisp]
+2026-10-24 12:01:24.034 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.034 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.034 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.035 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.035 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.035 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.035 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.036 Df powerd[339:1a1de7fd] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613803 [System: PrevIdle DeclUser DispWake kDisp]
+2026-10-24 12:01:24.036 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.036 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.036 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.036 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:24.036 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.037 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:24.037 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.iokit.powerdxpc
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[410].0x7a6c79200
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:24.037 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.xpc:connection] [0xb2502d400] invalidated after the last release of the connection object
+2026-10-24 12:01:24.054 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 410) either cancelled the connection or exited
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.054 Df powerd[339:1a1de7fd] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613804 [System: PrevIdle DeclUser SRPrevSleep DispWake kCPU kDisp]
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.054 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.054 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.055 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.055 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.055 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.055 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.055 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613804 [System: PrevIdle DeclUser DispWake kDisp]
+2026-10-24 12:01:24.056 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.056 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.056 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.056 Df PowerUIAgent[410:1a1deb98] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:24.110 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:01:24.110 Df powerd[339:1a1d7e94] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864884
+2026-10-24 12:01:24.112 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:01:24.112 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:24.122 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79200
+2026-10-24 12:01:24.122 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:01:24.134 Df powerd[339:1a1de7fd] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864884
+2026-10-24 12:01:24.135 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:01:24.135 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:24.136 A  PowerUIAgent[410:1a1deb98] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:01:24.136 Df PowerUIAgent[410:1a1deb98] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:01:24.136 Df PowerUIAgent[410:1a1deb98] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:01:24.136 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.137 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:24.137 Df PowerUIAgent[410:1a1d8082] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.iokit.powerdxpc
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[410].0x7a6c79200
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:24.137 Df powerd[339:1a1d7e94] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.139 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 410) either cancelled the connection or exited
+2026-10-24 12:01:24.139 Df PowerUIAgent[410:1a1d8082] [com.apple.xpc:connection] [0xb2502d400] invalidated after the last release of the connection object
+2026-10-24 12:01:24.139 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.139 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.140 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613805 [System: PrevIdle DeclUser SRPrevSleep DispWake kCPU kDisp]
+2026-10-24 12:01:24.140 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.140 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.141 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.141 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.141 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.141 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.141 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.143 Df powerd[339:1a1de7fd] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613805 [System: PrevIdle DeclUser DispWake kDisp]
+2026-10-24 12:01:24.143 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.143 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.143 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.144 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:24.301 Df powerd[339:1a1d7e94] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:01:24.302 Df powerd[339:1a1d7e94] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864884
+2026-10-24 12:01:24.303 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79200
+2026-10-24 12:01:24.303 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:01:24.303 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:01:24.303 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:24.356 Df powerd[339:1a1d7e94] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864884
+2026-10-24 12:01:24.358 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:01:24.358 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:24.359 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:01:24.359 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:01:24.359 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:01:24.359 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.359 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:24.360 Df PowerUIAgent[410:1a1d8082] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.iokit.powerdxpc
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[410].0x7a6c79800
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:24.360 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:24.362 Df PowerUIAgent[410:1a1d8082] [com.apple.xpc:connection] [0xb2502d400] invalidated after the last release of the connection object
+2026-10-24 12:01:24.362 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 410) either cancelled the connection or exited
+2026-10-24 12:01:24.362 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:24.362 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:24.362 Df powerd[339:1a1de7fd] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613806 [System: PrevIdle DeclUser SRPrevSleep DispWake kCPU kDisp]
+2026-10-24 12:01:24.362 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:24.363 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:03:24 2026
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:24.363 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:24.363 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.364 Df powerd[339:1a1de7fd] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613806 [System: PrevIdle DeclUser DispWake kDisp]
+2026-10-24 12:01:24.364 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=13, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:24.364 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=13, externalConnected=1
+2026-10-24 12:01:24.364 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:24.365 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:24.986 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] EvaluateClamshell. Disable :  0 because {DesktopMode with AC: 0, assertions 0
+2026-10-24 12:01:24.986 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:24.986 Df powerd[339:1a1d7e94] [com.apple.powerd:systemLoad] Activity changes from 0x21 to 0x1. UseActiveState:1
+2026-10-24 12:01:24.986 Df powerd[339:1a1d7e94] [com.apple.powerd:systemLoad] hidActive:0 displayOff:0 assertionActivityValid:1 now:0x1115ff  hid_ts:0x1115cb assertion_ts:0x1115cb
+2026-10-24 12:01:24.986 Df powerd[339:1a1d7e94] [com.apple.powerd:systemLoad] Evaluating new PerfMode on UserActivity level change.
+2026-10-24 12:01:24.986 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Process PowerChime.9471 Released DisplayWake "com.apple.chimeOnAttach" age:00:00:01  id:60129581098 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:01:24.986 Df powerd[339:1a1de7fd] [com.apple.powerd:coreSmartPowerNap] CoreSmartPowerNap: ActivityLevel: 1
+2026-10-24 12:01:26.991 Df powerd[339:1a1de7fd] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:01:26.992 Df powerd[339:1a1de7fd] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864886
+2026-10-24 12:01:26.993 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:01:26.993 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:27.001 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79800
+2026-10-24 12:01:27.002 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:01:27.004 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.004 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.005 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:27.005 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:27.005 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.710 Df powerd[339:1a1de7fd] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864887
+2026-10-24 12:01:27.710 Df powerd[339:1a1de7fd] [com.apple.powerd:battery] Battery capacity change posted(0x9000e). Capacity:14 Source:AC
+2026-10-24 12:01:27.710 Df powerd[339:1a1de7fd] [com.apple.powerd:battery] posted 'com.apple.system.powersources.timeremaining'
+2026-10-24 12:01:27.711 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79800
+2026-10-24 12:01:27.711 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.712 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.712 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:01:27.712 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:01:27.712 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.713 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:27.713 Df powerd[339:1a1de7fd] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043039743
+2026-10-24 12:01:27.714 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79800
+2026-10-24 12:01:27.714 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:01:27.714 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:27.715 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:01:27.715 Df powerd[339:1a1de7fd] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043039743
+2026-10-24 12:01:27.723 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:01:27.723 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:01:27.723 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:01:27.723 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.723 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
+2026-10-24 12:01:27.724 Df PowerUIAgent[410:1a1d8082] [com.apple.xpc:connection] [0xb2502d400] activating connection: mach=true listener=false peer=false name=com.apple.iokit.powerdxpc
+2026-10-24 12:01:27.724 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[410].0x7a6c79800
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] received SOC limit from 410: <private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] converted policy:<private> to dict:<private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] OnHold And Override dict <private>
+2026-10-24 12:01:27.725 Df powerd[339:1a1de7fd] [com.apple.powerd:charging] SOC limit policy:<private>
+2026-10-24 12:01:27.727 Df PowerUIAgent[410:1a1d8082] [com.apple.xpc:connection] [0xb2502d400] invalidated after the last release of the connection object
+2026-10-24 12:01:27.727 Df powerd[339:1a1de7fd] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 410) either cancelled the connection or exited
+2026-10-24 12:01:27.727 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Limiting charging to 95% SoC
+2026-10-24 12:01:27.727 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Checkpoint before SoC handling 0
+2026-10-24 12:01:27.727 Df powerd[339:1a1de7fd] [com.apple.powerd:assertions] Process PowerUIAgent.410 Created MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613807 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:27.727 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:mltwostagemodelpredictor] Returning saved deadline: Thu May 28 10:11:47 2015
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Ignoring all signals
+2026-10-24 12:01:27.728 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Deadline for full charge is: Thu May 28 10:11:47 2015 and resuming now would get us there by Sat Oct 24 14:02:27 2026
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new MoO before: 7 - decision signal: 0
+2026-10-24 12:01:27.728 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] new moo after: 7 - decision signal: 0
+2026-10-24 12:01:27.728 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.729 Df powerd[339:1a1d7e94] [com.apple.powerd:assertions] Process PowerUIAgent.410 Released MaintenanceWake "com.apple.obc" age:00:00:00  id:55834613807 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:01:27.729 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for battery level=14, externalConnected=1 - current checkpoint: 0
+2026-10-24 12:01:27.729 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Called for MCL battery level=14, externalConnected=1
+2026-10-24 12:01:27.729 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:01:27.729 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] (previous/current) checkpoint: (0/0) - decisionMaker: (1/1) - decisionDate: Sat Oct 24 01:11:47 2026 - MoO: (7/7)
+2026-10-24 12:01:29.646 Df powerd[339:1a1debb0] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:01:29.646 Df powerd[339:1a1debb0] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864889
+2026-10-24 12:01:29.648 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:01:29.648 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:01:29.648 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79800
+2026-10-24 12:01:29.649 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:01:32.762 Df powerd[339:1a1d7e94] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:01:32.763 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:01:32.763 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:01:32.763 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:01:32.765 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:01:32.765 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:01:32.765 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:01:32.765 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:01:32.765 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:01:32.765 Df powerd[339:1a1deb9b] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:01:34.824 Df powerd[339:1a1debb0] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:34.824 Df powerd[339:1a1debb0] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:01:56.672 Df powerd[339:1a1debd3] Received kIOMessageSystemWillSleep. UUID: F15BF55A-9784-4AD8-B8EC-CF78BC8DBAF4
+2026-10-24 12:01:56.672 Df powerd[339:1a1debd3] Disable clamshell sleep on kIOMessageSystemWillSleep
+2026-10-24 12:01:56.672 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Setting ClamshellSleepState to 1
+2026-10-24 12:01:56.672 Df powerd[339:1a1debd3] Turning off display for Software Sleep
+2026-10-24 12:01:56.674 Df powerd[339:1a1debd3] [com.apple.powerd:displayState] requestDisplayState: state 3, Received uuid 270
+2026-10-24 12:01:56.675 Df powerd[339:1a1debd3] Cancelling system assertion timer on sleep
+2026-10-24 12:01:56.675 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] sendNoRespNotification: 0x19
+2026-10-24 12:01:56.676 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Process powerd.339 Created InternalPreventSleep "com.apple.powermanagement.darkwakelinger" age:00:00:00  id:55834613811 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:56.676 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Process sharingd.658 Released PreventUserIdleSystemSleep "Handoff" age:00:01:57  id:4295006201 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:56.733 Df powerd[339:1a1e39bd] [com.apple.powerd:displayState] Received WindowServer call back {
+2026-10-24 12:01:56.733 Df powerd[339:1a1e39bd] [com.apple.powerd:displayState] Recevied broadcast notification
+2026-10-24 12:01:56.733 Df powerd[339:1a1e39bd] [com.apple.PowerExperienceFramework:ResourceConnection] ResourceConnection:updateResourceHint <private> with state 100
+2026-10-24 12:01:56.733 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Sending com.apple.powerd.assertionpolicy 3
+2026-10-24 12:01:56.733 Df powerd[339:1a1e39bd] [com.apple.powerd:systemLoad] Display state: Off NotificationWake : 0
+2026-10-24 12:01:56.733 Df powerd[339:1a1e39bd] [com.apple.powerd:systemLoad] Activity changes from 0x1 to 0x0. UseActiveState:0
+2026-10-24 12:01:56.733 Df powerd[339:1a1e39bd] [com.apple.powerd:systemLoad] hidActive:0 displayOff:1 assertionActivityValid:0 now:0x11161f  hid_ts:0x11160e assertion_ts:0x11160d
+2026-10-24 12:01:56.778 Df powerd[339:1a1e39bd] [com.apple.powerd:systemLoad] Evaluating new PerfMode on UserActivity level change.
+2026-10-24 12:01:56.780 Df powerd[339:1a1e39bd] [com.apple.powerd:displayState] Releasing prevent sleep while display is on
+2026-10-24 12:01:56.780 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process powerd.339 Released PreventUserIdleSystemSleep "Powerd - Prevent sleep while display is on" age:11:35:14  id:4295002978 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:56.783 Df powerd[339:1a1e39bd] [com.apple.powerd:sleepWake] Current PerfMode: Unrestricted, Target PerfMode: Restricted
+2026-10-24 12:01:56.783 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process timed.369 Summary NoIdleSleepAssertion "com.apple.timed.ntp" age:00:00:00  id:4295006260 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp] [Qualifiers: AllowsDeviceRestart]
+2026-10-24 12:01:56.783 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process caffeinate.91367 Summary PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:01:50  id:4295006202 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp] [Qualifiers: AllowsDeviceRestart]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process caffeinate.91780 Summary PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:01:45  id:4295006206 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp] [Qualifiers: AllowsDeviceRestart]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process caffeinate.94875 Summary PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:01:22  id:4295006223 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp] [Qualifiers: AllowsDeviceRestart]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process caffeinate.99528 Summary PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:00:34  id:4295006247 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp] [Qualifiers: AllowsDeviceRestart]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process coreaudiod.408 Summary PreventUserIdleSystemSleep "com.apple.audio.BuiltInSpeakerDevice.context.preventuseridlesleep" age:00:01:16  id:4295006234 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp] [Qualifiers: AudioOut AllowsDeviceRestart]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process coreaudiod.408 Summary PreventUserIdleSystemSleep "com.apple.audio.BuiltInMicrophoneDevice.context.preventuseridlesleep" age:00:01:16  id:4295006236 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp] [Qualifiers: AllowsDeviceRestart]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process WindowServer.399 Summary UserIsActive "com.apple.iohideventsystem.queue.tickle serviceID:100309ccc service:AppleHIDKeyboardEventDriverV2 product:Apple Internal Keyboard / Trackpad eventType:3" age:00:00:17  id:38654743885 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process powerd.339 Summary InternalPreventSleep "com.apple.powermanagement.darkwakelinger" age:00:00:00  id:55834613811 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:56.787 Df powerd[339:1a1e3992] [com.apple.powerd:coreSmartPowerNap] CoreSmartPowerNap: ActivityLevel: 0
+2026-10-24 12:01:56.787 Df powerd[339:1a1e3992] [com.apple.powerd:coreSmartPowerNap] Device is locked/inactive
+2026-10-24 12:01:56.823 Df powerd[339:1a1debd3] [com.apple.powerd:displayState] Received WindowServer call back {
+2026-10-24 12:01:56.823 Df powerd[339:1a1debd3] [com.apple.powerd:displayState] Received callback for uuid 270
+2026-10-24 12:01:57.829 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Summary- [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:59.477 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Sleep revert state: 0
+2026-10-24 12:01:59.477 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Process CloudTelemetryService.1691 Created SystemIsActive "NSURLSessionTask F15CB123-1C4E-4F18-AC2B-6CB3B91BA8AE" age:00:00:00  id:51539646530 [System: PrevIdle DeclUser SysAct SRPrevSleep kCPU kDisp]
+2026-10-24 12:01:59.615 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Sleep revert state: 0
+2026-10-24 12:01:59.615 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Process CloudTelemetryService.1691 Created SystemIsActive "NSURLSessionTask AD6D00EE-72E9-4E16-9A2A-A6D326B7192C" age:00:00:00  id:51539646532 [System: PrevIdle DeclUser SysAct SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:01.687 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Process powerd.339 TimedOut InternalPreventSleep "com.apple.powermanagement.darkwakelinger" age:00:00:05  id:55834613811 [System: PrevIdle DeclUser SysAct SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:01.687 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Summary- [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:02:01.688 Df powerd[339:1a1e3992] [com.apple.BootPolicy:Library] BootPolicy: bootpolicy_prepare_for_hibernation: entry
+2026-10-24 12:02:01.689 Df powerd[339:1a1e3992] [com.apple.BootPolicy:Library] BootPolicy: bootpolicy_get_blessed_local_policy_nonce_digest: entry
+2026-10-24 12:02:01.689 Df powerd[339:1a1e3992] [com.apple.BootPolicy:Library] BootPolicy: SEP command 14 returned 0
+2026-10-24 12:02:01.689 Df powerd[339:1a1e3992] [com.apple.BootPolicy:Library] BootPolicy: bootpolicy_get_blessed_local_policy_nonce_digest: exit: success (0)
+2026-10-24 12:02:01.689 Df powerd[339:1a1e3992] [com.apple.BootPolicy:Library] BootPolicy: reading blessed macOS local policy /System/Volumes/iSCPreboot/49EA1AF8-B5F9-4A99-BD6C-D3551B8E41DA/LocalPolicy/450D52C2F4EF0AE7E63812FD9774F43CC8295C935EA90FCAFAF5794C98DD736AD2619919A78DCD88B89D87E1C0DED682.img4
+2026-10-24 12:02:01.702 Df powerd[339:1a1e3992] [com.apple.BootPolicy:Library] BootPolicy: SEP command 64 returned 0
+2026-10-24 12:02:01.702 Df powerd[339:1a1e3992] [com.apple.BootPolicy:Library] BootPolicy: bootpolicy_prepare_for_hibernation: exit: success (0)
+2026-10-24 12:02:01.703 Df powerd[339:1a1e3992] [com.apple.powerd:sleepWake] Entering Sleep state due to 'Software Sleep pid=4003'
+2026-10-24 12:02:01.703 Df powerd[339:1a1e3992] TCPKeepAliveState: active
+2026-10-24 12:02:01.703 Df powerd[339:1a1e3992] [com.apple.PowerExperienceFramework:ResourceConnection] ResourceConnection:updateResourceHint <private> with state 1
+2026-10-24 12:02:01.703 Df powerd[339:1a1e3992] [com.apple.powerd:sleepWake] connectionFireNotification: 0x0 gen 0x21
+2026-10-24 12:02:01.706 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:02:01.720 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:02:01.721 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:sleepwakemonitor] Next wake request with checkpoint = 0, battery level = 14, isExternalConnected = 1, fullChargeDeadline = Thu May 28 10:11:47 2015
+2026-10-24 12:02:01.721 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:sleepwakemonitor] Wake Date: Sat Oct 24 13:08:01 2026
+2026-10-24 12:02:01.725 Df powerd[339:1a1e3992] TCPKeepAliveState: active
+2026-10-24 12:02:01.728 Df powerd[339:1a1e3992] TCPKeepAliveState: active
+2026-10-24 12:02:01.907 Df powerd[339:1a1e3992] TCPKeepAliveState: active
+2026-10-24 12:02:02.262 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process coreaudiod.408 TurnedOff PreventUserIdleSystemSleep "com.apple.audio.BuiltInSpeakerDevice.context.preventuseridlesleep" age:00:01:22  id:4295006234 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:02:02.473 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process coreaudiod.408 TurnedOff PreventUserIdleSystemSleep "com.apple.audio.BuiltInMicrophoneDevice.context.preventuseridlesleep" age:00:01:22  id:4295006236 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:02:02.763 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process CloudTelemetryService.1691 Released SystemIsActive "NSURLSessionTask F15CB123-1C4E-4F18-AC2B-6CB3B91BA8AE" age:00:00:03  id:51539646530 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:02:02.763 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process CloudTelemetryService.1691 Released SystemIsActive "NSURLSessionTask AD6D00EE-72E9-4E16-9A2A-A6D326B7192C" age:00:00:03  id:51539646532 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:02:03.235 Df powerd[339:1a1e39bd] [com.apple.powerd:wakeRequests] Selected RTC wake request: {
+2026-10-24 12:02:03.237 E  powerd[339:1a1e39bd] [com.apple.powerd:assertions] Pid 62401 is not privileged to set property AppliesOnLidClose
+2026-10-24 12:02:03.237 E  powerd[339:1a1e39bd] [com.apple.powerd:assertions] _io_pm_assertion_create: PID 62401 is not entitled
+2026-10-24 12:02:03.237 E  powerd[339:1a1e39bd] [com.apple.powerd:assertions] Pid 62401 is not privileged to set property AppliesOnLidClose
+2026-10-24 12:02:03.237 E  powerd[339:1a1e39bd] [com.apple.powerd:assertions] _io_pm_assertion_create: PID 62401 is not entitled
+2026-10-24 12:02:03.690 Df powerd[339:1a1e39bd] [com.apple.powerd:sleepWake] Request user active from kernel driver <private>
+2026-10-24 12:02:03.690 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Display is asleep on activity tickle. Lets turn it on
+2026-10-24 12:02:03.690 Df powerd[339:1a1e39bd] [com.apple.PowerExperienceFramework:ResourceConnection] ResourceConnection:updateResourceHint <private> with state 101
+2026-10-24 12:02:03.691 Df powerd[339:1a1e39bd] [com.apple.powerd:displayState] requestDisplayState: state 2, Received uuid 271
+2026-10-24 12:02:03.692 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process powerd.339 Created UserIsActive "com.apple.powermanagement.kernel.useractive IOPMrootDomain:RTC debug alarm" age:00:00:00  id:38654744718 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:02:03.715 Df powerd[339:1a1e39bd] [com.apple.powerd:sleepWake] Updating wake start timestamp to 24943597034538
+2026-10-24 12:02:03.715 Df powerd[339:1a1e39bd] Clamshell state changed
+2026-10-24 12:02:03.715 Df powerd[339:1a1e39bd] [com.apple.powerd:sleepWake] vm.darkwake_mode: 0 -> 0
+2026-10-24 12:02:03.716 Df powerd[339:1a1e39bd] Received kIOMessageSystemWillPowerOn. UUID: F15BF55A-9784-4AD8-B8EC-CF78BC8DBAF4
+2026-10-24 12:02:03.716 Df powerd[339:1a1e39bd] [com.apple.powerd:sleepWake] sendNoRespNotification: 0x801f
+2026-10-24 12:02:03.716 Df powerd[339:1a1e39bd] [com.apple.PowerExperienceFramework:ResourceConnection] ResourceConnection:updateResourceHint <private> with state 0
+2026-10-24 12:02:03.717 Df powerd[339:1a1e39bd] [com.apple.PowerExperienceFramework:ResourceConnection] ResourceConnection:updateResourceHint <private> with state 1
+2026-10-24 12:02:03.717 Df powerd[339:1a1e39bd] [com.apple.powerd:displayState] ClamshellState. Closed : 0. ClamshellSleepState: isSleepDisabled : 256
+2026-10-24 12:02:03.745 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Process mDNSResponder.419 Created MaintenanceWake "mDNSResponder:maintenance" age:00:00:00  id:55834613903 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:03.745 Df powerd[339:1a1debd3] [com.apple.powerd:displayState] Received WindowServer call back {
+2026-10-24 12:02:03.745 Df powerd[339:1a1debd3] [com.apple.powerd:displayState] Recevied broadcast notification
+2026-10-24 12:02:03.745 Df powerd[339:1a1debd3] [com.apple.PowerExperienceFramework:ResourceConnection] ResourceConnection:updateResourceHint <private> with state 101
+2026-10-24 12:02:03.745 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] Cancelling dark wake update capabilities timer
+2026-10-24 12:02:03.766 Df powerd[339:1a1debd3] [com.apple.powerd:systemLoad] Activity changes from 0x0 to 0x1. UseActiveState:1
+2026-10-24 12:02:03.766 Df powerd[339:1a1debd3] [com.apple.powerd:systemLoad] hidActive:1 displayOff:0 assertionActivityValid:1 now:0x111626  hid_ts:0x111626 assertion_ts:0x111626
+2026-10-24 12:02:03.766 Df powerd[339:1a1debd3] [com.apple.powerd:systemLoad] Evaluating new PerfMode on UserActivity level change.
+2026-10-24 12:02:03.774 Df powerd[339:1a1e39bd] [com.apple.powerd:coreSmartPowerNap] CoreSmartPowerNap: ActivityLevel: 1
+2026-10-24 12:02:03.774 Df powerd[339:1a1e39bd] [com.apple.powerd:coreSmartPowerNap] Device is unlocked/active
+2026-10-24 12:02:03.774 Df powerd[339:1a1debd3] [com.apple.powerd:systemLoad] rootDomain's user activity state:1
+2026-10-24 12:02:03.792 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] vm.darkwake_mode: 0 -> 0
+2026-10-24 12:02:03.792 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Sending com.apple.powerd.assertionpolicy 0
+2026-10-24 12:02:03.792 Df powerd[339:1a1debd3] [com.apple.powerd:systemLoad] Display state: On NotificationWake : 0
+2026-10-24 12:02:03.792 Df powerd[339:1a1debd3] [com.apple.powerd:displayState] Creating assertion to keep device awake while display is on
+2026-10-24 12:02:03.793 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] Current PerfMode: Restricted, Target PerfMode: Unrestricted
+2026-10-24 12:02:03.798 Df powerd[339:1a1e39bd] [com.apple.powerd:coreSmartPowerNap] CoreSmartPowerNap: Cancelling timer to re query model
+2026-10-24 12:02:03.799 Df powerd[339:1a1e39bd] [com.apple.powerd:coreSmartPowerNap] Inactivity was too short to even consult the model. Reporting very short inactivity event to CA: <private>
+2026-10-24 12:02:03.799 Df powerd[339:1a1e39bd] [com.apple.powerd:coreSmartPowerNap] CoreSmartPowerNap session did not engage because inactivity was shorter than delta-to-query
+2026-10-24 12:02:03.851 E  powerd[339:1a1e39bd] [com.apple.powerd:assertions] Pid 62401 is not privileged to set property AppliesOnLidClose
+2026-10-24 12:02:03.851 E  powerd[339:1a1e39bd] [com.apple.powerd:assertions] _io_pm_assertion_create: PID 62401 is not entitled
+2026-10-24 12:02:03.894 Df powerd[339:1a1e39bd] [com.apple.powerd:assertions] Process mDNSResponder.419 Released MaintenanceWake "mDNSResponder:maintenance" age:00:00:00  id:55834613903 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:02:03.934 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] Updating wake end timestamp to 24943602277149
+2026-10-24 12:02:03.934 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] Wake from Deep Idle [CDNVA] : due to smc.sysState.Wake(0x70070000) wifibt SMC.OutboxNotEmpty/UserActivity Assertion
+2026-10-24 12:02:03.934 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] WakeDetails: <private>
+2026-10-24 12:02:03.934 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] <private>
+2026-10-24 12:02:03.934 Df powerd[339:1a1debd3] [com.apple.powerd:sleepWake] sendNoRespNotification: 0x1f
+2026-10-24 12:02:03.935 Df powerd[339:1a1debd3] [com.apple.PowerExperienceFramework:ResourceConnection] ResourceConnection:updateResourceHint <private> with state 0
+2026-10-24 12:02:03.936 Df powerd[339:1a1debd3] [com.apple.powerd:assertions] Process powerd.339 Created InternalPreventSleep "com.apple.powermanagement.acwakelinger" age:00:00:00  id:55834613905 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:03.936 Df powerd[339:1a1debd3] Received kIOMessageSystemHasPoweredOn. UUID: F15BF55A-9784-4AD8-B8EC-CF78BC8DBAF4
+2026-10-24 12:02:03.970 Df powerd[339:1a1e39bd] [com.apple.powerd:displayState] Received WindowServer call back {
+2026-10-24 12:02:03.970 Df powerd[339:1a1e39bd] [com.apple.powerd:displayState] Received callback for uuid 271
+2026-10-24 12:02:03.988 Df powerd[339:1a1debd3] TCPKeepAliveState: active
+2026-10-24 12:02:03.993 Df powerd[339:1a1debd3] [com.apple.powerd:battery] posted 'com.apple.system.powermanagement.poweradapter'
+2026-10-24 12:02:03.993 Df powerd[339:1a1debd3] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864923
+2026-10-24 12:02:03.997 Df powerd[339:1a1debd3] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:02:03.998 Df powerd[339:1a1debd3] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:02:04.048 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[364].0x7a6c79800
+2026-10-24 12:02:04.050 Df powerd[339:1a1e39bd] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 364) either cancelled the connection or exited
+2026-10-24 12:02:04.056 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[51839].0x7a6c79800
+2026-10-24 12:02:04.056 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 51839) either cancelled the connection or exited
+2026-10-24 12:02:04.322 Df powerd[339:1a1e39bd] TCPKeepAliveState: active
+2026-10-24 12:02:05.785 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] EvaluateClamshell. Disable :  0 because {DesktopMode with AC: 0, assertions 0
+2026-10-24 12:02:06.952 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process loginwindow.402 Created UserIsActive "Loginwindow User Activity" age:00:00:00  id:38654744746 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:06.952 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process loginwindow.402 Released UserIsActive "Loginwindow User Activity" age:00:00:00  id:38654744746 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:07.216 Df powerd[339:1a1e39bd] TCPKeepAliveState: active
+2026-10-24 12:02:08.685 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Summary- [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:08.772 Df powerd[339:1a1e3992] EvaluateClamshellSleepState after wake
+2026-10-24 12:02:11.163 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:02:12.850 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[1051].0x7a6c79800
+2026-10-24 12:02:12.851 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 1051) either cancelled the connection or exited
+2026-10-24 12:02:15.969 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:02:25.179 Df powerd[339:1a1e3992] [com.apple.powerd:BDC] Battery percentage last 10 now 14
+2026-10-24 12:02:25.179 Df powerd[339:1a1e8122] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:02:25.182 Df powerd[339:1a1e3992] [com.apple.powerd:BDC] Sending data to powerlog for group BDC_SBC
+2026-10-24 12:02:27.189 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:02:27.190 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:02:27.190 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Returning currently desired UI state: 13 (mode: 7), optimized charge limit: 100, MCL target: 95%, chargingOverrideAllowed: 0
+2026-10-24 12:02:27.190 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManager] Client <private> queries MCL limit
+2026-10-24 12:02:27.190 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:02:33.604 Df powerd[339:1a1e8122] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:02:48.949 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process powerd.339 TimedOut InternalPreventSleep "com.apple.powermanagement.acwakelinger" age:00:00:45  id:55834613905 [System: PrevIdle DeclUser SRPrevSleep kCPU kDisp]
+2026-10-24 12:02:48.949 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Summary- [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:03:00.394 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process caffeinate.99528 ClientDied PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:01:37  id:4295006247 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:03:00.394 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:03:03.052 Df powerd[339:1a1e8122] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792864983
+2026-10-24 12:03:03.054 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:03:03.054 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:03:19.974 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:03:21.590 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:03:21.590 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask A1CD6833-97CC-4258-8800-B51AAFE3A64E" age:00:00:00  id:51539646702 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:21.785 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:03:21.786 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask A5C26BB8-3E88-4162-ADCE-36647F6C0695" age:00:00:00  id:51539646704 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:22.007 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:03:22.007 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask F360837A-DAEB-4B68-B328-EC665C3A79C8" age:00:00:00  id:51539646706 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:24.857 Df powerd[339:1a1e8122] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask A1CD6833-97CC-4258-8800-B51AAFE3A64E" age:00:00:03  id:51539646702 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:25.057 Df powerd[339:1a1e8122] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask A5C26BB8-3E88-4162-ADCE-36647F6C0695" age:00:00:03  id:51539646704 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:25.257 Df powerd[339:1a1e8122] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask F360837A-DAEB-4B68-B328-EC665C3A79C8" age:00:00:03  id:51539646706 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:03:33.672 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:03:51.129 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Releasing power source id = 9403
+2026-10-24 12:03:51.129 Df powerd[339:1a1e3992] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:03:51.129 Df powerd[339:1a1e3992] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:03:51.129 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Posted notifications for loss of power source id 9403
+2026-10-24 12:03:51.130 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Releasing power source id = 9404
+2026-10-24 12:03:51.130 Df powerd[339:1a1f1d17] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79800
+2026-10-24 12:03:51.132 Df powerd[339:1a1f54e3] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:03:51.132 Df powerd[339:1a1f54e3] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:03:51.132 Df powerd[339:1a1f54e3] [com.apple.powerd:battery] Posted notifications for loss of power source id 9404
+2026-10-24 12:03:51.132 Df powerd[339:1a1f1d17] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:03:51.133 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:03:51.134 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:03:51.135 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:03:51.139 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:03:51.139 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:03:51.141 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:03:51.142 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:03:51.144 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:03:51.146 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:03:51.147 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:03:51.161 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:03:51.161 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask A0E7E2B2-1F90-4766-80BA-D4AB203E3465" age:00:00:00  id:51539646709 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:51.167 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:03:51.167 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask 33CC61F5-6E21-4ACA-8962-B204FA11F6ED" age:00:00:00  id:51539646710 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:51.388 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Sleep revert state: 1
+2026-10-24 12:03:51.388 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process cloudd.643 Created SystemIsActive "NSURLSessionTask DFC44EDC-1E27-4E12-85BB-CF024529655B" age:00:00:00  id:51539646713 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:54.475 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask A0E7E2B2-1F90-4766-80BA-D4AB203E3465" age:00:00:03  id:51539646709 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:54.475 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask 33CC61F5-6E21-4ACA-8962-B204FA11F6ED" age:00:00:03  id:51539646710 [System: PrevIdle DeclUser SysAct kDisp]
+2026-10-24 12:03:54.657 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process cloudd.643 Released SystemIsActive "NSURLSessionTask DFC44EDC-1E27-4E12-85BB-CF024529655B" age:00:00:03  id:51539646713 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:04:00.473 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:02.536 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Created new power source id 9405 for pid 722
+2026-10-24 12:04:02.536 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Received power source(psid:9405) update from pid 722: <private>
+2026-10-24 12:04:02.536 Df powerd[339:1a1e3992] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:04:02.536 Df powerd[339:1a1e3992] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:04:02.536 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Posted notifications for new power source id 9405
+2026-10-24 12:04:02.537 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Created new power source id 9406 for pid 722
+2026-10-24 12:04:02.537 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Received power source(psid:9406) update from pid 722: <private>
+2026-10-24 12:04:02.537 Df powerd[339:1a1e3992] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.attach'
+2026-10-24 12:04:02.537 Df powerd[339:1a1e3992] [com.apple.powerd:battery] posted 'com.apple.system.accpowersources.timeremaining'
+2026-10-24 12:04:02.537 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Posted notifications for new power source id 9406
+2026-10-24 12:04:02.537 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:04:02.538 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:04:02.539 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:04:02.539 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:04:02.540 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:04:02.540 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:04:02.541 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:04:02.541 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:04:03.040 Df powerd[339:1a1e3992] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792865043
+2026-10-24 12:04:03.042 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79200
+2026-10-24 12:04:03.042 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:04:03.063 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[51839].0x7a6c79200
+2026-10-24 12:04:03.064 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Check assertion activity update from clients 0
+2026-10-24 12:04:03.064 E  powerd[339:1a1f54e3] [com.apple.powerd:assertions] checkForAsyncAssertionLogging: No processes with xpc connection
+2026-10-24 12:04:03.066 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Assertion Activity Update: logged 64 entries. New refCnt 506079, overflow 1
+2026-10-24 12:04:03.074 Df powerd[339:1a1f54e3] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 51839) either cancelled the connection or exited
+2026-10-24 12:04:06.223 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process caffeinate.91367 ClientDied PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:03:59  id:4295006202 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:04:06.224 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:10.949 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:11.159 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Process caffeinate.91780 ClientDied PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:03:59  id:4295006206 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:04:11.159 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:18.373 Df powerd[339:1a1f54e3] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:34.381 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Process caffeinate.94875 ClientDied PreventUserIdleSystemSleep "caffeinate command-line tool" age:00:03:59  id:4295006223 [System: PrevIdle DeclUser kDisp]
+2026-10-24 12:04:34.381 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:45.693 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:52.050 Df powerd[339:1a20048a] [com.apple.powerd:assertions] Cancelling notification display wake 0
+2026-10-24 12:04:58.239 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Assertion bufffer has reached capacity. Sending high water mark notification
+2026-10-24 12:04:58.246 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[51839].0x7a6c79200
+2026-10-24 12:04:58.246 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Check assertion activity update from clients 0
+2026-10-24 12:04:58.246 E  powerd[339:1a1e3992] [com.apple.powerd:assertions] checkForAsyncAssertionLogging: No processes with xpc connection
+2026-10-24 12:04:58.248 Df powerd[339:1a1e3992] [com.apple.powerd:assertions] Assertion Activity Update: logged 58 entries. New refCnt 506137, overflow 0
+2026-10-24 12:04:58.249 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 51839) either cancelled the connection or exited
+2026-10-24 12:05:03.040 Df powerd[339:1a1e3992] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792865103
+2026-10-24 12:05:03.041 Df powerd[339:1a1e3992] [com.apple.powerd:battery] Battery time remaining posted(0x1000000004fffff) Time:-1 Source:AC
+2026-10-24 12:05:03.041 Df powerd[339:1a20048a] [com.apple.xpc:connection] [0x7a6c79200] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[778].0x7a6c79200
+2026-10-24 12:05:03.043 Df powerd[339:1a20048a] [com.apple.xpc:connection] [0x7a6c79200] invalidated because the client process (pid 778) either cancelled the connection or exited
+2026-10-24 12:05:03.043 Df powerd[339:1a20048a] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:05:03.043 Df powerd[339:1a1e3992] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043170815
+2026-10-24 12:05:03.044 Df powerd[339:1a206dd4] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:05:03.044 Df powerd[339:1a1e3992] [com.apple.powerd:BDC] kIOPSNotifyTimeRemaining state 72057594043170815
+2026-10-24 12:05:03.101 Df powerd[339:1a1e3992] [com.apple.powerd:batteryhealth] stored ts 1792798137, current ts 1792865103
+2026-10-24 12:05:03.102 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext handleContextualChange:info:handler:
+2026-10-24 12:05:03.102 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Registration fired for <private>
+2026-10-24 12:05:03.102 Df PowerUIAgent[410:1a1d8082] [com.apple.coreduet:context] Dispatching call to informative registration callback for <private>
+2026-10-24 12:05:03.102 A  PowerUIAgent[410:1a1d8082] (CoreDuetContext) CoreDuet: ClientContext objectForContextualKeyPath:
+2026-10-24 12:05:03.102 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] activating connection: mach=false listener=false peer=true name=com.apple.iokit.powerdxpc.peer[49732].0x7a6c79800
+2026-10-24 12:05:03.102 Df powerd[339:1a1e3992] [com.apple.xpc:connection] [0x7a6c79800] invalidated because the client process (pid 49732) either cancelled the connection or exited
+2026-10-24 12:05:03.102 Df PowerUIAgent[410:1a1d8082] [com.apple.powerui.smartcharging:smartChargeManagerVerbose] Handling data dictionary: <private>
