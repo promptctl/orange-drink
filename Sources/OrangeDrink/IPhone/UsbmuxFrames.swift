@@ -13,11 +13,26 @@ enum UsbmuxFrameError: Error, Equatable {
     case noPairRecord
 }
 
-/// What usbmuxd says a handle is. The handle is a per-attach transport number; the UDID is the identity.
-enum DeviceConnection: Equatable {
-    case usb(udid: String)
+/// One request to usbmuxd: its MessageType and fields, with the client's name and the protocol version every request
+/// carries. Version 3 is what makes Listen report Wi-Fi devices: without it usbmuxd sends a Listen client only USB
+/// attaches and detaches, so a Wi-Fi device's arrivals and departures never reach the monitor, and ListDevices is the
+/// only place it ever shows up (orange-iphone-watch-lm3.1tt hardware runs, 2026-10-23).
+func usbmuxMessage(_ type: String, _ fields: [String: Any] = [:]) -> [String: Any] {
+    fields.merging(["MessageType": type, "ClientVersionString": "orange-drink", "ProgName": "orange-drink",
+                    "kLibUSBMuxVersion": 3]) { _, request in request }
+}
+
+/// How usbmuxd reaches a device: the cable, or Wi-Fi sync (Finder's "Show this iPhone when on Wi-Fi").
+enum Transport: Equatable, Sendable {
+    case usb
     case network
-    /// A ConnectionType this reader does not know. It is not the cable, so it is not read.
+}
+
+/// What usbmuxd says a handle is. The handle is a per-attach transport number; the UDID is the identity, the same
+/// over the cable and over Wi-Fi, so one device can be held by a USB handle and a Wi-Fi handle at once.
+enum DeviceConnection: Equatable {
+    case device(udid: String, over: Transport)
+    /// A ConnectionType this reader does not know. It is not read.
     case other(String)
 }
 
@@ -123,12 +138,13 @@ func usbmuxEvent(_ body: [String: Any]) throws -> UsbmuxEvent {
 private func attachedDevice(_ body: [String: Any]) throws -> AttachedDevice {
     guard let handle = body["DeviceID"] as? Int else { throw UsbmuxFrameError.missingKey("DeviceID") }
     guard let props = body["Properties"] as? [String: Any] else { throw UsbmuxFrameError.missingKey("Properties") }
+    let transport: Transport
     switch props["ConnectionType"] as? String {
-    case "USB":
-        guard let udid = props["SerialNumber"] as? String else { throw UsbmuxFrameError.missingKey("SerialNumber") }
-        return AttachedDevice(handle: handle, connection: .usb(udid: udid))
-    case "Network": return AttachedDevice(handle: handle, connection: .network)
+    case "USB": transport = .usb
+    case "Network": transport = .network
     case let other?: return AttachedDevice(handle: handle, connection: .other(other))
     case nil: throw UsbmuxFrameError.missingKey("ConnectionType")
     }
+    guard let udid = props["SerialNumber"] as? String else { throw UsbmuxFrameError.missingKey("SerialNumber") }
+    return AttachedDevice(handle: handle, connection: .device(udid: udid, over: transport))
 }

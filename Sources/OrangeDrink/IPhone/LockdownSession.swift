@@ -16,7 +16,9 @@ enum IPhoneReadError: Error, Equatable {
     case lockdown(String)
     /// The device answered with an Error: PasswordProtected while locked, InvalidHostID once trust is revoked.
     case refused(String)
-    case layout(String)
+    /// The relay answered Success with no entry: what it does for a class the device does not publish (the Vision Pro
+    /// asked for AppleSmartBattery, cmt-9996a69e).
+    case noPowerSource
     case parse(IPhoneParseError)
     case encoding(String)
     case unsupported(String)
@@ -300,14 +302,19 @@ func usbmuxRequest(_ body: [String: Any]) throws(IPhoneReadError) -> [String: An
     }
 }
 
+/// Every device usbmuxd has attached now, over the cable or Wi-Fi.
+func usbmuxListDevices() throws(IPhoneReadError) -> [AttachedDevice] {
+    let reply = try usbmuxRequest(usbmuxMessage("ListDevices"))
+    return try typedReadErrors { try usbmuxDeviceList(reply) }
+}
+
 /// A usbmuxd connection subscribed with Listen. After the reply the same socket carries Attached, Detached, and
 /// Paired messages.
 func usbmuxListen() throws(IPhoneReadError) -> TimedSocket {
     try typedReadErrors {
         let socket = try openUsbmux()
         let deadline = Deadline(after: callDeadline)
-        try sendUsbmux(socket, ["MessageType": "Listen", "ClientVersionString": "orange-drink", "ProgName": "orange-drink"],
-                       until: deadline)
+        try sendUsbmux(socket, usbmuxMessage("Listen"), until: deadline)
         try usbmuxCheckResult(try readUsbmuxFrame(socket, until: deadline))
         return socket
     }
@@ -320,9 +327,8 @@ func usbmuxConnect(handle: Int, port: Int) throws(IPhoneReadError) -> TimedSocke
     return try typedReadErrors {
         let socket = try openUsbmux()
         let deadline = Deadline(after: callDeadline)
-        try sendUsbmux(socket, ["MessageType": "Connect", "DeviceID": handle,
-                                "PortNumber": Int(wirePort.bigEndian),
-                                "ClientVersionString": "orange-drink", "ProgName": "orange-drink"], until: deadline)
+        try sendUsbmux(socket, usbmuxMessage("Connect", ["DeviceID": handle, "PortNumber": Int(wirePort.bigEndian)]),
+                       until: deadline)
         try usbmuxCheckResult(try readUsbmuxFrame(socket, until: deadline))
         return socket
     }
@@ -374,8 +380,9 @@ func decodeReply(_ bytes: [UInt8]) throws -> [String: Any] {
     return reply
 }
 
-/// One battery read from the device behind a usbmuxd handle: its pair record, a lockdown session, the device's
-/// DeviceClass (which picks the layout), the diagnostics relay, and the IORegistry AppleSmartBattery entry.
+/// One battery read from the device behind a usbmuxd handle: a lockdown session, the diagnostics relay, and the
+/// IORegistry IOPMPowerSource entry. IOPMPowerSource, not its AppleSmartBattery subclass: the Vision Pro publishes its
+/// battery only under the superclass (orange-iphone-watch-lm3.7iy cmt-9996a69e).
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
 /// Every outcome leaves one line in the log.
 func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading {
@@ -389,14 +396,44 @@ func readIPhoneBattery(handle: Int, udid: String) throws(IPhoneReadError) -> IPh
     }
 }
 
+/// The longest one battery read can take: readBattery's eight calls (ReadPairRecord, Connect, StartSession, session TLS,
+/// StartService, Connect, relay TLS, IORegistry), each under callDeadline, which a socket notices on its next
+/// one-second wake-up. A step added to openLockdown or readBattery is a step added here.
+let readWorstCase = (callDeadline + .seconds(1)) * 8
+
+/// Switches the device's Wi-Fi sync, the box Finder labels "Show this iPhone when on Wi-Fi", on or off. On, usbmuxd
+/// reaches the device over the network once the cable is out. Every outcome leaves one line in the log.
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String) throws(IPhoneReadError) {
+    let state = on ? "on" : "off"
+    do {
+        try typedReadErrors {
+            let lockdown = try openLockdown(handle: handle, udid: udid)
+            _ = try decodeReply(try lockdown.stream.request(["Request": "SetValue", "Domain": "com.apple.mobile.wireless_lockdown",
+                                                             "Key": "EnableWifiConnections", "Value": on]))
+        }
+        IPhoneMonitor.log.info("iphone wifi sync \(state, privacy: .public): \(udid, privacy: .public) handle \(handle)")
+    } catch {
+        IPhoneMonitor.log.error("iphone wifi sync \(state, privacy: .public) failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
+        throw error
+    }
+}
+
+/// A lockdown session with the device behind a usbmuxd handle, under the host identity from its pair record: the trust
+/// the user granted with "Trust This Computer", with no pairing of our own.
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport; see lm3.8pk")
-private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReading {
+private struct Lockdown {
+    let stream: PlistStream
+    let identity: SecIdentity
+}
+
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport; see lm3.8pk")
+private func openLockdown(handle: Int, udid: String) throws -> Lockdown {
     // [LAW:no-silent-failure] macOS 14 has no memory-only import, so the reader refuses to run there rather than write
     // the host key into a keychain. Checked first, so the pair record's private key is never loaded on a Mac that
     // cannot use it. Whether the deployment target moves to 15 is the owner's call.
     guard #available(macOS 15.0, *) else { throw IPhoneReadError.unsupported("reading an iPhone needs macOS 15") }
-    let record = try usbmuxRequest(["MessageType": "ReadPairRecord", "PairRecordID": udid,
-                                    "ClientVersionString": "orange-drink", "ProgName": "orange-drink"])
+    let record = try usbmuxRequest(usbmuxMessage("ReadPairRecord", ["PairRecordID": udid]))
     let pair = try plistDictionary(try usbmuxPairRecord(record))
     guard let hostID = pair["HostID"] as? String, let systemBUID = pair["SystemBUID"] as? String,
           let certPEM = pair["HostCertificate"] as? Data, let keyPEM = pair["HostPrivateKey"] as? Data else {
@@ -404,23 +441,31 @@ private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReadi
     }
     let identity = try pairIdentity(certificatePEM: certPEM, keyPEM: keyPEM)
 
-    let lockdown = PlistStream(socket: try usbmuxConnect(handle: handle, port: 62078))
-    let session = try decodeReply(try lockdown.request(["Request": "StartSession", "HostID": hostID, "SystemBUID": systemBUID]))
-    if session["EnableSessionSSL"] as? Bool == true { try lockdown.startTLS(identity: identity) }
+    let stream = PlistStream(socket: try usbmuxConnect(handle: handle, port: 62078))
+    let session = try decodeReply(try stream.request(["Request": "StartSession", "HostID": hostID, "SystemBUID": systemBUID]))
+    if session["EnableSessionSSL"] as? Bool == true { try stream.startTLS(identity: identity) }
+    return Lockdown(stream: stream, identity: identity)
+}
 
-    let classReply = try decodeReply(try lockdown.request(["Request": "GetValue", "Key": "DeviceClass"]))
-    guard let deviceClass = classReply["Value"] as? String else { throw IPhoneReadError.lockdown("DeviceClass") }
-    guard let layout = IPhoneLayout(deviceClass: deviceClass) else { throw IPhoneReadError.layout(deviceClass) }
-
-    let service = try decodeReply(try lockdown.request(["Request": "StartService", "Service": "com.apple.mobile.diagnostics_relay"]))
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport; see lm3.8pk")
+private func readBattery(handle: Int, udid: String) throws -> IPhoneBatteryReading {
+    let lockdown = try openLockdown(handle: handle, udid: udid)
+    let service = try decodeReply(try lockdown.stream.request(["Request": "StartService", "Service": "com.apple.mobile.diagnostics_relay"]))
     guard let port = service["Port"] as? Int else { throw IPhoneReadError.lockdown("Port") }
 
     let relay = PlistStream(socket: try usbmuxConnect(handle: handle, port: port))
-    if service["EnableServiceSSL"] as? Bool == true { try relay.startTLS(identity: identity) }
-    let reply = try decodeReply(try relay.request(["Request": "IORegistry", "EntryClass": "AppleSmartBattery"]))
-    guard let diagnostics = reply["Diagnostics"] as? [String: Any],
-          let entry = diagnostics["IORegistry"] as? [String: Any] else {
-        throw IPhoneReadError.lockdown("Diagnostics.IORegistry")
+    if service["EnableServiceSSL"] as? Bool == true { try relay.startTLS(identity: lockdown.identity) }
+    let reply = try decodeReply(try relay.request(["Request": "IORegistry", "EntryClass": "IOPMPowerSource"]))
+    return try parseIPhoneBattery(try powerSourceEntry(reply))
+}
+
+/// The entry inside an IORegistry reply. A Success with no Diagnostics is the relay's way of saying it found none.
+func powerSourceEntry(_ reply: [String: Any]) throws(IPhoneReadError) -> [String: Any] {
+    guard let diagnostics = reply["Diagnostics"] else {
+        throw reply["Status"] as? String == "Success" ? .noPowerSource : .lockdown("Diagnostics")
     }
-    return try parseIPhoneBattery(entry, layout: layout)
+    guard let entry = (diagnostics as? [String: Any])?["IORegistry"] as? [String: Any] else {
+        throw .lockdown("Diagnostics.IORegistry")
+    }
+    return entry
 }

@@ -1,0 +1,21 @@
+import Testing
+@testable import OrangeDrink
+
+// [LAW:behavior-not-structure] The stand-in keeps Timekeeper's contract: a sleep throws if its task is cancelled first,
+// and only a live sleeper counts as asleep.
+@Suite struct ManualTimekeeperContract {
+    @Test(.timeLimit(.minutes(1)))
+    func aTaskCancelledBeforeItSleepsThrowsAndLeavesNoSleeper() async throws {
+        let clock = ManualTimekeeper()
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            try await clock.sleep(for: .seconds(60))
+        }
+        await #expect(throws: CancellationError.self) { try await cancelled.value }
+
+        let live = Task { try await clock.sleep(for: .seconds(60)) }
+        await clock.asleep()
+        clock.advance(by: .seconds(60))
+        try await live.value
+    }
+}
