@@ -30,9 +30,7 @@ Below a divider, two grey paragraphs explain the setup:
 
 > When you plug your iPhone in, {App} switches on Wi-Fi sync for it, so you won't need the cable again. You can turn that off anytime in Finder.
 
-> The first time {App} reaches your iPhone over Wi-Fi, macOS asks whether {App} may find devices on your local network. Choose Allow. Without it, {App} only sees your Watch while the iPhone is plugged in.
-
-So the Watch flow is: the user connects the iPhone by cable once and trusts the Mac. The app then turns on the iPhone's "Show this iPhone when on Wi-Fi" setting and reads the Watch battery from the iPhone over the local network from then on. That needs the macOS Local Network permission.
+So the Watch flow is: the user connects the iPhone by cable once and trusts the Mac. The app then turns on the iPhone's "Show this iPhone when on Wi-Fi" setting and reads the Watch battery from the iPhone over Wi-Fi from then on. usbmuxd makes that Wi-Fi connection, not {App}, so macOS asks for no Local Network permission (lm3.1tt: Wi-Fi readings arrived with {App} absent from the Local Network list).
 
 ## Detected Devices
 

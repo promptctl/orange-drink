@@ -34,7 +34,7 @@ import Testing
             guard case .device(let udid, .usb) = device.connection else { return nil }
             return (device.handle, udid)
         }
-        try #require(cabled.count == 1, "this check needs exactly one cabled iPhone; usbmuxd lists \(cabled.count)")
+        try #require(cabled.count == 1, "this check needs exactly one cabled iPhone or iPad; usbmuxd lists \(cabled.count)")
         let (handle, udid) = cabled[0]
         try setIPhoneWifiSync(false, handle: handle, udid: udid)
         printForTheRecord("wifi sync off: \(udid)")
@@ -53,7 +53,7 @@ import Testing
         let cableEnd = ContinuousClock.now + .seconds(120)
         while cableRead == nil || !synced {
             let (event, at) = try #require(try await arrivals.event(at: cursor, until: { .now > cableEnd }),
-                                           "no cable reading and Wi-Fi sync within two minutes; is the iPhone trusted and unlocked?")
+                                           "no cable reading and Wi-Fi sync within two minutes; the monitor reported \(udid) as \(reachability)")
             cursor += 1
             switch event {
             case .reachable(udid, let transport): reachability.append(transport)
@@ -63,7 +63,7 @@ import Testing
                 printForTheRecord("cable reading: \(value)")
             case .wifiSyncOn(udid):
                 synced = true
-                printForTheRecord("wifi sync on: check that Finder now ticks \"Show this iPhone when on Wi-Fi\"")
+                printForTheRecord("wifi sync on: \(udid)")
             case .wifiSyncFailed(udid, let error), .readFailed(udid, _, let error), .failed(let error):
                 Issue.record("cable phase: \(event) (\(error))")
                 return
@@ -102,7 +102,7 @@ import Testing
                 continue
             case .reading(udid, .network, let value):
                 wifiReadings += 1
-                printForTheRecord("wifi reading: level \(value.level)%: compare with the phone")
+                printForTheRecord("wifi reading: \(value)")
             case .readFailed(udid, .network, let error):
                 printForTheRecord("wifi read failed: \(error)")
             case .reading(udid, .usb, _), .readFailed(udid, .usb, _):

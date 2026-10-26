@@ -17,7 +17,7 @@ Everything is centred horizontally in the upper half of the content area.
    1. **Connect with a USB cable.** "Use the cable that came with your device."
    2. **Unlock & tap Trust.** "Your device asks to trust this Mac the first time."
    3. **It appears here.** "Health, cycles, and lifetime stats load automatically."
-5. Below the card, grey text: "Prefer wireless? Turn on **"Show this iPhone when on Wi-Fi"** in Finder, then check it over Wi-Fi." The reference limits the wireless option to a paid tier. Here it's available to everyone.
+5. Below the card, grey text: "Prefer wireless? Plug it in once: {App} turns on Wi-Fi sync, and checks it over Wi-Fi from then on." The reference limits the wireless option to a paid tier. Here it's available to everyone.
 
 ## Connected state
 

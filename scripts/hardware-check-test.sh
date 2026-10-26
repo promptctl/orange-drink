@@ -37,8 +37,8 @@ failures=0
 expect() { # <what> <command...>: one assertion, reported either way
   if "${@:2}"; then echo "ok: $1"; else echo "FAIL: $1"; echo "$out" | sed 's/^/    /'; failures=$((failures + 1)); fi
 }
-# The recorder with stdin from $answers (default none); sets out and status.
-recorder() { status=0; out=$(printf '%b' "${answers:-}" | "$scratch/hardware-check" "$@" 2>&1) || status=$?; }
+# The recorder, with nothing on stdin; sets out and status.
+recorder() { status=0; out=$("$scratch/hardware-check" "$@" 2>&1 </dev/null) || status=$?; }
 # A result bundle whose one test, Suite/check(), ended as $1, with failure messages $2...
 bundle() {
   local children=$(printf '{"nodeType":"Failure Message","name":"%s"},' "${@:2}")
@@ -67,12 +67,12 @@ expect "a branch that names no ticket stops before the test, saying so" \
 git checkout -q ticket-1
 
 bundle Passed
-answers='y\n' run --covers src/a.swift src --ask 'Saw it?' -- sh -c 'echo "» reading 5"; echo "quoted » not for the record"'
+run --covers src/a.swift src -- sh -c 'echo "» reading 5"; echo "quoted » not for the record"'
 body=$(latest)
-expect "a pass posts its result, commit, covers, printed lines, and answers, and exits 0" \
+expect "a pass posts its result, commit, covers, and printed lines, and exits 0" \
   eval '[ $status = 0 ] && has "hardware check: c" "$body" && has "result: pass" "$body" && has "commit: $(git rev-parse HEAD)" "$body" &&
         has "covers: $(git rev-parse HEAD:src/a.swift) src/a.swift" "$body" && has "covers: $(git rev-parse HEAD:src) src" "$body" &&
-        has "printed: reading 5" "$body" && has "asked: Saw it? → y" "$body" && ! grep -q "^uncommitted:" <<<"$body" &&
+        has "printed: reading 5" "$body" && ! grep -q "^uncommitted:" <<<"$body" &&
         ! grep -qF "not for the record" <<<"$body"'
 
 echo new > src/new.swift
@@ -112,9 +112,9 @@ expect "a passing test under a failing command posts fail, naming the exit" \
 touch "$scratch/lit-down"
 bundle Passed
 before=$(posts)
-answers='y\n' run --covers src --ask 'Saw it?' -- true
+run --covers src -- true
 expect "a failed post keeps the record on disk and names the command that posts it" \
-  eval '[ $status = 1 ] && [ $(posts) = $before ] && has "asked: Saw it? → y" "$(cat build/c.record)" &&
+  eval '[ $status = 1 ] && [ $(posts) = $before ] && has "result: pass" "$(cat build/c.record)" &&
         grep -qF -- "--body-file build/c.record exited 1" <<<"$out"'
 rm "$scratch/lit-down"
 

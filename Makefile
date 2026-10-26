@@ -32,17 +32,23 @@ test: generate
 hardware-check-test:
 	scripts/hardware-check-test.sh
 
-# [LAW:one-type-per-behavior] The checks that need a person at a cable or a screen are one recipe, and each is only
-# data declared beside its target: its test (Suite/function()), the source paths that test covers, and the questions
-# only the person can answer. scripts/hardware-check.swift runs the test alone, asks the questions once at the end, and
-# posts the result on the lit ticket the branch names; make hardware-status says which results still hold for HEAD.
+# [LAW:one-type-per-behavior] The checks that need a real Mac are one recipe, and each is only data declared beside its
+# target: its test (Suite/function()) and the source paths that test covers. scripts/hardware-check.swift runs the test
+# alone and posts the result on the lit ticket the branch names; make hardware-status says which results still hold for
+# HEAD.
+# [LAW:verifiable-goals] The test observes every fact the check asserts or records, and a person is never asked for one.
+# What a device shows on its own screen is what the app reads from it: Settings > Battery Health's maximum capacity and
+# cycle count are in the lockdown reading, a Bluetooth level is in system_profiler. Whether macOS gated something is
+# whether the read that needed it succeeded. The rest is in ioreg, pmset, the unified log, the window list, or the
+# accessibility tree. A person does only what no process can: move a cable or an adapter, or give an approval macOS
+# keeps for the user. The test prints what to do and confirms it happened, and the recorder reads nothing from them.
 HARDWARE_CHECKS := unplug-check iphone-check devices-check pill-check position-check
 .PHONY: $(HARDWARE_CHECKS) hardware-status
 
 $(HARDWARE_CHECKS): generate
 	rm -rf build/$@.xcresult build/$@.record
 	swift scripts/hardware-check.swift run $@ --test '$($@.test)' --bundle build/$@.xcresult --covers $($@.covers) \
-	  --ask $($@.ask) -- $(XCB) -resultBundlePath build/$@.xcresult '-only-testing:$(APP)Tests/$($@.test)' test
+	  -- $(XCB) -resultBundlePath build/$@.xcresult '-only-testing:$(APP)Tests/$($@.test)' test
 
 # For the branch's ticket, each check's latest result: "stands" while the code it covered is unchanged at HEAD, with a
 # failed result's failures beneath it, "stale" naming the paths that changed since, or "never run". A standing pass needs
@@ -59,15 +65,11 @@ unplug-check.covers := Sources/OrangeDrink/Battery Tests/OrangeDrinkTests/Batter
 
 # The iPhone & iPad ticket's step on a real Mac: with one trusted iPhone cabled, switches its Wi-Fi sync off, then has the
 # monitor switch it on and read the phone over the cable, waits for the cable to be pulled, and reads it over Wi-Fi.
-# project.yml is covered for the Info.plist keys macOS's Local Network decision reads.
+# project.yml is covered because it keeps the app unsandboxed, which its connection to usbmuxd's socket needs.
 iphone-check: export TEST_RUNNER_IPHONE_CHECK = 1
 iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled()
 iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
   Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
-iphone-check.ask := 'Did macOS show a Local Network prompt? (y/n)' \
-  'Did the app appear under System Settings > Privacy & Security > Local Network? (y/n)' \
-  'Settings > Battery > Battery Health on the phone: Maximum Capacity? (recorded as evidence, not a gate)' \
-  'Settings > Battery > Battery Health on the phone: Cycle Count? (recorded as evidence, not a gate)'
 
 # The devices ticket's step on a real Mac: with paired devices connected, prints each one's name,
 # type, and level to compare with Control Center. project.yml is covered for the Bluetooth usage description.

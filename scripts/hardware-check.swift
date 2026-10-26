@@ -1,9 +1,10 @@
-// The one recorder behind every hardware check in the Makefile, the checks that need a person at a cable or a screen.
-// `run` runs a check's test, asks the person what only they can answer, and posts the outcome on the lit ticket the
-// branch names, so a result never depends on someone copying it from the terminal. `status` says, for that ticket,
-// whether each check's latest result still holds for HEAD, so a session asks the person only when the code changed.
+// The one recorder behind every hardware check in the Makefile, the checks that need a real Mac and a person at a cable.
+// `run` runs a check's test and posts the outcome on the lit ticket the branch names, so a result never depends on
+// someone copying it from the terminal. It reads nothing from the person: the test observes every fact it records (the
+// Makefile says why). `status` says, for that ticket, whether each check's latest result still holds for HEAD, so a
+// person is needed again only when the code changed.
 //
-// usage: hardware-check run <check> --test <id> --bundle <xcresult> --covers <path>... [--ask <question>...] -- <command>...
+// usage: hardware-check run <check> --test <id> --bundle <xcresult> --covers <path>... -- <command>...
 //        hardware-check status (--check <check> <path>...)...
 // run exits 0 only when the test passed and its result is on the ticket.
 import Foundation
@@ -23,7 +24,7 @@ enum CheckError: Error, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .usage(let detail): "\(detail)\nusage: hardware-check run <check> --test <id> --bundle <xcresult> --covers <path>... [--ask <question>...] -- <command>...\n       hardware-check status (--check <check> <path>...)..."
+        case .usage(let detail): "\(detail)\nusage: hardware-check run <check> --test <id> --bundle <xcresult> --covers <path>... -- <command>...\n       hardware-check status (--check <check> <path>...)..."
         case .failed(let command, let status): "\(command.joined(separator: " ")) exited \(status)"
         case .noResult(let test, let bundle): "\(bundle) holds no result for \(test): the build failed or the test never ran; nothing was posted"
         case .skipped(let test): "\(test) was skipped, so it checked nothing: its TEST_RUNNER_ variable did not reach it; nothing was posted"
@@ -56,7 +57,7 @@ func capture(_ command: [String], environment: [String: String] = [:]) throws ->
 }
 
 /// Runs the check's command with its output shown as it arrives, and returns its exit status and the lines marked
-/// for the record. Its stdin is /dev/null: the terminal's input is kept for the questions that follow.
+/// for the record. Its stdin is /dev/null: a check takes nothing from the person but their hands.
 func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
     let process = Process()
     process.executableURL = URL(filePath: "/usr/bin/env")
@@ -166,15 +167,13 @@ struct Record {
     let uncommitted: [String]
     let printed: [String]
     let failures: [String]
-    let answers: [(question: String, answer: String)]
 
     var body: String {
         (["hardware check: \(check)", "result: \(outcome.rawValue)", "commit: \(commit)"]
             + uncommitted.map { "uncommitted: \($0)" }
             + covers.map { "covers: \($0.id) \($0.path)" }
             + printed.map { "printed: \($0)" }
-            + failures.flatMap { $0.split(separator: "\n").map { "failure: \($0)" } }
-            + answers.map { "asked: \($0.question) → \($0.answer)" }).joined(separator: "\n")
+            + failures.flatMap { $0.split(separator: "\n").map { "failure: \($0)" } }).joined(separator: "\n")
     }
 }
 
@@ -212,20 +211,9 @@ struct Comment: Decodable {
     let created_at: String
 }
 
-/// One question, asked until it gets an answer; a closed terminal is recorded as such rather than as an answer.
-func ask(_ question: String) -> String {
-    while true {
-        print("\n>>> \(question) ", terminator: "")
-        fflush(stdout)
-        guard let line = readLine() else { return "no answer: stdin closed" }
-        let answer = line.trimmingCharacters(in: .whitespaces)
-        if !answer.isEmpty { return answer }
-    }
-}
-
 // MARK: - Commands
 
-func run(check: String, test: String, bundle: String, covers paths: [String], questions: [String], command: [String]) throws -> Int32 {
+func run(check: String, test: String, bundle: String, covers paths: [String], command: [String]) throws -> Int32 {
     // Everything the post needs that can fail is settled before the person is asked to do anything.
     let ticket = try ticket()
     let commit = try capture(["git", "rev-parse", "HEAD"])
@@ -244,9 +232,9 @@ func run(check: String, test: String, bundle: String, covers paths: [String], qu
     let outcome = exited.isEmpty ? tested : .fail
     let record = Record(check: check, outcome: outcome, commit: commit, covers: covers,
                         uncommitted: paths.filter { built[$0] != committed[$0] }, printed: printed,
-                        failures: testFailures + exited, answers: questions.map { ($0, ask($0)) })
-    // Posted from a file, so a failed post leaves the person's run and answers on disk, and the error names the
-    // command that posts them.
+                        failures: testFailures + exited)
+    // Posted from a file, so a failed post leaves the person's run on disk, and the error names the command that
+    // posts it.
     let file = "build/\(check).record"
     try record.body.write(toFile: file, atomically: true, encoding: .utf8)
     try capture(["lit", "comment", "add", ticket, "--by", "make \(check)", "--body-file", file])
@@ -317,7 +305,7 @@ do {
             throw CheckError.usage("run takes one check name, at least one --covers path, and a command after --")
         }
         exit(try run(check: positional[0], test: try one("test"), bundle: try one("bundle"), covers: values("covers"),
-                     questions: values("ask"), command: command))
+                     command: command))
     case "status":
         let checks = flags.filter { $0.0 == "check" }.map { (name: $0.1.first ?? "", paths: Array($0.1.dropFirst())) }
         guard !checks.isEmpty, checks.allSatisfy({ !$0.name.isEmpty && !$0.paths.isEmpty }) else {
