@@ -26,8 +26,8 @@ import Testing
     }
 
     /// The log line the monitor writes for one decision.
-    private static func decision(_ event: UsbmuxEvent, _ steps: [DeviceMap.Step]) -> String {
-        "iphone \(String(describing: event)) → \(DeviceMap.describe(steps))"
+    private static func decision(_ said: String, _ steps: [DeviceMap.Step]) -> String {
+        "iphone \(said) → \(DeviceMap.describe(steps))"
     }
 
     typealias Read = @Sendable (_ handle: Int, _ udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading
@@ -136,7 +136,7 @@ import Testing
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
         #expect(await events.next() == .unreachable(udid: "B"))
         #expect(reads.withLock { $0 } == 1)
-        #expect(try await log.logged(Self.decision(.attached(Self.usb(5, "B")), [])))
+        #expect(try await log.logged(Self.decision("\(UsbmuxEvent.attached(Self.usb(5, "B")))", [])))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -249,7 +249,7 @@ import Testing
         #expect(await events.next() == .readFailed(udid: "G", over: .network, .usbmux(.noPairRecord)))
         await harness.clock.asleep()
         try harness.send(["MessageType": "Paired", "DeviceID": 6])
-        #expect(try await log.logged(Self.decision(.paired(handle: 6), [])))
+        #expect(try await log.logged(Self.decision("\(UsbmuxEvent.paired(handle: 6))", [])))
         #expect(reads.withLock { $0 } == 1)
         harness.clock.advance(by: IPhoneMonitor.pollInterval)
         #expect(await events.next() == .reading(udid: "G", over: .network, Self.reading))
@@ -281,7 +281,9 @@ import Testing
     // ahead of the cable, and drop it a moment later (lm3.1tt cmt-d1c4f03c). The first read goes over the cable.
     @Test(.timeLimit(.minutes(1)))
     func aDeviceTheSnapshotListsOverWifiThenTheCableIsFirstReadOverTheCable() async throws {
-        let harness = try Harness(snapshot: { [Self.wifi(6, "P"), Self.usb(5, "P")] }) { handle, _ throws(IPhoneReadError) in
+        let log = try BatteryLog(category: IPhoneMonitor.logCategory)
+        let snapshot = [Self.wifi(6, "P"), Self.usb(5, "P")]
+        let harness = try Harness(snapshot: { snapshot }) { handle, _ throws(IPhoneReadError) in
             guard handle == 5 else { throw .closed }
             return Self.reading
         }
@@ -291,6 +293,8 @@ import Testing
         #expect(await events.next() == .reachable(udid: "P", over: .usb))
         #expect(await Self.next(2, of: &events) == Self.described([.reading(udid: "P", over: .usb, Self.reading), .wifiSyncOn(udid: "P")]))
         #expect(harness.opened.withLock { $0 } == [5])
+        #expect(try await log.logged(Self.decision("listed \(snapshot)", [.reachability(udid: "P", over: .usb),
+                                                                         .enableWifiSync(handle: 5, udid: "P")])))
     }
 
     // usbmuxd drops a Wi-Fi device's handle and lists it again under another; the relay went with the old handle.

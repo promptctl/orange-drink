@@ -20,18 +20,18 @@ struct DeviceMap {
 
     private(set) var handles: [Int: DeviceConnection] = [:]
 
-    /// A handle already known is skipped, so one attach seen in both the snapshot and Listen counts once.
+    /// usbmuxd's Attached: a listing of one device.
     mutating func attach(_ device: AttachedDevice) -> [Step] {
         listed([device])
     }
 
     /// [LAW:no-ambient-temporal-coupling] usbmuxd's ListDevices snapshot, applied as the one listing it is: every device's
     /// steps come from its route before the listing and after all of it, so a device listed over Wi-Fi ahead of its cable
-    /// is reachable over the cable and nothing in between.
+    /// is reachable over the cable and nothing in between. A handle already known is skipped, so one attach seen in both
+    /// the snapshot and Listen counts once.
     mutating func listed(_ devices: [AttachedDevice]) -> [Step] {
-        let fresh = devices.filter { handles[$0.handle] == nil }
-        return edit(fresh.compactMap(\.connection.udid)) { handles in
-            for device in fresh { handles[device.handle] = device.connection }
+        edit { handles in
+            for device in devices where handles[device.handle] == nil { handles[device.handle] = device.connection }
         }
     }
 
@@ -40,7 +40,7 @@ struct DeviceMap {
     /// its route to Wi-Fi, and a stale detach applied after the snapshot (unplug and replug between Listen and
     /// ListDevices) leaves its route alone.
     mutating func detach(handle: Int) -> [Step] {
-        edit(handles[handle]?.udid.map { [$0] } ?? []) { $0.removeValue(forKey: handle) }
+        edit { $0.removeValue(forKey: handle) }
     }
 
     /// usbmuxd's Paired: the device on this handle has just trusted this Mac, so a Wi-Fi sync switch that failed for want
@@ -53,7 +53,7 @@ struct DeviceMap {
         return Self.pluggedIn(route, udid: udid)
     }
 
-    /// Every Listen message, and every snapshot entry as an attach, comes through here.
+    /// Every Listen message comes through here.
     mutating func apply(_ event: UsbmuxEvent) -> [Step] {
         switch event {
         case .attached(let device): attach(device)
@@ -73,6 +73,11 @@ struct DeviceMap {
         }.max { ($0.transport.preference, $0.handle) < ($1.transport.preference, $1.handle) }
     }
 
+    /// Every listed device's route.
+    private var routes: [String: Route] {
+        Set(handles.values.compactMap(\.udid)).reduce(into: [:]) { $0[$1] = route($1) }
+    }
+
     /// One decision as the log writes it: its steps in order, or "nothing".
     static func describe(_ steps: [Step]) -> String {
         steps.isEmpty ? "nothing" : steps.map { String(describing: $0) }.joined(separator: ", ")
@@ -80,13 +85,14 @@ struct DeviceMap {
 
     /// [LAW:dataflow-not-control-flow] Every attach, detach, and listing is one edit to the handles, and its steps are
     /// what the edit did to each device's route: a change of transport is a reachability step, and a new route onto a
-    /// cable, a replug's fresh handle included, also switches on Wi-Fi sync.
-    private mutating func edit(_ udids: [String], _ change: (inout [Int: DeviceConnection]) -> Void) -> [Step] {
-        let devices = udids.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
-        let before = devices.map(route)
+    /// cable, a replug's fresh handle included, also switches on Wi-Fi sync. [LAW:one-source-of-truth] The devices an
+    /// edit touched are read off the routes before and after it, not named by its caller.
+    private mutating func edit(_ change: (inout [Int: DeviceConnection]) -> Void) -> [Step] {
+        let previous = routes
         change(&handles)
-        return zip(devices, before).flatMap { udid, before -> [Step] in
-            let after = route(udid)
+        let current = routes
+        return Set(previous.keys).union(current.keys).sorted().flatMap { udid -> [Step] in
+            let (before, after) = (previous[udid], current[udid])
             let reachability = before?.transport == after?.transport ? [] : [Step.reachability(udid: udid, over: after?.transport)]
             let plugged = before == after ? [] : after.map { Self.pluggedIn($0, udid: udid) } ?? []
             return reachability + plugged
