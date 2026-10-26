@@ -189,8 +189,6 @@ enum BluetoothDevicesError: Error, Equatable {
     case registration
     /// IOBluetooth no longer answers a private selector this edge reads (spike orange-devices-bue.355).
     case missingSelector(String)
-    /// IOKit no longer exports the private function `AccessoryPower` reads the accessory batteries with.
-    case missingSymbol(String)
 }
 
 private extension Device {

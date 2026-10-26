@@ -28,7 +28,7 @@ struct BatteryLevel: Equatable, Sendable {
 
 /// [LAW:types-are-the-program] What a device reports, and no more: a device with one battery, one
 /// with earbuds and a case (each part may be missing, e.g. a bud out of its case), or none at all.
-/// An unreported level is absent, never 0%.
+/// An unreported level is absent; 0% is a reading, a drained battery.
 enum DeviceLevels: Equatable, Sendable {
     case none
     case single(BatteryLevel)

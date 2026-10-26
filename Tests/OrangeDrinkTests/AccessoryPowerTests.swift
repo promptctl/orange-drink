@@ -37,6 +37,12 @@ struct AccessoryPowerTests {
                 == .init(unlevelled: ["Brandon’s CMF Buds"], unclaimed: ["CMF Buds", "c-pods", "ear-pluggers"]))
     }
 
+    @Test func aCopyPowerdDidNotAnswerNamesItsCall() {
+        #expect(throws: PowerSourcesError.unanswered(call: "IOPSCopyPowerSourcesByType")) {
+            try PowerSources.descriptions(nil, copiedBy: "IOPSCopyPowerSourcesByType")
+        }
+    }
+
     @Test func onlyAccessorySourcesAreRead() {
         let mac: [String: Any] = ["Type": "InternalBattery", "Name": "InternalBattery-0", "Current Capacity": 80, "Max Capacity": 100]
         #expect(AccessoryPower.levels(from: [mac]) == .init())

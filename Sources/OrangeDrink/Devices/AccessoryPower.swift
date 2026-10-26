@@ -17,7 +17,7 @@ struct AccessoryPower {
     /// this edge does not understand, which fails the subscription instead of reading as no levels.
     init() throws {
         guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "IOPSCopyPowerSourcesByType") else {
-            throw BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType")
+            throw PowerSourcesError.missingSymbol("IOPSCopyPowerSourcesByType")
         }
         copySources = unsafeBitCast(symbol, to: CopySourcesByType.self)
     }

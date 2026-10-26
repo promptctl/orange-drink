@@ -18,4 +18,6 @@ enum PowerSources {
 enum PowerSourcesError: Error, Equatable {
     /// powerd returned nothing from the named IOPowerSources call.
     case unanswered(call: String)
+    /// IOKit no longer exports the named private function, such as the one `AccessoryPower` reads the accessories with.
+    case missingSymbol(String)
 }
