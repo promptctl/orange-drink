@@ -41,6 +41,17 @@ struct AttachedDevice: Equatable {
     let connection: DeviceConnection
 }
 
+extension AttachedDevice: CustomStringConvertible {
+    /// As the log writes it, short enough that a snapshot of many handles stays within os_log's message limit (about
+    /// 1 KB; past it the decision's steps are dropped).
+    var description: String {
+        switch connection {
+        case .device(let udid, let transport): "handle \(handle): \(udid) over \(transport)"
+        case .other(let type): "handle \(handle): \(type)"
+        }
+    }
+}
+
 /// The messages the monitor acts on. Anything else on the Listen connection is `.other`.
 enum UsbmuxEvent: Equatable {
     case attached(AttachedDevice)

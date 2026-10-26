@@ -293,8 +293,8 @@ import Testing
         #expect(await events.next() == .reachable(udid: "P", over: .usb))
         #expect(await Self.next(2, of: &events) == Self.described([.reading(udid: "P", over: .usb, Self.reading), .wifiSyncOn(udid: "P")]))
         #expect(harness.opened.withLock { $0 } == [5])
-        #expect(try await log.logged(Self.decision("listed \(snapshot)", [.reachability(udid: "P", over: .usb),
-                                                                         .enableWifiSync(handle: 5, udid: "P")])))
+        #expect(try await log.logged(Self.decision("listed [handle 6: P over network, handle 5: P over usb]",
+                                                   [.reachability(udid: "P", over: .usb), .enableWifiSync(handle: 5, udid: "P")])))
     }
 
     // usbmuxd drops a Wi-Fi device's handle and lists it again under another; the relay went with the old handle.
