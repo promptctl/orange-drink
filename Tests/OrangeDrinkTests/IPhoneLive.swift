@@ -49,17 +49,19 @@ import Testing
 
         // The cable: one reading over USB and the Wi-Fi sync switch, for that device.
         var cableRead: ContinuousClock.Instant?
+        var cableReading: IPhoneBatteryReading?
         var synced = false
         let cableEnd = ContinuousClock.now + .seconds(120)
         while cableRead == nil || !synced {
             let (event, at) = try #require(try await arrivals.event(at: cursor, until: { .now > cableEnd }),
-                                           "no cable reading and Wi-Fi sync within two minutes; the monitor reported \(udid) as \(reachability)")
+                                           "no cable reading and Wi-Fi sync within two minutes; the monitor reported \(udid) as \(reachability.map { $0.map { "\($0)" } ?? "unreachable" })")
             cursor += 1
             switch event {
             case .reachable(udid, let transport): reachability.append(transport)
             case .unreachable(udid): reachability.append(nil)
             case .reading(udid, .usb, let value):
                 cableRead = at
+                cableReading = value
                 printForTheRecord("cable reading: \(value)")
             case .wifiSyncOn(udid):
                 synced = true
@@ -103,6 +105,9 @@ import Testing
             case .reading(udid, .network, let value):
                 wifiReadings += 1
                 printForTheRecord("wifi reading: \(value)")
+                // A battery's cycle count and design capacity hold still over minutes, so the two transports read the same.
+                #expect(value.cycleCount == cableReading?.cycleCount && value.designCapacity == cableReading?.designCapacity,
+                        "the Wi-Fi reading's cycles and design capacity differ from the cable reading's: \(String(describing: cableReading))")
             case .readFailed(udid, .network, let error):
                 printForTheRecord("wifi read failed: \(error)")
             case .reading(udid, .usb, _), .readFailed(udid, .usb, _):

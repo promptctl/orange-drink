@@ -67,6 +67,11 @@ expect "a branch that names no ticket stops before the test, saying so" \
 git checkout -q ticket-1
 
 bundle Passed
+run --covers src --ask 'Saw it?' -- true
+expect "a flag the recorder does not read stops the run before the test, naming it" \
+  eval '[ $status = 1 ] && grep -qF "no flag --ask" <<<"$out" && [ $(posts) = 0 ]'
+
+bundle Passed
 run --covers src/a.swift src -- sh -c 'echo "» reading 5"; echo "quoted » not for the record"'
 body=$(latest)
 expect "a pass posts its result, commit, covers, and printed lines, and exits 0" \

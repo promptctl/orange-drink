@@ -63,8 +63,8 @@ unplug-check: export TEST_RUNNER_UNPLUG_CHECK = 1
 unplug-check.test := BatteryLive/plugAndUnplug()
 unplug-check.covers := Sources/OrangeDrink/Battery Tests/OrangeDrinkTests/BatteryLiveTests.swift Tests/OrangeDrinkTests/BatteryLog.swift
 
-# The iPhone & iPad ticket's step on a real Mac: with one trusted iPhone cabled, switches its Wi-Fi sync off, then has the
-# monitor switch it on and read the phone over the cable, waits for the cable to be pulled, and reads it over Wi-Fi.
+# The iPhone & iPad ticket's step on a real Mac: with one trusted iPhone or iPad cabled, switches its Wi-Fi sync off, then
+# has the monitor switch it on and read the device over the cable, waits for the cable to be pulled, and reads it over Wi-Fi.
 # project.yml is covered because it keeps the app unsandboxed, which its connection to usbmuxd's socket needs.
 iphone-check: export TEST_RUNNER_IPHONE_CHECK = 1
 iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled()
@@ -73,6 +73,8 @@ iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Battery/Ti
 
 # The devices ticket's step on a real Mac: with paired devices connected, prints each one's name,
 # type, and level to compare with Control Center. project.yml is covered for the Bluetooth usage description.
+# [LAW:verifiable-goals] exception: the Control Center comparison covers a device system_profiler lists and the app
+# missed, which the test does not check yet (orange-devices-bue.5dg).
 devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
 devices-check.test := DevicesLive/matchesSystemProfiler()
 devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
@@ -81,6 +83,8 @@ devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/
 # The alert pill: put an app full screen, then click the × of the pill that appears
 # at the centre of the screen and again at the top, then once more at the centre with the screen glow,
 # each within the 8 s it stays up. A pill that leaves by itself fails the check: no one saw it.
+# [LAW:verifiable-goals] exception: a person watches for the pill, the glow, and the chime until the test observes them
+# itself (orange-checks-olj.mpy).
 pill-check: export TEST_RUNNER_PILL_CHECK = 1
 pill-check.test := PillTests/pillsShowOverAFullScreenApp()
 pill-check.covers := Sources/OrangeDrink/Alerts Sources/OrangeDrink/Settings/AppLanguage.swift \

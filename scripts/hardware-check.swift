@@ -295,18 +295,24 @@ do {
     let arguments = CommandLine.arguments.dropFirst()
     let (positional, flags, command) = groups(arguments.dropFirst())
     func values(_ flag: String) -> [String] { flags.filter { $0.0 == flag }.flatMap(\.1) }
+    // A flag no subcommand reads is refused, not ignored, so a caller still passing one learns it does nothing.
+    func refuseFlags(except known: Set<String>) throws {
+        if let unknown = flags.map(\.0).first(where: { !known.contains($0) }) { throw CheckError.usage("no flag --\(unknown)") }
+    }
     func one(_ flag: String) throws -> String {
         guard let value = values(flag).first, values(flag).count == 1 else { throw CheckError.usage("--\(flag) takes one value") }
         return value
     }
     switch arguments.first {
     case "run":
+        try refuseFlags(except: ["test", "bundle", "covers"])
         guard positional.count == 1, !values("covers").isEmpty, !command.isEmpty else {
             throw CheckError.usage("run takes one check name, at least one --covers path, and a command after --")
         }
         exit(try run(check: positional[0], test: try one("test"), bundle: try one("bundle"), covers: values("covers"),
                      command: command))
     case "status":
+        try refuseFlags(except: ["check"])
         let checks = flags.filter { $0.0 == "check" }.map { (name: $0.1.first ?? "", paths: Array($0.1.dropFirst())) }
         guard !checks.isEmpty, checks.allSatisfy({ !$0.name.isEmpty && !$0.paths.isEmpty }) else {
             throw CheckError.usage("status takes --check <check> <path>... for each check")

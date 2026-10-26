@@ -69,7 +69,7 @@ Keeps a history of the Mac's battery level, daily discharge and screen-on time, 
 
 ### iPhone and iPad battery health
 
-Shows battery health, cycle count, and lifetime stats for an iPhone or iPad connected by cable, or over Wi-Fi once Finder's Wi-Fi sync is on.
+Shows battery health, cycle count, and lifetime stats for an iPhone or iPad connected by cable, or over Wi-Fi after it has been plugged in once, since the app switches on its Wi-Fi sync then.
 
 ### Keyboard shortcuts
 
