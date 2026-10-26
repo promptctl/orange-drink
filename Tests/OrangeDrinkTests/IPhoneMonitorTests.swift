@@ -3,9 +3,10 @@ import os
 import Testing
 @testable import OrangeDrink
 
-// [LAW:behavior-not-structure] The contract is the event stream and the log line each decision leaves. The Listen
-// connection is one end of a socketpair the test writes usbmuxd frames to; the snapshot, the read, and the Wi-Fi sync
-// switch are stand-ins; time passes only when the test advances the clock.
+// [LAW:behavior-not-structure] The contract is the event stream, the log line each decision leaves, and how many relays
+// the monitor opens, which is what a read costs (two TLS handshakes per relay). The Listen connection is one end of a
+// socketpair the test writes usbmuxd frames to; the snapshot, the relay, and the Wi-Fi sync switch are stand-ins; time
+// passes only when the test advances the clock.
 @Suite(.serialized) struct IPhoneMonitorDecisions {
     private static let reading = IPhoneBatteryReading(level: 80, cycleCount: 312,
                                                       designCapacity: EntryCapacity(mAh: 3_274, place: .topLevel),
@@ -29,18 +30,38 @@ import Testing
         "iphone \(String(describing: event)) → \(DeviceMap.describe(steps))"
     }
 
+    typealias Read = @Sendable (_ handle: Int, _ udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading
+
+    /// A relay over one handle whose every read is the harness's read for that handle.
+    private final class StandInRelay: BatteryRelay {
+        let handle: Int, udid: String
+        let reading: Read
+        init(handle: Int, udid: String, read: @escaping Read) { self.handle = handle; self.udid = udid; reading = read }
+        func read() throws(IPhoneReadError) -> IPhoneBatteryReading { try reading(handle, udid) }
+    }
+
     private struct Harness {
         let peer: Int32
         let clock = ManualTimekeeper()
         let events: AsyncStream<IPhoneEvent>
+        /// The handles relays were opened over, in order.
+        let opened = OSAllocatedUnfairLock<[Int]>(initialState: [])
 
         init(snapshot: @escaping @Sendable () throws -> [AttachedDevice],
              enableWifiSync: @escaping MonitorInputs.EnableWifiSync = { _, _ throws(IPhoneReadError) in },
-             read: @escaping MonitorInputs.Read) throws {
+             connect: @escaping @Sendable (_ handle: Int) throws(IPhoneReadError) -> Void = { _ throws(IPhoneReadError) in },
+             read: @escaping Read) throws {
             let (socket, peer) = try TimedSocketDeadline.pair()
             self.peer = peer
-            events = IPhoneMonitor.events(from: MonitorInputs(listen: { socket }, snapshot: snapshot, read: read,
-                                                              enableWifiSync: enableWifiSync, timekeeper: clock))
+            let opened = opened
+            events = IPhoneMonitor.events(from: MonitorInputs(
+                listen: { socket }, snapshot: snapshot,
+                connect: { handle, udid throws(IPhoneReadError) in
+                    opened.withLock { $0.append(handle) }
+                    try connect(handle)
+                    return StandInRelay(handle: handle, udid: udid, read: read)
+                },
+                enableWifiSync: enableWifiSync, timekeeper: clock))
         }
 
         func send(_ body: [String: Any]) throws {
@@ -95,7 +116,9 @@ import Testing
         #expect(await events.next() == .reading(udid: "B", over: .usb, Self.reading))
         #expect(syncs.withLock { $0 } == 1)
         #expect(try await log.logged("iphone pacer started: B"))
-        #expect(try await log.logged("iphone read delivered: B over usb; resting \(IPhoneMonitor.pollInterval)"))
+        #expect(try await log.logged("iphone read delivered: B over usb, relay opened; resting \(IPhoneMonitor.pollInterval)"))
+        #expect(try await log.logged("iphone read delivered: B over usb, relay held; resting \(IPhoneMonitor.pollInterval)"))
+        #expect(harness.opened.withLock { $0 } == [5])
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -236,6 +259,78 @@ import Testing
         #expect(await events.next() == .reading(udid: "G", over: .network, Self.reading))
     }
 
+    // A read over a held relay is one request; opening one is two TLS handshakes. While usbmuxd keeps the handle, every
+    // poll reads over the one relay.
+    @Test(.timeLimit(.minutes(1)))
+    func aDeviceUsbmuxdKeepsListedIsReadOverOneRelayEveryPoll() async throws {
+        let reads = OSAllocatedUnfairLock(initialState: 0)
+        let harness = try Harness(snapshot: { [Self.wifi(6, "R")] }) { _, _ throws(IPhoneReadError) in
+            reads.withLock { $0 += 1 }
+            return Self.reading
+        }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .reachable(udid: "R", over: .network))
+        for _ in 0..<3 {
+            #expect(await events.next() == .reading(udid: "R", over: .network, Self.reading))
+            await harness.nextPoll()
+        }
+        #expect(await events.next() == .reading(udid: "R", over: .network, Self.reading))
+        #expect(reads.withLock { $0 } == 4)
+        #expect(harness.opened.withLock { $0 } == [6])
+    }
+
+    // usbmuxd drops a Wi-Fi device's handle and lists it again under another; the relay went with the old handle.
+    @Test(.timeLimit(.minutes(1)))
+    func aDeviceListedAgainUnderANewHandleIsReadOverANewRelay() async throws {
+        let harness = try Harness(snapshot: { [Self.wifi(6, "S")] }) { _, _ throws(IPhoneReadError) in Self.reading }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .reachable(udid: "S", over: .network))
+        #expect(await events.next() == .reading(udid: "S", over: .network, Self.reading))
+        await harness.clock.asleep()
+        try harness.send(["MessageType": "Detached", "DeviceID": 6])
+        #expect(await events.next() == .unreachable(udid: "S"))
+        try harness.send(Self.attachedFrame(9, "S", "Network"))
+        #expect(await events.next() == .reachable(udid: "S", over: .network))
+        harness.clock.advance(by: IPhoneMonitor.pollInterval)
+        #expect(await events.next() == .reading(udid: "S", over: .network, Self.reading))
+        #expect(harness.opened.withLock { $0 } == [6, 9])
+    }
+
+    // A relay that fails is not read again: the failure is yielded, and the next poll opens a new relay. A relay that
+    // cannot be opened is a failed read too.
+    @Test(.timeLimit(.minutes(1)))
+    func aFailedReadOrOpenIsYieldedAndTheNextPollOpensANewRelay() async throws {
+        let log = try BatteryLog(category: IPhoneMonitor.logCategory)
+        let reads = OSAllocatedUnfairLock(initialState: 0)
+        let opens = OSAllocatedUnfairLock(initialState: 0)
+        let harness = try Harness(snapshot: { [Self.wifi(6, "T")] },
+                                  connect: { _ throws(IPhoneReadError) in
+                                      if opens.withLock({ $0 += 1; return $0 }) == 2 { throw .tls(-9806) }
+                                  }) { _, _ throws(IPhoneReadError) in
+            if reads.withLock({ $0 += 1; return $0 }) == 2 { throw .closed }
+            return Self.reading
+        }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .reachable(udid: "T", over: .network))
+        #expect(await events.next() == .reading(udid: "T", over: .network, Self.reading))
+        await harness.nextPoll()
+        #expect(await events.next() == .readFailed(udid: "T", over: .network, .closed))
+        await harness.nextPoll()
+        #expect(await events.next() == .readFailed(udid: "T", over: .network, .tls(-9806)))
+        await harness.nextPoll()
+        #expect(await events.next() == .reading(udid: "T", over: .network, Self.reading))
+        #expect(harness.opened.withLock { $0 } == [6, 6, 6])
+        #expect(reads.withLock { $0 } == 3)
+        #expect(try Self.count("iphone read delivered: T over network, relay held", in: log) == 1)
+        #expect(try Self.count("iphone read delivered: T over network, relay opened", in: log) == 3)
+    }
+
     @Test(.timeLimit(.minutes(1)))
     func endingTheStreamCancelsEveryPacer() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
@@ -326,16 +421,17 @@ import Testing
     }
 
     // The real usbmuxd, which every Mac runs: a UDID it holds no pair record for is a typed failure and one log line,
-    // for a read and for the Wi-Fi sync switch alike.
+    // for a relay and for the Wi-Fi sync switch alike.
     @available(macOS 15.0, *)
-    @available(macOS, deprecated: 10.15, message: "calls readIPhoneBattery, which uses SecureTransport; see lm3.8pk")
+    @available(macOS, deprecated: 10.15, message: "opens DiagnosticsRelay, which uses SecureTransport; see lm3.8pk")
     @Test func anUntrustedDeviceFailsAsNoPairRecordAndIsLogged() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let udid = "00000000-0000000000000000"  // UDID-shaped, so usbmuxd answers ENOENT rather than EINVAL
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneBattery(handle: 1, udid: udid) }
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid) }
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(false, handle: 1, udid: udid) }
-        #expect(try await log.logged("iphone read failed: \(udid) handle 1: usbmux("))
+        let identities = PairIdentities()
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try DiagnosticsRelay(handle: 1, udid: udid, identities: identities) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid, identities: identities) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(false, handle: 1, udid: udid, identities: identities) }
+        #expect(try await log.logged("iphone relay open failed: \(udid) handle 1: usbmux("))
         #expect(try await log.logged("iphone wifi sync on failed: \(udid) handle 1: usbmux("))
         #expect(try await log.logged("iphone wifi sync off failed: \(udid) handle 1: usbmux("))
     }

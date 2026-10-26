@@ -127,15 +127,21 @@ enum IPhoneEvent: Equatable {
     case failed(IPhoneReadError)
 }
 
-/// Where the monitor's inputs come from: a connection already subscribed with Listen, the ListDevices snapshot, one
-/// battery read, the Wi-Fi sync switch, and the clock reads are paced by. [LAW:effects-at-boundaries] events() passes
-/// usbmuxd's and the system clock; tests pass a socketpair, stand-ins, and a clock they advance by hand.
+/// A device's battery, read over one usbmuxd handle as often as asked while the handle lives.
+protocol BatteryRelay: AnyObject, Sendable {
+    func read() throws(IPhoneReadError) -> IPhoneBatteryReading
+}
+
+/// Where the monitor's inputs come from: a connection already subscribed with Listen, the ListDevices snapshot, a
+/// battery relay opened over a handle, the Wi-Fi sync switch, and the clock reads are paced by.
+/// [LAW:effects-at-boundaries] events() passes usbmuxd's and the system clock; tests pass a socketpair, stand-ins, and a
+/// clock they advance by hand.
 struct MonitorInputs: Sendable {
-    typealias Read = @Sendable (_ handle: Int, _ udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading
+    typealias Connect = @Sendable (_ handle: Int, _ udid: String) throws(IPhoneReadError) -> any BatteryRelay
     typealias EnableWifiSync = @Sendable (_ handle: Int, _ udid: String) throws(IPhoneReadError) -> Void
     let listen: @Sendable () throws -> TimedSocket
     let snapshot: @Sendable () throws -> [AttachedDevice]
-    let read: Read
+    let connect: Connect
     let enableWifiSync: EnableWifiSync
     let timekeeper: any Timekeeper
 }
@@ -149,11 +155,12 @@ enum IPhoneMonitor {
     /// Events for every iPhone and iPad usbmuxd reports, over the cable or over Wi-Fi.
     @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
     static func events() -> AsyncStream<IPhoneEvent> {
-        events(from: MonitorInputs(
+        let identities = PairIdentities()
+        return events(from: MonitorInputs(
             listen: usbmuxListen,
             snapshot: usbmuxListDevices,
-            read: readIPhoneBattery(handle:udid:),
-            enableWifiSync: { handle, udid throws(IPhoneReadError) in try setIPhoneWifiSync(true, handle: handle, udid: udid) },
+            connect: { handle, udid throws(IPhoneReadError) in try DiagnosticsRelay(handle: handle, udid: udid, identities: identities) },
+            enableWifiSync: { handle, udid throws(IPhoneReadError) in try setIPhoneWifiSync(true, handle: handle, udid: udid, identities: identities) },
             timekeeper: SystemTimekeeper()))
     }
 
@@ -254,11 +261,14 @@ private final class MonitorState: @unchecked Sendable {
     }
 
     /// Read over the device's route, deliver, rest a poll interval, and again, until `nextRoute` ends it. The next read
-    /// starts only after the last one finished, however long its deadlines let it run.
+    /// starts only after the last one finished, however long its deadlines let it run. The pacer holds the relay its
+    /// last read succeeded over, by handle, and reads over it again while the route keeps that handle.
     private func pace(_ udid: String) async {
+        var held: [Int: any BatteryRelay] = [:]
         while let route = queue.sync(execute: { nextRoute(udid) }) {
-            let outcome = await read(over: route, udid: udid)
-            queue.sync { deliver(outcome, udid: udid, over: route) }
+            let read = await read(over: route, udid: udid, held: held)
+            held = read.held
+            queue.sync { deliver(read.outcome, udid: udid, over: route, relay: read.relay) }
             // Throws only when the monitor ends and cancels the pacer; nextRoute then finds it stopped and ends the loop.
             try? await inputs.timekeeper.sleep(for: IPhoneMonitor.pollInterval)
         }
@@ -281,14 +291,37 @@ private final class MonitorState: @unchecked Sendable {
         return route
     }
 
-    /// The read is a blocking call of up to several deadlines, so it runs off the queue and off the task's thread.
-    private func read(over route: DeviceMap.Route, udid: String) async -> Result<IPhoneBatteryReading, IPhoneReadError> {
+    /// Whether a read went over the relay held from the last one or a relay opened for it, as its log line says.
+    private enum RelayUse: String {
+        case held
+        case opened
+    }
+
+    /// One read and the relays to hold after it: the one it succeeded over, keyed by the route's handle, or none.
+    private struct Read {
+        let outcome: Result<IPhoneBatteryReading, IPhoneReadError>
+        let held: [Int: any BatteryRelay]
+        let relay: RelayUse
+    }
+
+    /// [LAW:dataflow-not-control-flow] A read goes over the relay held for the route's handle, or one opened for it; a
+    /// relay is good only for the handle it was opened over, so a device usbmuxd lists again under a new handle gets a
+    /// new relay. A failed read holds nothing, so the next one opens afresh. Opening and reading are blocking calls of
+    /// up to several deadlines, so they run off the queue and off the task's thread.
+    private func read(over route: DeviceMap.Route, udid: String, held: [Int: any BatteryRelay]) async -> Read {
         await withCheckedContinuation { done in
             DispatchQueue.global(qos: .utility).async {
+                let reused = held[route.handle]
+                let relay = reused == nil ? RelayUse.opened : .held
                 do throws(IPhoneReadError) {
-                    done.resume(returning: .success(try self.inputs.read(route.handle, udid)))
+                    let open: any BatteryRelay
+                    switch reused {
+                    case let held?: open = held
+                    case nil: open = try self.inputs.connect(route.handle, udid)
+                    }
+                    done.resume(returning: Read(outcome: .success(try open.read()), held: [route.handle: open], relay: relay))
                 } catch {
-                    done.resume(returning: .failure(error))
+                    done.resume(returning: Read(outcome: .failure(error), held: [:], relay: relay))
                 }
             }
         }
@@ -296,12 +329,12 @@ private final class MonitorState: @unchecked Sendable {
 
     /// [LAW:no-silent-failure] Every outcome of a running monitor reaches the stream, a read whose handle detached
     /// mid-read included: that is a true failure over the route it was tried on.
-    private func deliver(_ outcome: Result<IPhoneBatteryReading, IPhoneReadError>, udid: String, over route: DeviceMap.Route) {
+    private func deliver(_ outcome: Result<IPhoneBatteryReading, IPhoneReadError>, udid: String, over route: DeviceMap.Route, relay: RelayUse) {
         guard case .running = lifecycle else {
             IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle): monitor stopped")
             return
         }
-        IPhoneMonitor.log.info("iphone read delivered: \(udid, privacy: .public) over \(String(describing: route.transport), privacy: .public); resting \(IPhoneMonitor.pollInterval, privacy: .public)")
+        IPhoneMonitor.log.info("iphone read delivered: \(udid, privacy: .public) over \(String(describing: route.transport), privacy: .public), relay \(relay.rawValue, privacy: .public); resting \(IPhoneMonitor.pollInterval, privacy: .public)")
         switch outcome {
         case .success(let reading): continuation.yield(.reading(udid: udid, over: route.transport, reading))
         case .failure(let error): continuation.yield(.readFailed(udid: udid, over: route.transport, error))

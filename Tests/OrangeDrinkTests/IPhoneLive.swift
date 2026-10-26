@@ -5,8 +5,8 @@ import Testing
 
 // [LAW:verifiable-goals] The ticket's hardware step: plugging in a trusted iPhone switches on its Wi-Fi sync and reads it
 // over the cable; once the cable is pulled, Wi-Fi readings or typed Wi-Fi read failures keep coming, a poll interval
-// apart however often usbmuxd drops and relists the device, and the app reading it stays under PROJECT.md's 0.1% CPU bar.
-// Run by make iphone-check with the iPhone cabled and a person at the cable.
+// apart however often usbmuxd drops and relists the device. Run by make iphone-check with the iPhone cabled and a person
+// at the cable. What a read costs is make test's: IPhoneMonitorDecisions counts the relays opened, which is the cost.
 //
 // Every read is held to the monitor's pacing, measured against the check's own usbmuxd Listen rather than a guess at
 // usbmuxd's gaps: no read comes sooner than a poll interval after the one before, and none later than readWorstCase
@@ -19,7 +19,7 @@ import Testing
     /// How long the check waits for usbmuxd to list the device again before it blames usbmuxd: longer than the 56 min
     /// it left an iPhone unlisted after a Wi-Fi sync switch-off (lm3.1tt cmt-9a8a2ba7), the step this check starts with.
     private static let usbmuxWait = Duration.seconds(60 * 60)
-    /// Wi-Fi read events the phase is held to after its first, which starts the CPU measurement.
+    /// Wi-Fi read events the phase is held to after its first.
     private static let wifiWindows = 3
     /// The cable phase, the person's pull, then every read at its latest: a run that hits it is one no bound above caught.
     static let timeLimitMinutes = 2 + 10 + (wifiWindows + 1) * Int(((IPhoneMonitor.pollInterval + monitorLatency + usbmuxWait + readWorstCase) / .seconds(60)).rounded(.up))
@@ -36,7 +36,7 @@ import Testing
         }
         try #require(cabled.count == 1, "this check needs exactly one cabled iPhone or iPad; usbmuxd lists \(cabled.count)")
         let (handle, udid) = cabled[0]
-        try setIPhoneWifiSync(false, handle: handle, udid: udid)
+        try setIPhoneWifiSync(false, handle: handle, udid: udid, identities: PairIdentities())
         printForTheRecord("wifi sync off: \(udid)")
 
         let listing = try Listing(udid: udid)
@@ -80,7 +80,6 @@ import Testing
         var previous = try #require(cableRead)
         var wifiEvents = 0
         var wifiReadings = 0
-        var cpuFrom: (cpu: Duration, at: ContinuousClock.Instant)?
         while wifiEvents <= Self.wifiWindows {
             let restEnd = previous + IPhoneMonitor.pollInterval + Self.monitorLatency
             let expired = { () throws -> Bool in
@@ -123,13 +122,7 @@ import Testing
             previous = at
             guard case .network = event.transport else { continue }
             wifiEvents += 1
-            cpuFrom = cpuFrom ?? (processCPU(), .now)
         }
-
-        let from = try #require(cpuFrom)
-        let percent = (processCPU() - from.cpu) / (ContinuousClock.now - from.at) * 100
-        printForTheRecord(String(format: "wifi phase CPU: %.3f%% over %d windows", percent, Self.wifiWindows))
-        #expect(percent < 0.1, "the app over Wi-Fi is over PROJECT.md's 0.1% CPU bar")
         #expect(wifiReadings > 0, "every Wi-Fi read failed")
 
         // The monitor's reachability is usbmuxd's listing of the device, change for change: everything usbmuxd listed
@@ -140,14 +133,6 @@ import Testing
                 "the monitor's reachability differs from usbmuxd's listing")
         #expect(reachability.count >= listed.filter { $0.at < .now - Self.monitorLatency }.count,
                 "the monitor did not report a listing change usbmuxd made")
-    }
-
-    /// User plus system time charged to this process, which is the app: the test bundle runs inside it.
-    private func processCPU() -> Duration {
-        var usage = rusage()
-        getrusage(RUSAGE_SELF, &usage)
-        func duration(_ t: timeval) -> Duration { .seconds(t.tv_sec) + .microseconds(t.tv_usec) }
-        return duration(usage.ru_utime) + duration(usage.ru_stime)
     }
 }
 
@@ -163,8 +148,7 @@ private extension IPhoneEvent {
 
 /// The check's own record of how usbmuxd lists one device, from a Listen connection of its own opened before the
 /// monitor starts: the independent record the monitor's reachability and pacing are held to. Each change is the
-/// transport the device is reached over from then on, the cable preferred, or nil while usbmuxd lists no handle. Its
-/// thread wakes once a second in the measured process, so like Arrivals it counts against the CPU bar. Once its Listen
+/// transport the device is reached over from then on, the cable preferred, or nil while usbmuxd lists no handle. Once its Listen
 /// fails, every read of the record throws that failure, so the check stops on it instead of blaming usbmuxd's silence.
 private final class Listing: Sendable {
     struct Change { let at: ContinuousClock.Instant; let transport: Transport? }
@@ -232,8 +216,7 @@ private final class Listing: Sendable {
 }
 
 /// Events in arrival order with the moment each arrived, for a test that waits on each against a deadline. It checks
-/// once a second, so its own cost in the measured process is small, and it counts against the bar rather than hiding
-/// anything under it.
+/// once a second.
 private final class Arrivals: Sendable {
     private let events = OSAllocatedUnfairLock<[(IPhoneEvent, ContinuousClock.Instant)]>(initialState: [])
 
