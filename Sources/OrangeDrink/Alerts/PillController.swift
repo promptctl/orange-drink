@@ -95,16 +95,20 @@ enum PillEnd {
     private let language: AppLanguageModel
     private let timekeeper: any Timekeeper
     private let currentScreen: @MainActor () -> ScreenArea?
+    private let orderFront: @MainActor (OverlayPanel) -> Void
     private var up: Up?
     /// A launched app has someone in front of it, so nothing hides the screen until the system says so.
     private var hidden: Set<ScreenHider> = []
     private var waiters: [CheckedContinuation<Void, Never>] = []
     nonisolated(unsafe) private var following: [Task<Void, Never>] = []
 
-    init(appearance: NotificationAppearanceModel, language: AppLanguageModel, timekeeper: any Timekeeper = SystemTimekeeper(),
-         screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main) {
+    /// [LAW:effects-at-boundaries] `orderFront` is what puts a built window on the screen, and it has no default: the app
+    /// orders each panel front, and a test holds them, so `make test` builds and asserts on the panels without showing them.
+    init(appearance: NotificationAppearanceModel, language: AppLanguageModel, orderFront: @escaping @MainActor (OverlayPanel) -> Void,
+         timekeeper: any Timekeeper = SystemTimekeeper(), screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main) {
         self.appearance = appearance
         self.language = language
+        self.orderFront = orderFront
         self.timekeeper = timekeeper
         currentScreen = screen
     }
@@ -151,10 +155,10 @@ enum PillEnd {
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, frame: area.frame) : nil
-        glow?.orderFrontRegardless()
-        panel.orderFrontRegardless()
         let pill = Up(content: content, scale: look.bubbleSize.scale, panel: panel, glow: glow, countdown: countdown())
         up = pill
+        // Their levels stack the glow under the pill, whichever is ordered front first.
+        shownPanels.forEach(orderFront)
         let counting = pill.countdown == nil ? ", held" : " for \(Self.shownFor)"
         Self.log.info("pill shown at \(content.position.rawValue, privacy: .public)\(counting, privacy: .public): \(content.headline.english, privacy: .private)")
     }

@@ -20,7 +20,7 @@ import Testing
     }
 
     @Test func aLowAlertAtTopOfScreenShowsOnePillForTheReadingThatCrossedIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)])
@@ -35,7 +35,7 @@ import Testing
     }
 
     @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try Self.center(pills, alerts: [
             Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
@@ -56,7 +56,7 @@ import Testing
     }
 
     @Test func aCenterAlertSitsAtTheMiddleOfTheScreen() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         pills.show(PillContent(Alert(kind: .low, threshold: 5, position: .center, glow: false, sound: false),
                                reading: try Self.reading(4)))
@@ -66,7 +66,7 @@ import Testing
     }
 
     @Test func aNewPillReplacesTheOneShowingAndClosingClearsIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         pills.show(PillContent(low, reading: try Self.reading(13)))
@@ -76,7 +76,7 @@ import Testing
     }
 
     @Test func replacingAPillDoesNotReleaseWhoeverWaitsForNoPill() async throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         var released = false
@@ -91,7 +91,7 @@ import Testing
     }
 
     static func countdown(_ clock: ManualTimekeeper) -> PillController {
-        PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), timekeeper: clock)
+        PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, timekeeper: clock)
     }
 
     /// The `alerts` log lines that name this headline: other suites log in the same category at
@@ -218,7 +218,7 @@ import Testing
         let laptop = ScreenArea(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 944))
         let external = ScreenArea(frame: CGRect(x: 1512, y: 0, width: 2560, height: 1440), visibleFrame: CGRect(x: 1512, y: 70, width: 2560, height: 1345))
         let screens = Screens(laptop)
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, timekeeper: clock, screen: { screens.main })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in }, timekeeper: clock, screen: { screens.main })
         let log = try BatteryLog(category: "alerts")
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(PillContent(Alert(kind: .low, threshold: 22, position: .top, glow: true, sound: false),
@@ -283,7 +283,7 @@ import Testing
     // orange-alerts-cjt.c2g: under an 80% Charge Limit the reading that crosses 80 still says
     // charging with powerd's estimate to 100%; the pill must not promise a full charge.
     @Test func aChargedPillAtTheChargeLimitSaysNoTimeUntilFull() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false)])
@@ -311,7 +311,7 @@ import Testing
 
     @Test func theOverlayIsHandedTheLanguageTheAppSpeaksWhenThePillComesUp() throws {
         let language = AppLanguageTests.scratch()
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language)
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in })
         defer { pills.close(.closeButton) }
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(.power("On Battery", severity: .orange, reading: try Self.reading(14)))
@@ -324,13 +324,15 @@ import Testing
     /// [LAW:verifiable-goals] What puts a pill over a full-screen app is how its windows are built, and macOS honours that
     /// (docs/testing.md, "Windows macOS places"): non-activating panels that cannot become key, joining every Space as a
     /// full-screen auxiliary, above the level full-screen windows sit at (the main menu's, plus one), from an app with no
-    /// Dock icon. The glow lies under the pill and lets every click through.
+    /// Dock icon. The glow lies under the pill and lets every click through. Both are the windows ordered front.
     @Test func thePillAndItsGlowAreWindowsMacOSShowsOverFullScreenApps() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        var ordered: [OverlayPanel] = []
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { ordered.append($0) })
         defer { pills.close(.closeButton) }
         pills.deliver(.threshold(Alert(kind: .low, threshold: 17, position: .center, glow: true, sound: false)), reading: try Self.reading(17))
         let panels = pills.shownPanels
         try #require(panels.count == 2)
+        #expect(ordered == panels)
         for panel in panels {
             #expect(panel.styleMask.contains(.nonactivatingPanel))
             #expect(!panel.canBecomeKey)

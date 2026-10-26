@@ -38,7 +38,7 @@ import Testing
     }
 
     @Test func pluggingInShowsAPillWhileNotificationsAreOnAndNoneWhileTheyAreOff() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try AlertCenter(
             defaults: AlertSettingsPersistence.suite(),
@@ -56,7 +56,7 @@ import Testing
     }
 
     @Test func aPowerPillTellsTheEventAndCountsTheReading() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let battery = try PowerAndTemperatureAlerts.battery()
         pills.deliver(.unplugged(sound: false), reading: battery)
