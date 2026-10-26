@@ -24,11 +24,17 @@ struct BatteryLog {
 
     /// Polls the log until a line contains `fragment`: log entries reach OSLogStore shortly after they are written.
     func logged(_ fragment: String) async throws -> Bool {
+        try await count(fragment, awaiting: 1) > 0
+    }
+
+    /// How many lines contain `fragment`, counted once `expected` of them have reached OSLogStore or five seconds have
+    /// passed, so a count read just after the lines were written does not come up short.
+    func count(_ fragment: String, awaiting expected: Int) async throws -> Int {
         let end = ContinuousClock.now.advanced(by: .seconds(5))
-        while ContinuousClock.now < end {
-            if try messages().contains(where: { $0.contains(fragment) }) { return true }
+        while true {
+            let count = try messages().filter { $0.contains(fragment) }.count
+            if count >= expected || ContinuousClock.now >= end { return count }
             try await Task.sleep(for: .milliseconds(20))
         }
-        return false
     }
 }

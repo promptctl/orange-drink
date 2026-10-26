@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Security
 import Testing
 @testable import OrangeDrink
@@ -26,8 +27,23 @@ import Testing
         #expect(first === again)
         let repaired = try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM + Data("\n".utf8))
         #expect(repaired !== first)
+        #expect(try await log.count("iphone host identity built: ", awaiting: 2) == 2)
         #expect(try log.messages().filter { $0.hasPrefix("iphone host identity built: ") } == [
             "iphone host identity built: 1 pair records", "iphone host identity built: 2 pair records"])
+    }
+
+    /// A device just plugged in is reached by its pacer and its Wi-Fi sync switch at once; its record is built once, so
+    /// every caller holds the one identity.
+    @available(macOS 15.0, *)
+    @Test func aPairRecordAskedForAtOnceIsBuiltOnce() throws {
+        let identities = PairIdentities()
+        let results = OSAllocatedUnfairLock<[Result<SecIdentity, any Error>]>(uncheckedState: [])
+        DispatchQueue.concurrentPerform(iterations: 8) { _ in
+            let result = Result { try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM) }
+            results.withLockUnchecked { $0.append(result) }
+        }
+        let built = try results.withLockUnchecked { $0 }.map { try $0.get() }
+        #expect(built.count == 8 && built.allSatisfy { $0 === built[0] })
     }
 
     @available(macOS 15.0, *)

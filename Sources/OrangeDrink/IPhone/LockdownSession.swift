@@ -436,16 +436,25 @@ final class DiagnosticsRelay: BatteryRelay, @unchecked Sendable {
 /// import cost about 6 ms of CPU. usbmuxd's pair record stays the source, read on every connection, so a device paired
 /// again brings a new record and a new identity.
 final class PairIdentities: Sendable {
-    private let built = OSAllocatedUnfairLock<[Data: SecIdentity]>(uncheckedState: [:])
+    private struct Record: Hashable {
+        let certificatePEM: Data
+        let keyPEM: Data
+    }
 
+    private let built = OSAllocatedUnfairLock<[Record: SecIdentity]>(uncheckedState: [:])
+
+    /// Built under the lock, so a pacer and a Wi-Fi sync switch reaching a just-plugged device at once build it once.
     @available(macOS 15.0, *)
     func identity(certificatePEM: Data, keyPEM: Data) throws -> SecIdentity {
-        let record = certificatePEM + keyPEM
-        if let identity = built.withLockUnchecked({ $0[record] }) { return identity }
-        let identity = try pairIdentity(certificatePEM: certificatePEM, keyPEM: keyPEM)
-        let count = built.withLockUnchecked { $0[record] = identity; return $0.count }
-        IPhoneMonitor.log.info("iphone host identity built: \(count) pair records")
-        return identity
+        let record = Record(certificatePEM: certificatePEM, keyPEM: keyPEM)
+        return try built.withLockUnchecked { built in
+            if let identity = built[record] { return identity }
+            let identity = try pairIdentity(certificatePEM: certificatePEM, keyPEM: keyPEM)
+            built[record] = identity
+            let count = built.count
+            IPhoneMonitor.log.info("iphone host identity built: \(count) pair records")
+            return identity
+        }
     }
 }
 

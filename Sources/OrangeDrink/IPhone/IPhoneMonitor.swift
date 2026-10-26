@@ -262,9 +262,9 @@ private final class MonitorState: @unchecked Sendable {
 
     /// Read over the device's route, deliver, rest a poll interval, and again, until `nextRoute` ends it. The next read
     /// starts only after the last one finished, however long its deadlines let it run. The pacer holds the relay its
-    /// last read succeeded over, by handle, and reads over it again while the route keeps that handle.
+    /// last read succeeded over, and reads over it again while the route keeps that handle.
     private func pace(_ udid: String) async {
-        var held: [Int: any BatteryRelay] = [:]
+        var held: HeldRelay?
         while let route = queue.sync(execute: { nextRoute(udid) }) {
             let read = await read(over: route, udid: udid, held: held)
             held = read.held
@@ -297,10 +297,16 @@ private final class MonitorState: @unchecked Sendable {
         case opened
     }
 
-    /// One read and the relays to hold after it: the one it succeeded over, keyed by the route's handle, or none.
+    /// A relay and the usbmuxd handle it was opened over, the only handle it is good for.
+    private struct HeldRelay {
+        let handle: Int
+        let relay: any BatteryRelay
+    }
+
+    /// One read and the relay to hold after it: the one it succeeded over, or none.
     private struct Read {
         let outcome: Result<IPhoneBatteryReading, IPhoneReadError>
-        let held: [Int: any BatteryRelay]
+        let held: HeldRelay?
         let relay: RelayUse
     }
 
@@ -308,10 +314,10 @@ private final class MonitorState: @unchecked Sendable {
     /// relay is good only for the handle it was opened over, so a device usbmuxd lists again under a new handle gets a
     /// new relay. A failed read holds nothing, so the next one opens afresh. Opening and reading are blocking calls of
     /// up to several deadlines, so they run off the queue and off the task's thread.
-    private func read(over route: DeviceMap.Route, udid: String, held: [Int: any BatteryRelay]) async -> Read {
+    private func read(over route: DeviceMap.Route, udid: String, held: HeldRelay?) async -> Read {
         await withCheckedContinuation { done in
             DispatchQueue.global(qos: .utility).async {
-                let reused = held[route.handle]
+                let reused = held.flatMap { $0.handle == route.handle ? $0.relay : nil }
                 let relay = reused == nil ? RelayUse.opened : .held
                 do throws(IPhoneReadError) {
                     let open: any BatteryRelay
@@ -319,9 +325,9 @@ private final class MonitorState: @unchecked Sendable {
                     case let held?: open = held
                     case nil: open = try self.inputs.connect(route.handle, udid)
                     }
-                    done.resume(returning: Read(outcome: .success(try open.read()), held: [route.handle: open], relay: relay))
+                    done.resume(returning: Read(outcome: .success(try open.read()), held: HeldRelay(handle: route.handle, relay: open), relay: relay))
                 } catch {
-                    done.resume(returning: Read(outcome: .failure(error), held: [:], relay: relay))
+                    done.resume(returning: Read(outcome: .failure(error), held: nil, relay: relay))
                 }
             }
         }

@@ -95,10 +95,6 @@ import Testing
     }
 
     /// How many log lines since `log` began contain `fragment`.
-    private static func count(_ fragment: String, in log: BatteryLog) throws -> Int {
-        try log.messages().filter { $0.contains(fragment) }.count
-    }
-
     @Test(.timeLimit(.minutes(1)))
     func pluggingInSwitchesOnWifiSyncOnceAndReadsOverTheCableEachPollInterval() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
@@ -165,7 +161,7 @@ import Testing
         harness.clock.advance(by: IPhoneMonitor.pollInterval)
         #expect(await events.next() == .reading(udid: "E", over: .network, Self.reading))
         #expect(reads.withLock { $0 } == 2)
-        #expect(try Self.count("iphone pacer started: E", in: log) == 1)
+        #expect(try await log.count("iphone pacer started: E", awaiting: 1) == 1)
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -192,7 +188,7 @@ import Testing
         #expect(await events.next() == .reachable(udid: "F", over: .network))
         #expect(await events.next() == .reading(udid: "F", over: .network, Self.reading))
         #expect(reads.withLock { $0 } == 2)
-        #expect(try Self.count("iphone pacer started: F", in: log) == 2)
+        #expect(try await log.count("iphone pacer started: F", awaiting: 2) == 2)
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -327,8 +323,8 @@ import Testing
         #expect(await events.next() == .reading(udid: "T", over: .network, Self.reading))
         #expect(harness.opened.withLock { $0 } == [6, 6, 6])
         #expect(reads.withLock { $0 } == 3)
-        #expect(try Self.count("iphone read delivered: T over network, relay held", in: log) == 1)
-        #expect(try Self.count("iphone read delivered: T over network, relay opened", in: log) == 3)
+        #expect(try await log.count("iphone read delivered: T over network, relay opened", awaiting: 3) == 3)
+        #expect(try await log.count("iphone read delivered: T over network, relay held", awaiting: 1) == 1)
     }
 
     @Test(.timeLimit(.minutes(1)))

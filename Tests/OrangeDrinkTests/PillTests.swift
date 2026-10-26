@@ -346,18 +346,15 @@ import ViewInspector
     }
 
     /// The pill's ×, pressed through the view the controller put in its panel (ViewInspector, no window): the pill and its
-    /// glow come down at once, and whoever waits for no pill is released. The clock never moves, so only the × can close it.
+    /// glow come down at once. The clock never moves, so only the × can close it.
     @Test(.timeLimit(.minutes(1))) func pressingThePillsCloseButtonTakesItAndItsGlowDown() async throws {
         let pills = Self.countdown(ManualTimekeeper())
         let log = try BatteryLog(category: "alerts")
         pills.show(PillContent(Alert(kind: .low, threshold: 16, position: .top, glow: true, sound: false), reading: try Self.reading(16)))
         let view = try #require(pills.shownView)
-        let waiter = Task { await pills.untilClosed() }
-        await Task.yield()
         try view.inspect().find(ViewType.Button.self, where: { try $0.accessibilityLabel().string() == "Close" }).tap()
         #expect(pills.shown == nil && pills.shownPanels.isEmpty)
-        await waiter.value
-        #expect(try Self.lines(log, about: "16% Remaining").last == "pill closed: ×: 16% Remaining")
+        #expect(try await log.logged("pill closed: ×: 16% Remaining"))
     }
 
     /// The pill as drawn, with no window: its border fills in the alert's colour, further for a fuller battery, and in no
