@@ -28,9 +28,10 @@ enum BluetoothDevices {
         return AsyncThrowingStream { continuation in continuation.onTermination = { [continuation] _ in _ = continuation } }
     }
 
-    /// [LAW:effects-at-boundaries] The one edge that talks to IOBluetooth. Spike
-    /// orange-devices-bue.355 measured a sweep of every connected device at under a millisecond of
-    /// CPU, so a sweep a minute is far inside PROJECT.md's 0.1% budget.
+    /// [LAW:effects-at-boundaries] The one edge that talks to IOBluetooth, which says which devices are
+    /// connected; their levels are power management's (`AccessoryPower`). Spike orange-devices-bue.355
+    /// measured a sweep of every connected device at under a millisecond of CPU, and reading the accessory
+    /// sources adds 0.1 ms (1e6), so a sweep a minute is far inside PROJECT.md's 0.1% budget.
     ///
     /// [LAW:no-ambient-temporal-coupling] The registration, every sweep, and the unregistering are
     /// one task's business. IOBluetooth refuses a registration from a pool thread, which has no run
@@ -41,19 +42,20 @@ enum BluetoothDevices {
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                let watcher = Watcher(continuation: continuation, timekeeper: timekeeper)
+                let power: AccessoryPower
+                do { power = try AccessoryPower() } catch { return Watcher.fail(continuation, error) }
+                let watcher = Watcher(continuation: continuation, timekeeper: timekeeper, power: power)
                 defer { watcher.stop() }
                 do {
                     try await MainActor.run { try watcher.start() }
                     while true {
                         try await timekeeper.sleep(for: pollInterval)
-                        watcher.sweep()
+                        try watcher.sweep()
                     }
                 } catch is CancellationError {
                     return
                 } catch {
-                    log.error("device subscription failed: \(String(describing: error), privacy: .public)")
-                    continuation.finish(throwing: error)
+                    Watcher.fail(continuation, error)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -62,11 +64,8 @@ enum BluetoothDevices {
 
     /// [LAW:single-enforcer] The private selectors the edge reads, checked once at the border:
     /// a missing one is an OS this edge does not understand, which fails the subscription instead
-    /// of reading as "no level" on every device.
-    static let privateSelectors = [
-        "getDisplayName", "batteryPercentSingle", "batteryPercentCombined",
-        "batteryPercentLeft", "batteryPercentRight", "batteryPercentCase",
-    ]
+    /// of reading as the broadcast name on every device.
+    static let privateSelectors = ["getDisplayName"]
 
     /// Notifications arrive on IOBluetooth's queue while the task sweeps, so the registrations
     /// are held under a lock.
@@ -88,10 +87,19 @@ enum BluetoothDevices {
         private let serial = NSLock()
 
         private let timekeeper: any Timekeeper
+        private let power: AccessoryPower
 
-        init(continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, timekeeper: any Timekeeper) {
+        init(continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, timekeeper: any Timekeeper,
+             power: AccessoryPower) {
             self.continuation = continuation
             self.timekeeper = timekeeper
+            self.power = power
+        }
+
+        /// [LAW:no-silent-failure] A read that fails ends the subscription, which the model shows as a failure.
+        static func fail(_ continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, _ error: any Error) {
+            BluetoothDevices.log.error("device subscription failed: \(String(describing: error), privacy: .public)")
+            continuation.finish(throwing: error)
         }
 
         func start() throws {
@@ -101,7 +109,7 @@ enum BluetoothDevices {
             let connect = IOBluetoothDevice.register(forConnectNotifications: self, selector: #selector(connected(_:device:)))
             guard let connect else { throw BluetoothDevicesError.registration }
             registrations.withLockUnchecked { $0.connect = connect }
-            sweep()
+            try sweep()
         }
 
         func stop() {
@@ -114,7 +122,7 @@ enum BluetoothDevices {
         }
 
         @objc private func connected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
-            observe(device)
+            do { try observe(device) } catch { return Self.fail(continuation, error) }
             let schedule = registrations.withLockUnchecked { state in
                 defer { state.settlePending = true }
                 return !state.settlePending && !state.stopped
@@ -123,7 +131,7 @@ enum BluetoothDevices {
             Task { [timekeeper] in
                 try? await timekeeper.sleep(for: BluetoothDevices.settleInterval)
                 registrations.withLockUnchecked { $0.settlePending = false }
-                sweep()
+                do { try sweep() } catch { Self.fail(continuation, error) }
             }
         }
 
@@ -134,15 +142,25 @@ enum BluetoothDevices {
             continuation.yield(.gone(id))
         }
 
-        func sweep() {
+        func sweep() throws {
             serial.lock()
             defer { serial.unlock() }
             guard !registrations.withLockUnchecked({ $0.stopped }) else { return }
             let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
-            let devices = connected.compactMap(Device.init)
+            let levels = try levels()
+            let devices = connected.compactMap { Device($0, levels: levels) }
             connected.forEach(register)
-            BluetoothDevices.log.info("device sweep: \(devices.count, privacy: .public) connected")
+            let attribution = levels.attribution(of: devices.map(\.name))
+            BluetoothDevices.log.info("""
+                device sweep: \(devices.count, privacy: .public) connected, \(levels.byName.count, privacy: .public) \
+                accessory batteries; no battery for \(attribution.unlevelled, privacy: .private), \
+                unclaimed \(attribution.unclaimed, privacy: .private), unattributed \(levels.unattributed, privacy: .private)
+                """)
             continuation.yield(.swept(devices))
+        }
+
+        private func levels() throws -> AccessoryPower.Levels {
+            AccessoryPower.levels(from: try power.read())
         }
 
         private func register(_ device: IOBluetoothDevice) {
@@ -153,11 +171,11 @@ enum BluetoothDevices {
             registrations.withLockUnchecked { $0.disconnects[address] = notification }
         }
 
-        private func observe(_ device: IOBluetoothDevice) {
+        private func observe(_ device: IOBluetoothDevice) throws {
             serial.lock()
             defer { serial.unlock() }
             register(device)
-            guard let reading = Device(device) else { return }
+            guard let reading = Device(device, levels: try levels()) else { return }
             BluetoothDevices.log.info("device reported: \(String(describing: reading), privacy: .private)")
             continuation.yield(.reported(reading))
         }
@@ -168,38 +186,30 @@ enum BluetoothDevicesError: Error, Equatable {
     case registration
     /// IOBluetooth no longer answers a private selector this edge reads (spike orange-devices-bue.355).
     case missingSelector(String)
+    /// IOKit no longer exports the private function `AccessoryPower` reads the accessory batteries with.
+    case missingSymbol(String)
+    /// powerd did not answer for its power sources.
+    case powerSources
 }
 
 private extension Device {
-    /// [LAW:parse-dont-validate] The crossing from IOBluetooth's untyped device to a `Device`. The
-    /// battery properties are private selectors, checked present at the border; a 0 means "not
-    /// reported" and cannot be told from a drained battery, so it reads as no level, and so does
-    /// anything else outside 1...100: `BatteryLevel.percent` is always a real percentage.
-    init?(_ device: IOBluetoothDevice) {
+    /// [LAW:parse-dont-validate] The crossing from IOBluetooth's untyped device to a `Device`, its
+    /// levels the ones power management publishes under its name.
+    ///
+    /// [LAW:one-source-of-truth] IOBluetooth has battery properties of its own; they held one earbud of
+    /// a set power management and system_profiler gave three parts for (1e6), so they are not read.
+    init?(_ device: IOBluetoothDevice, levels: AccessoryPower.Levels) {
         guard let id = DeviceID(device) else { return nil }
-        func level(_ key: String) -> BatteryLevel? {
-            guard let percent = (device.value(forKey: key) as? NSNumber)?.intValue, (1...100).contains(percent) else { return nil }
-            return BatteryLevel(percent: percent, approximate: false)
-        }
         // The name System Settings shows is the user's alias, which only the private getDisplayName
         // returns; `name` is the name the device broadcasts ("Beats Studio Buds +", not "Brandon’s Beats Studio Buds +").
         let name = Device.name(
             alias: device.perform(Selector(("getDisplayName")))?.takeUnretainedValue() as? String,
             broadcast: device.name, address: id.address)
-        let (left, right, `case`) = (level("batteryPercentLeft"), level("batteryPercentRight"), level("batteryPercentCase"))
-        let levels: DeviceLevels
-        if left != nil || right != nil || `case` != nil {
-            levels = .earbuds(left: left, right: right, case: `case`)
-        } else if let single = level("batteryPercentSingle") ?? level("batteryPercentCombined") {
-            levels = .single(single)
-        } else {
-            levels = .none
-        }
         self.init(
             id: id,
             name: name,
             kind: .classify(majorClass: device.deviceClassMajor, name: name),
-            levels: levels)
+            levels: levels.byName[name] ?? .none)
     }
 }
 
