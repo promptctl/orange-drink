@@ -277,6 +277,23 @@ import Testing
         #expect(harness.opened.withLock { $0 } == [6])
     }
 
+    // iphone-check switches Wi-Fi sync off with the device cabled: usbmuxd's snapshot can still list its Wi-Fi handle,
+    // ahead of the cable, and drop it a moment later (lm3.1tt cmt-d1c4f03c). The first read goes over the cable.
+    @Test(.timeLimit(.minutes(1)))
+    func aDeviceTheSnapshotListsOverWifiThenTheCableIsFirstReadOverTheCable() async throws {
+        let harness = try Harness(snapshot: { [Self.wifi(6, "P"), Self.usb(5, "P")] }) { handle, _ throws(IPhoneReadError) in
+            guard handle == 5 else { throw .closed }
+            return Self.reading
+        }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .reachable(udid: "P", over: .network))
+        #expect(await events.next() == .reachable(udid: "P", over: .usb))
+        #expect(await Self.next(2, of: &events) == Self.described([.reading(udid: "P", over: .usb, Self.reading), .wifiSyncOn(udid: "P")]))
+        #expect(harness.opened.withLock { $0 } == [5])
+    }
+
     // usbmuxd drops a Wi-Fi device's handle and lists it again under another; the relay went with the old handle.
     @Test(.timeLimit(.minutes(1)))
     func aDeviceListedAgainUnderANewHandleIsReadOverANewRelay() async throws {

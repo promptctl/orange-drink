@@ -208,12 +208,12 @@ private final class MonitorState: @unchecked Sendable {
         do {
             try typedReadErrors {
                 let socket = try inputs.listen()
-                try inputs.snapshot().forEach { receive(.attached($0)) }
+                receive(try inputs.snapshot().map { .attached($0) })
                 var reader = UsbmuxFrameReader()
                 while !isStopped() {
                     guard let bytes = try socket.receiveSome(max: 4096) else { continue }
                     reader.append(bytes)
-                    while let body = try reader.next() { receive(try usbmuxEvent(body)) }
+                    while let body = try reader.next() { receive([try usbmuxEvent(body)]) }
                 }
                 IPhoneMonitor.log.info("iphone monitor stopped")
             }
@@ -229,16 +229,21 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    private func receive(_ event: UsbmuxEvent) {
+    /// [LAW:no-ambient-temporal-coupling] One listing, applied in one turn of the queue: the snapshot is every device
+    /// usbmuxd lists at once, so a pacer it starts picks its route from all of it. A device the snapshot lists over Wi-Fi
+    /// before its cable is read over the cable, not over a Wi-Fi handle usbmuxd may already be dropping.
+    private func receive(_ events: [UsbmuxEvent]) {
         queue.sync {
-            let steps = map.apply(event)
-            IPhoneMonitor.log.info("iphone \(String(describing: event), privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
-            switch lifecycle {
-            case .running(var pacers):
-                for step in steps { perform(step, pacers: &pacers) }
-                lifecycle = .running(pacers: pacers)
-            case .stopped:
-                IPhoneMonitor.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
+            for event in events {
+                let steps = map.apply(event)
+                IPhoneMonitor.log.info("iphone \(String(describing: event), privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
+                switch lifecycle {
+                case .running(var pacers):
+                    for step in steps { perform(step, pacers: &pacers) }
+                    lifecycle = .running(pacers: pacers)
+                case .stopped:
+                    IPhoneMonitor.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
+                }
             }
         }
     }
