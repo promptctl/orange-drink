@@ -163,14 +163,14 @@ private final class Listing: Sendable {
     /// Subscribes, then takes the snapshot, as the monitor does, and records from a thread of its own until `stop`.
     init(udid: String) throws {
         let socket = try usbmuxListen()
-        try usbmuxListDevices().forEach { apply(.attached($0), udid: udid) }
+        apply(try usbmuxListDevices().map { .attached($0) }, udid: udid)
         Thread { [self] in
             var reader = UsbmuxFrameReader()
             do {
                 while !state.withLock({ $0.stopped }) {
                     guard let bytes = try socket.receiveSome(max: 4096) else { continue }
                     reader.append(bytes)
-                    while let body = try reader.next() { apply(try usbmuxEvent(body), udid: udid) }
+                    while let body = try reader.next() { apply([try usbmuxEvent(body)], udid: udid) }
                 }
             } catch {
                 printForTheRecord("the check's own Listen failed: \(error)")
@@ -198,14 +198,17 @@ private final class Listing: Sendable {
         }
     }
 
-    private func apply(_ event: UsbmuxEvent, udid: String) {
+    /// One listing, the snapshot or a Listen message, is at most one change: the snapshot lists every handle at once.
+    private func apply(_ events: [UsbmuxEvent], udid: String) {
         state.withLock { state in
-            switch event {
-            case .attached(let device):
-                guard case .device(udid, let transport) = device.connection else { return }
-                state.handles[device.handle] = transport
-            case .detached(let handle): state.handles.removeValue(forKey: handle)
-            case .paired, .other: return
+            for event in events {
+                switch event {
+                case .attached(let device):
+                    guard case .device(udid, let transport) = device.connection else { continue }
+                    state.handles[device.handle] = transport
+                case .detached(let handle): state.handles.removeValue(forKey: handle)
+                case .paired, .other: continue
+                }
             }
             let transport = state.handles.values.max { $0 == .network && $1 == .usb }
             // Before its first change the device is unlisted, so only a listing starts the record.

@@ -37,6 +37,14 @@ import Testing
         #expect(map.route("A") == DeviceMap.Route(handle: 6, transport: .usb))
     }
 
+    // iphone-check's snapshot listed the iPhone's Wi-Fi handle ahead of its cable (lm3.1tt cmt-d1c4f03c).
+    @Test func aListingIsOneDecisionSoADeviceListedOverWifiThenTheCableIsReachableOverTheCableAlone() {
+        var map = DeviceMap()
+        #expect(map.listed([Self.wifi(5, "A"), Self.usb(6, "A"), Self.wifi(7, "B")]) == [
+            .reachability(udid: "A", over: .usb), .enableWifiSync(handle: 6, udid: "A"), .reachability(udid: "B", over: .network)])
+        #expect(map.route("A") == DeviceMap.Route(handle: 6, transport: .usb))
+    }
+
     @Test func pullingTheCableOfADeviceOnWifiMovesItToWifiAndItsLastHandleMakesItUnreachable() {
         var map = DeviceMap()
         _ = map.attach(Self.usb(6, "A"))
