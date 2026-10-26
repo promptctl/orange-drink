@@ -145,6 +145,12 @@ struct Pixels {
         }
     }
 
+    /// The pixel at (x, y) of the 2x bitmap, counted from the top left.
+    func color(_ x: Int, _ y: Int) -> NSColor? { rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) }
+
+    /// How many pixels are `hue`.
+    func count(of hue: Hue) -> Int { (0..<width).reduce(0) { sum, x in sum + (0..<height).filter { matches(x, $0, hue) }.count } }
+
     /// Every pixel, so two images are the same image exactly when these are equal.
     var bytes: Data { Data(bytes: rep.bitmapData!, count: rep.bytesPerRow * height) }
 

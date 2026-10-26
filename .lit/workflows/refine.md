@@ -12,7 +12,7 @@ events: [show_ticket, next_pulled, work_started]
 The ticket is ready when every line below is true of its description. Check each one against the text itself, not against what you know:
 
 1. It says what to build and why, in terms a user or the design docs would recognise.
-2. It has a "Done when:" line naming a check someone else can run: a test, a command, or a step on a real Mac with the expected result.
+2. It has a "Done when:" line naming a check someone else can run: a test in `make test` at the layer docs/testing.md gives the behavior, or a live check for a real device's or service's reply that names the values it reads and what they're compared with. Never "a person sees" or "matches what the device shows": that is a lower-layer test or a value the check reads itself.
 3. It points at the design doc or PROJECT.md section it implements, or says there is none.
 4. Anything it needs from outside its epic is wired as a `blocks` edge (`lit dep add --from <blocker> --to <id>`). Inside its epic, rank order is the dependency, because lit refuses blocks edges between siblings.
 5. It fits in one PR.

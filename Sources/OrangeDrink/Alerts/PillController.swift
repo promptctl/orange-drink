@@ -116,6 +116,8 @@ enum PillEnd {
     var shownFrame: CGRect? { up?.panel.frame }
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
     var shownGlowFrame: CGRect? { up?.glow?.frame }
+    /// The shown pill's panel, then its glow's while Border Glow is on: the windows macOS stacks over other apps.
+    var shownPanels: [OverlayPanel] { up.map { [$0.panel] + ($0.glow.map { [$0] } ?? []) } ?? [] }
     /// The language the shown pill was handed: the app's at the moment it came up.
     var shownLanguage: AppLanguage? { up?.panel.language }
     /// The strength the shown glow was built at.

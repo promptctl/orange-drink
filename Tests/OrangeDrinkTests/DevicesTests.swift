@@ -133,13 +133,16 @@ struct DeviceListTests {
 }
 
 // [LAW:verifiable-goals] The ticket's step on a real Mac, run by `make devices-check`: the first
-// sweep's devices, printed for comparison with Control Center, and each checked against
-// system_profiler, the source System Settings renders, at the same moment.
+// sweep's devices held to what macOS reports at the same moment: system_profiler, the source System Settings
+// renders, for which devices are connected and the parts it gives levels for, and power management's accessory
+// list (`pmset -g accps`) for the levels system_profiler leaves out. Every connected device either one gives a
+// level for is in the sweep, and each level agrees.
 @MainActor struct DevicesLive {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DEVICES_CHECK"] != nil, "run by make devices-check with devices connected"))
     func matchesSystemProfiler() async throws {
         let connected = try Self.profilerConnected()
         try #require(!connected.isEmpty, "this check needs paired devices connected")
+        let accessories = try Self.accessoryLevels()
         // The first sweep is the whole connected set, so it is the one event this check needs.
         var list = DeviceList()
         for try await event in BluetoothDevices.events() {
@@ -147,14 +150,26 @@ struct DeviceListTests {
             list.apply(event)
             break
         }
+        let swept = Dictionary(list.devices.map { ($0.name, $0) }) { first, _ in first }
         for device in list.devices {
-            printForTheRecord("device: \(device.name) | \(device.kind) | \(device.levels)")
-            if let profiled = connected[device.name] {
-                let ours = Self.percents(device.levels)
-                #expect(Set(ours.keys) == Set(profiled.keys), "\(device.name) reports different parts than system_profiler")
-                // The two reads are moments apart; a level moves by at most a point or two between them.
-                for (part, percent) in ours { #expect(abs(percent - (profiled[part] ?? percent)) <= 2, "\(device.name) \(part)") }
+            printForTheRecord("device: \(device.name) | \(device.kind) | \(device.levels)"
+                              + (connected[device.name] == nil ? " | not listed by system_profiler" : ""))
+        }
+        printForTheRecord("pmset accessories: \(accessories.sorted { $0.key < $1.key })")
+        for (name, profiled) in connected {
+            // pmset names an earbud set's case "<name> Case" and gives one level for a single-part device.
+            var reported = profiled
+            if reported.isEmpty { reported["Single"] = accessories[name] }
+            if reported["Case"] == nil { reported["Case"] = accessories["\(name) Case"] }
+            guard !reported.isEmpty else { continue }
+            guard let device = swept[name] else {
+                Issue.record("macOS reports \(name) connected at \(reported); the app's sweep does not have it")
+                continue
             }
+            let ours = Self.percents(device.levels)
+            #expect(Set(ours.keys) == Set(reported.keys), "\(name) reports parts \(ours) where macOS reports \(reported)")
+            // The reads are moments apart; a level moves by at most a point or two between them.
+            for (part, percent) in ours { #expect(abs(percent - (reported[part] ?? percent)) <= 2, "\(name) \(part)") }
         }
     }
 
@@ -165,6 +180,17 @@ struct DeviceListTests {
         case .earbuds(let left, let right, let `case`):
             ["Left": left?.percent, "Right": right?.percent, "Case": `case`?.percent].compactMapValues { $0 }
         }
+    }
+
+    /// Power management's accessory batteries, name → percent, from `pmset -g accps` lines such as
+    /// ` -FluffPods (id=47326758)\t60%; discharging present: true`. The Mac's own battery is left out.
+    static func accessoryLevels() throws -> [String: Int] {
+        let pmset = try ChildProcess.run("/usr/bin/pmset", ["-g", "accps"])
+        try #require(pmset.status == 0, "pmset exited \(pmset.status): \(pmset.errors)")
+        let line = /^ -(?<name>.+) \(id=\d+\)\t(?<percent>\d+)%;/.anchorsMatchLineEndings()
+        return Dictionary(String(decoding: pmset.output, as: UTF8.self).matches(of: line)
+            .filter { !$0.name.hasPrefix("InternalBattery") }
+            .map { (String($0.name), Int($0.percent)!) }) { first, _ in first }
     }
 
     /// name → "Left"/"Right"/"Case"/"Main" → percent, for every connected device with a name.

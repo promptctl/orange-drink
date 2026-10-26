@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import class SwiftUI.ImageRenderer
 import Testing
 @testable import OrangeDrink
 
@@ -320,32 +321,52 @@ import Testing
         #expect(pills.shownLanguage == AppLanguage(code: "es"))
     }
 
-    /// The ticket's step on a real Mac, run by `make pill-check` with a person at the screen: a
-    /// sample pill over a full-screen app at the centre, then at the top, each closed by its ×.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["PILL_CHECK"] != nil, "run by make pill-check with a person at the screen"))
-    func pillsShowOverAFullScreenApp() async throws {
-        // The appearance a person set on the General screen, as the app itself loads it.
-        let pills = PillController(appearance: try NotificationAppearanceModel(defaults: .standard), language: try AppLanguageModel(defaults: .standard))
+    /// [LAW:verifiable-goals] What puts a pill over a full-screen app is how its windows are built, and macOS honours that
+    /// (docs/testing.md, "Windows macOS places"): non-activating panels that cannot become key, joining every Space as a
+    /// full-screen auxiliary, above the level full-screen windows sit at (the main menu's, plus one), from an app with no
+    /// Dock icon. The glow lies under the pill and lets every click through.
+    @Test func thePillAndItsGlowAreWindowsMacOSShowsOverFullScreenApps() throws {
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
         defer { pills.close(.closeButton) }
-        let log = try BatteryLog(category: "alerts")
-        let sounds = AlertSounds()
-        let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
-            (.center, false, false), (.top, false, false), (.center, true, true)]
-        for (position, glow, sound) in steps {
-            let alert = Alert(kind: .low, threshold: 17, position: position, glow: glow, sound: sound)
-            pills.deliver(.threshold(alert), reading: try Self.reading(17))
-            sounds.deliver(.threshold(alert))
-            FileHandle.standardError.write(Data(
-                ("\n>>> With an app full screen, find the pill at the \(position) of the screen"
-                    + (glow ? ", with an orange glow around the screen edges," : "")
-                    + (sound ? " and a chime," : "")
-                    + " and click its × before it leaves by itself after \(PillController.shownFor).\n").utf8))
-            await pills.untilClosed()
+        pills.deliver(.threshold(Alert(kind: .low, threshold: 17, position: .center, glow: true, sound: false)), reading: try Self.reading(17))
+        let panels = pills.shownPanels
+        try #require(panels.count == 2)
+        for panel in panels {
+            #expect(panel.styleMask.contains(.nonactivatingPanel))
+            #expect(!panel.canBecomeKey)
+            #expect(panel.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]))
+            #expect(panel.level.rawValue > NSWindow.Level.mainMenu.rawValue + 1)
         }
-        // A pill that timed out proves nothing about whether a person could see it.
-        #expect(try Self.lines(log, about: "17% Remaining") == steps.flatMap {
-            ["pill shown at \($0.position.rawValue) for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"]
-        })
+        #expect(panels[0].level > panels[1].level)
+        #expect(panels[1].ignoresMouseEvents)
+        #expect(Bundle.main.object(forInfoDictionaryKey: "LSUIElement") as? Bool == true)
+    }
+
+    /// The pill as drawn, with no window: its border fills in the alert's colour, further for a fuller battery, and in no
+    /// other alert's colour.
+    @Test func thePillDrawsItsBorderInItsAlertsColourAsFarAsItsLevel() throws {
+        func drawn(_ severity: Alert.Severity, _ progress: Double) throws -> Pixels {
+            let content = PillContent(headline: PillContent.remaining(Int(progress * 100)), subline: nil, severity: severity,
+                                      progress: progress, position: .center, glow: false)
+            let renderer = ImageRenderer(content: PillView(content: content, scale: 1, onClose: {}).speaking(AppLanguage(code: "en")))
+            return Pixels(try #require(renderer.nsImage))
+        }
+        let hues: [(Alert.Severity, Pixels.Hue)] = [(.red, .red), (.orange, .orange), (.green, .green)]
+        for (severity, hue) in hues {
+            let low = try drawn(severity, 0.2), high = try drawn(severity, 0.8)
+            #expect(low.count(of: hue) > 0, "\(severity)")
+            #expect(high.count(of: hue) > low.count(of: hue), "\(severity): a fuller battery fills more of the border")
+            for (_, other) in hues where other != hue { #expect(high.count(of: other) == 0, "\(severity) drawn in \(other)") }
+        }
+    }
+
+    /// The glow as drawn, with no window: the alert's colour at the screen's edges, fading inward to nothing.
+    @Test func theGlowLightsTheEdgesInItsAlertsColourAndLeavesTheMiddleClear() throws {
+        let renderer = ImageRenderer(content: GlowView(severity: .red, strength: .default).frame(width: 400, height: 300))
+        let glow = Pixels(try #require(renderer.nsImage))
+        let edge = try #require(glow.color(4, glow.height / 2)), middle = try #require(glow.color(glow.width / 2, glow.height / 2))
+        #expect(edge.alphaComponent > 0.2 && edge.redComponent > edge.greenComponent + 0.3, "edge: \(edge)")
+        #expect(middle.alphaComponent < 0.01, "middle: \(middle)")
     }
 }
 

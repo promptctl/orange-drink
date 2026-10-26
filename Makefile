@@ -36,13 +36,10 @@ hardware-check-test:
 # target: its test (Suite/function()) and the source paths that test covers. scripts/hardware-check.swift runs the test
 # alone and posts the result on the lit ticket the branch names; make hardware-status says which results still hold for
 # HEAD.
-# [LAW:verifiable-goals] The test observes every fact the check asserts or records, and a person is never asked for one.
-# What a device shows on its own screen is what the app reads from it: Settings > Battery Health's maximum capacity and
-# cycle count are in the lockdown reading, a Bluetooth level is in system_profiler. Whether macOS gated something is
-# whether the read that needed it succeeded. The rest is in ioreg, pmset, the unified log, the window list, or the
-# accessibility tree. A person does only what no process can: move a cable or an adapter, or give an approval macOS
-# keeps for the user. The test prints what to do and confirms it happened, and the recorder reads nothing from them.
-HARDWARE_CHECKS := unplug-check iphone-check devices-check pill-check position-check
+# [LAW:verifiable-goals] A check is here only for what a real device or macOS service replies, and it observes every fact
+# it asserts or records itself; a person only moves a cable or gives an approval macOS keeps for the user. Everything
+# else is tested in `make test`. docs/testing.md says which layer tests what.
+HARDWARE_CHECKS := unplug-check iphone-check devices-check position-check
 .PHONY: $(HARDWARE_CHECKS) hardware-status
 
 $(HARDWARE_CHECKS): generate
@@ -71,24 +68,12 @@ iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTh
 iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
   Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
-# The devices ticket's step on a real Mac: with paired devices connected, prints each one's name,
-# type, and level to compare with Control Center. project.yml is covered for the Bluetooth usage description.
-# [LAW:verifiable-goals] exception: the Control Center comparison covers a device system_profiler lists and the app
-# missed, which the test does not check yet (orange-devices-bue.5dg).
+# The devices ticket's step on a real Mac: with paired devices connected, holds every device system_profiler lists
+# with a level to the app's sweep. project.yml is covered for the Bluetooth usage description.
 devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
 devices-check.test := DevicesLive/matchesSystemProfiler()
 devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
   Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
-
-# The alert pill: put an app full screen, then click the × of the pill that appears
-# at the centre of the screen and again at the top, then once more at the centre with the screen glow,
-# each within the 8 s it stays up. A pill that leaves by itself fails the check: no one saw it.
-# [LAW:verifiable-goals] exception: a person watches for the pill, the glow, and the chime until the test observes them
-# itself (orange-checks-olj.mpy).
-pill-check: export TEST_RUNNER_PILL_CHECK = 1
-pill-check.test := PillTests/pillsShowOverAFullScreenApp()
-pill-check.covers := Sources/OrangeDrink/Alerts Sources/OrangeDrink/Settings/AppLanguage.swift \
-  Sources/OrangeDrink/Battery/BatteryReading.swift Tests/OrangeDrinkTests/PillTests.swift
 
 # The pinned devices ticket on the real menu bar: puts three status items in it for a moment, reorders
 # them, and checks the bar follows the list, including over a position left by a ⌘-drag.
