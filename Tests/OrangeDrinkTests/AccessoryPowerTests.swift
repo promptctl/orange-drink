@@ -48,6 +48,13 @@ struct AccessoryPowerTests {
         #expect(AccessoryPower.levels(from: [combined]).byName == ["headset": .single(Self.level(30))])
     }
 
+    @Test func aCombinedSourceIsReadFromItsParts() {
+        var combined: [String: Any] = ["Type": "Accessory Source", "Name": "pods", "Part Identifier": "Combined", "Group Identifier": "G"]
+        combined["Combined Parts"] = [Self.source("pods", "Left", 40), Self.source("pods", "Right", 45)]
+        let levels = AccessoryPower.levels(from: [combined, Self.source("pods Case", "Case", 90, group: "G")])
+        #expect(levels.byName == ["pods": .earbuds(left: Self.level(40), right: Self.level(45), case: Self.level(90))])
+    }
+
     @Test func aCaseReportingAloneIsItsSetsCase() {
         let levels = AccessoryPower.levels(from: [Self.source("c-pods Case", "Case", 0, group: "G")])
         // 0 from power management is a reading: a drained case.

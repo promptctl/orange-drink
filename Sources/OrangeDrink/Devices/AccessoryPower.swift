@@ -24,11 +24,7 @@ struct AccessoryPower {
 
     /// [LAW:effects-at-boundaries] The one read of power management's sources; `levels(from:)` is the parse.
     func read() throws -> [[String: Any]] {
-        // Both calls answer nil, not an error, when powerd is unreachable.
-        guard let info = copySources(Self.allSources)?.takeRetainedValue(),
-              let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue()
-        else { throw BluetoothDevicesError.powerSources }
-        return (list as [CFTypeRef]).compactMap { IOPSGetPowerSourceDescription(info, $0)?.takeUnretainedValue() as? [String: Any] }
+        try PowerSources.descriptions(copySources(Self.allSources), copiedBy: "IOPSCopyPowerSourcesByType")
     }
 
     /// What one read of the sources says: each device's levels by the name System Settings shows for it,
@@ -90,27 +86,22 @@ struct AccessoryPower {
 
         /// A Combined source is both buds at once; it carries each bud as a source of its own under
         /// "Combined Parts", and with none it is one level for the set. Every source is at least one
-        /// part, so no set is empty.
+        /// part, so no set is empty, and a capacity is read only from the source whose level it is.
         static func parse(_ source: [String: Any]) -> Result<[Part], Unattributed> {
             let name = source[kIOPSNameKey] as? String ?? "unnamed source"
-            guard let current = source[kIOPSCurrentCapacityKey] as? Int, let max = source[kIOPSMaxCapacityKey] as? Int,
-                  max > 0, (0...max).contains(current)
-            else { return .failure(Unattributed("\(name): no capacity")) }
-            let level = BatteryLevel(percent: current * 100 / max, approximate: false)
-            switch source["Part Identifier"] as? String {
-            case "Combined":
-                guard let combined = source["Combined Parts"] as? [[String: Any]], !combined.isEmpty else {
-                    return .success([Part(name: name, role: .single, level: level)])
-                }
+            let identifier = source["Part Identifier"] as? String
+            if identifier == "Combined", let combined = source["Combined Parts"] as? [[String: Any]], !combined.isEmpty {
                 return combined.reduce(.success([])) { parts, source in
                     parts.flatMap { parts in Part.parse(source).map { parts + $0 } }
                 }
-            case let identifier:
-                guard let role = identifier.flatMap(Role.init) else {
-                    return .failure(Unattributed("\(name): part \(identifier ?? "missing")"))
-                }
-                return .success([Part(name: name, role: role, level: level)])
             }
+            guard let role = identifier == "Combined" ? .single : identifier.flatMap(Role.init) else {
+                return .failure(Unattributed("\(name): part \(identifier ?? "missing")"))
+            }
+            guard let current = source[kIOPSCurrentCapacityKey] as? Int, let max = source[kIOPSMaxCapacityKey] as? Int,
+                  max > 0, (0...max).contains(current)
+            else { return .failure(Unattributed("\(name): no capacity")) }
+            return .success([Part(name: name, role: role, level: BatteryLevel(percent: current * 100 / max, approximate: false))])
         }
     }
 

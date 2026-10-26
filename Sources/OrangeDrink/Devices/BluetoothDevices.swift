@@ -151,10 +151,13 @@ enum BluetoothDevices {
             let devices = connected.compactMap { Device($0, levels: levels) }
             connected.forEach(register)
             let attribution = levels.attribution(of: devices.map(\.name))
+            // The counts are public and the names, the user's own, private.
             BluetoothDevices.log.info("""
                 device sweep: \(devices.count, privacy: .public) connected, \(levels.byName.count, privacy: .public) \
-                accessory batteries; no battery for \(attribution.unlevelled, privacy: .private), \
-                unclaimed \(attribution.unclaimed, privacy: .private), unattributed \(levels.unattributed, privacy: .private)
+                accessory batteries; no battery for \(attribution.unlevelled.count, privacy: .public) \
+                \(attribution.unlevelled, privacy: .private), unclaimed \(attribution.unclaimed.count, privacy: .public) \
+                \(attribution.unclaimed, privacy: .private), unattributed \(levels.unattributed.count, privacy: .public) \
+                \(levels.unattributed, privacy: .private)
                 """)
             continuation.yield(.swept(devices))
         }
@@ -188,8 +191,6 @@ enum BluetoothDevicesError: Error, Equatable {
     case missingSelector(String)
     /// IOKit no longer exports the private function `AccessoryPower` reads the accessory batteries with.
     case missingSymbol(String)
-    /// powerd did not answer for its power sources.
-    case powerSources
 }
 
 private extension Device {

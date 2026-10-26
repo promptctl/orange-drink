@@ -80,8 +80,6 @@ enum BatteryReadError: Error, Equatable {
     case invalid(key: String, source: String)
     /// The smart-battery registry entry's properties could not be copied.
     case registry(status: kern_return_t)
-    /// powerd returned nothing from the named IOPowerSources call.
-    case powerSources(call: String)
     /// powerd's list of power sources holds no internal battery.
     case noInternalBatterySource
 }

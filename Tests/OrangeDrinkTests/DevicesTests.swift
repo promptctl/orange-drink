@@ -143,6 +143,7 @@ struct DeviceListTests {
         let connected = try Self.profilerConnected()
         try #require(!connected.isEmpty, "this check needs paired devices connected")
         let accessories = try Self.accessoryLevels()
+        let log = try BatteryLog(category: "devices")
         // The first sweep is the whole connected set, so it is the one event this check needs.
         var list = DeviceList()
         for try await event in BluetoothDevices.events() {
@@ -159,6 +160,9 @@ struct DeviceListTests {
                               + (connected[device.name] == nil ? " | not listed by system_profiler" : ""))
         }
         printForTheRecord("pmset accessories: \(accessories.sorted { $0.key < $1.key })")
+        // The sweep's line counts the devices power management had no battery for: each one the sweep holds with no levels.
+        let unlevelled = list.devices.filter { $0.levels == .none }.count
+        #expect(try await log.logged("no battery for \(unlevelled) "), "the sweep's line does not count \(unlevelled) devices with no battery")
         var compared = 0
         for (name, profiled) in connected {
             // pmset names an earbud set's case "<name> Case" and gives one level for a single-part device.
