@@ -12,9 +12,9 @@ import Testing
         AttachedDevice(handle: handle, connection: .device(udid: udid, over: .network))
     }
 
-    @Test func pluggingInADeviceReadsItAndSwitchesOnItsWifiSync() {
+    @Test func pluggingInADeviceMakesItReachableOverTheCableAndSwitchesOnItsWifiSync() {
         var map = DeviceMap()
-        #expect(map.attach(Self.usb(4, "A")) == [.pace(udid: "A"), .enableWifiSync(handle: 4, udid: "A")])
+        #expect(map.attach(Self.usb(4, "A")) == [.reachability(udid: "A", over: .usb), .enableWifiSync(handle: 4, udid: "A")])
         #expect(map.route("A") == DeviceMap.Route(handle: 4, transport: .usb))
     }
 
@@ -24,26 +24,26 @@ import Testing
         #expect(map.attach(Self.usb(4, "A")) == [])
     }
 
-    @Test func aDeviceOnWifiAloneIsReadOverWifi() {
+    @Test func aDeviceOnWifiAloneIsReachableOverWifi() {
         var map = DeviceMap()
-        #expect(map.attach(Self.wifi(5, "A")) == [.pace(udid: "A")])
+        #expect(map.attach(Self.wifi(5, "A")) == [.reachability(udid: "A", over: .network)])
         #expect(map.route("A") == DeviceMap.Route(handle: 5, transport: .network))
     }
 
-    @Test func theCableBesideWifiTakesTheRouteIsReadAtOnceAndSwitchesOnWifiSync() {
+    @Test func theCableBesideWifiTakesTheRouteAndSwitchesOnWifiSync() {
         var map = DeviceMap()
         _ = map.attach(Self.wifi(5, "A"))
-        #expect(map.attach(Self.usb(6, "A")) == [.pace(udid: "A"), .enableWifiSync(handle: 6, udid: "A")])
+        #expect(map.attach(Self.usb(6, "A")) == [.reachability(udid: "A", over: .usb), .enableWifiSync(handle: 6, udid: "A")])
         #expect(map.route("A") == DeviceMap.Route(handle: 6, transport: .usb))
     }
 
-    @Test func pullingTheCableOfADeviceOnWifiReadsItOverWifiAtOnce() {
+    @Test func pullingTheCableOfADeviceOnWifiMovesItToWifiAndItsLastHandleMakesItUnreachable() {
         var map = DeviceMap()
         _ = map.attach(Self.usb(6, "A"))
         #expect(map.attach(Self.wifi(7, "A")) == [])
-        #expect(map.detach(handle: 6) == [.pace(udid: "A")])
+        #expect(map.detach(handle: 6) == [.reachability(udid: "A", over: .network)])
         #expect(map.route("A") == DeviceMap.Route(handle: 7, transport: .network))
-        #expect(map.detach(handle: 7) == [.disconnected(udid: "A")])
+        #expect(map.detach(handle: 7) == [.reachability(udid: "A", over: nil)])
         #expect(map.route("A") == nil)
     }
 
@@ -52,7 +52,7 @@ import Testing
         #expect(map.detach(handle: 99) == [])
     }
 
-    @Test func anUnknownConnectionTypeIsNeitherReadNorDisconnected() {
+    @Test func anUnknownConnectionTypeIsNeverReachable() {
         var map = DeviceMap()
         #expect(map.attach(AttachedDevice(handle: 3, connection: .other("Bluetooth"))) == [])
         #expect(map.detach(handle: 3) == [])
@@ -66,7 +66,7 @@ import Testing
         #expect(map.attach(Self.usb(4, "B")) == [])
         #expect(map.detach(handle: 4) == [])
         #expect(map.route("B") == DeviceMap.Route(handle: 5, transport: .usb))
-        #expect(map.detach(handle: 5) == [.disconnected(udid: "B")])
+        #expect(map.detach(handle: 5) == [.reachability(udid: "B", over: nil)])
     }
 
     @Test func theNewestHandleOfATransportIsTheRoute() {
@@ -76,25 +76,40 @@ import Testing
         #expect(map.route("B") == DeviceMap.Route(handle: 9, transport: .usb))
     }
 
-    @Test func pairedRereadsTheDeviceAndSwitchesOnWifiSyncOverItsCable() {
+    @Test func aNewWifiHandleBeforeTheOldOneDetachesChangesNothingButTheRoute() {
+        var map = DeviceMap()
+        _ = map.attach(Self.wifi(5, "C"))
+        #expect(map.attach(Self.wifi(6, "C")) == [])
+        #expect(map.detach(handle: 5) == [])
+        #expect(map.route("C") == DeviceMap.Route(handle: 6, transport: .network))
+    }
+
+    @Test func pairedSwitchesOnWifiSyncOverTheDevicesCable() {
         var map = DeviceMap()
         _ = map.attach(Self.usb(6, "B"))
         _ = map.attach(Self.wifi(8, "B"))
-        #expect(map.paired(handle: 6) == [.paired(udid: "B"), .enableWifiSync(handle: 6, udid: "B")])
-        #expect(map.paired(handle: 8) == [.paired(udid: "B"), .enableWifiSync(handle: 6, udid: "B")])
+        #expect(map.paired(handle: 6) == [.enableWifiSync(handle: 6, udid: "B")])
+        #expect(map.paired(handle: 8) == [.enableWifiSync(handle: 6, udid: "B")])
         #expect(map.paired(handle: 99) == [])
     }
 
-    @Test func pairedOverWifiAloneRereadsWithoutWifiSync() {
+    @Test func pairedOverWifiAloneDecidesNothing() {
         var map = DeviceMap()
         _ = map.attach(Self.wifi(8, "B"))
-        #expect(map.paired(handle: 8) == [.paired(udid: "B")])
+        #expect(map.paired(handle: 8) == [])
     }
 
-    @Test func aReplugGetsANewHandleAndReadsAgain() {
+    @Test func aReplugBeforeTheOldHandleDetachesSwitchesOnWifiSyncOverTheNewCable() {
+        var map = DeviceMap()
+        _ = map.attach(Self.usb(6, "B"))
+        #expect(map.attach(Self.usb(7, "B")) == [.enableWifiSync(handle: 7, udid: "B")])
+        #expect(map.detach(handle: 6) == [])
+    }
+
+    @Test func aReplugAfterTheOldHandleDetachedMakesItReachableAgain() {
         var map = DeviceMap()
         _ = map.attach(Self.usb(6, "B"))
         _ = map.detach(handle: 6)
-        #expect(map.attach(Self.usb(7, "B")) == [.pace(udid: "B"), .enableWifiSync(handle: 7, udid: "B")])
+        #expect(map.attach(Self.usb(7, "B")) == [.reachability(udid: "B", over: .usb), .enableWifiSync(handle: 7, udid: "B")])
     }
 }

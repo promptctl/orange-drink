@@ -18,21 +18,14 @@ final class ManualTimekeeper: Timekeeper, @unchecked Sendable {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
                 // A task cancelled before it got here has already run onCancel, which found no sleeper to remove; checked
                 // under the lock onCancel takes, so a cancellation is seen here or by onCancel, never by neither.
-                enum Outcome { case cancelled, due, asleep(waking: [CheckedContinuation<Void, Never>]) }
-                let outcome: Outcome = lock.withLock {
-                    guard !Task.isCancelled else { return .cancelled }
-                    let wakes = current.addingTimeInterval(Double(duration.components.seconds))
-                    // A sleep whose time has already come returns at once, as Task.sleep does; it never becomes a sleeper.
-                    guard wakes > current else { return .due }
-                    sleepers[id] = Sleeper(wakes: wakes, continuation: continuation)
+                let waiting: [CheckedContinuation<Void, Never>]? = lock.withLock {
+                    guard !Task.isCancelled else { return nil }
+                    sleepers[id] = Sleeper(wakes: current.addingTimeInterval(duration / .seconds(1)), continuation: continuation)
                     defer { arrivals = [] }
-                    return .asleep(waking: arrivals)
+                    return arrivals
                 }
-                switch outcome {
-                case .cancelled: continuation.resume(throwing: CancellationError())
-                case .due: continuation.resume()
-                case .asleep(let waiting): waiting.forEach { $0.resume() }
-                }
+                guard let waiting else { return continuation.resume(throwing: CancellationError()) }
+                waiting.forEach { $0.resume() }
             }
         } onCancel: {
             lock.withLock { sleepers.removeValue(forKey: id) }?.continuation.resume(throwing: CancellationError())
@@ -57,7 +50,7 @@ final class ManualTimekeeper: Timekeeper, @unchecked Sendable {
 
     func advance(by duration: Duration) {
         let due = lock.withLock {
-            current = current.addingTimeInterval(Double(duration.components.seconds))
+            current = current.addingTimeInterval(duration / .seconds(1))
             let due = sleepers.filter { $0.value.wakes <= current }
             due.keys.forEach { sleepers.removeValue(forKey: $0) }
             return due.values

@@ -5,14 +5,11 @@ import os
 // and which handle to read it over, are derived from it; every decision the monitor makes comes from the Steps it returns.
 struct DeviceMap {
     enum Step: Equatable {
-        /// Read the device when its next read is due, then every poll interval: its route has just changed.
-        case pace(udid: String)
-        /// The device has just trusted this Mac, so an outcome from before no longer stands: read it now, then pace it.
-        case paired(udid: String)
+        /// The transport the device is reached over has just changed: it gained a route, moved between the cable and
+        /// Wi-Fi, or (nil) lost its last handle.
+        case reachability(udid: String, over: Transport?)
         /// Switch on the device's Wi-Fi sync: its route has just become this cable.
         case enableWifiSync(handle: Int, udid: String)
-        /// The device's last handle, cable or Wi-Fi, has gone.
-        case disconnected(udid: String)
     }
 
     /// The handle a read goes over, and the transport behind it.
@@ -37,12 +34,14 @@ struct DeviceMap {
         edit(handles[handle]?.udid) { $0.removeValue(forKey: handle) }
     }
 
-    /// usbmuxd's Paired: the device on this handle has just trusted this Mac, so a read or a Wi-Fi sync switch that
-    /// failed for want of a pair record can now succeed. Both go over the device's route, as they do on attach. Paired is the message libimobiledevice's usbmuxd sends on
-    /// pairing; not yet observed from Apple's usbmuxd here, since no untrusted device was at hand.
+    /// usbmuxd's Paired: the device on this handle has just trusted this Mac, so a Wi-Fi sync switch that failed for want
+    /// of a pair record can now succeed; it goes over the device's cable, as it does on plug-in. A read that failed the
+    /// same way is not retried here: the device's pacer reads it again within a poll interval. Paired is the message
+    /// libimobiledevice's usbmuxd sends on pairing; not yet observed from Apple's usbmuxd here, since no untrusted
+    /// device was at hand.
     func paired(handle: Int) -> [Step] {
         guard let udid = handles[handle]?.udid, let route = route(udid) else { return [] }
-        return [.paired(udid: udid)] + Self.pluggedIn(route, udid: udid)
+        return Self.pluggedIn(route, udid: udid)
     }
 
     /// Every Listen message, and every snapshot entry as an attach, comes through here.
@@ -71,17 +70,16 @@ struct DeviceMap {
     }
 
     /// [LAW:dataflow-not-control-flow] Every attach and detach is one edit to the handles, and its steps are what the
-    /// edit did to the device's route: a new route is paced, a route onto a cable also switches on Wi-Fi sync, and no
-    /// route is a disconnect.
+    /// edit did to the device's route: a change of transport is a reachability step, and a new route onto a cable,
+    /// a replug's fresh handle included, also switches on Wi-Fi sync.
     private mutating func edit(_ udid: String?, _ change: (inout [Int: DeviceConnection]) -> Void) -> [Step] {
         let before = udid.flatMap(route)
         change(&handles)
         guard let udid else { return [] }
-        switch route(udid) {
-        case before: return []
-        case nil: return [.disconnected(udid: udid)]
-        case let after?: return [.pace(udid: udid)] + Self.pluggedIn(after, udid: udid)
-        }
+        let after = route(udid)
+        let reachability = before?.transport == after?.transport ? [] : [Step.reachability(udid: udid, over: after?.transport)]
+        let plugged = before == after ? [] : after.map { Self.pluggedIn($0, udid: udid) } ?? []
+        return reachability + plugged
     }
 
     /// Plugging a device in switches on its Wi-Fi sync, so it is still read once the cable is out.
@@ -112,12 +110,15 @@ private extension Transport {
     }
 }
 
-/// No event says a device has gone: usbmuxd drops an iPhone or iPad on Wi-Fi from its list every few seconds to minutes and
-/// lists it again (lm3.1tt cmt-9a8a2ba7), so leaving the list is not leaving the network. A consumer ages a device's last
-/// reading instead.
 enum IPhoneEvent: Equatable {
+    /// usbmuxd lists the device, and this is the transport it is reached over now. Every change is yielded, unfiltered:
+    /// usbmuxd drops an iPhone or iPad on Wi-Fi from its list every few seconds to minutes and lists it again (lm3.1tt
+    /// cmt-9a8a2ba7), so a consumer decides what a drop means for what it shows.
+    case reachable(udid: String, over: Transport)
+    /// usbmuxd lists no handle for the device. Over Wi-Fi this is usually a drop it soon recovers from, not a departure.
+    case unreachable(udid: String)
     case reading(udid: String, over: Transport, IPhoneBatteryReading)
-    /// Non-terminal: this read failed; the device is read again at its next due read.
+    /// Non-terminal: this read failed; the device is read again a poll interval later, or on its next attach.
     case readFailed(udid: String, over: Transport, IPhoneReadError)
     case wifiSyncOn(udid: String)
     /// Non-terminal: switching on Wi-Fi sync failed; it is tried again on the next plug-in.
@@ -169,17 +170,15 @@ enum IPhoneMonitor {
 /// Map, pacers, and the output stream. Every method runs on `queue`, so the Listen thread, the pacers, and the
 /// Wi-Fi sync completions see one ordered history of attaches, detaches, and reads. Every decision leaves one log line.
 private final class MonitorState: @unchecked Sendable {
-    /// One device's read loop. The token tells its outcomes from those of a pacer that replaced it.
-    private struct Pacer {
-        let token: UUID
-        let task: Task<Void, Never>
-    }
-
     /// [LAW:no-ambient-temporal-coupling] Whether steps may run is this state, owned on the queue. Ending the monitor
     /// cancels every pacer and moves to `stopped`, where a Listen frame still being drained is decided but not performed:
     /// it starts no read and writes nothing to the device.
+    ///
+    /// [LAW:one-source-of-truth] A device's schedule is whether it has a pacer: present, it is being read or resting;
+    /// absent, it is due, and the next route it gains reads it at once. A pacer is never replaced, so usbmuxd dropping
+    /// and relisting a resting device costs no read.
     private enum Lifecycle {
-        case running(pacers: [String: Pacer])
+        case running(pacers: [String: Task<Void, Never>])
         case stopped
     }
 
@@ -188,9 +187,6 @@ private final class MonitorState: @unchecked Sendable {
     private let inputs: MonitorInputs
     private var map = DeviceMap()
     private var lifecycle = Lifecycle.running(pacers: [:])
-    /// [LAW:one-source-of-truth] When each device's next read is due, set only by a delivered outcome. It outlives the
-    /// device's handles, so a device that drops off Wi-Fi and returns keeps its pace; a device with no entry is due now.
-    private var nextRead: [String: Date] = [:]
 
     init(continuation: AsyncStream<IPhoneEvent>.Continuation, inputs: MonitorInputs) {
         self.continuation = continuation
@@ -240,51 +236,49 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    /// A pace replaces (and cancels) the device's read loop with a new one; a pairing first makes the device due now.
-    private func perform(_ step: DeviceMap.Step, pacers: inout [String: Pacer]) {
+    /// A reachability change is yielded as it is; a route also makes sure the device has a pacer, so a device that is due
+    /// is read on the attach that gives it one, and a device that has a pacer is left to it.
+    private func perform(_ step: DeviceMap.Step, pacers: inout [String: Task<Void, Never>]) {
         switch step {
-        case .pace(let udid): replacePacer(udid, in: &pacers)
-        case .paired(let udid):
-            nextRead.removeValue(forKey: udid)
-            replacePacer(udid, in: &pacers)
+        case .reachability(let udid, let transport?):
+            continuation.yield(.reachable(udid: udid, over: transport))
+            pacers[udid] = pacers[udid] ?? startPacer(udid)
+        case .reachability(let udid, nil): continuation.yield(.unreachable(udid: udid))
         case .enableWifiSync(let handle, let udid): startWifiSync(handle: handle, udid: udid)
-        case .disconnected(let udid): pacers.removeValue(forKey: udid)?.task.cancel()
         }
     }
 
-    private func replacePacer(_ udid: String, in pacers: inout [String: Pacer]) {
-        pacers[udid]?.task.cancel()
-        let token = UUID()
-        pacers[udid] = Pacer(token: token, task: Task { await self.pace(udid, token: token) })
+    private func startPacer(_ udid: String) -> Task<Void, Never> {
+        IPhoneMonitor.log.info("iphone pacer started: \(udid, privacy: .public)")
+        return Task { await self.pace(udid) }
     }
 
-    /// Rest until due, read, deliver, and again, while this loop is the device's current pacer. The next read starts
-    /// only after the last one finished, however long its deadlines let it run.
-    private func pace(_ udid: String, token: UUID) async {
-        do {
-            while true {
-                try await inputs.timekeeper.sleep(for: queue.sync { untilDue(udid) })
-                guard let route = queue.sync(execute: { isCurrent(udid, token) ? map.route(udid) : nil }) else { break }
-                let outcome = await read(over: route, udid: udid)
-                queue.sync { deliver(outcome, udid: udid, over: route, token: token) }
-            }
-        } catch {
-            // Cancelled while resting: replaced, disconnected, or stopped, as the line below says.
+    /// Read over the device's route, deliver, rest a poll interval, and again, until `nextRoute` ends it. The next read
+    /// starts only after the last one finished, however long its deadlines let it run.
+    private func pace(_ udid: String) async {
+        while let route = queue.sync(execute: { nextRoute(udid) }) {
+            let outcome = await read(over: route, udid: udid)
+            queue.sync { deliver(outcome, udid: udid, over: route) }
+            // Throws only when the monitor ends and cancels the pacer; nextRoute then finds it stopped and ends the loop.
+            try? await inputs.timekeeper.sleep(for: IPhoneMonitor.pollInterval)
         }
-        IPhoneMonitor.log.info("iphone pacer ended: \(udid, privacy: .public): replaced, disconnected, or stopped")
     }
 
-    private func untilDue(_ udid: String) -> Duration {
-        let wait = nextRead[udid].map { $0.timeIntervalSince(inputs.timekeeper.now()) } ?? 0
-        return .seconds(max(0, wait))
-    }
-
-    /// [LAW:single-enforcer] The one test of whether a pacer may act, on the queue: it is the device's current pacer in a
-    /// running monitor. A replacement, a disconnect, and a stop all fail it, before a read starts and when one is
-    /// delivered; a handle that detaches mid-read changes the device's route, which replaces its pacer.
-    private func isCurrent(_ udid: String, _ token: UUID) -> Bool {
-        guard case .running(let pacers) = lifecycle else { return false }
-        return pacers[udid]?.token == token
+    /// [LAW:single-enforcer] The one decision of whether a pacer reads again, on the queue. A stopped monitor ends it. A
+    /// device with no route ends it and leaves the pacers, so the device is due and its next attach reads it. Otherwise
+    /// it reads over the route usbmuxd lists now, which may differ from the last read's.
+    private func nextRoute(_ udid: String) -> DeviceMap.Route? {
+        guard case .running(var pacers) = lifecycle else {
+            IPhoneMonitor.log.info("iphone pacer ended: \(udid, privacy: .public): monitor stopped")
+            return nil
+        }
+        guard let route = map.route(udid) else {
+            pacers.removeValue(forKey: udid)
+            lifecycle = .running(pacers: pacers)
+            IPhoneMonitor.log.info("iphone pacer ended: \(udid, privacy: .public): unreachable when due; its next attach reads it")
+            return nil
+        }
+        return route
     }
 
     /// The read is a blocking call of up to several deadlines, so it runs off the queue and off the task's thread.
@@ -300,15 +294,14 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    /// An outcome reaches the stream only from the device's current pacer, and only a delivered outcome sets the next read.
-    private func deliver(_ outcome: Result<IPhoneBatteryReading, IPhoneReadError>, udid: String, over route: DeviceMap.Route,
-                         token: UUID) {
-        guard isCurrent(udid, token) else {
-            IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle): its pacer was replaced or stopped")
+    /// [LAW:no-silent-failure] Every outcome of a running monitor reaches the stream, a read whose handle detached
+    /// mid-read included: that is a true failure over the route it was tried on.
+    private func deliver(_ outcome: Result<IPhoneBatteryReading, IPhoneReadError>, udid: String, over route: DeviceMap.Route) {
+        guard case .running = lifecycle else {
+            IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle): monitor stopped")
             return
         }
-        nextRead[udid] = inputs.timekeeper.now().addingTimeInterval(TimeInterval(IPhoneMonitor.pollInterval.components.seconds))
-        IPhoneMonitor.log.info("iphone read delivered: \(udid, privacy: .public) over \(String(describing: route.transport), privacy: .public)")
+        IPhoneMonitor.log.info("iphone read delivered: \(udid, privacy: .public) over \(String(describing: route.transport), privacy: .public); resting \(IPhoneMonitor.pollInterval, privacy: .public)")
         switch outcome {
         case .success(let reading): continuation.yield(.reading(udid: udid, over: route.transport, reading))
         case .failure(let error): continuation.yield(.readFailed(udid: udid, over: route.transport, error))
@@ -333,7 +326,7 @@ private final class MonitorState: @unchecked Sendable {
     private func end() {
         switch lifecycle {
         case .running(let pacers):
-            pacers.values.forEach { $0.task.cancel() }
+            pacers.values.forEach { $0.cancel() }
             lifecycle = .stopped
             IPhoneMonitor.log.info("iphone monitor ended: \(pacers.count) pacers cancelled")
         case .stopped: break

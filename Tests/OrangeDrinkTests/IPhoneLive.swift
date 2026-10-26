@@ -7,18 +7,24 @@ import Testing
 // over the cable; once the cable is pulled, Wi-Fi readings or typed Wi-Fi read failures keep coming, a poll interval
 // apart however often usbmuxd drops and relists the device, and the app reading it stays under PROJECT.md's 0.1% CPU bar.
 // Run by make iphone-check with the iPhone cabled and a person at the cable.
+//
+// Every read is held to the monitor's pacing, measured against the check's own usbmuxd Listen rather than a guess at
+// usbmuxd's gaps: no read comes sooner than a poll interval after the one before, and none later than readWorstCase
+// after the device's first listing once that rest is over. A device usbmuxd does not list again fails naming usbmuxd.
 @Suite(.serialized) struct IPhoneLive {
-    /// The longest usbmuxd left an iPhone or iPad on Wi-Fi unlisted while it was on the network: 751 s in ten hours of
-    /// its log on 2026-10-23 (lm3.1tt cmt-9a8a2ba7), rounded up. A due read waits for the device's next listing.
-    private static let wifiAbsence = Duration.seconds(15 * 60)
-    /// The longest a device on Wi-Fi may go without an event: one rest, its longest absence, then one read at its worst.
-    private static let window = IPhoneMonitor.pollInterval + wifiAbsence + readWorstCase
-    /// Consecutive windows the Wi-Fi phase is held to, after its first event.
+    /// How late the monitor may act on time or on usbmuxd: a pacer waking from its rest, or a listing change reported.
+    private static let monitorLatency = Duration.seconds(1)
+    /// How long the check waits for usbmuxd to list the device again before it blames usbmuxd: longer than the 56 min
+    /// it left an iPhone unlisted after a Wi-Fi sync switch-off (lm3.1tt cmt-9a8a2ba7), the step this check starts with.
+    private static let usbmuxWait = Duration.seconds(60 * 60)
+    /// Wi-Fi read events the phase is held to after its first, which starts the CPU measurement.
     private static let wifiWindows = 3
+    /// The cable phase, the person's pull, then every read at its latest: a run that hits it is one no bound above caught.
+    static let timeLimitMinutes = 2 + 10 + (wifiWindows + 1) * Int(((IPhoneMonitor.pollInterval + monitorLatency + usbmuxWait + readWorstCase) / .seconds(60)).rounded(.up))
 
     @available(macOS, deprecated: 10.15, message: "drives IPhoneMonitor, which uses SecureTransport; see lm3.8pk")
     @Test(.enabled(if: ProcessInfo.processInfo.environment["IPHONE_CHECK"] != nil, "run by make iphone-check with a cabled iPhone"),
-          .timeLimit(.minutes(90)))
+          .timeLimit(.minutes(IPhoneLive.timeLimitMinutes)))
     func switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         // The one cabled device's Wi-Fi sync is switched off before the monitor starts, so the monitor is what switches it on.
@@ -31,21 +37,27 @@ import Testing
         try setIPhoneWifiSync(false, handle: handle, udid: udid)
         printForTheRecord("wifi sync off: \(udid)")
 
+        let listing = try Listing(udid: udid)
+        defer { listing.stop() }
         let arrivals = Arrivals()
         let consumer = Task { for await event in IPhoneMonitor.events() { arrivals.append(event) } }
         defer { consumer.cancel() }
         var cursor = 0
+        var reachability: [Transport?] = []
 
         // The cable: one reading over USB and the Wi-Fi sync switch, for that device.
-        var read = false
+        var cableRead: ContinuousClock.Instant?
         var synced = false
-        while !read || !synced {
-            let (event, _) = try #require(try await arrivals.event(at: cursor, within: .seconds(120)),
-                                          "no cable reading and Wi-Fi sync within two minutes; is the iPhone trusted and unlocked?")
+        let cableEnd = ContinuousClock.now + .seconds(120)
+        while cableRead == nil || !synced {
+            let (event, at) = try #require(try await arrivals.event(at: cursor, until: { .now > cableEnd }),
+                                           "no cable reading and Wi-Fi sync within two minutes; is the iPhone trusted and unlocked?")
             cursor += 1
             switch event {
+            case .reachable(udid, let transport): reachability.append(transport)
+            case .unreachable(udid): reachability.append(nil)
             case .reading(udid, .usb, let value):
-                read = true
+                cableRead = at
                 printForTheRecord("cable reading: \(value)")
             case .wifiSyncOn(udid):
                 synced = true
@@ -60,36 +72,49 @@ import Testing
         #expect(try log.messages().contains { $0.hasPrefix("iphone wifi sync on: \(udid) ") })
         print("pull the cable now")
 
-        // Wi-Fi: pulling the cable moves the device's next due read to Wi-Fi, so every event, the first included, arrives
-        // within one window. Until the person pulls, each cable reading restarts the wait.
+        // Wi-Fi: every read, over the cable until the person pulls it and over Wi-Fi after, is held to the pacing above.
+        var previous = try #require(cableRead)
         var wifiEvents = 0
         var wifiReadings = 0
-        var lastWifiEvent: ContinuousClock.Instant?
         var cpuFrom: (cpu: Duration, at: ContinuousClock.Instant)?
         while wifiEvents <= Self.wifiWindows {
-            let (event, at) = try #require(try await arrivals.event(at: cursor, within: Self.window),
-                                           "no event for \(udid) within \(Self.window): the device went silent on Wi-Fi")
+            let restEnd = previous + IPhoneMonitor.pollInterval + Self.monitorLatency
+            let expired = { () -> Bool in
+                guard let listed = listing.firstListed(atOrAfter: restEnd) else { return .now > restEnd + Self.usbmuxWait }
+                return .now > listed + readWorstCase
+            }
+            guard let arrival = try await arrivals.event(at: cursor, until: expired) else {
+                let trigger = listing.firstListed(atOrAfter: restEnd)
+                Issue.record(trigger.map { "the monitor did not read \(udid) within \(readWorstCase) of usbmuxd listing it at \($0)" }
+                             ?? "usbmuxd did not list \(udid) over Wi-Fi within \(Self.usbmuxWait) of its rest ending")
+                return
+            }
+            let (event, at) = arrival
             cursor += 1
             switch event {
+            case .reachable(udid, let transport):
+                reachability.append(transport)
+                continue
+            case .unreachable(udid):
+                reachability.append(nil)
+                continue
             case .reading(udid, .network, let value):
                 wifiReadings += 1
                 printForTheRecord("wifi reading: level \(value.level)%: compare with the phone")
             case .readFailed(udid, .network, let error):
                 printForTheRecord("wifi read failed: \(error)")
-            case .reading(udid, .usb, _):
+            case .reading(udid, .usb, _), .readFailed(udid, .usb, _):
                 print("still on the cable: pull it")
-                continue
             case .failed(let error):
                 Issue.record("monitor failed: \(error)")
                 return
             default:
                 continue
             }
-            if let lastWifiEvent {
-                printForTheRecord("wifi gap: \(at - lastWifiEvent)")
-                #expect(at - lastWifiEvent >= IPhoneMonitor.pollInterval, "Wi-Fi reads came faster than the poll interval")
-            }
-            lastWifiEvent = at
+            printForTheRecord("read gap: \(at - previous)")
+            #expect(at - previous >= IPhoneMonitor.pollInterval, "reads came faster than the poll interval")
+            previous = at
+            guard case .network = event.transport else { continue }
             wifiEvents += 1
             cpuFrom = cpuFrom ?? (processCPU(), .now)
         }
@@ -99,6 +124,15 @@ import Testing
         printForTheRecord(String(format: "wifi phase CPU: %.3f%% over %d windows", percent, Self.wifiWindows))
         #expect(percent < 0.1, "the app over Wi-Fi is over PROJECT.md's 0.1% CPU bar")
         #expect(wifiReadings > 0, "every Wi-Fi read failed")
+
+        // The monitor's reachability is usbmuxd's listing of the device, change for change: everything usbmuxd listed
+        // up to a moment ago has been reported, and nothing it did not list.
+        let listed = listing.changes()
+        printForTheRecord("reachability: monitor \(reachability), usbmuxd \(listed.map(\.transport))")
+        #expect(Array(listed.map(\.transport).prefix(reachability.count)) == reachability,
+                "the monitor's reachability differs from usbmuxd's listing")
+        #expect(reachability.count >= listed.filter { $0.at < .now - Self.monitorLatency }.count,
+                "the monitor did not report a listing change usbmuxd made")
     }
 
     /// User plus system time charged to this process, which is the app: the test bundle runs inside it.
@@ -110,20 +144,87 @@ import Testing
     }
 }
 
-/// Events in arrival order with the moment each arrived, for a test that waits on each against a window. It checks once a
-/// second, so its own cost in the measured process is small, and it counts against the bar rather than hiding anything under it.
+private extension IPhoneEvent {
+    /// The transport a read went over, for the read events.
+    var transport: Transport? {
+        switch self {
+        case .reading(_, let transport, _), .readFailed(_, let transport, _): transport
+        default: nil
+        }
+    }
+}
+
+/// The check's own record of how usbmuxd lists one device, from a Listen connection of its own opened before the
+/// monitor starts: the independent record the monitor's reachability and pacing are held to. Each change is the
+/// transport the device is reached over from then on, the cable preferred, or nil while usbmuxd lists no handle. Its
+/// thread wakes once a second in the measured process, so like Arrivals it counts against the CPU bar.
+private final class Listing: Sendable {
+    struct Change { let at: ContinuousClock.Instant; let transport: Transport? }
+    private struct State { var handles: [Int: Transport] = [:]; var changes: [Change] = []; var stopped = false }
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    /// Subscribes, then takes the snapshot, as the monitor does, and records from a thread of its own until `stop`.
+    init(udid: String) throws {
+        let socket = try usbmuxListen()
+        try usbmuxListDevices().forEach { apply(.attached($0), udid: udid) }
+        Thread { [self] in
+            var reader = UsbmuxFrameReader()
+            do {
+                while !state.withLock({ $0.stopped }) {
+                    guard let bytes = try socket.receiveSome(max: 4096) else { continue }
+                    reader.append(bytes)
+                    while let body = try reader.next() { apply(try usbmuxEvent(body), udid: udid) }
+                }
+            } catch {
+                printForTheRecord("the check's own Listen failed: \(error)")
+                Issue.record("the check's own usbmuxd Listen failed: \(error)")
+            }
+        }.start()
+    }
+
+    func stop() { state.withLock { $0.stopped = true } }
+
+    func changes() -> [Change] { state.withLock { $0.changes } }
+
+    /// The first moment at or after `instant` that usbmuxd lists the device, once it has.
+    func firstListed(atOrAfter instant: ContinuousClock.Instant) -> ContinuousClock.Instant? {
+        state.withLock { state in
+            let listedThen = state.changes.last { $0.at <= instant }?.transport != nil
+            return listedThen ? instant : state.changes.first { $0.at > instant && $0.transport != nil }?.at
+        }
+    }
+
+    private func apply(_ event: UsbmuxEvent, udid: String) {
+        state.withLock { state in
+            switch event {
+            case .attached(let device):
+                guard case .device(udid, let transport) = device.connection else { return }
+                state.handles[device.handle] = transport
+            case .detached(let handle): state.handles.removeValue(forKey: handle)
+            case .paired, .other: return
+            }
+            let transport = state.handles.values.max { $0 == .network && $1 == .usb }
+            // Before its first change the device is unlisted, so only a listing starts the record.
+            guard transport != state.changes.last.flatMap(\.transport) else { return }
+            state.changes.append(Change(at: .now, transport: transport))
+        }
+    }
+}
+
+/// Events in arrival order with the moment each arrived, for a test that waits on each against a deadline. It checks
+/// once a second, so its own cost in the measured process is small, and it counts against the bar rather than hiding
+/// anything under it.
 private final class Arrivals: Sendable {
     private let events = OSAllocatedUnfairLock<[(IPhoneEvent, ContinuousClock.Instant)]>(initialState: [])
 
     func append(_ event: IPhoneEvent) { events.withLock { $0.append((event, .now)) } }
 
-    /// The event at `index` and when it arrived, once it has, or nil if `limit` passes first.
-    func event(at index: Int, within limit: Duration) async throws -> (IPhoneEvent, ContinuousClock.Instant)? {
-        let end = ContinuousClock.now.advanced(by: limit)
-        while ContinuousClock.now < end {
+    /// The event at `index` and when it arrived, once it has, or nil once `expired` holds first.
+    func event(at index: Int, until expired: () -> Bool) async throws -> (IPhoneEvent, ContinuousClock.Instant)? {
+        while !expired() {
             if let event = events.withLock({ index < $0.count ? $0[index] : nil }) { return event }
             try await Task.sleep(for: .seconds(1))
         }
-        return nil
+        return events.withLock { index < $0.count ? $0[index] : nil }
     }
 }
