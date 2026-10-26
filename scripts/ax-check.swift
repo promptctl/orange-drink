@@ -8,6 +8,7 @@
 // app, and the test host cannot be that client. It needs the invoking process to be trusted for
 // Accessibility (System Settings > Privacy & Security > Accessibility).
 import ApplicationServices
+import CoreGraphics
 import Foundation
 
 guard CommandLine.arguments.count == 2, let pid = pid_t(CommandLine.arguments[1]) else {
@@ -55,6 +56,15 @@ func expect(_ condition: Bool, _ message: String) { if !condition { failures.app
 var window = gallery()
 for _ in 0..<50 where window == nil { Thread.sleep(forTimeInterval: 0.2); window = gallery() }
 guard let window else { print("ax-check: the Component Gallery window never appeared"); exit(1) }
+
+// The gallery is for this check, not for a person: macOS lists it among the app's windows at the normal layer (the
+// status items sit above it), and fully transparent.
+let listed = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+let normal = listed.filter { $0[kCGWindowOwnerPID as String] as? pid_t == pid && $0[kCGWindowLayer as String] as? Int == 0 }
+expect(!normal.isEmpty, "the window list has no window of the app at the normal layer")
+for seen in normal where seen[kCGWindowAlpha as String] as? Double != 0 {
+    expect(false, "a window of the app can be seen: alpha \(seen[kCGWindowAlpha as String] ?? "missing")")
+}
 
 let all = window.all
 let words = Set(all.flatMap(\.words))

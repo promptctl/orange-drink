@@ -36,13 +36,29 @@ import Testing
         #expect(throws: UsbmuxFrameError.lengthOutOfRange(4)) { try reader.next() }
     }
 
+    // Without protocol version 3, usbmuxd sends a Listen client USB attaches only, and a Wi-Fi device's arrival never
+    // reaches the monitor (lm3.1tt hardware runs, 2026-10-23). A request's own fields never override the client's.
+    @Test func everyRequestAsksForTheProtocolThatReportsWiFiDevices() {
+        let listen = usbmuxMessage("Listen")
+        #expect(listen["MessageType"] as? String == "Listen")
+        #expect(listen["kLibUSBMuxVersion"] as? Int == 3)
+        let connect = usbmuxMessage("Connect", ["DeviceID": 7, "PortNumber": 32498, "MessageType": "Listen"])
+        #expect(connect["MessageType"] as? String == "Connect")
+        #expect(connect["DeviceID"] as? Int == 7)
+        #expect(connect["PortNumber"] as? Int == 32498)
+        #expect(connect["kLibUSBMuxVersion"] as? Int == 3)
+    }
+
     @Test func attachedUSBAndNetworkDevicesDecode() throws {
         let usb = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 7,
                                    "Properties": ["ConnectionType": "USB", "SerialNumber": "UDID-1"]])
-        #expect(usb == .attached(AttachedDevice(handle: 7, connection: .usb(udid: "UDID-1"))))
+        #expect(usb == .attached(AttachedDevice(handle: 7, connection: .device(udid: "UDID-1", over: .usb))))
         let wifi = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 8,
                                     "Properties": ["ConnectionType": "Network", "SerialNumber": "UDID-1"]])
-        #expect(wifi == .attached(AttachedDevice(handle: 8, connection: .network)))
+        #expect(wifi == .attached(AttachedDevice(handle: 8, connection: .device(udid: "UDID-1", over: .network))))
+        #expect(throws: UsbmuxFrameError.missingKey("SerialNumber")) {
+            try usbmuxEvent(["MessageType": "Attached", "DeviceID": 8, "Properties": ["ConnectionType": "Network"]])
+        }
     }
 
     @Test func detachedAndListenResultDecode() throws {
@@ -52,7 +68,7 @@ import Testing
         #expect(throws: UsbmuxFrameError.nonZeroResult(5)) { try usbmuxEvent(["MessageType": "Result", "Number": 5]) }
     }
 
-    @Test func unknownConnectionTypeIsADeviceThatIsNotTheCable() throws {
+    @Test func unknownConnectionTypeIsAnEntryThatIsNotRead() throws {
         let event = try usbmuxEvent(["MessageType": "Attached", "DeviceID": 1,
                                      "Properties": ["ConnectionType": "Bluetooth", "SerialNumber": "X"]])
         #expect(event == .attached(AttachedDevice(handle: 1, connection: .other("Bluetooth"))))
@@ -74,8 +90,8 @@ import Testing
             ["DeviceID": 4, "Properties": ["ConnectionType": "USB", "SerialNumber": "A"]],
             ["DeviceID": 5, "Properties": ["ConnectionType": "Network", "SerialNumber": "A"]],
         ]])
-        #expect(devices == [AttachedDevice(handle: 4, connection: .usb(udid: "A")),
-                            AttachedDevice(handle: 5, connection: .network)])
+        #expect(devices == [AttachedDevice(handle: 4, connection: .device(udid: "A", over: .usb)),
+                            AttachedDevice(handle: 5, connection: .device(udid: "A", over: .network))])
         #expect(throws: UsbmuxFrameError.missingKey("DeviceList")) { try usbmuxDeviceList([:]) }
     }
 }

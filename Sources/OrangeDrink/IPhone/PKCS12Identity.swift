@@ -16,7 +16,7 @@ enum PKCS12Error: Error, Equatable {
 
 /// The lockdown host identity: the pair record's certificate and PKCS#8 key, both PEM.
 /// Memory-only import (macOS 15+): the key never enters a keychain, so signing needs no keychain access grant. An
-/// unsigned host waited on that grant forever in the probe. The reader refuses to run earlier (see readIPhoneBattery).
+/// unsigned host waited on that grant forever in the probe. The reader refuses to run earlier (see openLockdown).
 @available(macOS 15.0, *)
 func pairIdentity(certificatePEM: Data, keyPEM: Data) throws -> SecIdentity {
     let pfx = try makePKCS12(certDER: try pemBody(certificatePEM), pkcs8DER: try pemBody(keyPEM), password: pfxPassword)

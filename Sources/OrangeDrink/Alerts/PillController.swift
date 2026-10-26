@@ -39,12 +39,15 @@ struct ScreenArea: Equatable {
 /// The pill's window: it takes the close button's clicks without taking focus.
 private final class PillPanel: OverlayPanel {
     let language: AppLanguage
+    /// The view the panel hosts, in the language it was handed.
+    let hosted: AnyView
 
     init(_ content: PillContent, scale: Double, language: AppLanguage, area: ScreenArea, onClose: @escaping () -> Void) {
         self.language = language
+        hosted = AnyView(PillView(content: content, scale: scale, onClose: onClose).speaking(language))
         super.init(
             frame: PillPlacement.frame(content.position, on: area.visibleFrame, scale: scale), level: .pill,
-            content: PillView(content: content, scale: scale, onClose: onClose).speaking(language))
+            content: hosted)
     }
 }
 
@@ -95,16 +98,20 @@ enum PillEnd {
     private let language: AppLanguageModel
     private let timekeeper: any Timekeeper
     private let currentScreen: @MainActor () -> ScreenArea?
+    private let orderFront: @MainActor (OverlayPanel) -> Void
     private var up: Up?
     /// A launched app has someone in front of it, so nothing hides the screen until the system says so.
     private var hidden: Set<ScreenHider> = []
     private var waiters: [CheckedContinuation<Void, Never>] = []
     nonisolated(unsafe) private var following: [Task<Void, Never>] = []
 
-    init(appearance: NotificationAppearanceModel, language: AppLanguageModel, timekeeper: any Timekeeper = SystemTimekeeper(),
-         screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main) {
+    /// [LAW:effects-at-boundaries] `orderFront` is what puts a built window on the screen, and it has no default: the app
+    /// orders each panel front, and a test holds them, so `make test` builds and asserts on the panels without showing them.
+    init(appearance: NotificationAppearanceModel, language: AppLanguageModel, orderFront: @escaping @MainActor (OverlayPanel) -> Void,
+         timekeeper: any Timekeeper = SystemTimekeeper(), screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main) {
         self.appearance = appearance
         self.language = language
+        self.orderFront = orderFront
         self.timekeeper = timekeeper
         currentScreen = screen
     }
@@ -116,6 +123,10 @@ enum PillEnd {
     var shownFrame: CGRect? { up?.panel.frame }
     /// The glow's frame in screen coordinates while the shown pill's alert has Border Glow on.
     var shownGlowFrame: CGRect? { up?.glow?.frame }
+    /// The shown pill's panel, then its glow's while Border Glow is on: the windows macOS stacks over other apps.
+    var shownPanels: [OverlayPanel] { up.map { [$0.panel] + ($0.glow.map { [$0] } ?? []) } ?? [] }
+    /// The view the shown pill's panel hosts, with the close action the controller gave it.
+    var shownView: AnyView? { up?.panel.hosted }
     /// The language the shown pill was handed: the app's at the moment it came up.
     var shownLanguage: AppLanguage? { up?.panel.language }
     /// The strength the shown glow was built at.
@@ -149,10 +160,10 @@ enum PillEnd {
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, frame: area.frame) : nil
-        glow?.orderFrontRegardless()
-        panel.orderFrontRegardless()
         let pill = Up(content: content, scale: look.bubbleSize.scale, panel: panel, glow: glow, countdown: countdown())
         up = pill
+        // Their levels stack the glow under the pill, whichever is ordered front first.
+        shownPanels.forEach(orderFront)
         let counting = pill.countdown == nil ? ", held" : " for \(Self.shownFor)"
         Self.log.info("pill shown at \(content.position.rawValue, privacy: .public)\(counting, privacy: .public): \(content.headline.english, privacy: .private)")
     }

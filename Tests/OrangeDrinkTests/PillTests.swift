@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
+import class SwiftUI.ImageRenderer
 import Testing
+import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is what a run of readings puts on screen: how many
@@ -19,7 +21,7 @@ import Testing
     }
 
     @Test func aLowAlertAtTopOfScreenShowsOnePillForTheReadingThatCrossedIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)])
@@ -34,7 +36,7 @@ import Testing
     }
 
     @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try Self.center(pills, alerts: [
             Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
@@ -55,7 +57,7 @@ import Testing
     }
 
     @Test func aCenterAlertSitsAtTheMiddleOfTheScreen() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         pills.show(PillContent(Alert(kind: .low, threshold: 5, position: .center, glow: false, sound: false),
                                reading: try Self.reading(4)))
@@ -65,7 +67,7 @@ import Testing
     }
 
     @Test func aNewPillReplacesTheOneShowingAndClosingClearsIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         pills.show(PillContent(low, reading: try Self.reading(13)))
@@ -75,7 +77,7 @@ import Testing
     }
 
     @Test func replacingAPillDoesNotReleaseWhoeverWaitsForNoPill() async throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         var released = false
@@ -90,7 +92,7 @@ import Testing
     }
 
     static func countdown(_ clock: ManualTimekeeper) -> PillController {
-        PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), timekeeper: clock)
+        PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, timekeeper: clock)
     }
 
     /// The `alerts` log lines that name this headline: other suites log in the same category at
@@ -217,7 +219,7 @@ import Testing
         let laptop = ScreenArea(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 944))
         let external = ScreenArea(frame: CGRect(x: 1512, y: 0, width: 2560, height: 1440), visibleFrame: CGRect(x: 1512, y: 70, width: 2560, height: 1345))
         let screens = Screens(laptop)
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, timekeeper: clock, screen: { screens.main })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in }, timekeeper: clock, screen: { screens.main })
         let log = try BatteryLog(category: "alerts")
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(PillContent(Alert(kind: .low, threshold: 22, position: .top, glow: true, sound: false),
@@ -282,7 +284,7 @@ import Testing
     // orange-alerts-cjt.c2g: under an 80% Charge Limit the reading that crosses 80 still says
     // charging with powerd's estimate to 100%; the pill must not promise a full charge.
     @Test func aChargedPillAtTheChargeLimitSaysNoTimeUntilFull() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch())
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false)])
@@ -310,7 +312,7 @@ import Testing
 
     @Test func theOverlayIsHandedTheLanguageTheAppSpeaksWhenThePillComesUp() throws {
         let language = AppLanguageTests.scratch()
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language)
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in })
         defer { pills.close(.closeButton) }
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(.power("On Battery", severity: .orange, reading: try Self.reading(14)))
@@ -320,32 +322,66 @@ import Testing
         #expect(pills.shownLanguage == AppLanguage(code: "es"))
     }
 
-    /// The ticket's step on a real Mac, run by `make pill-check` with a person at the screen: a
-    /// sample pill over a full-screen app at the centre, then at the top, each closed by its ×.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["PILL_CHECK"] != nil, "run by make pill-check with a person at the screen"))
-    func pillsShowOverAFullScreenApp() async throws {
-        // The appearance a person set on the General screen, as the app itself loads it.
-        let pills = PillController(appearance: try NotificationAppearanceModel(defaults: .standard), language: try AppLanguageModel(defaults: .standard))
+    /// [LAW:verifiable-goals] What puts a pill over a full-screen app is how its windows are built, and macOS honours that
+    /// (docs/testing.md, "Windows macOS places"): non-activating panels that cannot become key, joining every Space as a
+    /// full-screen auxiliary, above the level full-screen windows sit at (the main menu's, plus one), from an app with no
+    /// Dock icon. The glow lies under the pill and lets every click through. Both are the windows ordered front.
+    @Test func thePillAndItsGlowAreWindowsMacOSShowsOverFullScreenApps() throws {
+        var ordered: [OverlayPanel] = []
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { ordered.append($0) })
         defer { pills.close(.closeButton) }
-        let log = try BatteryLog(category: "alerts")
-        let sounds = AlertSounds()
-        let steps: [(position: Alert.Position, glow: Bool, sound: Bool)] = [
-            (.center, false, false), (.top, false, false), (.center, true, true)]
-        for (position, glow, sound) in steps {
-            let alert = Alert(kind: .low, threshold: 17, position: position, glow: glow, sound: sound)
-            pills.deliver(.threshold(alert), reading: try Self.reading(17))
-            sounds.deliver(.threshold(alert))
-            FileHandle.standardError.write(Data(
-                ("\n>>> With an app full screen, find the pill at the \(position) of the screen"
-                    + (glow ? ", with an orange glow around the screen edges," : "")
-                    + (sound ? " and a chime," : "")
-                    + " and click its × before it leaves by itself after \(PillController.shownFor).\n").utf8))
-            await pills.untilClosed()
+        pills.deliver(.threshold(Alert(kind: .low, threshold: 17, position: .center, glow: true, sound: false)), reading: try Self.reading(17))
+        let panels = pills.shownPanels
+        try #require(panels.count == 2)
+        #expect(ordered == panels)
+        for panel in panels {
+            #expect(panel.styleMask.contains(.nonactivatingPanel))
+            #expect(!panel.canBecomeKey)
+            #expect(panel.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]))
+            #expect(panel.level.rawValue > NSWindow.Level.mainMenu.rawValue + 1)
         }
-        // A pill that timed out proves nothing about whether a person could see it.
-        #expect(try Self.lines(log, about: "17% Remaining") == steps.flatMap {
-            ["pill shown at \($0.position.rawValue) for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"]
-        })
+        #expect(panels[0].level > panels[1].level)
+        #expect(panels[1].ignoresMouseEvents)
+        #expect(Bundle.main.object(forInfoDictionaryKey: "LSUIElement") as? Bool == true)
+    }
+
+    /// The pill's ×, pressed through the view the controller put in its panel (ViewInspector, no window): the pill and its
+    /// glow come down at once. The clock never moves, so only the × can close it.
+    @Test(.timeLimit(.minutes(1))) func pressingThePillsCloseButtonTakesItAndItsGlowDown() async throws {
+        let pills = Self.countdown(ManualTimekeeper())
+        let log = try BatteryLog(category: "alerts")
+        pills.show(PillContent(Alert(kind: .low, threshold: 16, position: .top, glow: true, sound: false), reading: try Self.reading(16)))
+        let view = try #require(pills.shownView)
+        try view.inspect().find(ViewType.Button.self, where: { try $0.accessibilityLabel().string() == "Close" }).tap()
+        #expect(pills.shown == nil && pills.shownPanels.isEmpty)
+        #expect(try await log.logged("pill closed: ×: 16% Remaining"))
+    }
+
+    /// The pill as drawn, with no window: its border fills in the alert's colour, further for a fuller battery, and in no
+    /// other alert's colour.
+    @Test func thePillDrawsItsBorderInItsAlertsColourAsFarAsItsLevel() throws {
+        func drawn(_ severity: Alert.Severity, _ progress: Double) throws -> Pixels {
+            let content = PillContent(headline: PillContent.remaining(Int(progress * 100)), subline: nil, severity: severity,
+                                      progress: progress, position: .center, glow: false)
+            let renderer = ImageRenderer(content: PillView(content: content, scale: 1, onClose: {}).speaking(AppLanguage(code: "en")))
+            return Pixels(try #require(renderer.nsImage))
+        }
+        let hues: [(Alert.Severity, Pixels.Hue)] = [(.red, .red), (.orange, .orange), (.green, .green)]
+        for (severity, hue) in hues {
+            let low = try drawn(severity, 0.2), high = try drawn(severity, 0.8)
+            #expect(low.count(of: hue) > 0, "\(severity)")
+            #expect(high.count(of: hue) > low.count(of: hue), "\(severity): a fuller battery fills more of the border")
+            for (_, other) in hues where other != hue { #expect(high.count(of: other) == 0, "\(severity) drawn in \(other)") }
+        }
+    }
+
+    /// The glow as drawn, with no window: the alert's colour at the screen's edges, fading inward to nothing.
+    @Test func theGlowLightsTheEdgesInItsAlertsColourAndLeavesTheMiddleClear() throws {
+        let renderer = ImageRenderer(content: GlowView(severity: .red, strength: .default).frame(width: 400, height: 300))
+        let glow = Pixels(try #require(renderer.nsImage))
+        let edge = try #require(glow.color(4, glow.height / 2)), middle = try #require(glow.color(glow.width / 2, glow.height / 2))
+        #expect(edge.alphaComponent > 0.2 && edge.redComponent > edge.greenComponent + 0.3, "edge: \(edge)")
+        #expect(middle.alphaComponent < 0.01, "middle: \(middle)")
     }
 }
 
