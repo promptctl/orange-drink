@@ -4,18 +4,21 @@ import Testing
 @testable import OrangeDrink
 
 // [LAW:verifiable-goals] The ticket's hardware step: plugging in a trusted iPhone switches on its Wi-Fi sync and reads it
-// over the cable; once the cable is pulled, every window brings a Wi-Fi reading or a typed Wi-Fi read failure, never
-// nothing, and the app reading it stays under PROJECT.md's 0.1% CPU bar. Run by make iphone-check with the iPhone cabled
-// and a person at the cable.
+// over the cable; once the cable is pulled, Wi-Fi readings or typed Wi-Fi read failures keep coming, a poll interval
+// apart however often usbmuxd drops and relists the device, and the app reading it stays under PROJECT.md's 0.1% CPU bar.
+// Run by make iphone-check with the iPhone cabled and a person at the cable.
 @Suite(.serialized) struct IPhoneLive {
-    /// The longest a device on Wi-Fi may go without an event: one rest, then one read at its worst.
-    private static let window = IPhoneMonitor.pollInterval + readWorstCase
+    /// The longest usbmuxd left an iPhone or iPad on Wi-Fi unlisted while it was on the network: 751 s in ten hours of
+    /// its log on 2026-10-23 (lm3.1tt cmt-9a8a2ba7), rounded up. A due read waits for the device's next listing.
+    private static let wifiAbsence = Duration.seconds(15 * 60)
+    /// The longest a device on Wi-Fi may go without an event: one rest, its longest absence, then one read at its worst.
+    private static let window = IPhoneMonitor.pollInterval + wifiAbsence + readWorstCase
     /// Consecutive windows the Wi-Fi phase is held to, after its first event.
     private static let wifiWindows = 3
 
     @available(macOS, deprecated: 10.15, message: "drives IPhoneMonitor, which uses SecureTransport; see lm3.8pk")
     @Test(.enabled(if: ProcessInfo.processInfo.environment["IPHONE_CHECK"] != nil, "run by make iphone-check with a cabled iPhone"),
-          .timeLimit(.minutes(20)))
+          .timeLimit(.minutes(90)))
     func switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         // The one cabled device's Wi-Fi sync is switched off before the monitor starts, so the monitor is what switches it on.
@@ -37,8 +40,8 @@ import Testing
         var read = false
         var synced = false
         while !read || !synced {
-            let event = try #require(try await arrivals.event(at: cursor, within: .seconds(120)),
-                                     "no cable reading and Wi-Fi sync within two minutes; is the iPhone trusted and unlocked?")
+            let (event, _) = try #require(try await arrivals.event(at: cursor, within: .seconds(120)),
+                                          "no cable reading and Wi-Fi sync within two minutes; is the iPhone trusted and unlocked?")
             cursor += 1
             switch event {
             case .reading(udid, .usb, let value):
@@ -57,14 +60,15 @@ import Testing
         #expect(try log.messages().contains { $0.hasPrefix("iphone wifi sync on: \(udid) ") })
         print("pull the cable now")
 
-        // Wi-Fi: pulling the cable moves the route to Wi-Fi, which is read at once, so every event, the first included,
-        // arrives within one window. Until the person pulls, each cable reading restarts the wait.
+        // Wi-Fi: pulling the cable moves the device's next due read to Wi-Fi, so every event, the first included, arrives
+        // within one window. Until the person pulls, each cable reading restarts the wait.
         var wifiEvents = 0
         var wifiReadings = 0
+        var lastWifiEvent: ContinuousClock.Instant?
         var cpuFrom: (cpu: Duration, at: ContinuousClock.Instant)?
         while wifiEvents <= Self.wifiWindows {
-            let event = try #require(try await arrivals.event(at: cursor, within: Self.window),
-                                     "no event for \(udid) within \(Self.window): the device went silent on Wi-Fi")
+            let (event, at) = try #require(try await arrivals.event(at: cursor, within: Self.window),
+                                           "no event for \(udid) within \(Self.window): the device went silent on Wi-Fi")
             cursor += 1
             switch event {
             case .reading(udid, .network, let value):
@@ -75,15 +79,17 @@ import Testing
             case .reading(udid, .usb, _):
                 print("still on the cable: pull it")
                 continue
-            case .disconnected(udid):
-                Issue.record("\(udid) disconnected: Wi-Fi sync did not keep it")
-                return
             case .failed(let error):
                 Issue.record("monitor failed: \(error)")
                 return
             default:
                 continue
             }
+            if let lastWifiEvent {
+                printForTheRecord("wifi gap: \(at - lastWifiEvent)")
+                #expect(at - lastWifiEvent >= IPhoneMonitor.pollInterval, "Wi-Fi reads came faster than the poll interval")
+            }
+            lastWifiEvent = at
             wifiEvents += 1
             cpuFrom = cpuFrom ?? (processCPU(), .now)
         }
@@ -104,15 +110,15 @@ import Testing
     }
 }
 
-/// Events in arrival order, for a test that waits on each against a window. It checks once a second, so its own cost
-/// in the measured process is small, and it counts against the bar rather than hiding anything under it.
+/// Events in arrival order with the moment each arrived, for a test that waits on each against a window. It checks once a
+/// second, so its own cost in the measured process is small, and it counts against the bar rather than hiding anything under it.
 private final class Arrivals: Sendable {
-    private let events = OSAllocatedUnfairLock<[IPhoneEvent]>(initialState: [])
+    private let events = OSAllocatedUnfairLock<[(IPhoneEvent, ContinuousClock.Instant)]>(initialState: [])
 
-    func append(_ event: IPhoneEvent) { events.withLock { $0.append(event) } }
+    func append(_ event: IPhoneEvent) { events.withLock { $0.append((event, .now)) } }
 
-    /// The event at `index` once it has arrived, or nil if `limit` passes first.
-    func event(at index: Int, within limit: Duration) async throws -> IPhoneEvent? {
+    /// The event at `index` and when it arrived, once it has, or nil if `limit` passes first.
+    func event(at index: Int, within limit: Duration) async throws -> (IPhoneEvent, ContinuousClock.Instant)? {
         let end = ContinuousClock.now.advanced(by: limit)
         while ContinuousClock.now < end {
             if let event = events.withLock({ index < $0.count ? $0[index] : nil }) { return event }

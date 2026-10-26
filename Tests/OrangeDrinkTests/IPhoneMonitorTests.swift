@@ -107,22 +107,33 @@ import Testing
                                                                    .wifiSyncFailed(udid: "B", .usbmux(.noPairRecord))]))
         try harness.send(Self.attachedFrame(5, "B", "USB"))
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
-        #expect(await events.next() == .disconnected(udid: "B"))
+        #expect(try await log.logged(Self.decision(.detached(handle: 5), [.disconnected(udid: "B")])))
         #expect(reads.withLock { $0 } == 1)
         #expect(try await log.logged(Self.decision(.attached(Self.usb(5, "B")), [])))
     }
 
     @Test(.timeLimit(.minutes(1)))
-    func pullingTheCableOfADeviceOnWifiReadsItOverWifiWithoutWaitingAPoll() async throws {
+    func pullingTheCableOfADeviceOnWifiReadsItOverWifiWhenItsNextReadIsDue() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
-        let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in Self.reading }
+        let reads = OSAllocatedUnfairLock(initialState: 0)
+        let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in
+            reads.withLock { $0 += 1 }
+            return Self.reading
+        }
         defer { close(harness.peer) }
         var events = harness.events.makeAsyncIterator()
 
         #expect(await Self.next(2, of: &events) == Self.described([.reading(udid: "B", over: .usb, Self.reading), .wifiSyncOn(udid: "B")]))
+        await harness.clock.asleep()
         try harness.send(["MessageType": "Detached", "DeviceID": 5])
         #expect(try await log.logged(Self.decision(.detached(handle: 5), [.pace(udid: "B")])))
+        #expect(try await log.logged("iphone pacer ended: B: replaced, disconnected, or stopped"))
+        // The cable read a moment ago was the device's reading; the Wi-Fi route takes over at the next due read.
+        await harness.clock.asleep()
+        #expect(reads.withLock { $0 } == 1)
+        harness.clock.advance(by: IPhoneMonitor.pollInterval)
         #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
+        #expect(reads.withLock { $0 } == 2)
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -147,26 +158,25 @@ import Testing
     }
 
     @Test(.timeLimit(.minutes(1)))
-    func pairedDuringAReadReplacesThePacerAndTheOldReadIsDropped() async throws {
+    func pairingAfterAFailedReadReadsAtOnce() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let firstReadMayFinish = DispatchSemaphore(value: 0)
         let harness = try Harness(snapshot: { [Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in
-            if reads.withLock({ $0 += 1; return $0 }) == 1 { firstReadMayFinish.wait(); throw .usbmux(.noPairRecord) }
+            if reads.withLock({ $0 += 1; return $0 }) == 1 { throw .usbmux(.noPairRecord) }
             return Self.reading
         }
         defer { close(harness.peer) }
         var events = harness.events.makeAsyncIterator()
 
-        try await reached(1, reads)
+        #expect(await events.next() == .readFailed(udid: "B", over: .network, .usbmux(.noPairRecord)))
         try harness.send(["MessageType": "Paired", "DeviceID": 6])
+        // No advance: the failure's poll interval does not stand once the device trusts this Mac.
         #expect(await events.next() == .reading(udid: "B", over: .network, Self.reading))
-        firstReadMayFinish.signal()
-        #expect(try await log.logged("iphone read dropped: B handle 6: its pacer was replaced or stopped"))
+        #expect(try await log.logged(Self.decision(.paired(handle: 6), [.paired(udid: "B")])))
     }
 
     @Test(.timeLimit(.minutes(1)))
-    func aDisconnectedDeviceIsNotReadAgain() async throws {
+    func aDeviceThatDropsOffWifiAndReturnsKeepsItsPace() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(snapshot: { [Self.wifi(6, "E")] }) { _, _ throws(IPhoneReadError) in
@@ -179,11 +189,13 @@ import Testing
         #expect(await events.next() == .reading(udid: "E", over: .network, Self.reading))
         await harness.clock.asleep()
         try harness.send(["MessageType": "Detached", "DeviceID": 6])
-        #expect(await events.next() == .disconnected(udid: "E"))
         #expect(try await log.logged("iphone pacer ended: E: replaced, disconnected, or stopped"))
-        harness.clock.advance(by: IPhoneMonitor.pollInterval)
-        // A pacer that outlived its device would read on that advance; the device's return is read once, by its new pacer.
+        // usbmuxd lists it again before its next read is due: its new pacer rests out the interval instead of reading.
         try harness.send(Self.attachedFrame(7, "E", "Network"))
+        #expect(try await log.logged(Self.decision(.attached(Self.wifi(7, "E")), [.pace(udid: "E")])))
+        await harness.clock.asleep()
+        #expect(reads.withLock { $0 } == 1)
+        harness.clock.advance(by: IPhoneMonitor.pollInterval)
         #expect(await events.next() == .reading(udid: "E", over: .network, Self.reading))
         #expect(reads.withLock { $0 } == 2)
     }
