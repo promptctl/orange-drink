@@ -22,8 +22,17 @@ struct DeviceMap {
 
     /// A handle already known is skipped, so one attach seen in both the snapshot and Listen counts once.
     mutating func attach(_ device: AttachedDevice) -> [Step] {
-        guard handles[device.handle] == nil else { return [] }
-        return edit(device.connection.udid) { $0[device.handle] = device.connection }
+        listed([device])
+    }
+
+    /// [LAW:no-ambient-temporal-coupling] usbmuxd's ListDevices snapshot, applied as the one listing it is: every device's
+    /// steps come from its route before the listing and after all of it, so a device listed over Wi-Fi ahead of its cable
+    /// is reachable over the cable and nothing in between.
+    mutating func listed(_ devices: [AttachedDevice]) -> [Step] {
+        let fresh = devices.filter { handles[$0.handle] == nil }
+        return edit(fresh.compactMap(\.connection.udid)) { handles in
+            for device in fresh { handles[device.handle] = device.connection }
+        }
     }
 
     /// A handle the map never saw is ignored: usbmuxd reports a detach for a device that attached before our Listen
@@ -31,7 +40,7 @@ struct DeviceMap {
     /// its route to Wi-Fi, and a stale detach applied after the snapshot (unplug and replug between Listen and
     /// ListDevices) leaves its route alone.
     mutating func detach(handle: Int) -> [Step] {
-        edit(handles[handle]?.udid) { $0.removeValue(forKey: handle) }
+        edit(handles[handle]?.udid.map { [$0] } ?? []) { $0.removeValue(forKey: handle) }
     }
 
     /// usbmuxd's Paired: the device on this handle has just trusted this Mac, so a Wi-Fi sync switch that failed for want
@@ -69,17 +78,19 @@ struct DeviceMap {
         steps.isEmpty ? "nothing" : steps.map { String(describing: $0) }.joined(separator: ", ")
     }
 
-    /// [LAW:dataflow-not-control-flow] Every attach and detach is one edit to the handles, and its steps are what the
-    /// edit did to the device's route: a change of transport is a reachability step, and a new route onto a cable,
-    /// a replug's fresh handle included, also switches on Wi-Fi sync.
-    private mutating func edit(_ udid: String?, _ change: (inout [Int: DeviceConnection]) -> Void) -> [Step] {
-        let before = udid.flatMap(route)
+    /// [LAW:dataflow-not-control-flow] Every attach, detach, and listing is one edit to the handles, and its steps are
+    /// what the edit did to each device's route: a change of transport is a reachability step, and a new route onto a
+    /// cable, a replug's fresh handle included, also switches on Wi-Fi sync.
+    private mutating func edit(_ udids: [String], _ change: (inout [Int: DeviceConnection]) -> Void) -> [Step] {
+        let devices = udids.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        let before = devices.map(route)
         change(&handles)
-        guard let udid else { return [] }
-        let after = route(udid)
-        let reachability = before?.transport == after?.transport ? [] : [Step.reachability(udid: udid, over: after?.transport)]
-        let plugged = before == after ? [] : after.map { Self.pluggedIn($0, udid: udid) } ?? []
-        return reachability + plugged
+        return zip(devices, before).flatMap { udid, before -> [Step] in
+            let after = route(udid)
+            let reachability = before?.transport == after?.transport ? [] : [Step.reachability(udid: udid, over: after?.transport)]
+            let plugged = before == after ? [] : after.map { Self.pluggedIn($0, udid: udid) } ?? []
+            return reachability + plugged
+        }
     }
 
     /// Plugging a device in switches on its Wi-Fi sync, so it is still read once the cable is out.
@@ -208,12 +219,16 @@ private final class MonitorState: @unchecked Sendable {
         do {
             try typedReadErrors {
                 let socket = try inputs.listen()
-                receive(try inputs.snapshot().map { .attached($0) })
+                let snapshot = try inputs.snapshot()
+                receive("listed \(snapshot)") { $0.listed(snapshot) }
                 var reader = UsbmuxFrameReader()
                 while !isStopped() {
                     guard let bytes = try socket.receiveSome(max: 4096) else { continue }
                     reader.append(bytes)
-                    while let body = try reader.next() { receive([try usbmuxEvent(body)]) }
+                    while let body = try reader.next() {
+                        let event = try usbmuxEvent(body)
+                        receive(String(describing: event)) { $0.apply(event) }
+                    }
                 }
                 IPhoneMonitor.log.info("iphone monitor stopped")
             }
@@ -229,21 +244,17 @@ private final class MonitorState: @unchecked Sendable {
         }
     }
 
-    /// [LAW:no-ambient-temporal-coupling] One listing, applied in one turn of the queue: the snapshot is every device
-    /// usbmuxd lists at once, so a pacer it starts picks its route from all of it. A device the snapshot lists over Wi-Fi
-    /// before its cable is read over the cable, not over a Wi-Fi handle usbmuxd may already be dropping.
-    private func receive(_ events: [UsbmuxEvent]) {
+    /// One decision of the map, a Listen message's or the snapshot's, and the steps it returns, in one turn of the queue.
+    private func receive(_ said: String, _ decide: (inout DeviceMap) -> [DeviceMap.Step]) {
         queue.sync {
-            for event in events {
-                let steps = map.apply(event)
-                IPhoneMonitor.log.info("iphone \(String(describing: event), privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
-                switch lifecycle {
-                case .running(var pacers):
-                    for step in steps { perform(step, pacers: &pacers) }
-                    lifecycle = .running(pacers: pacers)
-                case .stopped:
-                    IPhoneMonitor.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
-                }
+            let steps = decide(&map)
+            IPhoneMonitor.log.info("iphone \(said, privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
+            switch lifecycle {
+            case .running(var pacers):
+                for step in steps { perform(step, pacers: &pacers) }
+                lifecycle = .running(pacers: pacers)
+            case .stopped:
+                IPhoneMonitor.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
             }
         }
     }

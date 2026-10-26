@@ -288,7 +288,6 @@ import Testing
         defer { close(harness.peer) }
         var events = harness.events.makeAsyncIterator()
 
-        #expect(await events.next() == .reachable(udid: "P", over: .network))
         #expect(await events.next() == .reachable(udid: "P", over: .usb))
         #expect(await Self.next(2, of: &events) == Self.described([.reading(udid: "P", over: .usb, Self.reading), .wifiSyncOn(udid: "P")]))
         #expect(harness.opened.withLock { $0 } == [5])
