@@ -173,12 +173,13 @@ struct Pixels {
     /// The interior is a known fraction of the canvas; see BatteryIndicator.interior.
     private var interiorWidth: Int { Int((MenuBarIcon.interior.width * 2 * scale).rounded()) }
 
+    /// The hues' ranges are disjoint, red's green ceiling being orange's floor, so no pixel counts as two.
     private func matches(_ x: Int, _ y: Int, _ hue: Hue) -> Bool {
         guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB), c.alphaComponent > 0.9 else { return false }
         let (r, g, b) = (c.redComponent, c.greenComponent, c.blueComponent)
         switch hue {
         case .green: return g > 0.5 && g > r + 0.25 && g > b + 0.25
-        case .orange: return r > 0.7 && g > 0.3 && g < 0.75 && b < 0.3 && r > g + 0.2
+        case .orange: return r > 0.7 && g >= 0.35 && g < 0.75 && b < 0.3 && r > g + 0.2
         case .red: return r > 0.7 && g < 0.35 && b < 0.35
         }
     }

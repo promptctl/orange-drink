@@ -150,12 +150,16 @@ struct DeviceListTests {
             list.apply(event)
             break
         }
-        let swept = Dictionary(list.devices.map { ($0.name, $0) }) { first, _ in first }
+        // system_profiler names its devices and nothing more, so the name is the only key the two lists share.
+        let swept = try Dictionary(list.devices.map { ($0.name, $0) }) { _, _ in
+            throw DevicesLiveError.sharedName(list.devices.map(\.name))
+        }
         for device in list.devices {
             printForTheRecord("device: \(device.name) | \(device.kind) | \(device.levels)"
                               + (connected[device.name] == nil ? " | not listed by system_profiler" : ""))
         }
         printForTheRecord("pmset accessories: \(accessories.sorted { $0.key < $1.key })")
+        var compared = 0
         for (name, profiled) in connected {
             // pmset names an earbud set's case "<name> Case" and gives one level for a single-part device.
             var reported = profiled
@@ -166,12 +170,16 @@ struct DeviceListTests {
                 Issue.record("macOS reports \(name) connected at \(reported); the app's sweep does not have it")
                 continue
             }
+            compared += 1
             let ours = Self.percents(device.levels)
             #expect(Set(ours.keys) == Set(reported.keys), "\(name) reports parts \(ours) where macOS reports \(reported)")
             // The reads are moments apart; a level moves by at most a point or two between them.
             for (part, percent) in ours { #expect(abs(percent - (reported[part] ?? percent)) <= 2, "\(name) \(part)") }
         }
+        #expect(compared > 0, "macOS gives a level for none of the connected devices \(connected.keys.sorted()), so nothing was compared")
     }
+
+    enum DevicesLiveError: Error { case sharedName([String]) }
 
     static func percents(_ levels: DeviceLevels) -> [String: Int] {
         switch levels {
@@ -193,7 +201,7 @@ struct DeviceListTests {
             .map { (String($0.name), Int($0.percent)!) }) { first, _ in first }
     }
 
-    /// name → "Left"/"Right"/"Case"/"Main" → percent, for every connected device with a name.
+    /// name → "Left"/"Right"/"Case"/"Single" → percent, for every connected device with a name.
     static func profilerConnected() throws -> [String: [String: Int]] {
         let profiler = try ChildProcess.run("/usr/sbin/system_profiler", ["SPBluetoothDataType", "-json"])
         try #require(profiler.status == 0, "system_profiler exited \(profiler.status): \(profiler.errors)")
