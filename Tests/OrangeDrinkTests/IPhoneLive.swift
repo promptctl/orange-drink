@@ -10,9 +10,11 @@ import Testing
 //
 // Every read is held to the monitor's pacing, measured against the check's own usbmuxd Listen rather than a guess at
 // usbmuxd's gaps: no read comes sooner than a poll interval after the one before, and none later than readWorstCase
-// after the device's first listing once that rest is over. A device usbmuxd does not list again fails naming usbmuxd.
+// after the device's first listing once that rest is over, each give or take monitorLatency. A device usbmuxd does not
+// list again fails naming usbmuxd.
 @Suite(.serialized) struct IPhoneLive {
-    /// How late the monitor may act on time or on usbmuxd: a pacer waking from its rest, or a listing change reported.
+    /// How late the monitor may act on time or on usbmuxd (a pacer waking from its rest, a listing change reported), and
+    /// how late this check may stamp an event's arrival.
     private static let monitorLatency = Duration.seconds(1)
     /// How long the check waits for usbmuxd to list the device again before it blames usbmuxd: longer than the 56 min
     /// it left an iPhone unlisted after a Wi-Fi sync switch-off (lm3.1tt cmt-9a8a2ba7), the step this check starts with.
@@ -79,12 +81,12 @@ import Testing
         var cpuFrom: (cpu: Duration, at: ContinuousClock.Instant)?
         while wifiEvents <= Self.wifiWindows {
             let restEnd = previous + IPhoneMonitor.pollInterval + Self.monitorLatency
-            let expired = { () -> Bool in
-                guard let listed = listing.firstListed(atOrAfter: restEnd) else { return .now > restEnd + Self.usbmuxWait }
+            let expired = { () throws -> Bool in
+                guard let listed = try listing.firstListed(atOrAfter: restEnd) else { return .now > restEnd + Self.usbmuxWait }
                 return .now > listed + readWorstCase
             }
             guard let arrival = try await arrivals.event(at: cursor, until: expired) else {
-                let trigger = listing.firstListed(atOrAfter: restEnd)
+                let trigger = try listing.firstListed(atOrAfter: restEnd)
                 Issue.record(trigger.map { "the monitor did not read \(udid) within \(readWorstCase) of usbmuxd listing it at \($0)" }
                              ?? "usbmuxd did not list \(udid) over Wi-Fi within \(Self.usbmuxWait) of its rest ending")
                 return
@@ -112,7 +114,7 @@ import Testing
                 continue
             }
             printForTheRecord("read gap: \(at - previous)")
-            #expect(at - previous >= IPhoneMonitor.pollInterval, "reads came faster than the poll interval")
+            #expect(at - previous >= IPhoneMonitor.pollInterval - Self.monitorLatency, "reads came faster than the poll interval")
             previous = at
             guard case .network = event.transport else { continue }
             wifiEvents += 1
@@ -127,7 +129,7 @@ import Testing
 
         // The monitor's reachability is usbmuxd's listing of the device, change for change: everything usbmuxd listed
         // up to a moment ago has been reported, and nothing it did not list.
-        let listed = listing.changes()
+        let listed = try listing.changes()
         printForTheRecord("reachability: monitor \(reachability), usbmuxd \(listed.map(\.transport))")
         #expect(Array(listed.map(\.transport).prefix(reachability.count)) == reachability,
                 "the monitor's reachability differs from usbmuxd's listing")
@@ -157,10 +159,16 @@ private extension IPhoneEvent {
 /// The check's own record of how usbmuxd lists one device, from a Listen connection of its own opened before the
 /// monitor starts: the independent record the monitor's reachability and pacing are held to. Each change is the
 /// transport the device is reached over from then on, the cable preferred, or nil while usbmuxd lists no handle. Its
-/// thread wakes once a second in the measured process, so like Arrivals it counts against the CPU bar.
+/// thread wakes once a second in the measured process, so like Arrivals it counts against the CPU bar. Once its Listen
+/// fails, every read of the record throws that failure, so the check stops on it instead of blaming usbmuxd's silence.
 private final class Listing: Sendable {
     struct Change { let at: ContinuousClock.Instant; let transport: Transport? }
-    private struct State { var handles: [Int: Transport] = [:]; var changes: [Change] = []; var stopped = false }
+    private struct State {
+        var handles: [Int: Transport] = [:]
+        var changes: [Change] = []
+        var stopped = false
+        var failure: (any Error)?
+    }
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     /// Subscribes, then takes the snapshot, as the monitor does, and records from a thread of its own until `stop`.
@@ -177,20 +185,27 @@ private final class Listing: Sendable {
                 }
             } catch {
                 printForTheRecord("the check's own Listen failed: \(error)")
-                Issue.record("the check's own usbmuxd Listen failed: \(error)")
+                state.withLock { $0.failure = error }
             }
         }.start()
     }
 
     func stop() { state.withLock { $0.stopped = true } }
 
-    func changes() -> [Change] { state.withLock { $0.changes } }
+    func changes() throws -> [Change] { try record { $0.changes } }
 
     /// The first moment at or after `instant` that usbmuxd lists the device, once it has.
-    func firstListed(atOrAfter instant: ContinuousClock.Instant) -> ContinuousClock.Instant? {
-        state.withLock { state in
+    func firstListed(atOrAfter instant: ContinuousClock.Instant) throws -> ContinuousClock.Instant? {
+        try record { state in
             let listedThen = state.changes.last { $0.at <= instant }?.transport != nil
             return listedThen ? instant : state.changes.first { $0.at > instant && $0.transport != nil }?.at
+        }
+    }
+
+    private func record<T: Sendable>(_ read: @Sendable (State) -> T) throws -> T {
+        try state.withLock { state in
+            if let failure = state.failure { throw failure }
+            return read(state)
         }
     }
 
@@ -220,8 +235,8 @@ private final class Arrivals: Sendable {
     func append(_ event: IPhoneEvent) { events.withLock { $0.append((event, .now)) } }
 
     /// The event at `index` and when it arrived, once it has, or nil once `expired` holds first.
-    func event(at index: Int, until expired: () -> Bool) async throws -> (IPhoneEvent, ContinuousClock.Instant)? {
-        while !expired() {
+    func event(at index: Int, until expired: () throws -> Bool) async throws -> (IPhoneEvent, ContinuousClock.Instant)? {
+        while try !expired() {
             if let event = events.withLock({ index < $0.count ? $0[index] : nil }) { return event }
             try await Task.sleep(for: .seconds(1))
         }

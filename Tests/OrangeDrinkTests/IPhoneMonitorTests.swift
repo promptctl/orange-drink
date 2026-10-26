@@ -247,6 +247,29 @@ import Testing
         try await reached(4, seen)
         consumer.cancel()
         #expect(try await log.logged("iphone monitor ended: 2 pacers cancelled"))
+        #expect(try await log.logged("iphone pacer ended: B: monitor stopped"))
+        #expect(try await log.logged("iphone pacer ended: C: monitor stopped"))
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func aReadInFlightWhenTheStreamEndsIsDroppedAndItsPacerEnds() async throws {
+        let log = try BatteryLog(category: IPhoneMonitor.logCategory)
+        let reads = OSAllocatedUnfairLock(initialState: 0)
+        let readMayFinish = DispatchSemaphore(value: 0)
+        let harness = try Harness(snapshot: { [Self.wifi(6, "H")] }) { _, _ throws(IPhoneReadError) in
+            reads.withLock { $0 += 1 }
+            readMayFinish.wait()
+            return Self.reading
+        }
+        defer { close(harness.peer) }
+        let consumer = Task { for await _ in harness.events {} }
+        try await reached(1, reads)
+        consumer.cancel()
+        #expect(try await log.logged("iphone monitor ended: 1 pacers cancelled"))
+        readMayFinish.signal()
+        #expect(try await log.logged("iphone read dropped: H handle 6: monitor stopped"))
+        #expect(try await log.logged("iphone pacer ended: H: monitor stopped"))
+        #expect(reads.withLock { $0 } == 1)
     }
 
     @Test(.timeLimit(.minutes(1)))
