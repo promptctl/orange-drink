@@ -12,6 +12,7 @@ Before inventing a way to test something, look up how others test it. Search (Fi
 | A parser of a device's or the OS's reply | A unit test over a reply recorded from real hardware, kept as a fixture | `IPhoneFixtures.swift`: lockdown replies captured from iPhones and iPads |
 | Code that talks to the outside world | The outside is a stand-in behind the seam: a socketpair for usbmuxd, `ManualTimekeeper` for time, an injected closure for a sound | `IPhoneMonitorTests`, `AlertSounds(play:)` |
 | What a view looks like | Render it with no window (`ImageRenderer`, or drawing into an `NSBitmapImageRep`) and assert on its pixels: which colour, how far it fills, what is clear | `MenuBarIconTests`, `PillTests.thePillDrawsItsBorderInItsAlertsColourAsFarAsItsLevel` |
+| What a control does when pressed: a button's action, a toggle's binding | ViewInspector finds the control in the view value and calls its action, with no window (the SwiftUI accessibility tree exists only for a client of the running app) | `PillTests.pressingThePillsCloseButtonTakesItAndItsGlowDown` |
 | What macOS does with a window: over full-screen apps, on every Space, click-through | Assert the properties macOS acts on (see below). How macOS honours them is Apple's behavior, not ours | `PillTests.thePillAndItsGlowAreWindowsMacOSShowsOverFullScreenApps` |
 | What a real device or service replies, end to end | A live check, `make <check>`, on a real Mac (see below) | `make iphone-check`, `make devices-check` |
 

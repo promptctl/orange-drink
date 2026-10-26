@@ -39,12 +39,14 @@ struct ScreenArea: Equatable {
 /// The pill's window: it takes the close button's clicks without taking focus.
 private final class PillPanel: OverlayPanel {
     let language: AppLanguage
+    let view: PillView
 
     init(_ content: PillContent, scale: Double, language: AppLanguage, area: ScreenArea, onClose: @escaping () -> Void) {
         self.language = language
+        view = PillView(content: content, scale: scale, onClose: onClose)
         super.init(
             frame: PillPlacement.frame(content.position, on: area.visibleFrame, scale: scale), level: .pill,
-            content: PillView(content: content, scale: scale, onClose: onClose).speaking(language))
+            content: view.speaking(language))
     }
 }
 
@@ -122,6 +124,8 @@ enum PillEnd {
     var shownGlowFrame: CGRect? { up?.glow?.frame }
     /// The shown pill's panel, then its glow's while Border Glow is on: the windows macOS stacks over other apps.
     var shownPanels: [OverlayPanel] { up.map { [$0.panel] + ($0.glow.map { [$0] } ?? []) } ?? [] }
+    /// The view the shown pill's panel hosts, with the close action the controller gave it.
+    var shownView: PillView? { up?.panel.view }
     /// The language the shown pill was handed: the app's at the moment it came up.
     var shownLanguage: AppLanguage? { up?.panel.language }
     /// The strength the shown glow was built at.

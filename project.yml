@@ -44,8 +44,12 @@ packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift
     # [LAW:one-source-of-truth] Exact, so the source tree decides what a fresh build directory
-    # resolves; GRDB is the only package and has no dependencies of its own.
+    # resolves. GRDB has no dependencies of its own.
     exactVersion: 7.11.1
+  ViewInspector:
+    # Unit tests press SwiftUI controls with it, with no window (docs/testing.md). Tests only, never the app.
+    url: https://github.com/nalexn/ViewInspector
+    exactVersion: 0.10.5
 targets:
   OrangeDrink:
     type: application
@@ -148,6 +152,7 @@ targets:
     sources: [Tests/OrangeDrinkTests]
     dependencies:
       - target: OrangeDrink
+      - package: ViewInspector
       - target: HelperCheckClient
         # A test bundle embeds nothing unless told to; without this the copy below never happens.
         embed: true
