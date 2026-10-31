@@ -2,16 +2,19 @@
 # Writes the update feed offering one disk image, signed with the EdDSA private key it reads on stdin, beside the
 # image, and prints the feed's path:
 #
-#   printenv SPARKLE_ED_KEY | env -u SPARKLE_ED_KEY scripts/appcast <dmg> <URL the image is served under, ending in a slash>
+#   printenv SPARKLE_ED_KEY | env -u SPARKLE_ED_KEY scripts/appcast <dmg> <URL the image is served under>
 #
 # The feed holds this release alone, which is all an older copy needs to find it. generate_appcast rewrites a feed
 # already in its directory and makes deltas against any older image there, so it is given a directory holding this
 # image and nothing else.
 set -euo pipefail
 
-usage='usage: scripts/appcast <dmg> <URL the image is served under, ending in a slash> <private key'
+usage='usage: scripts/appcast <dmg> <URL the image is served under> <private key'
 dmg=${1:?$usage}
 prefix=${2:?$usage}
+# generate_appcast resolves the image's name against this URL, which replaces a last component with no slash, and the
+# feed would still be signed.
+prefix=${prefix%/}/
 # Resolved before the move to the repo root, which make needs, so a relative path means the one the caller named.
 dmg=$(realpath "$dmg")
 cd "$(dirname "$0")/.."

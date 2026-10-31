@@ -74,6 +74,7 @@ jobs:
           DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          SPARKLE_ED_KEY: ${{ secrets.SPARKLE_ED_KEY }}
         run: scripts/release-keychain
       # Assigned before it is written out, so a failed build fails this step: an echo of a failed command
       # substitution exits 0. The summary is written here, before publishing, so a run that fails to publish

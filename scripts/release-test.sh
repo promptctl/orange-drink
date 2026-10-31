@@ -124,15 +124,16 @@ expect "a checkout without origin/master says so, not that the tag is off master
 t=$(tree 'MARKETING_VERSION: "1.2.3"')
 secrets() {
   export RUNNER_ENVIRONMENT=github-hosted NOTARY_KEYCHAIN="$scratch/release.keychain-db" \
-    DEVELOPER_ID_APPLICATION_P12=cDEy DEVELOPER_ID_P12_PASSWORD=pw NOTARY_APPLE_ID=me@example.com NOTARY_PASSWORD=app-pw
+    DEVELOPER_ID_APPLICATION_P12=cDEy DEVELOPER_ID_P12_PASSWORD=pw NOTARY_APPLE_ID=me@example.com NOTARY_PASSWORD=app-pw \
+    SPARKLE_ED_KEY=ed-key
 }
 calls_reset; secrets; RUNNER_ENVIRONMENT=self-hosted
 expect "release-keychain refuses outside a GitHub-hosted runner" 1 "refusing to run outside a GitHub-hosted runner (RUNNER_ENVIRONMENT is 'self-hosted')" -- "$t/scripts/release-keychain"
 [ ! -e "$scratch/calls" ] && pass "outside a hosted runner nothing is called" || fail "outside a hosted runner nothing is called: $(cat "$scratch/calls")"
 calls_reset; secrets; unset RUNNER_ENVIRONMENT
 expect "release-keychain refuses with RUNNER_ENVIRONMENT unset" 1 "RUNNER_ENVIRONMENT is ''" -- "$t/scripts/release-keychain"
-calls_reset; secrets; NOTARY_PASSWORD= ; unset NOTARY_KEYCHAIN
-expect "release-keychain names every missing secret and the keychain" 1 "these are not set: NOTARY_KEYCHAIN NOTARY_PASSWORD" -- "$t/scripts/release-keychain"
+calls_reset; secrets; NOTARY_PASSWORD= ; SPARKLE_ED_KEY= ; unset NOTARY_KEYCHAIN
+expect "release-keychain names every missing secret and the keychain" 1 "these are not set: NOTARY_KEYCHAIN NOTARY_PASSWORD SPARKLE_ED_KEY" -- "$t/scripts/release-keychain"
 [ ! -e "$scratch/calls" ] && pass "with a secret missing nothing is called" || fail "with a secret missing nothing is called: $(cat "$scratch/calls")"
 calls_reset; secrets; touch "$scratch/import-fails"
 expect "an identity that will not import fails, naming the secret" 1 "DEVELOPER_ID_APPLICATION_P12 would not import" -- "$t/scripts/release-keychain"
@@ -239,5 +240,9 @@ rm "$scratch/dist/appcast.xml"
 echo '<enclosure url="x" length="1"/>' >"$scratch/feed-body"
 expect "a feed with no signature is refused, saying what to look at" 1 "has no EdDSA signature" -- feed
 [ ! -e "$scratch/dist/appcast.xml" ] && pass "a refused feed leaves nothing to publish" || fail "a refused feed leaves nothing to publish"
+echo '<enclosure url="x" sparkle:edSignature="c2ln" length="1"/>' >"$scratch/feed-body"
+calls_reset; prefix=${prefix%/}
+expect "a URL with no final slash is still accepted" 0 "$scratch/dist/appcast.xml" -- feed
+called "--download-url-prefix $prefix/ -o " && pass "generate_appcast resolves the image under that URL" || fail "generate_appcast resolves the image under that URL: $(cat "$scratch/calls")"
 
 exit $failed

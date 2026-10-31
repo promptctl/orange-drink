@@ -49,8 +49,8 @@ is made from it, so losing it costs those two; losing both means no installed co
 only copies installed after it ships.
 
 Sparkle's tools are in the directory `make --no-print-directory sparkle-tools | tail -n 1` prints. To set the
-secret again, or to copy the key to another Mac with `generate_keys --account orange-drink -f <file>`:
+secret again, paste this as one line, so the key's file goes whether or not `gh` succeeds:
 
-    generate_keys --account orange-drink -x key
-    gh secret set SPARKLE_ED_KEY --env release -R promptctl/orange-drink <key
-    rm key
+    dir=$(mktemp -d); generate_keys --account orange-drink -x "$dir/key" && gh secret set SPARKLE_ED_KEY --env release -R promptctl/orange-drink <"$dir/key"; rm -rf "$dir"
+
+`generate_keys --account orange-drink -f <file>` copies the key to another Mac from a file exported the same way.
