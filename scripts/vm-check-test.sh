@@ -23,12 +23,11 @@ export PATH=$scratch/bin:$PATH
 run_check() {
   local cleanup=$1 body=$2
   : >"$scratch/calls"
-  rm -rf "$scratch/secret" "$scratch/failure-logs" "$scratch/lib-scratch"
+  rm -rf "$scratch/secret" "$scratch/failure-logs"
   mkdir "$scratch/secret"
   status=0
   TMPDIR=$scratch /bin/bash -c "set -euo pipefail
     . '$repo/scripts/vm-check-lib'
-    echo \"\$scratch\" >'$scratch/lib-scratch'
     $cleanup
     on_failure() { touch '$scratch/failure-logs'; }
     $body" 2>/dev/null || status=$?
@@ -37,8 +36,9 @@ ok() { echo "ok: $1"; }
 broken() { echo "FAILED: $1" >&2; exit 1; }
 expect_status() { [ "$status" -eq "$1" ] || broken "$2: exit $status, not $1"; }
 expect_calls() { [ "$(tr '\n' ' ' <"$scratch/calls")" = "$1" ] || broken "$2: tart was asked: $(tr '\n' ' ' <"$scratch/calls")"; }
+expect_no_scratch() { ! compgen -G "$scratch/orangedrink-vm-check.*" >/dev/null || broken "$1: the scratch directory stayed"; }
 expect_removed() {
-  [ ! -e "$(cat "$scratch/lib-scratch")" ] || broken "$1: the scratch directory stayed"
+  expect_no_scratch "$1"
   [ ! -e "$scratch/secret" ] || broken "$1: a listed directory stayed"
 }
 
@@ -81,5 +81,5 @@ sed -i '' 's/^exit 0$/[ "$1" != get ]/' "$scratch/bin/tart"
 run_check "$listed" ':'
 expect_status 1 "no image"
 expect_calls 'tart get ' "no image"
-[ ! -e "$(cat "$scratch/lib-scratch" 2>/dev/null)" ] || broken "no image: the scratch directory stayed"
+expect_no_scratch "no image"
 ok "a missing image stops the run before a clone"

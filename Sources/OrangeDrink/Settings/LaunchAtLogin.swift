@@ -19,20 +19,22 @@ import ServiceManagement
         /// macOS holds a login item while the app's Allow in the Background is off, as it is on a new install, since the
         /// helper's record shares that switch. The user turns it on in System Settings, and nothing here can.
         case needsApproval
-        case failed(String)
+        /// What the system said, or nil when it gave no error and the status did not move; `answered` logs that status.
+        case failed(String?)
 
         /// [LAW:one-source-of-truth] A press is judged by the status after it, not by whether it threw, since macOS can
         /// throw for an item already registered. A read asks for nothing, so it refuses nothing.
         init?(_ call: Call, status: SMAppService.Status, error: String?) {
             guard case .set(let wanted) = call, (status == .enabled) != wanted else { return nil }
-            self = status == .requiresApproval ? .needsApproval : .failed(error ?? status.name)
+            self = status == .requiresApproval ? .needsApproval : .failed(error)
         }
 
         /// What the row says under the switch, as the screen shows it and the catalog test reads it.
         func explanation(appName: String) -> Phrase {
             switch self {
             case .needsApproval: "Allow \(appName) in the background to start it at login."
-            case .failed(let reason): "Couldn't change Launch at Login: \(reason)"
+            case .failed(let reason?): "Couldn't change Launch at Login: \(reason)"
+            case .failed(nil): "Couldn't change Launch at Login."
             }
         }
     }
@@ -80,8 +82,9 @@ import ServiceManagement
     }
 
     private(set) var status: SMAppService.Status?
-    /// Why the last press did not take; any later answer replaces it, so coming back from System Settings clears advice
-    /// the user may have taken, and someone who turned the item off there sees a plain switch.
+    /// Why the last press did not take, until another press or the system moving says otherwise, since advice is still
+    /// true while the status has not moved and macOS applies an approval late. Someone who turned the item off in System
+    /// Settings pressed nothing, so sees a plain switch.
     private(set) var refusal: Refusal?
     /// [LAW:no-ambient-temporal-coupling] The one call in flight, from its start to its answer, and nothing else ends it.
     private(set) var asking: Task<Void, Never>?
@@ -132,8 +135,8 @@ import ServiceManagement
         let effects = effects
         asking = Task {
             let answer = await blocking { effects.answer(call) }
+            refusal = call == .read && answer.status == status ? refusal : Refusal(call, status: answer.status, error: answer.error)
             status = answer.status
-            refusal = Refusal(call, status: answer.status, error: answer.error)
             asking = nil
             record(.answered(call, status: answer.status.name, error: answer.error))
         }

@@ -6030,6 +6030,28 @@
         }
       }
     },
+    "Couldn't change Launch at Login.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't change Launch at Login."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de modifier Ouvrir à la connexion."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cambiar Abrir al iniciar sesión."
+          }
+        }
+      }
+    },
     "Allow %@ in the background to start it at login.": {
       "localizations": {
         "en": {

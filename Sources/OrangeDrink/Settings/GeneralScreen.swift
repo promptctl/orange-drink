@@ -54,8 +54,8 @@ private struct AppAppearanceSection: View {
     }
 }
 
-/// Launch at Login. The switch shows the system's state and asks it for the other, and a press that did not take says why
-/// under the row.
+/// Launch at Login. The switch shows the system's state and asks it for the other, is busy while any call is unanswered,
+/// which covers the first, and a press that did not take says why under the row.
 private struct SystemIntegrationSection: View {
     let login: LaunchAtLogin
 
@@ -65,7 +65,7 @@ private struct SystemIntegrationSection: View {
             SettingCard {
                 SettingRow(icon: ("power", .green), title: "Launch at Login", description: "Start \(appName) automatically when you log in") {
                     AccentSwitch(isOn: Binding(get: { login.isOn }, set: { login.set($0) }), tint: .green, label: "Launch at Login")
-                        .disabled(login.status == nil)
+                        .disabled(login.asking != nil)
                 }
                 if let refusal = login.refusal {
                     LoginItemFailureLine(explanation: refusal.explanation(appName: appName),

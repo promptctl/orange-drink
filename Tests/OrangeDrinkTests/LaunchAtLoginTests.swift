@@ -105,16 +105,23 @@ import ViewInspector
         gate.signal()
         await login.asking?.value
         #expect(try theSwitch(login).isDisabled() == false)
+
+        // Coming back starts a read, and a press in it would be dropped with the switch still showing it pressed.
+        system.center.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        #expect(try theSwitch(login).isDisabled())
+        gate.signal()
+        await login.asking?.value
+        #expect(try theSwitch(login).isDisabled() == false)
     }
 
     /// macOS can throw for an item already registered, so the status decides.
     @Test func aPressThatThrowsButReachesWhatItAskedForRefusesNothing() async throws {
-        system.registering(leaves: .enabled, error: NSError(domain: "SMAppServiceErrorDomain", code: 1))
+        system.registering(leaves: .enabled, error: NSError(domain: "d", code: 1, userInfo: [NSLocalizedDescriptionKey: "already registered"]))
         let login = await system.model()
         try await press(login)
         #expect(login.isOn)
         #expect(login.refusal == nil)
-        #expect(system.events.last == .answered(.set(true), status: "enabled", error: "SMAppServiceErrorDomain 1 The operation couldn’t be completed. (SMAppServiceErrorDomain error 1.)"))
+        #expect(system.events.last == .answered(.set(true), status: "enabled", error: "d 1 already registered"))
     }
 
     @Test func aPressMacOSHoldsForApprovalSaysSoAndLeadsToLoginItems() async throws {
@@ -137,12 +144,14 @@ import ViewInspector
         #expect(throws: (any Error).self) { try screen(login).inspect().find(button: "Open Login Items & Extensions…") }
     }
 
-    @Test func aPressWithNoErrorThatChangedNothingNamesTheStatus() async {
+    /// The status is a Swift name, so it goes in the log and not in front of someone reading French.
+    @Test func aPressWithNoErrorThatChangedNothingLogsTheStatusAndShowsNoReason() async {
         system.registering(leaves: .notFound)
         let login = await system.model()
         login.set(true)
         await login.asking?.value
-        #expect(login.refusal == .failed("notFound"))
+        #expect(login.refusal == .failed(nil))
+        #expect(system.events.last == .answered(.set(true), status: "notFound", error: nil))
     }
 
     /// The user turned it off in System Settings: a plain off switch, with no advice nobody asked for.
@@ -163,6 +172,19 @@ import ViewInspector
         await login.asking?.value
         #expect(login.isOn == false)
         #expect(login.refusal == nil)
+    }
+
+    /// macOS applies an approval late, and someone who went to look and came back has not been answered: the advice is
+    /// still true.
+    @Test func comingBackToAStatusThatHasNotMovedKeepsTheAdvice() async {
+        system.registering(leaves: .requiresApproval)
+        let login = await system.model()
+        login.set(true)
+        await login.asking?.value
+
+        system.center.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        await login.asking?.value
+        #expect(login.refusal == .needsApproval)
     }
 
     /// A stuck call shows in the log as an ask with no answer, and what it held up, and a later call never overlaps it.
