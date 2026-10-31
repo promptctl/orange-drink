@@ -43,6 +43,13 @@ struct ConnectedDevicesTests {
         #expect(rows([device("1", "Speaker", .none)]).isEmpty)
     }
 
+    @Test func aDeviceWhoseLevelsAreUnreadKeepsItsRowWithNoLevelBelowTheRanking() {
+        let rows = rows([device("1", "Aardvark", .unread), device("2", "Mouse", single(95)), device("3", "Speaker", .none)])
+        #expect(rows.map(\.name) == ["Mouse", "Aardvark"])
+        #expect(rows.map(\.percent) == ["95%", "–"])
+        #expect(rows.map(\.fraction) == [0.95, 0])
+    }
+
     @Test func earbudsShowTheirLowestBudNotTheCase() {
         let pods = device("1", "AirPods", .earbuds(left: BatteryLevel(percent: 60, approximate: false), right: nil,
                                                     case: BatteryLevel(percent: 5, approximate: false)))

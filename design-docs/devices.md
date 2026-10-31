@@ -45,7 +45,7 @@ One card listing every device that reports a battery. Rows have no dividers. Eac
   2. **Pushpin, outline:** not pinned. Tapping it pins the device's battery into the menu bar itself, next to the main icon.
   3. **Eye, white:** visible in the menu bar panel. Tapping it hides the device; the icon becomes an eye with a slash.
 
-Rows are sorted by battery level, lowest first. The reference shows 37%, 49%, 54%, then 95%.
+Rows are sorted by battery level, lowest first. The reference shows 37%, 49%, 54%, then 95%. A device whose level can't be read right now keeps its row below the rest, with an en dash for its level.
 
 ## Help list
 

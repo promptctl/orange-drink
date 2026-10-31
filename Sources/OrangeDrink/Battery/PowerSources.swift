@@ -6,7 +6,7 @@ import IOKit.ps
 enum PowerSources {
     /// Each source's description in a copy `call` made. Both steps answer nil, not an error, when powerd
     /// is unreachable, so the error names the call that answered nil.
-    static func descriptions(_ copy: Unmanaged<CFTypeRef>?, copiedBy call: String) throws -> [[String: Any]] {
+    static func descriptions(_ copy: Unmanaged<CFTypeRef>?, copiedBy call: String) throws(PowerSourcesError) -> [[String: Any]] {
         guard let info = copy?.takeRetainedValue() else { throw PowerSourcesError.unanswered(call: call) }
         guard let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() else {
             throw PowerSourcesError.unanswered(call: "IOPSCopyPowerSourcesList")
@@ -18,6 +18,4 @@ enum PowerSources {
 enum PowerSourcesError: Error, Equatable {
     /// powerd returned nothing from the named IOPowerSources call.
     case unanswered(call: String)
-    /// IOKit no longer exports the named private function, such as the one `AccessoryPower` reads the accessories with.
-    case missingSymbol(String)
 }

@@ -141,7 +141,7 @@ At the bottom of the card, three centred lines: a small grey "ⓘ We refresh you
 
 ### Connected Devices, expanded
 
-A list of every Bluetooth or nearby Apple device that reports a battery level, one row per device, separated by thin dividers that are inset to line up with the text. Each row has:
+A list of every Bluetooth or nearby Apple device that reports a battery level, one row per device, separated by thin dividers that are inset to line up with the text. A device whose level can't be read right now keeps its row below the rest, with an en dash for its level. Each row has:
 
 - On the left, an outline icon for the device type. A phone icon for phones, a tablet icon for tablets, and a wireless-signal icon (concentric arcs around a dot) for audio and other wireless accessories.
 - The device's own name in white, such as the name the owner gave their iPhone.

@@ -77,15 +77,15 @@ iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Battery/Ti
 # with a level to the app's sweep. project.yml is covered for the Bluetooth usage description.
 devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
 devices-check.test := DevicesLive/matchesSystemProfiler()
-devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
-  Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
+devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/PowerSources.swift Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
+  Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
 # The pinned devices ticket on the real menu bar: puts three status items in it for a moment, reorders
 # them, and checks the bar follows the list, including over a position left by a ⌘-drag.
 position-check: export TEST_RUNNER_POSITION_CHECK = 1
 position-check.test := PinnedPositionCheck/theBarFollowsTheListEvenOverASavedPosition()
 position-check.covers := Sources/OrangeDrink/MenuBar/PinnedItems.swift Sources/OrangeDrink/Devices/PinnedOrder.swift \
-  Sources/OrangeDrink/Devices/Device.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift
+  Sources/OrangeDrink/Devices/Device.swift Sources/OrangeDrink/Devices/DeviceRanking.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift
 
 # The privileged helper's check on a real Mac, with OrangeDrink approved under System Settings › General ›
 # Login Items & Extensions › Allow in the Background: the helper, running as root from this build, accepts

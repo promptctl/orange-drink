@@ -43,6 +43,13 @@ struct AccessoryPowerTests {
         }
     }
 
+    @Test func aReadThatAnsweredSaysEachDevicesLevelsAndOneThatDidNotSaysUnread() {
+        let answered = AccessoryPower.Reading.answered(AccessoryPower.levels(from: [Self.source("FluffPods", "Single", 47)]))
+        #expect(answered.levels(of: "FluffPods") == .single(Self.level(47)))
+        #expect(answered.levels(of: "Speaker") == .none)
+        #expect(AccessoryPower.Reading.unanswered.levels(of: "FluffPods") == .unread)
+    }
+
     @Test func onlyAccessorySourcesAreRead() {
         let mac: [String: Any] = ["Type": "InternalBattery", "Name": "InternalBattery-0", "Current Capacity": 80, "Max Capacity": 100]
         #expect(AccessoryPower.levels(from: [mac]) == .init())
