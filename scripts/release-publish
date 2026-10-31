@@ -1,7 +1,7 @@
 #!/bin/bash
-# Publishes the disk image a release run built as its tag's GitHub release:
+# Publishes the disk image a release run built, and the update feed offering it, as its tag's GitHub release:
 #
-#   scripts/release-publish <tag> <dmg>
+#   scripts/release-publish <tag> <dmg> <appcast>
 #
 # A release attaches to wherever its tag points when it is made, and the approval wait lets a tag move
 # after its run began. So this run publishes only while the tag still names the commit it built, or one
@@ -9,9 +9,11 @@
 set -euo pipefail
 
 fail() { echo "release-publish: $*" >&2; exit 1; }
-tag=${1:?usage: scripts/release-publish <tag> <dmg>}
-dmg=${2:?usage: scripts/release-publish <tag> <dmg>}
+tag=${1:?usage: scripts/release-publish <tag> <dmg> <appcast>}
+dmg=${2:?usage: scripts/release-publish <tag> <dmg> <appcast>}
+appcast=${3:?usage: scripts/release-publish <tag> <dmg> <appcast>}
 tagged=$(gh api "repos/$GITHUB_REPOSITORY/commits/tags/$tag" --jq .sha)
 [ "$tagged" = "$GITHUB_SHA" ] || fail "tag $tag now names $tagged, and this run built $GITHUB_SHA"
-# release-preflight proved the tag is v<MARKETING_VERSION>, so the tag carries the version.
-gh release create "$tag" "$dmg" --verify-tag --title "Orange Drink ${tag#v}" --generate-notes
+# release-preflight proved the tag is v<MARKETING_VERSION>, so the tag carries the version. gh publishes a release
+# only once its files are up, so the app's feed URL (latest/download/appcast.xml) moves to this feed with its image.
+gh release create "$tag" "$dmg" "$appcast" --verify-tag --title "Orange Drink ${tag#v}" --generate-notes

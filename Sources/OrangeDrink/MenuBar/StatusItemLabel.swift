@@ -30,9 +30,12 @@ struct StatusItemLabel: View {
     }
 
     var body: some View {
-        switch content(on: barScheme == .dark ? .dark : .light) {
-        case .icon(let icon): Image(nsImage: icon.image)
-        case .symbol(let name): Image(systemName: name)
+        Group {
+            switch content(on: barScheme == .dark ? .dark : .light) {
+            case .icon(let icon): Image(nsImage: icon.image)
+            case .symbol(let name): Image(systemName: name)
+            }
         }
+        .accessibilityLabel(appName)
     }
 }

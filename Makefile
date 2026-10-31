@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release test hardware-check-test release-test app-energy-check cpu-check ax-check helper-check release-helper-check
+.PHONY: generate build release sparkle-tools test hardware-check-test release-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check
 
 generate:
 	xcodegen generate --use-cache
@@ -107,6 +107,20 @@ helper-repair-check.covers := Sources/OrangeDrink/Helper Sources/HelperInterface
 release-helper-check: release
 	swift scripts/release-helper-check.swift "$(RELEASE_APP)"
 
+# An update on a real Mac: installs a build from its disk image, then has its updater find nothing newer on a local
+# feed, and install a higher version from it. scripts/update-check reads each result off the installed app. The newer
+# build is the tree with only its version raised, built and notarized as a release is. It needs the signing key in this
+# Mac's keychain and Accessibility trust; nobody clicks. The tree is generated uncached: the generated files are under
+# build/, which is not copied, and `--use-cache` would call a second run's copy unchanged and leave them missing.
+update-check:
+	@set -e; out='$(CURDIR)/build/update-check'; rm -rf "$$out"; mkdir -p "$$out/tree"; \
+	rsync -a --exclude .git --exclude .claude --exclude build ./ "$$out/tree/"; \
+	version=$$(scripts/version); newer=$${version%.*}.$$(( $${version##*.} + 1 )); \
+	sed -i '' "s/MARKETING_VERSION: .*/MARKETING_VERSION: \"$$newer\"/" "$$out/tree/project.yml"; \
+	xcodegen generate --spec "$$out/tree/project.yml"; \
+	older_dmg=$$(scripts/dmg "$$out/older"); newer_dmg=$$("$$out/tree/scripts/dmg" "$$out/newer"); \
+	scripts/update-check "$$older_dmg" "$$newer_dmg"
+
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle
 # Mac (another busy app, such as a terminal hosting builds and agents, outranks it there too). Same TEST_RUNNER_ shape.
@@ -134,6 +148,12 @@ cpu-check: release
 release: generate
 	$(call gated,build,-configuration Release)
 	@echo $(RELEASE_APP)
+
+# Sparkle's release tools, from the package project.yml pins. The last line printed is their directory, so no script
+# spells the artifact's path or version.
+sparkle-tools: generate
+	$(XCB) -resolvePackageDependencies >&2
+	@echo $(abspath $(DERIVED_DATA))/SourcePackages/artifacts/sparkle/Sparkle/bin
 
 # [LAW:verifiable-goals] "Zero warnings" is read from the result bundle, which counts every
 # build issue. Grepping xcodebuild's output would count tool chatter (appintentsmetadataprocessor

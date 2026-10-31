@@ -1,7 +1,10 @@
 # Releasing
 
-Pushing the tag `v<version>` publishes that version's notarized DMG as a GitHub release
-(`.github/workflows/release.yaml`). `<version>` is `project.yml`'s `MARKETING_VERSION`.
+Pushing the tag `v<version>` publishes that version's notarized DMG as a GitHub release, with the update feed
+that offers it (`.github/workflows/release.yaml`). `<version>` is `project.yml`'s `MARKETING_VERSION`.
+
+Installed copies read that feed through `SUFeedURL`, `releases/latest/download/appcast.xml`, when the panel's
+Check for Updates… row is pressed. The release marked latest is the update every older copy is offered.
 
 ## Cut a release
 
@@ -33,5 +36,20 @@ Set each with `gh secret set <NAME> --env release -R promptctl/orange-drink`.
 | `DEVELOPER_ID_P12_PASSWORD` | The password chosen at export |
 | `NOTARY_APPLE_ID` | The Apple ID that notarizes |
 | `NOTARY_PASSWORD` | An app-specific password for it, made at account.apple.com |
+| `SPARKLE_ED_KEY` | The EdDSA private key that signs updates (below) |
 
 `scripts/release-keychain` turns these into the job's keychain, and refuses to run anywhere but a GitHub-hosted runner.
+
+## The update signing key
+
+An installed copy accepts only an update signed by the private half of `SUPublicEDKey` in `project.yml`. It is in
+the login keychain of the Mac it was made on, under Sparkle's account `orange-drink`, and in the `SPARKLE_ED_KEY`
+secret, which GitHub never shows again. Losing the keychain copy costs nothing until a new secret is needed, but
+losing both means no installed copy can be updated: a new key reaches only copies installed after it ships.
+
+Sparkle's tools are in the directory `make --no-print-directory sparkle-tools | tail -n 1` prints. To set the
+secret again, or to copy the key to another Mac with `generate_keys --account orange-drink -f <file>`:
+
+    generate_keys --account orange-drink -x key
+    gh secret set SPARKLE_ED_KEY --env release -R promptctl/orange-drink <key
+    rm key

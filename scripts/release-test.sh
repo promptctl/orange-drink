@@ -1,6 +1,6 @@
 #!/bin/bash
 # [LAW:behavior-not-structure] The release scripts seen from outside: scripts/version, release-preflight,
-# release-keychain, release-publish, notarize and dmg, each run from a scratch copy of the tree with the tools
+# release-keychain, release-publish, notarize, dmg and appcast, each run from a scratch copy of the tree with the tools
 # they call stood in on PATH. The stand-ins record every call to $SCRATCH/calls; each case asserts what was
 # printed, how it exited, and what was called. Trust, validation and real signing are proved by a release
 # run, not here.
@@ -31,6 +31,7 @@ case "$(basename "$0") $1 $2" in
     echo '  1) ABC123 "Developer ID Application: Brandon Fryslie (6R988MUU27)"' ;;
   "gh api "*) cat "$SCRATCH/tag-commit" ;;
   "make --no-print-directory release") echo "$SCRATCH/built/OrangeDrink.app" ;;
+  "make --no-print-directory sparkle-tools") echo "$SCRATCH/sparkle-tools" ;;
   "hdiutil create "*)
     fails=$(cat "$SCRATCH/hdiutil-fails")
     if [ "$fails" -gt 0 ]; then echo $((fails - 1)) >"$SCRATCH/hdiutil-fails"; echo "hdiutil: create failed - Resource busy" >&2; exit 1; fi
@@ -41,6 +42,20 @@ STUB
   chmod +x "$scratch/bin/$tool"
 done
 export PATH="$scratch/bin:$PATH"
+# generate_appcast, which scripts/appcast finds through `make sparkle-tools`: records its arguments, the key it was
+# given and the directory's files, and writes the feed $SCRATCH/feed-body holds.
+mkdir "$scratch/sparkle-tools"
+cat > "$scratch/sparkle-tools/generate_appcast" <<'STUB'
+#!/bin/bash
+echo "generate_appcast $*" >>"$SCRATCH/calls"
+cat >"$SCRATCH/key-seen"
+ls "${!#}" >"$SCRATCH/images-seen"
+while [ $# -gt 0 ]; do
+  if [ "$1" = -o ]; then cp "$SCRATCH/feed-body" "$2"; fi
+  shift
+done
+STUB
+chmod +x "$scratch/sparkle-tools/generate_appcast"
 # The scratch repository's git ignores this machine's config: a global tag.gpgSign or core.hooksPath would
 # otherwise sign, prompt or refuse in it.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
@@ -65,7 +80,8 @@ tree() {
   local dir=$scratch/tree
   rm -rf "$dir"; mkdir -p "$dir/scripts"
   cp "$repo/scripts/version" "$repo/scripts/release-preflight" "$repo/scripts/release-keychain" \
-     "$repo/scripts/release-publish" "$repo/scripts/notarize" "$repo/scripts/dmg" "$repo/scripts/developer-id" "$dir/scripts/"
+     "$repo/scripts/release-publish" "$repo/scripts/notarize" "$repo/scripts/dmg" "$repo/scripts/developer-id" \
+     "$repo/scripts/appcast" "$dir/scripts/"
   sed "s/^\(  *\)MARKETING_VERSION:.*/\1$1/" "$repo/project.yml" >"$dir/project.yml"
   echo "$dir"
 }
@@ -198,12 +214,30 @@ t=$(tree 'MARKETING_VERSION: "1.2.3"')
 export GITHUB_REPOSITORY=promptctl/orange-drink GITHUB_SHA=built-commit
 echo built-commit >"$scratch/tag-commit"
 calls_reset
-expect "the release is made while the tag names the commit that was built" 0 "" -- "$t/scripts/release-publish" v1.2.3 "$scratch/image.dmg"
-called "gh api repos/promptctl/orange-drink/commits/tags/v1.2.3 --jq .sha" && called "gh release create v1.2.3 $scratch/image.dmg --verify-tag --title Orange Drink 1.2.3 --generate-notes" \
+expect "the release is made while the tag names the commit that was built" 0 "" -- "$t/scripts/release-publish" v1.2.3 "$scratch/image.dmg" "$scratch/appcast.xml"
+called "gh api repos/promptctl/orange-drink/commits/tags/v1.2.3 --jq .sha" && called "gh release create v1.2.3 $scratch/image.dmg $scratch/appcast.xml --verify-tag --title Orange Drink 1.2.3 --generate-notes" \
   && pass "it reads the tag's commit, then publishes under the tag's version" || fail "it reads the tag's commit, then publishes under the tag's version: $(cat "$scratch/calls")"
 echo moved-commit >"$scratch/tag-commit"
 calls_reset
-expect "a tag that moved stops the release, naming both commits" 1 "tag v1.2.3 now names moved-commit, and this run built built-commit" -- "$t/scripts/release-publish" v1.2.3 "$scratch/image.dmg"
+expect "a tag that moved stops the release, naming both commits" 1 "tag v1.2.3 now names moved-commit, and this run built built-commit" -- "$t/scripts/release-publish" v1.2.3 "$scratch/image.dmg" "$scratch/appcast.xml"
 called "gh release create" && fail "a moved tag was released" || pass "a moved tag makes no release"
+
+# --- scripts/appcast: a feed that installed copies would refuse never leaves here
+t=$(tree 'MARKETING_VERSION: "1.2.3"')
+mkdir "$scratch/dist"
+touch "$scratch/dist/OrangeDrink-1.2.3.dmg" "$scratch/dist/OrangeDrink-1.2.2.dmg"
+prefix=https://github.com/promptctl/orange-drink/releases/download/v1.2.3/
+feed() { printf the-private-key | "$t/scripts/appcast" "$scratch/dist/OrangeDrink-1.2.3.dmg" "$prefix"; }
+echo '<enclosure url="x" sparkle:edSignature="c2ln" length="1"/>' >"$scratch/feed-body"
+calls_reset
+expect "a signed feed is written beside its image, and its path printed" 0 "$scratch/dist/appcast.xml" -- feed
+grep -q 'edSignature="c2ln"' "$scratch/dist/appcast.xml" && pass "the feed is the one generate_appcast wrote" || fail "the feed is the one generate_appcast wrote"
+[ "$(cat "$scratch/key-seen")" = the-private-key ] && pass "generate_appcast reads the key from stdin" || fail "generate_appcast reads the key from stdin: $(cat "$scratch/key-seen")"
+called "generate_appcast --ed-key-file - --download-url-prefix $prefix -o " && pass "the key is on no command line, and the prefix is passed" || fail "the key is on no command line, and the prefix is passed: $(cat "$scratch/calls")"
+[ "$(cat "$scratch/images-seen")" = OrangeDrink-1.2.3.dmg ] && pass "generate_appcast sees this image alone, so it makes no deltas" || fail "generate_appcast sees this image alone: $(cat "$scratch/images-seen")"
+rm "$scratch/dist/appcast.xml"
+echo '<enclosure url="x" length="1"/>' >"$scratch/feed-body"
+expect "a feed with no signature is refused, saying what to look at" 1 "has no EdDSA signature" -- feed
+[ ! -e "$scratch/dist/appcast.xml" ] && pass "a refused feed leaves nothing to publish" || fail "a refused feed leaves nothing to publish"
 
 exit $failed

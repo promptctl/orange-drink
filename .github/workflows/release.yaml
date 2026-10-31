@@ -89,8 +89,17 @@ jobs:
             echo "- dmg: $(basename "$dmg")"
             echo "- sha256: $(shasum -a 256 "$dmg" | cut -d' ' -f1)"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Sign the update feed
+        id: feed
+        env:
+          SPARKLE_ED_KEY: ${{ secrets.SPARKLE_ED_KEY }}
+          DMG: ${{ steps.dmg.outputs.path }}
+        run: |
+          appcast=$(printenv SPARKLE_ED_KEY | scripts/appcast "$DMG" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/")
+          echo "path=$appcast" >> "$GITHUB_OUTPUT"
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           DMG: ${{ steps.dmg.outputs.path }}
-        run: scripts/release-publish "$TAG" "$DMG"
+          APPCAST: ${{ steps.feed.outputs.path }}
+        run: scripts/release-publish "$TAG" "$DMG" "$APPCAST"

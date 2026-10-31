@@ -1,0 +1,36 @@
+#!/bin/bash
+# Writes the update feed offering one disk image, signed with the EdDSA private key it reads on stdin, beside the
+# image, and prints the feed's path:
+#
+#   printenv SPARKLE_ED_KEY | scripts/appcast <dmg> <URL the image is served under, ending in a slash>
+#
+# The feed holds this release alone, which is all an older copy needs to find it. generate_appcast rewrites a feed
+# already in its directory and makes deltas against any older image there, so it is given a directory holding this
+# image and nothing else.
+set -euo pipefail
+
+usage='usage: scripts/appcast <dmg> <URL the image is served under, ending in a slash> <private key'
+dmg=${1:?$usage}
+prefix=${2:?$usage}
+# Resolved before the move to the repo root, which make needs, so a relative path means the one the caller named.
+dmg=$(realpath "$dmg")
+cd "$(dirname "$0")/.."
+
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-appcast.XXXXXX")
+trap 'rm -rf "$scratch"' EXIT
+
+# make must not read the key.
+tools=$(make --no-print-directory sparkle-tools </dev/null | tee /dev/stderr | tail -n 1)
+mkdir "$scratch/image"
+cp "$dmg" "$scratch/image/"
+"$tools/generate_appcast" --ed-key-file - --download-url-prefix "$prefix" -o "$scratch/appcast.xml" "$scratch/image" >&2
+
+# [LAW:single-enforcer] A key that is not SUPublicEDKey's other half is a warning to generate_appcast, which exits 0
+# with the item unsigned, and every installed copy would refuse that update. So the feed is judged here.
+grep -q 'sparkle:edSignature=' "$scratch/appcast.xml" || {
+  echo "appcast: the feed for $dmg has no EdDSA signature; is the key on stdin the private half of project.yml's SUPublicEDKey?" >&2
+  exit 1
+}
+feed=$(dirname "$dmg")/appcast.xml
+mv -f "$scratch/appcast.xml" "$feed"
+echo "$feed"

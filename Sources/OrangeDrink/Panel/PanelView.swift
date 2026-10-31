@@ -8,6 +8,7 @@ struct PanelView: View {
     let appEnergy: Result<AppEnergyHistory, any Error>
     let sections: PanelSections
     let lowPowerMode: LowPowerMode
+    let updates: AppUpdater
     let keyboard: PanelKeyboard
     let look: AppAppearanceModel
     let language: AppLanguageModel
@@ -35,7 +36,7 @@ struct PanelView: View {
                     ConnectedDevicesView(connected: connected, failed: devices.failure != nil)
                 }
             }
-            ActionsCard(lowPowerMode: lowPowerMode)
+            ActionsCard(lowPowerMode: lowPowerMode, updates: updates)
         }
         .padding(12)
         .frame(width: 330)
@@ -154,8 +155,9 @@ struct CollapsibleCard<Content: View>: View {
 }
 
 /// The actions card: one card of rows under hairlines, in `PanelAction` order.
-private struct ActionsCard: View {
+struct ActionsCard: View {
     let lowPowerMode: LowPowerMode
+    let updates: AppUpdater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -190,8 +192,7 @@ private struct ActionsCard: View {
                     .padding(.leading, 30).padding(.bottom, 6)
             }
         case .checkForUpdates:
-            // A placeholder until the update check exists (orange-distribution-kg2.l9x).
-            ActionRow(action: action, run: nil) { EmptyView() }
+            ActionRow(action: action, run: updates.canCheck ? { updates.check() } : nil) { EmptyView() }
         case .quit:
             ActionRow(action: action, tint: .red) { NSApplication.shared.terminate(nil) } trailing: {
                 Text(PanelAction.versionText(of: .main)).font(.caption.monospaced()).foregroundStyle(.secondary)

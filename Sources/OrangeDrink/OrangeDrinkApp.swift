@@ -24,6 +24,7 @@ struct OrangeDrinkApp: App {
     @State private var chargeHold: AppChargeHold
     @State private var sections: PanelSections
     @State private var lowPowerMode: LowPowerMode
+    @State private var updates: AppUpdater
     private let keyboard: PanelKeyboard
     private let history: Result<BatteryHistory, any Error>
     private let appEnergy: Result<AppEnergyHistory, any Error>
@@ -100,6 +101,7 @@ struct OrangeDrinkApp: App {
         _sections = State(initialValue: sections)
         let lowPowerMode = LowPowerMode(helper: HelperAccess(daemon: HelperRegistration.daemon))
         _lowPowerMode = State(initialValue: lowPowerMode)
+        _updates = State(initialValue: AppUpdater.live())
         keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
         _chargeLimit = State(initialValue: chargeLimit)
@@ -152,7 +154,7 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, keyboard: keyboard, look: look, language: language)
+            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, updates: updates, keyboard: keyboard, look: look, language: language)
         } label: {
             StatusItemLabel(state: battery.state, icon: menuBarIcon)
         }

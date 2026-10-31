@@ -1,0 +1,114 @@
+#!/bin/bash
+# An update on a real Mac, read off the installed app. Installs the older build from its disk image and points it,
+# for that launch alone, at a feed served from this Mac and signed by scripts/appcast. Then presses the panel's row:
+# with the feed offering the same version, Sparkle's no-update result names that feed and the same version is still
+# installed; with the feed offering the newer build, the app replaces itself and comes back as a new process at the
+# same path, with the newer version. Run by `make update-check`.
+#
+#   scripts/update-check <older dmg> <newer dmg>
+#
+# Exits 0 when every reading holds and 1 naming the first that does not. Nobody clicks; the presses are
+# scripts/update-press.swift, so the invoking process must be trusted for Accessibility.
+set -euo pipefail
+
+older=$(realpath "${1:?usage: scripts/update-check <older dmg> <newer dmg>}")
+newer=$(realpath "${2:?usage: scripts/update-check <older dmg> <newer dmg>}")
+cd "$(dirname "$0")/.."
+
+# Resolved, since macOS reports a process by its real path, and $TMPDIR's /var is a link to /private/var.
+scratch=$(realpath "$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-update-check.XXXXXX")")
+server=
+app=$scratch/installed/OrangeDrink.app
+executable=$app/Contents/MacOS/OrangeDrink
+subsystem=dev.orangedrink.OrangeDrink
+
+pids() { pgrep -f "^$executable( |\$)" || true; }
+# Quits what it launched, stops the server, and takes the key file with the rest of the scratch directory.
+finish() {
+  status=$?
+  pid=$(pids)
+  if [ -n "$pid" ]; then
+    kill $pid
+    # The app gives up its helper as it quits, so its bundle stays until it is gone.
+    for _ in $(seq 1 30); do
+      if [ -z "$(pids)" ]; then break; fi
+      sleep 1
+    done
+    if [ -n "$(pids)" ]; then echo "update-check: pid $(pids) did not quit" >&2; fi
+  fi
+  if [ -n "$server" ]; then kill "$server"; fi
+  rm -rf "$scratch"
+  exit $status
+}
+trap finish EXIT
+fail() { echo "update-check: $*" >&2; exit 1; }
+installed_version() { /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"; }
+press() { swift scripts/update-press.swift "$@"; }
+# [LAW:no-ambient-temporal-coupling] Each wait is on the fact it needs, polled to a deadline.
+wait_for() {
+  local what=$1 tries=$2; shift 2
+  for _ in $(seq 1 "$tries"); do
+    if "$@"; then return 0; fi
+    sleep 1
+  done
+  fail "$what"
+}
+launched() { launched_pid=$(pids); [ -n "$launched_pid" ] && [ "$launched_pid" != "${1:-}" ]; }
+logged() {
+  /usr/bin/log show --last 10m --style compact \
+    --predicate "subsystem == \"$subsystem\" AND category == \"updates\" AND processID == $1" | grep -F "$2"
+}
+
+# The port is chosen first, because a feed names where its image is served.
+port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+url=http://127.0.0.1:$port/
+
+# Both feeds are signed before anything is served, so no key file exists once the server starts. The feeds are made
+# in directories of their own, because scripts/appcast writes the feed beside its image.
+tools=$(make --no-print-directory sparkle-tools | tee /dev/stderr | tail -n 1)
+mkdir "$scratch/key" "$scratch/served" "$scratch/older" "$scratch/newer"
+chmod 700 "$scratch/key"
+"$tools/generate_keys" --account orange-drink -x "$scratch/key/ed25519" >&2
+cp "$older" "$scratch/older/"
+cp "$newer" "$scratch/newer/"
+scripts/appcast "$scratch/older/$(basename "$older")" "$url" <"$scratch/key/ed25519" >/dev/null
+scripts/appcast "$scratch/newer/$(basename "$newer")" "$url" <"$scratch/key/ed25519" >/dev/null
+rm -rf "$scratch/key"
+
+cp "$older" "$newer" "$scratch/served/"
+cp "$scratch/older/appcast.xml" "$scratch/served/appcast.xml"
+python3 -m http.server "$port" --bind 127.0.0.1 --directory "$scratch/served" >&2 &
+server=$!
+
+mount=$scratch/mount
+hdiutil attach "$older" -nobrowse -readonly -mountpoint "$mount" >&2
+mkdir "$scratch/installed"
+ditto "$mount/OrangeDrink.app" "$app"
+hdiutil detach "$mount" >&2
+older_version=$(installed_version)
+
+# The argument domain, so this launch reads the local feed and the defaults other copies read stay as they were.
+open -n "$app" --args -SUFeedURL "${url}appcast.xml"
+wait_for "the installed app did not start" 30 launched
+older_pid=$launched_pid
+echo "update-check: installed $older_version, pid $older_pid at $app" >&2
+
+# Nothing newer. The cycle ends, and its line is logged, only once the alert is acknowledged.
+press "$older_pid" "Check for Updates…" OrangeDrink
+press "$older_pid" OK
+wait_for "no up-to-date result naming the local feed in the log" 30 logged "$older_pid" "feed ${url}appcast.xml: up to date"
+[ "$(installed_version)" = "$older_version" ] || fail "the installed version moved to $(installed_version) with nothing newer on the feed"
+[ "$(pids)" = "$older_pid" ] || fail "the app is no longer pid $older_pid after finding nothing newer"
+echo "update-check: nothing newer: Sparkle said up to date, $older_version still installed" >&2
+
+# The newer build.
+cp "$scratch/newer/appcast.xml" "$scratch/served/appcast.xml"
+press "$older_pid" "Check for Updates…" OrangeDrink
+press "$older_pid" "Install Update"
+press "$older_pid" "Install and Relaunch"
+wait_for "no new process at $app after the install" 120 launched "$older_pid"
+newer_version=$(installed_version)
+[ "$newer_version" != "$older_version" ] || fail "pid $launched_pid runs from $app, but it is still $older_version"
+wanted=$(basename "$newer" .dmg)
+[ "$newer_version" = "${wanted#OrangeDrink-}" ] || fail "the installed version is $newer_version, not the newer build's ${wanted#OrangeDrink-}"
+echo "update-check: updated: $older_version (pid $older_pid) to $newer_version (pid $launched_pid) at the same path" >&2
