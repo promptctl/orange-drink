@@ -67,6 +67,30 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         _ = model
     }
 
+    @Test func anEndedDeviceStreamEmptiesTheShelfInsteadOfFreezingItsLevels() async throws {
+        let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) {}
+        let (changed, signal) = AsyncStream.makeStream(of: Void.self)
+        var next = changed.makeAsyncIterator()
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let model = DevicesModel(events: events, onChange: { publisher.publish(WidgetDevice.list($0)); signal.yield() },
+                                 onEnded: { publisher.publish(WidgetDevice.list(DeviceList())); signal.yield() })
+        send.yield(.reported(Self.iPhone))
+        _ = await next.next()
+        #expect(try levelRead("AA") == 95)
+
+        send.finish()
+        _ = await next.next()
+        #expect(try levelRead("AA") == nil)
+        #expect(model.failure != nil)
+    }
+
+    @Test func theShelfLogsNeitherADevicesNameNorItsAddress() {
+        let device = WidgetDevice(address: "AA-BB", name: "Brandon's iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
+        let line = String(describing: Shelved.running([device]))
+        #expect(!line.contains("Brandon") && !line.contains("AA-BB"))
+        #expect(line.contains("80%"))
+    }
+
     @Test func aDeviceThatDisconnectsLeavesTheShelfAndTheAppQuittingSaysSo() async throws {
         let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) {}
         var list = DeviceList()

@@ -70,9 +70,14 @@ struct OrangeDrinkApp: App {
         let deviceWidgets = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) {
             WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.Item.devices.kind)
         }
+        // The shelf holds the model's list from launch, so a file a crashed run left behind is not drawn
+        // as current while the first Bluetooth sweep is still out.
+        deviceWidgets.publish(WidgetDevice.list(DeviceList()))
         let devices = DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
             deviceWidgets.publish(WidgetDevice.list($0))
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
+        }, onEnded: {
+            deviceWidgets.publish(WidgetDevice.list(DeviceList()))
         })
         _devices = State(initialValue: devices)
         pinnedItems = PinnedItemsController()

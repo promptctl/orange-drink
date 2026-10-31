@@ -19,7 +19,7 @@ enum MacBattery: Codable, Equatable, Sendable {
 
 /// One connected device, as the Device Battery widget draws it. [LAW:one-source-of-truth] The kind and
 /// level are the app's own types (`DeviceKind`, `BatteryLevel`), derived from the one ranking the panel reads.
-struct WidgetDevice: Codable, Equatable, Sendable, Identifiable {
+struct WidgetDevice: Codable, Equatable, Sendable, Identifiable, CustomDebugStringConvertible {
     let address: String
     let name: String
     let kind: DeviceKind
@@ -27,6 +27,9 @@ struct WidgetDevice: Codable, Equatable, Sendable, Identifiable {
     let level: BatteryLevel?
 
     var id: String { address }
+
+    /// What the shelf's logs carry, which are public: the kind and level, never the name or address.
+    var debugDescription: String { "\(kind) \(level.map { "\($0.percent)%" } ?? "unknown")" }
 }
 
 /// What a shelf file holds: a widget's value and the app's own lifetime, so the widget can tell a value
