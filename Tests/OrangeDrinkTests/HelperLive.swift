@@ -84,7 +84,7 @@ struct HelperLive {
             if lines.contains(where: { $0.hasPrefix("helper registration: ") }) { break }
             Thread.sleep(forTimeInterval: 0.2)
         }
-        #expect(lines.contains { $0.hasPrefix("helper registration: ") && $0.hasSuffix("; registered; status enabled") }, "\(lines)")
+        #expect(lines.contains { $0.hasPrefix("helper registration: registered; status enabled;") }, "\(lines)")
     }
 
     /// Low Power Mode through the helper, read back from pmset on the source the Mac is on, from the system as the
