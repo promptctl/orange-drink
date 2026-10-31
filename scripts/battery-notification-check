@@ -23,8 +23,11 @@ battery="$tools/fake-battery"
 binary=$app/Contents/MacOS/OrangeDrink
 
 log_lines() { guest /usr/bin/log show --last 30m --style compact --predicate 'category == "batteryNotifications"'; }
-logged() { log_lines | grep -q "$1"; }
+logged() { grep -q "$1" <<<"$(log_lines)"; }
 list() { guest "$tree" list; }
+# A here-string drops its command's status, so a read that failed would be a tree showing nothing. Whatever says something
+# is gone reads through this, and a failed read says it is not.
+read_tree() { showing=$(list); }
 on_failure() {
   log_lines >&2
   guest sh -c 'cat /tmp/app.out' >&2
@@ -37,11 +40,12 @@ warn() { guest sudo -n "$battery" warn "$1" >&2; }
 post() { guest osascript -e "display notification \"$2\" with title \"$1\""; }
 start_app() { guest sh -c "nohup '$binary' >/tmp/app.out 2>&1 &"; }
 
-has_battery() { guest pmset -g batt | grep -q InternalBattery; }
+has_battery() { grep -q InternalBattery <<<"$(guest pmset -g batt)"; }
 has_alert() { grep -q '^AXNotificationCenterAlert' <<<"$(list)"; }
 # The alerts in $1 beyond those the app's own launch left.
 new_alerts() { grep '^AXNotificationCenterAlert' <<<"$1" | grep -vxF "$installed" || [ "${PIPESTATUS[1]}" -eq 1 ]; }
-shows() { grep -qxF "$1" <<<"$(list)"; }
+shows() { read_tree && grep -qxF "$1" <<<"$showing"; }
+nothing_new() { read_tree && [ -z "$(new_alerts "$showing")" ]; }
 closes() { log_lines | awk '/, closed$/ { n++ } END { print n + 0 }'; }
 closed_after() { [ "$(closes)" -gt "$1" ]; }
 
@@ -104,12 +108,13 @@ raise() {
   [ -n "$(new_alerts "$(list)")" ]
 }
 wait_for "the low battery notification never showed" 30 raise
-alert=$(new_alerts "$(list)")
+read_tree
+alert=$(new_alerts "$showing")
 sleep 5
 shows "$alert" || fail "with the switch off, the low battery alert did not stay"
 say "off: the low battery alert stayed for 5 seconds: $alert"
 
-gone() { ! shows "$alert"; }
+gone() { read_tree && ! grep -qxF "$alert" <<<"$showing"; }
 warn 1
 wait_for "macOS did not withdraw the alert when the warning ended" 10 gone
 
@@ -139,13 +144,13 @@ say "on: the alert closed with no press from the check, and the login items aler
 if [ "$first" -eq 2 ]; then
   warn 3
   sleep 3
-  [ -z "$(new_alerts "$(list)")" ] || fail "the final warning showed something after the early warning's alert was closed"
+  nothing_new || fail "the final warning showed something after the early warning's alert was closed"
   say "the final warning brought nothing new"
 else
   warn 1
   warn 2
   sleep 3
-  [ -z "$(new_alerts "$(list)")" ] || fail "the early warning showed an alert on macOS 26"
+  nothing_new || fail "the early warning showed an alert on macOS 26"
   before=$(closes)
   gone_within_5_seconds 3
   wait_for "the log never said the final warning's alert was closed" 8 closed_after "$before"

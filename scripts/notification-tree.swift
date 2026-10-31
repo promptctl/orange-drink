@@ -19,8 +19,8 @@ func fail(_ message: String) -> Never {
 func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
     var value: CFTypeRef?
     let read = AXUIElementCopyAttributeValue(element, name as CFString, &value)
-    // A failed read is not an empty tree: every "gone" this check reads stands on this.
-    guard ![.cannotComplete, .apiDisabled, .notImplemented].contains(read) else { fail("reading \(name) failed with AXError \(read.rawValue)") }
+    // A failed read is not an empty tree: every "gone" this check reads stands on this. These are what the app calls absent.
+    guard [.success, .noValue, .attributeUnsupported, .invalidUIElement].contains(read) else { fail("reading \(name) failed with AXError \(read.rawValue)") }
     return read == .success ? value : nil
 }
 func string(_ element: AXUIElement, _ name: String) -> String? { attribute(element, name) as? String }
