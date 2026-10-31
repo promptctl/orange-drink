@@ -1,5 +1,6 @@
 # [LAW:one-source-of-truth] The Xcode project is generated from this file; nothing in
-# *.xcodeproj is hand-edited, and Info.plist keys live here as INFOPLIST_KEY_* settings.
+# *.xcodeproj is hand-edited, and Info.plist keys live here, as INFOPLIST_KEY_* settings or a
+# target's info: properties.
 name: OrangeDrink
 options:
   deploymentTarget:
@@ -38,7 +39,10 @@ settings:
   configs:
     # Xcode adds get-task-allow to every build it signs, so a debugger can attach under the Hardened
     # Runtime; the notary service refuses an app that carries it, and requires the secure timestamp,
-    # which Debug builds skip so they need no network.
+    # which Debug builds skip so they need no network. [LAW:one-source-of-truth] OTHER_CODE_SIGN_FLAGS
+    # says so for everything signed, Xcode's signing and the "Sign Sparkle's helpers" phase alike.
+    Debug:
+      OTHER_CODE_SIGN_FLAGS: --timestamp=none
     Release:
       CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
       OTHER_CODE_SIGN_FLAGS: --timestamp
@@ -49,6 +53,11 @@ packages:
     # resolves: the generated project and its Package.resolved are not committed, and a release signs what
     # resolves here. GRDB has no dependencies of its own.
     revision: b83108d10f42680d78f23fe4d4d80fc88dab3212 # 7.11.1
+  Sparkle:
+    # The commit's Package.swift pins the artifact's checksum, so this one line decides the app's framework and
+    # the release tools scripts/appcast runs.
+    url: https://github.com/sparkle-project/Sparkle
+    revision: ab7d71291238df6e0492143b120c9b696a35f603 # 2.10.1
   ViewInspector:
     # Unit tests press SwiftUI controls with it, with no window (docs/testing.md). Tests only, never the app.
     url: https://github.com/nalexn/ViewInspector
@@ -60,6 +69,7 @@ targets:
     sources: [Sources/OrangeDrink, Sources/Shared, Sources/HelperInterface]
     dependencies:
       - package: GRDB
+      - package: Sparkle
       - target: OrangeDrinkWidgets
       - target: OrangeDrinkHelper
         copy:
@@ -82,6 +92,37 @@ targets:
           # JSON values, because plutil reads the dots in a key path as nesting and the label is all dots.
           plutil -insert MachServices -json "{\"$HELPER_LABEL\": true}" "$plist"
           plutil -insert AssociatedBundleIdentifiers -json "[\"$APP_BUNDLE_IDENTIFIER\"]" "$plist"
+    # Sparkle's artifact arrives ad-hoc signed, and copying it signs only the framework, so the notary service
+    # would refuse what is inside it. Inside out, with no --deep and no --preserve-metadata: Autoupdate's
+    # artifact signature carries an application identifier that taskgated refuses without a provisioning
+    # profile. Embedding the framework is what writes the input, so a framework embedded again is never left
+    # ad-hoc; running on every build instead would change a framework the app's last signature sealed, with
+    # nothing to make Xcode sign the app again. The app's signature comes after every phase and covers the result.
+    postBuildScripts:
+      - name: Sign Sparkle's helpers
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/Sparkle.framework/Versions/B/Sparkle
+        outputFiles:
+          - $(DERIVED_FILE_DIR)/sparkle-helpers-signed
+        script: |
+          set -euo pipefail
+          framework="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/Sparkle.framework"
+          # The XPC services are for a sandboxed app.
+          rm -rf "$framework/XPCServices" "$framework/Versions/B/XPCServices"
+          for code in "$framework/Versions/B/Autoupdate" "$framework/Versions/B/Updater.app" "$framework"; do
+            # shellcheck disable=SC2086 # OTHER_CODE_SIGN_FLAGS is a list of flags.
+            codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime $OTHER_CODE_SIGN_FLAGS "$code"
+          done
+          touch "$SCRIPT_OUTPUT_FILE_0"
+    # Sparkle's keys. Automatic checks are off, so it checks only when the panel's row asks and never prompts
+    # about checking; with the key absent it would ask at the second launch. SUPublicEDKey is the half of the
+    # signing key docs/releasing.md keeps.
+    info:
+      path: build/generated/OrangeDrink-Info.plist
+      properties:
+        SUFeedURL: https://github.com/promptctl/orange-drink/releases/latest/download/appcast.xml
+        SUPublicEDKey: x0UMWgGQxL8vJKJttpBtmeAyfnEkbMLmj1NyZTL2XCs=
+        SUEnableAutomaticChecks: false
     # The app stays unsandboxed; it shares the group with its sandboxed widget extension.
     entitlements:
       path: build/generated/OrangeDrink.entitlements
@@ -94,6 +135,16 @@ targets:
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "Reads the battery levels of your paired Bluetooth devices."
     scheme:
       testTargets: [OrangeDrinkTests]
+  # Its own scheme, so `make test` never runs it: scripts/update-check runs it in a VM, because a UI test takes the screen.
+  OrangeDrinkUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources: [Tests/OrangeDrinkUITests]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER)UITests
+    scheme:
+      testTargets: [OrangeDrinkUITests]
   OrangeDrinkWidgets:
     type: app-extension
     platform: macOS

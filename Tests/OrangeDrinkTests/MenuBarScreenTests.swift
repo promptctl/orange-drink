@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import SwiftUI
 import Testing
+import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is what the status item and the Menu Bar screen's
@@ -98,6 +99,12 @@ import Testing
         try model.update { $0.statusColors = false }
         #expect(try Self.statusIcon(model, state: .known(charging)).battery?.tint == .neutral)
         #expect(MenuBarPreview.icon(model.value).battery?.tint == .neutral)
+    }
+
+    /// VoiceOver names the item by this, and it is how a client tells it from a pinned device's item.
+    @Test func theStatusItemIsLabelledWithTheAppsName() throws {
+        let label = StatusItemLabel(state: .known(Self.reading), icon: Self.model())
+        #expect(try label.inspect().find(ViewType.Group.self).accessibilityLabel().string() == appName)
     }
 
     @Test func aStatusItemWithoutAReadingNamesWhyAndTheLogoNeedsNone() throws {

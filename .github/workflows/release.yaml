@@ -74,6 +74,7 @@ jobs:
           DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          SPARKLE_ED_KEY: ${{ secrets.SPARKLE_ED_KEY }}
         run: scripts/release-keychain
       # Assigned before it is written out, so a failed build fails this step: an echo of a failed command
       # substitution exits 0. The summary is written here, before publishing, so a run that fails to publish
@@ -89,8 +90,19 @@ jobs:
             echo "- dmg: $(basename "$dmg")"
             echo "- sha256: $(shasum -a 256 "$dmg" | cut -d' ' -f1)"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Sign the update feed
+        id: feed
+        env:
+          SPARKLE_ED_KEY: ${{ secrets.SPARKLE_ED_KEY }}
+          DMG: ${{ steps.dmg.outputs.path }}
+        # The key goes on stdin alone: scripts/appcast resolves packages, which runs their manifests, and they inherit
+        # its environment.
+        run: |
+          appcast=$(printenv SPARKLE_ED_KEY | env -u SPARKLE_ED_KEY scripts/appcast "$DMG" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/")
+          echo "path=$appcast" >> "$GITHUB_OUTPUT"
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           DMG: ${{ steps.dmg.outputs.path }}
-        run: scripts/release-publish "$TAG" "$DMG"
+          APPCAST: ${{ steps.feed.outputs.path }}
+        run: scripts/release-publish "$TAG" "$DMG" "$APPCAST"

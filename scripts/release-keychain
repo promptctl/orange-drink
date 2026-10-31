@@ -6,7 +6,8 @@
 #
 # It reads the secrets from the environment - DEVELOPER_ID_APPLICATION_P12 (a base64 .p12),
 # DEVELOPER_ID_P12_PASSWORD, NOTARY_APPLE_ID, NOTARY_PASSWORD - and names any that is empty before
-# touching a keychain. docs/releasing.md says how to make them.
+# touching a keychain. docs/releasing.md says how to make them. SPARKLE_ED_KEY is named here too, because
+# this is the job's first read of its secrets, and scripts/appcast needs it only after the notary waits.
 #
 # [LAW:no-ambient-temporal-coupling] The keychain's life has one owner, the hosted VM, which GitHub
 # destroys with everything on it when the job ends (GitHub's "Signing Xcode applications" guide: clean-up
@@ -24,7 +25,7 @@ fail() { echo "release-keychain: $*" >&2; exit 1; }
 [ "${RUNNER_ENVIRONMENT:-}" = github-hosted ] \
   || fail "refusing to run outside a GitHub-hosted runner (RUNNER_ENVIRONMENT is '${RUNNER_ENVIRONMENT:-}'): it makes a keychain holding the Developer ID key that never locks and that only the end of a hosted VM removes"
 missing=
-for name in NOTARY_KEYCHAIN DEVELOPER_ID_APPLICATION_P12 DEVELOPER_ID_P12_PASSWORD NOTARY_APPLE_ID NOTARY_PASSWORD; do
+for name in NOTARY_KEYCHAIN DEVELOPER_ID_APPLICATION_P12 DEVELOPER_ID_P12_PASSWORD NOTARY_APPLE_ID NOTARY_PASSWORD SPARKLE_ED_KEY; do
   [ -n "$(printenv "$name" || true)" ] || missing="$missing $name"
 done
 [ -z "$missing" ] || fail "these are not set:$missing (docs/releasing.md says how to make the secrets)"
