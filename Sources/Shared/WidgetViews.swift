@@ -7,15 +7,14 @@ import WidgetKit
 /// The reference ring from design-docs/widgets.md: a dark track, an arc filled clockwise from the top
 /// to the level, the glyph in the centre and the percentage below; green with a bolt while charging.
 struct BatteryRing: View {
-    /// nil while there is no reading yet: the empty track.
-    let level: Int?
-    let charging: Bool
-    /// The level is an estimate (a device that reports only a coarse step): shown "~40%", as the panel shows it.
-    var approximate = false
-    /// The SF Symbol in the centre: the laptop for the Mac, the device's kind for a device.
-    let glyph: String
+    let battery: WidgetBattery
 
-    private var tint: Color { charging ? .green : .primary }
+    private var tint: Color { battery.charging ? .green : .primary }
+
+    /// An estimate (a device that reports only a coarse step) is shown "~40%", as the panel shows it.
+    private var percentage: String {
+        battery.level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–"
+    }
 
     var body: some View {
         GeometryReader { space in
@@ -26,7 +25,7 @@ struct BatteryRing: View {
                     ZStack {
                         Circle().stroke(.gray.opacity(0.35), lineWidth: line)
                         Circle()
-                            .trim(from: 0, to: Double(level ?? 0) / 100)
+                            .trim(from: 0, to: Double(battery.level?.percent ?? 0) / 100)
                             .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                         // The bolt sits in a gap cut from the ring: drawn over the green arc it would not read.
@@ -34,19 +33,19 @@ struct BatteryRing: View {
                             .frame(width: side * 0.26, height: side * 0.26)
                             .offset(y: -side / 2)
                             .blendMode(.destinationOut)
-                            .opacity(charging ? 1 : 0)
+                            .opacity(battery.charging ? 1 : 0)
                     }
                     .compositingGroup()
-                    Image(systemName: glyph)
+                    Image(systemName: battery.glyph)
                         .font(.system(size: side * 0.32))
                     Image(systemName: "bolt.fill")
                         .font(.system(size: side * 0.16))
                         .foregroundStyle(.green)
                         .offset(y: -side / 2)
-                        .opacity(charging ? 1 : 0)
+                        .opacity(battery.charging ? 1 : 0)
                 }
                 .frame(width: side, height: side)
-                Text(level.map { "\(approximate ? "~" : "")\($0)%" } ?? "–")
+                Text(percentage)
                     .font(.system(size: side * 0.2, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(tint)
@@ -72,6 +71,35 @@ struct Message: View {
 /// The sizes a widget declares, one list per widget so a test reads what the widget offers.
 enum WidgetFamilies {
     static let deviceBattery: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge]
+    static let allBatteries: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
+}
+
+struct MacBatteryEntry: TimelineEntry {
+    let date: Date
+    /// What the app put on the shelf, or why there is nothing to read.
+    let battery: Result<Shelved<MacBattery>, any Error>
+}
+
+struct MacBatteryView: View {
+    let entry: MacBatteryEntry
+    let appName: String
+
+    var body: some View {
+        content.containerBackground(.fill.tertiary, for: .widget)
+    }
+
+    @ViewBuilder private var content: some View {
+        switch entry.battery {
+        case .success(.running(.ended)): Message(glyph: MacBattery.glyph, text: "Battery unavailable")
+        case .success(.running(let mac)):
+            if let battery = mac.battery {
+                BatteryRing(battery: battery)
+            } else {
+                Message(glyph: MacBattery.glyph, text: "No battery")
+            }
+        case .success(.appNotRunning), .failure: Message(glyph: MacBattery.glyph, text: "Open \(appName)")
+        }
+    }
 }
 
 struct DeviceBatteryEntry: TimelineEntry {
@@ -114,7 +142,7 @@ struct DeviceBatteryView: View {
     }
 
     @ViewBuilder private func ring(_ device: WidgetDevice) -> some View {
-        let ring = BatteryRing(level: device.level?.percent, charging: false, approximate: device.level?.approximate ?? false, glyph: device.kind.symbol)
+        let ring = BatteryRing(battery: WidgetBattery(device))
         switch family {
         case .systemMedium:
             HStack { ring; name(device) }
@@ -127,5 +155,83 @@ struct DeviceBatteryView: View {
 
     private func name(_ device: WidgetDevice) -> some View {
         Text(device.name).font(.headline).lineLimit(2).multilineTextAlignment(.center)
+    }
+}
+
+struct AllBatteriesEntry: TimelineEntry {
+    let date: Date
+    /// What the app put on the shelf, or why there is nothing to read.
+    let mac: Result<Shelved<MacBattery>, any Error>
+    let devices: Result<Shelved<[WidgetDevice]>, any Error>
+}
+
+/// How many rings a widget of one family holds: the bigger the size, the more batteries fit.
+struct RingGrid {
+    let columns: Int
+    let rows: Int
+
+    init(_ family: WidgetFamily) {
+        (columns, rows) = switch family {
+        case .systemMedium: (4, 2)
+        case .systemLarge: (4, 4)
+        case .systemExtraLarge: (8, 4)
+        default: (2, 2)
+        }
+    }
+
+    /// As many batteries as fit, a row at a time.
+    func rows(of batteries: [WidgetBattery]) -> [[WidgetBattery]] {
+        let fitting = Array(batteries.prefix(columns * rows))
+        return stride(from: 0, to: fitting.count, by: columns).map { Array(fitting[$0..<min($0 + columns, fitting.count)]) }
+    }
+}
+
+/// The batteries in rings. [LAW:one-source-of-truth] The grid sets a ring's cell, because a ring grows
+/// into whatever it is offered: it is one size however few batteries there are, and the rows are centred.
+struct BatteryRings: View {
+    let batteries: [WidgetBattery]
+    let grid: RingGrid
+
+    var body: some View {
+        GeometryReader { space in
+            let (width, height) = (space.size.width / CGFloat(grid.columns), space.size.height / CGFloat(grid.rows))
+            VStack(spacing: 0) {
+                ForEach(Array(grid.rows(of: batteries).enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: 0) {
+                        ForEach(Array(row.enumerated()), id: \.offset) { _, battery in
+                            BatteryRing(battery: battery).frame(width: width, height: height)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+/// The Mac and every device in one widget.
+struct AllBatteriesView: View {
+    let entry: AllBatteriesEntry
+    let appName: String
+    /// WidgetKit's environment only reads, so the family arrives as a value a test can pass.
+    let family: WidgetFamily
+
+    var body: some View {
+        content.containerBackground(.fill.tertiary, for: .widget)
+    }
+
+    @ViewBuilder private var content: some View {
+        switch (entry.mac, entry.devices) {
+        case (.success(.running(let mac)), .success(.running(let devices))): batteries(AllBatteries.list(mac: mac, devices: devices))
+        default: Message(glyph: MacBattery.glyph, text: "Open \(appName)")
+        }
+    }
+
+    @ViewBuilder private func batteries(_ batteries: [WidgetBattery]) -> some View {
+        if batteries.isEmpty {
+            Message(glyph: MacBattery.glyph, text: "No batteries")
+        } else {
+            BatteryRings(batteries: batteries, grid: RingGrid(family))
+        }
     }
 }

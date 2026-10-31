@@ -70,18 +70,18 @@ struct DeviceBatteryProvider: AppIntentTimelineProvider {
     }
 }
 
-/// Hands the view the family WidgetKit places it at.
-struct FamilyReading: View {
-    let entry: DeviceBatteryEntry
+/// Hands a view the family WidgetKit places it at.
+struct FamilyReading<Content: View>: View {
+    let content: (WidgetFamily) -> Content
     @Environment(\.widgetFamily) private var family
 
-    var body: some View { DeviceBatteryView(entry: entry, appName: appName, family: family) }
+    var body: some View { content(family) }
 }
 
 struct DeviceBatteryWidget: Widget {
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: WidgetShelf.Item.devices.kind, intent: SelectDeviceIntent.self, provider: DeviceBatteryProvider()) { entry in
-            FamilyReading(entry: entry)
+        AppIntentConfiguration(kind: WidgetKind.deviceBattery.rawValue, intent: SelectDeviceIntent.self, provider: DeviceBatteryProvider()) { entry in
+            FamilyReading { DeviceBatteryView(entry: entry, appName: appName, family: $0) }
         }
         .configurationDisplayName("Device Battery")
         .description("One device's battery at a glance.")

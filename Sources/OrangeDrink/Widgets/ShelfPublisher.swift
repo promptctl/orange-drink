@@ -32,15 +32,16 @@ extension WidgetDevice {
     }
 }
 
-/// Keeps one widget's shelf file holding what that widget should draw, and asks WidgetKit to redraw it
+/// Keeps one shelf file holding what its widgets should draw, and asks WidgetKit to redraw each of them
 /// when it changes.
 @MainActor final class ShelfPublisher<Value: Codable & Equatable & Sendable> {
     private let item: WidgetShelf.Item<Value>
     private let directory: URL
-    private let reload: @MainActor () -> Void
+    private let reload: @MainActor (WidgetKind) -> Void
 
-    /// [LAW:effects-at-boundaries] `reload` is the app's call into WidgetKit; a test passes a recorder.
-    init(item: WidgetShelf.Item<Value>, directory: URL, reload: @escaping @MainActor () -> Void) {
+    /// [LAW:effects-at-boundaries] `reload` is the app's call into WidgetKit, asked once per reader of
+    /// the file; a test passes a recorder.
+    init(item: WidgetShelf.Item<Value>, directory: URL, reload: @escaping @MainActor (WidgetKind) -> Void) {
         self.item = item
         self.directory = directory
         self.reload = reload
@@ -64,8 +65,9 @@ extension WidgetDevice {
         }
         do {
             try WidgetShelf.write(shelved, as: item, to: directory)
-            reload()
-            ShelfLog.log.info("widget shelf written, reload asked: \(value, privacy: .public) in \(shelf, privacy: .public)")
+            item.readers.forEach(reload)
+            let readers = item.readers.map(\.rawValue).joined(separator: ", ")
+            ShelfLog.log.info("widget shelf written, reload asked: \(value, privacy: .public) in \(shelf, privacy: .public) for \(readers, privacy: .public)")
         } catch {
             // [LAW:no-silent-failure] Logged; the shelf still differs, so the next state retries.
             ShelfLog.log.error("widget shelf write failed: \(value, privacy: .public) in \(shelf, privacy: .public): \(String(describing: error), privacy: .public)")
