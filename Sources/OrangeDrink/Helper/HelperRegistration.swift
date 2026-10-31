@@ -11,8 +11,9 @@ import ServiceManagement
 /// lives exactly as long as some process runs a copy of the app that embeds that label: a launch takes it,
 /// and an exit releases it unless one still runs. A build's label is that build's alone; the shipped label
 /// is shared by every installed copy, the one in the mounted image and the one in /Applications alike. So a
-/// copy that has exited, been deleted, or been replaced leaves no record behind, and no process removes the
-/// record from under another (orange-admin-helper-b2q.qm0).
+/// copy that has exited leaves no record behind, and no process removes the record from under another
+/// (orange-admin-helper-b2q.qm0). The exception is a copy moved or deleted while it runs: `unregister` needs the
+/// bundle, so its record and launchd's job stay until a copy with this label next exits.
 ///
 /// [LAW:single-enforcer] Every step runs on one serial queue, so no two interleave, an ask waits for the steps
 /// ahead of it, and the exit is the last.
@@ -30,7 +31,8 @@ struct HelperRegistration: Sendable {
 
     /// What `register` answered, the last time it was asked, and how long that took.
     struct Outcome: Equatable {
-        /// The last refusal, or nil once it was accepted.
+        /// The last refusal, or nil once it was accepted. With no helper file to run, it says why and `attempts` counts
+        /// the asks made before that was found, none if it was found first.
         let refusal: String?
         let status: String
         let attempts: Int
@@ -65,10 +67,14 @@ struct HelperRegistration: Sendable {
             }
         }
 
+        /// The cdhash of the file at `helper`, read now.
+        static func embedded(at helper: URL) -> Result<Data, HelperFailure> {
+            Result { () throws(HelperFailure) in try SigningInformation.cdhash(of: helper) }
+        }
+
         /// [LAW:effects-at-boundaries] One look: what answers, and what the file at `helper` holds, read now.
         static func look(at helper: URL, asking identity: () throws(HelperCallError) -> HelperIdentity) -> Handshake {
-            Handshake(reply: Result { () throws(HelperCallError) in try identity() },
-                      embedded: Result { () throws(HelperFailure) in try SigningInformation.cdhash(of: helper) })
+            Handshake(reply: Result { () throws(HelperCallError) in try identity() }, embedded: embedded(at: helper))
         }
 
         /// A job nothing runs, that runs other code, or whose helper ends the connection unanswered is replaced: a helper
@@ -129,6 +135,8 @@ struct HelperRegistration: Sendable {
         let register: @Sendable () -> NSError?
         let unregister: @Sendable () -> NSError?
         let status: @Sendable () -> SMAppService.Status
+        /// The helper file in this bundle as it is now.
+        let embedded: @Sendable () -> Result<Data, HelperFailure>
         /// The helper's handshake, which never touches its write queue.
         let handshake: @Sendable () -> Handshake
         let holders: @Sendable () throws(ProcessTableUnreadable) -> [Int32]
@@ -164,6 +172,7 @@ struct HelperRegistration: Sendable {
             register: { attempt(service().register) },
             unregister: { attempt(service().unregister) },
             status: { service().status },
+            embedded: { Handshake.embedded(at: helper) },
             handshake: { Handshake.look(at: helper) { () throws(HelperCallError) in try HelperClient(service: label).identity() } },
             holders: { () throws(ProcessTableUnreadable) in try otherHolders() },
             now: { .now },
@@ -254,11 +263,16 @@ struct HelperRegistration: Sendable {
         record(.repaired(found: handshake, clearing, outcome, handshake: effects.handshake()))
     }
 
-    /// Asks `register` until it accepts, or it refuses for a reason other than the refusal window, or `window` ends.
+    /// Asks `register` until it accepts, or it refuses for a reason other than the refusal window, or `window` ends, or
+    /// the helper file is gone. [LAW:single-enforcer] Each ask has its own read, because `register` on a copy whose
+    /// bundle was moved or deleted while it runs segfaults inside ServiceManagement (orange-distribution-kg2.45x).
     private func register(within window: Duration) -> Outcome {
         let start = effects.now()
         var attempts = 0
         while true {
+            if case .failure(let failure) = effects.embedded() {
+                return Outcome(refusal: failure.description, status: effects.status().name, attempts: attempts, elapsed: start.duration(to: effects.now()))
+            }
             attempts += 1
             let refusal = effects.register()
             let status = effects.status()

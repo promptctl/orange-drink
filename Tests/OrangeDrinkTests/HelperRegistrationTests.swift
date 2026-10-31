@@ -19,6 +19,9 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         var handshakeAfterClearing = HelperRegistration.Handshake.own
         var holders: [Int32] = []
         var elapsed = Duration.zero
+        /// How many `register` calls the helper file outlasts.
+        var fileOutlasts = Int.max
+        var fileGone: Bool { calls.filter { $0 == "register" }.count >= fileOutlasts }
     }
     let state = OSAllocatedUnfairLock(initialState: State())
     let gate = DispatchSemaphore(value: 0)
@@ -43,13 +46,14 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         },
         unregister: { [self] in state.withLock { $0.calls.append("unregister"); $0.status = .notRegistered; $0.handshake = $0.handshakeAfterClearing; return nil } },
         status: { [self] in state.withLock { $0.status } },
+        embedded: { [self] in state.withLock { $0.fileGone ? .failure(HelperFailure("gone")) : .success(Data([1])) } },
         handshake: { [self] in
             state.withLock { $0.calls.append("handshake") }
             if usesGate {
                 entered.signal()
                 gate.wait()
             }
-            return state.withLock { $0.handshake }
+            return state.withLock { $0.fileGone ? .embeddedUnreadable("gone") : $0.handshake }
         },
         holders: { [self] () throws(ProcessTableUnreadable) in state.withLock { $0.calls.append("holders"); return $0.holders } },
         now: { [self] in state.withLock { start + $0.elapsed } },
@@ -142,6 +146,40 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         let handshake = HelperRegistration.Handshake(reply: reply, embedded: .failure(HelperFailure("gone")))
         #expect(handshake == .embeddedUnreadable("gone"))
         #expect(!handshake.replacesJob)
+    }
+
+    @Test func theEmbeddedReadOfAMissingFileFails() {
+        let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        #expect(throws: HelperFailure.self) { try HelperRegistration.Handshake.embedded(at: missing).get() }
+    }
+
+    /// `register` on a copy whose bundle has gone would end the process, so with no file it is never asked.
+    @Test func aLaunchWithNoHelperFileAsksNothingAndWaitsForNothing() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.fileOutlasts = 0; $0.status = .notFound }
+        system.registration.launch()
+        system.registration.waitForSteps()
+        #expect(system.calls == ["handshake"])
+        #expect(system.events == [.launched(.init(refusal: "gone", status: "notFound", attempts: 0, elapsed: .zero)), .leftAlone(.embeddedUnreadable("gone"))])
+    }
+
+    @Test func aFailedCallWithNoHelperFileAsksNothingAndWaitsForNothing() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.fileOutlasts = 0; $0.status = .notFound }
+        system.registration.reconcile(after: Self.noJob)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["handshake"])
+        #expect(system.events == [.reregistered(.init(refusal: "gone", status: "notFound", attempts: 0, elapsed: .zero)), .leftAlone(.embeddedUnreadable("gone"))])
+    }
+
+    /// The window's pause is not a gap the file can go in unseen: the next ask reads it again.
+    @Test func aHelperFileGoneDuringTheRefusalWindowEndsTheAsks() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.refusals = 3; $0.fileOutlasts = 1 }
+        system.registration.launch()
+        system.registration.waitForSteps()
+        #expect(system.calls == ["register", "handshake"])
+        #expect(system.events.first == .launched(.init(refusal: "gone", status: "notRegistered", attempts: 1, elapsed: HelperRegistration.attemptGap)))
     }
 
     @Test(arguments: [
