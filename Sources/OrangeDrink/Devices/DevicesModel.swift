@@ -30,8 +30,8 @@ import Observation
                     onChange(self.list)
                 }
                 ending = DevicesModelError.streamFinished
-            } catch is CancellationError {
-                // The model was torn down: nobody is left to report an ended stream to.
+            } catch where Task.isCancelled {
+                // deinit cancelled the task: the model is gone, nobody is left to report an ended stream to.
                 return
             } catch {
                 ending = error
