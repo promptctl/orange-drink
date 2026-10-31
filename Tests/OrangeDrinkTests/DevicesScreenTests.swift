@@ -94,15 +94,14 @@ import Testing
         let settings = try model()
         try settings.update { $0.toggleHidden(DeviceID(address: "gone")) }
         #expect(ConnectedDevices(list, settings: settings.value).rows.count == 4)
-        #expect(ConnectedDevices(list, settings: settings.value).hiddenCount == 0)
     }
 
-    @Test func hidingEveryDeviceIsCountedSoTheCardCanSaySo() throws {
+    @Test func hidingEveryDeviceSaysSo() throws {
         let settings = try model()
         try settings.update { for id in ["a", "b", "c", "d"] { $0.toggleHidden(DeviceID(address: id)) } }
         let card = ConnectedDevices(list, settings: settings.value)
         #expect(card.rows.isEmpty)
-        #expect(card.hiddenCount == 4)
+        #expect(card.emptyNote == "Every device is hidden. Show them again in Settings → Devices.")
     }
 
     @Test func everyHelpLineHasItsOwnIdentity() {

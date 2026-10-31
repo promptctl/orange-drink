@@ -48,6 +48,10 @@ wait_for() {
   fail "$what"
 }
 stopped() { [ -z "$(pids)" ]; }
+# What the app logged in <category>. `logged` is for a line that must come: a here-string drops the read's status, so a
+# read that failed says it has not. Whatever says a line is absent reads log_lines itself.
+log_lines() { guest /usr/bin/log show --last 30m --style compact --predicate "category == \"$1\""; }
+logged() { grep -qF "$2" <<<"$(log_lines "$1")"; }
 
 # `tart get` knows only local VMs, and a check naming a pulled image hears from `tart clone` if it is gone.
 [ "$image" != orange-drink-xcode ] || tart get "$image" >/dev/null || fail "no VM named $image: tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 $image"

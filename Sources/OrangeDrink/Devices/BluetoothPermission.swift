@@ -48,7 +48,7 @@ enum BluetoothPermission: Equatable, Sendable {
     @Sendable static func updates() -> AsyncStream<CBManagerAuthorization> {
         AsyncStream { continuation in
             let authorization = CBManager.authorization
-            BluetoothDevices.log.notice("bluetooth permission: waiting, authorization \(authorization.rawValue, privacy: .public)")
+            BluetoothDevices.log.notice("bluetooth permission: read authorization \(authorization.rawValue, privacy: .public)")
             continuation.yield(authorization)
             let delegate = ManagerDelegate(continuation: continuation)
             let manager = CBCentralManager(delegate: delegate, queue: DispatchQueue(label: "BluetoothPermission"),

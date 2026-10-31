@@ -22,15 +22,13 @@ tree="$tools/notification-tree"
 battery="$tools/fake-battery"
 binary=$app/Contents/MacOS/OrangeDrink
 
-log_lines() { guest /usr/bin/log show --last 30m --style compact --predicate 'category == "batteryNotifications"'; }
-logged() { grep -q "$1" <<<"$(log_lines)"; }
-logged_devices() { grep -q "$1" <<<"$(guest /usr/bin/log show --last 30m --style compact --predicate 'category == "devices"')"; }
 list() { guest "$tree" list; }
 # A here-string drops its command's status, so a read that failed would be a tree showing nothing. Whatever says something
 # is gone reads through this, and a failed read says it is not.
 read_tree() { showing=$(list); }
 on_failure() {
-  log_lines >&2
+  log_lines batteryNotifications >&2
+  log_lines devices >&2
   guest sh -c 'cat /tmp/app.out /tmp/battery.out' >&2
   list >&2
 }
@@ -47,7 +45,7 @@ has_alert() { grep -q '^AXNotificationCenterAlert' <<<"$(list)"; }
 new_alerts() { grep '^AXNotificationCenterAlert' <<<"$1" | grep -vxF "$installed" || [ "${PIPESTATUS[1]}" -eq 1 ]; }
 shows() { read_tree && grep -qxF "$1" <<<"$showing"; }
 nothing_new() { read_tree && [ -z "$(new_alerts "$showing")" ]; }
-closes() { log_lines | awk '/, closed$/ { n++ } END { print n + 0 }'; }
+closes() { log_lines batteryNotifications | awk '/, closed$/ { n++ } END { print n + 0 }'; }
 closed_after() { [ "$(closes)" -gt "$1" ]; }
 
 swiftc -O -target arm64-apple-macos14 -o "$scratch/notification-tree" scripts/notification-tree.swift
@@ -97,10 +95,10 @@ wait_for "Script Editor's banner never showed" 30 banner_shows
 # is the one run of that answer on macOS 14 and 15, so it is read here too. The launch also posts the system's login items
 # alert, which stays up.
 start_app
-wait_for "the Bluetooth prompt never showed" 30 guest "$tree" allow
-wait_for "the app never logged the Bluetooth answer" 30 logged_devices 'bluetooth permission answered: allowed'
-wait_for "the device watcher never started after the answer" 30 logged_devices 'device watcher started'
-wait_for "the app's first pass never logged" 30 logged 'pass: '
+wait_for "the Bluetooth prompt never showed" 30 guest "$tree" answer Allow
+wait_for "the app never logged the Bluetooth answer" 30 logged devices 'bluetooth permission answered: allowed'
+wait_for "the device watcher never started after the answer" 30 logged devices 'device watcher started'
+wait_for "the app's first pass never logged" 30 logged batteryNotifications 'pass: '
 wait_for "the login items alert never showed" 30 has_alert
 installed=$(grep '^AXNotificationCenterAlert' <<<"$(list)")
 
@@ -126,7 +124,7 @@ guest pkill -x OrangeDrink
 wait_for "the app did not quit" 30 stopped
 guest defaults write "$identifier" systemNotifications -data "$(printf '%s' '{"dismissBatteryNotifications":true}' | xxd -p | tr -d '\n')"
 start_app
-wait_for "the app never read the switch on and itself trusted" 30 logged 'switch on, trusted'
+wait_for "the app never read the switch on and itself trusted" 30 logged batteryNotifications 'switch on, trusted'
 
 # Times the alert from the guest, at 50 ms: reading the log takes seconds of its own, and the app logs `closed` only after
 # its deadline. The watcher starts first, so an alert that goes fast cannot pass it unseen.
@@ -171,3 +169,18 @@ other=$(guest "$tree" closes "$alert" 20)
 wait $!
 wait_for "the log never said the alert beside Script Editor's was closed" 8 closed_after "$before"
 say "the alert closed and Script Editor's notification with the same words stayed: $other"
+
+# The denied path starts the watcher too, and macOS 14 and 15 are read nowhere else: a registration refused there would end
+# the subscription, and the panel would say readings stopped instead of why.
+watcher_starts() { log_lines devices | awk '/device watcher started/ { n++ } END { print n + 0 }'; }
+started_after() { [ "$(watcher_starts)" -gt "$1" ]; }
+guest pkill -x OrangeDrink
+wait_for "the app did not quit" 30 stopped
+before=$(watcher_starts)
+# Every client's grant: one naming the app's bundle leaves this one standing, for an app `tart exec` started.
+guest tccutil reset BluetoothAlways
+start_app
+wait_for "the Bluetooth prompt never came back after the reset" 30 guest "$tree" answer 'Don’t Allow'
+wait_for "the app never logged the refusal" 30 logged devices 'bluetooth permission answered: denied'
+wait_for "the device watcher never started after the refusal" 30 started_after "$before"
+say "denied: the app logged the refusal, then started the device watcher"

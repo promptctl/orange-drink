@@ -158,13 +158,17 @@ struct DeviceListTests {
         try #require(!connected.isEmpty, "this check needs paired devices connected")
         let accessories = try Self.accessoryLevels()
         let log = try BatteryLog(category: "devices")
-        // The first sweep is the whole connected set, so it is the one event this check needs.
+        // The first sweep is the whole connected set, and a refused host's sweep is empty, so the permission is read beside it.
         var list = DeviceList()
-        for try await event in BluetoothDevices.events() {
-            guard case .swept = event else { continue }
+        sweep: for try await event in BluetoothDevices.events() {
             list.apply(event)
-            break
+            switch event {
+            case .permission(.notDetermined): print("answer the Bluetooth prompt: Allow the test host")
+            case .swept: break sweep
+            default: continue
+            }
         }
+        try #require(list.permission == .allowed, "macOS refused this test host Bluetooth, so its sweep has no devices")
         try #require(!list.devices.contains { $0.levels == .unread }, "powerd did not answer the sweep; the devices log names the call")
         // system_profiler names its devices and nothing more, so the name is the only key the two lists share.
         let swept = try Dictionary(list.devices.map { ($0.name, $0) }) { _, _ in
