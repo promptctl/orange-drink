@@ -29,6 +29,9 @@ STUB
   chmod +x "$scratch/bin/$tool"
 done
 export PATH="$scratch/bin:$PATH"
+# The scratch repository's git ignores this machine's config: a global tag.gpgSign or core.hooksPath would
+# otherwise sign, prompt or refuse in it.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
 failed=0
 pass() { echo "ok: $1"; }
@@ -86,6 +89,8 @@ expect "a tag naming another version is refused before building" 1 "tag v9.9.9 i
 (cd "$t" && git tag -f v1.2.3 branch >/dev/null)
 expect "a tag naming the version off master is refused" 1 "v1.2.3 is not on master" -- pre v1.2.3
 expect "a tag naming another version off master is refused by the version, the first check" 1 "tag v1.2.3-branch is not v1.2.3" -- pre v1.2.3-branch
+(cd "$t" && git tag -f v1.2.3 master >/dev/null && git update-ref -d refs/remotes/origin/master)
+expect "a checkout without origin/master says so, not that the tag is off master" 1 "this checkout has no origin/master to judge v1.2.3 against" -- pre v1.2.3
 
 # --- scripts/release-keychain
 t=$(tree 'MARKETING_VERSION: "1.2.3"')
@@ -107,25 +112,28 @@ rm -f "$scratch/import-fails"
 calls_reset; secrets
 expect "release-keychain makes the keychain" 0 "holds the Developer ID identity and notary profile orange-drink-notary" -- "$t/scripts/release-keychain"
 k=$NOTARY_KEYCHAIN
+# Every call, whole and in order; * stands only for the random keychain password and the decoded .p12's
+# temporary path. So a call that names another keychain, an extra call, or a lock timer (-t) fails.
 want=(
-  "security create-keychain -p "
+  "security create-keychain -p * $k"
   "security set-keychain-settings $k"
-  "security unlock-keychain -p "
+  "security unlock-keychain -p * $k"
   "base64 --decode"
-  "security import "
-  "security set-key-partition-list -S apple-tool:,apple: -k "
+  "security import * -k $k -f pkcs12 -P pw -T /usr/bin/codesign"
+  "security set-key-partition-list -S apple-tool:,apple: -k * $k"
   "security list-keychains -d user"
   "security list-keychains -d user -s $k /Users/me/Library/Keychains/login.keychain-db /Users/me/Library/Keychains/my keys.keychain-db"
   "xcrun notarytool store-credentials orange-drink-notary --keychain $k --apple-id me@example.com --team-id 6R988MUU27 --password app-pw"
 )
 got=$(cat "$scratch/calls")
-order_ok=1; i=0
+i=0; exact=1
 while IFS= read -r line; do
-  [ $i -lt ${#want[@]} ] && [[ $line == "${want[$i]}"* ]] && i=$((i + 1))
+  [ $i -lt ${#want[@]} ] && [[ $line == ${want[$i]} ]] || { exact=0; break; }
+  i=$((i + 1))
 done <<<"$got"
-[ $i -eq ${#want[@]} ] && pass "the calls run in order, keeping the old search list and naming developer-id's profile and team" \
-  || fail "the calls run in order (matched $i of ${#want[@]}, next wanted '${want[$i]:-}'): $got"
-grep -q "set-keychain-settings .* -t\|set-keychain-settings -[a-z]*t" <<<"$got" && fail "the keychain has a lock timer" || pass "the keychain has no lock timer"
+[ $exact = 1 ] && [ $i -eq ${#want[@]} ] \
+  && pass "the calls are exactly these, in order: one keychain, no lock timer, the old search list kept, developer-id's profile and team" \
+  || fail "the calls are exactly these (call $((i + 1)) wanted '${want[$i]:-nothing more}'): $got"
 unset RUNNER_ENVIRONMENT NOTARY_KEYCHAIN DEVELOPER_ID_APPLICATION_P12 DEVELOPER_ID_P12_PASSWORD NOTARY_APPLE_ID NOTARY_PASSWORD
 
 # --- scripts/notarize: where notarytool finds the profile

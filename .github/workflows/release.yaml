@@ -8,10 +8,6 @@ on:
   push:
     tags: ['v*']
 
-# The release is written with the workflow's own token.
-permissions:
-  contents: write
-
 # One run per tag at a time: a second push of a tag waits behind the running one, then finds the release
 # the first made and fails at `gh release create` rather than replacing it.
 concurrency:
@@ -33,6 +29,8 @@ jobs:
   preflight:
     runs-on: macos-26
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -47,6 +45,9 @@ jobs:
     runs-on: macos-26
     environment: release
     timeout-minutes: 60
+    # The release is written with the workflow's own token.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
       - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
@@ -86,6 +87,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DMG: ${{ steps.dmg.outputs.path }}
-        run: |
-          version=$(scripts/version)
-          gh release create "$TAG" "$DMG" --verify-tag --title "Orange Drink $version" --generate-notes
+        # preflight proved the tag is v<MARKETING_VERSION>, so the tag carries the version.
+        run: gh release create "$TAG" "$DMG" --verify-tag --title "Orange Drink ${TAG#v}" --generate-notes

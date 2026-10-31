@@ -9,9 +9,11 @@
 # published is what was reviewed and merged. Each refusal says which check failed.
 set -euo pipefail
 
+fail() { echo "release-preflight: $*" >&2; exit 1; }
 tag=${1:?usage: scripts/release-preflight <tag>}
 version=$("$(dirname "$0")/version")
-[ "$tag" = "v$version" ] || { echo "release-preflight: tag $tag is not v$version, project.yml's MARKETING_VERSION" >&2; exit 1; }
-commit=$(git rev-parse --verify --quiet "$tag^{commit}") || { echo "release-preflight: no commit for tag $tag" >&2; exit 1; }
-git merge-base --is-ancestor "$commit" origin/master || { echo "release-preflight: $tag is not on master" >&2; exit 1; }
+[ "$tag" = "v$version" ] || fail "tag $tag is not v$version, project.yml's MARKETING_VERSION"
+commit=$(git rev-parse --verify --quiet "$tag^{commit}") || fail "no commit for tag $tag"
+git rev-parse --verify --quiet origin/master >/dev/null || fail "this checkout has no origin/master to judge $tag against (fetch-depth: 0 fetches it)"
+git merge-base --is-ancestor "$commit" origin/master || fail "$tag is not on master"
 echo "release-preflight: $tag is v$version at $commit, on master"
