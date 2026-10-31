@@ -17,11 +17,14 @@ for tool in security xcrun base64 spctl; do
 #!/bin/bash
 echo "$(basename "$0") $*" >>"$SCRATCH/calls"
 case "$(basename "$0") $1 $2" in
-  "security list-keychains -d") [ "$3" = user ] && [ $# -eq 3 ] && printf '    "/Users/me/Library/Keychains/login.keychain-db"\n    "/Users/me/Library/Keychains/my keys.keychain-db"\n' ;;
+  "security list-keychains -d")
+    [ "$3" = user ] && [ $# -eq 3 ] || exit 0
+    [ ! -e "$SCRATCH/list-fails" ] || { echo "list-keychains broke" >&2; exit 1; }
+    [ -e "$SCRATCH/list-empty" ] || printf '    "/Users/me/Library/Keychains/login.keychain-db"\n    "/Users/me/Library/Keychains/my keys.keychain-db"\n' ;;
   "security import"*) [ ! -e "$SCRATCH/import-fails" ] || exit 1 ;;
   "xcrun notarytool submit") cat "$SCRATCH/submit.json" ;;
   "xcrun notarytool log") echo "the notary log" ;;
-  "base64 --decode "*) cat ;;
+  "base64 --decode "*) [ ! -e "$SCRATCH/decode-fails" ] || exit 1; cat ;;
   "spctl --assess"*) echo "$SCRATCH/x: accepted" >&2; echo "source=Notarized Developer ID" >&2 ;;
 esac
 exit 0
@@ -109,6 +112,16 @@ expect "release-keychain names every missing secret and the keychain" 1 "these a
 calls_reset; secrets; touch "$scratch/import-fails"
 expect "an identity that will not import fails, naming the secret" 1 "DEVELOPER_ID_APPLICATION_P12 would not import" -- "$t/scripts/release-keychain"
 rm -f "$scratch/import-fails"
+calls_reset; secrets; touch "$scratch/decode-fails"
+expect "a secret that is not base64 fails, naming it" 1 "DEVELOPER_ID_APPLICATION_P12 is not base64" -- "$t/scripts/release-keychain"
+rm -f "$scratch/decode-fails"
+for failure in "list-empty:the keychain search list read as empty" "list-fails:list-keychains broke"; do
+  marker=${failure%%:*}
+  calls_reset; secrets; touch "$scratch/$marker"
+  expect "$marker stops release-keychain" 1 "${failure#*:}" -- "$t/scripts/release-keychain"
+  called "security list-keychains -d user -s" && fail "$marker rewrote the search list" || pass "$marker leaves the search list alone"
+  rm -f "$scratch/$marker"
+done
 calls_reset; secrets
 expect "release-keychain makes the keychain" 0 "holds the Developer ID identity and notary profile orange-drink-notary" -- "$t/scripts/release-keychain"
 k=$NOTARY_KEYCHAIN
@@ -142,7 +155,7 @@ touch "$scratch/image.dmg"
 echo '{"status":"Accepted","id":"sub-1"}' >"$scratch/submit.json"
 calls_reset
 expect "notarize accepts an image Gatekeeper calls notarized" 0 "$scratch/image.dmg" -- "$t/scripts/notarize" "$scratch/image.dmg"
-called "xcrun notarytool submit $scratch/image.dmg --keychain-profile orange-drink-notary --wait --output-format json" \
+called "xcrun notarytool submit $scratch/image.dmg --keychain-profile orange-drink-notary --wait --timeout 30m --output-format json" \
   && pass "with NOTARY_KEYCHAIN unset, submit names no keychain" || fail "with NOTARY_KEYCHAIN unset, submit names no keychain: $(cat "$scratch/calls")"
 calls_reset
 NOTARY_KEYCHAIN="$scratch/job keys.keychain-db" expect "notarize runs with the job's keychain" 0 "$scratch/image.dmg" -- "$t/scripts/notarize" "$scratch/image.dmg"

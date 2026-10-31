@@ -32,7 +32,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - run: scripts/release-preflight "$TAG"
@@ -49,7 +49,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      # Pinned by commit, not its movable tag: its post step runs beside the unlocked key. Nothing here pushes,
+      # and gh has GH_TOKEN, so the build's third-party code finds no credential in .git/config.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
         run: |
           curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
