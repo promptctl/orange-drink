@@ -2,6 +2,9 @@
 // trust, which a process `tart exec` starts has.
 //   notification-tree list    one line per notification: subrole, title, body, and description, tab-separated
 //   notification-tree allow   presses Allow in the Bluetooth prompt, and fails if none is showing
+//   notification-tree closes <line> <seconds>
+//                             watches until `line` from `list` has shown and gone, with another notification showing that
+//                             has its title and body. Prints that one, and fails if that never comes
 import AppKit
 import ApplicationServices
 
@@ -33,18 +36,39 @@ func walk(_ element: AXUIElement, depth: Int = 0, visit: (AXUIElement) -> Void) 
 
 guard AXIsProcessTrusted() else { fail("this process is not trusted for Accessibility") }
 
-switch CommandLine.arguments.dropFirst().first {
-case "list":
+func notifications() -> [String] {
     guard let center = application("com.apple.notificationcenterui") else { fail("NotificationCenter is not running") }
+    var lines: [String] = []
     for window in windows(center) where string(window, kAXSubroleAttribute) == "AXSystemDialog" {
         walk(window) { element in
             guard let subrole = string(element, kAXSubroleAttribute), subrole.hasPrefix("AXNotificationCenter") else { return }
             func text(_ identifier: String) -> String {
                 children(element).first { string($0, kAXIdentifierAttribute) == identifier }.flatMap { string($0, kAXValueAttribute) } ?? ""
             }
-            print([subrole, text("title"), text("body"), string(element, kAXDescriptionAttribute) ?? ""].joined(separator: "\t"))
+            lines.append([subrole, text("title"), text("body"), string(element, kAXDescriptionAttribute) ?? ""].joined(separator: "\t"))
         }
     }
+    return lines
+}
+
+switch CommandLine.arguments.dropFirst().first {
+case "list":
+    notifications().forEach { print($0) }
+case "closes":
+    let line = CommandLine.arguments[2], deadline = Date().addingTimeInterval(TimeInterval(CommandLine.arguments[3])!)
+    let words = line.split(separator: "\t", omittingEmptySubsequences: false)[1...2].joined(separator: "\t")
+    var seen = false
+    while Date() < deadline {
+        let showing = notifications()
+        if showing.contains(line) {
+            seen = true
+        } else if seen, let other = showing.first(where: { $0.contains(words) }) {
+            print(other)
+            exit(0)
+        }
+        Thread.sleep(forTimeInterval: 0.05)
+    }
+    fail(seen ? "it closed, and nothing with its words was left showing" : "it never showed")
 case "allow":
     guard let prompt = application("com.apple.UserNotificationCenter").flatMap({ windows($0).first }),
           let allow = children(prompt).first(where: { string($0, kAXTitleAttribute) == "Allow" })

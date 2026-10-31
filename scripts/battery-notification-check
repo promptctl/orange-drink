@@ -62,9 +62,9 @@ wait_for "the stand-in battery never reached powerd" 30 has_battery
 warn 1
 guest killall ControlCenter
 
-# Script Editor set to Alerts, as a person sets it, so its notification stays up to be read after the battery one's close
-# is confirmed. That is flag 4 for 3 in com.apple.ncprefs. Flag 25 is the Allow macOS 15 and 26 ask for before a new app's
-# first banner. It goes through `defaults export`, because the plist on disk lags cfprefsd.
+# Script Editor allowed banners, the Allow a person gives, which macOS 15 asks for before a new app's first. Its entry is
+# not there on every macOS, and a banner showing is what says this worked. It goes through `defaults export`, because the
+# plist on disk lags cfprefsd.
 post First 'Registers Script Editor with Notification Center'
 guest sh -c 'prefs=/tmp/ncprefs.plist
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
@@ -72,17 +72,21 @@ for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   while bundle=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:bundle-id" "$prefs"); do
     if [ "$bundle" = com.apple.ScriptEditor2 ]; then
       flags=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:flags" "$prefs")
-      /usr/libexec/PlistBuddy -c "Set :apps:$app:flags $(((flags | 1 << 25 | 1 << 4) & ~(1 << 3)))" "$prefs"
+      /usr/libexec/PlistBuddy -c "Set :apps:$app:flags $((flags | 1 << 25))" "$prefs"
       defaults import com.apple.ncprefs "$prefs"
-      killall usernoted NotificationCenter
       exit 0
     fi
     app=$((app + 1))
   done
   sleep 1
-done
-exit 1'
-wait_for "NotificationCenter did not come back" 30 guest "$tree" list
+done' 2>&1 | grep -v 'Does Not Exist' >&2 || [ "${PIPESTATUS[0]}" -eq 0 ]
+guest killall usernoted NotificationCenter
+banner_shows() {
+  post First 'A banner'
+  sleep 1
+  grep -q "$(printf '^AXNotificationCenterBanner\tFirst')" <<<"$(list)"
+}
+wait_for "Script Editor's banner never showed" 30 banner_shows
 
 # The first launch waits on the Bluetooth prompt (orange-distribution-kg2.73n), and these images have no Xcode for
 # FirstLaunchUITests to answer it. The launch also posts the system's login items alert, which stays up.
@@ -90,7 +94,7 @@ start_app
 wait_for "the Bluetooth prompt never showed" 30 guest "$tree" allow
 wait_for "the app's first pass never logged" 30 logged 'pass: '
 wait_for "the login items alert never showed" 30 has_alert
-installed=$(list)
+installed=$(grep '^AXNotificationCenterAlert' <<<"$(list)")
 
 # ControlCenter's restart ends when it has built its module, so the warning is raised until the notification shows.
 raise() {
@@ -140,16 +144,13 @@ else
   say "the early warning left nothing to close, and the final warning's alert closed"
 fi
 
-# Another app's with the same words, in the same moment. Set to Alerts, it is the case the rule tells by description alone.
+# Another app's with the same words, in the same moment. A banner fades, and the close is confirmed only after its deadline,
+# so the watcher in the guest is what sees the alert go with the other still showing. On macOS 26 the alert has to be first.
 warn 1
 before=$(closes)
-warn "$first"
 IFS=$'\t' read -r _ title body _ <<<"$alert"
-post "$title" "$body"
-others() { grep -F "$(printf '%s\t%s' "$title" "$body")" <<<"$(list)" | grep -vxF "$alert"; }
-wait_for "Script Editor's notification with the same words never showed" 15 others
-other=$(others)
-wait_for "the alert beside Script Editor's was not closed" 8 closed_after "$before"
-gone || fail "the log says closed and the tree still shows the alert beside Script Editor's"
-shows "$other" || fail "Script Editor's notification with the same words did not stay"
+{ warn "$first"; post "$title" "$body"; } &
+other=$(guest "$tree" closes "$alert" 20)
+wait $!
+wait_for "the log never said the alert beside Script Editor's was closed" 8 closed_after "$before"
 say "the alert closed and Script Editor's notification with the same words stayed: $other"
