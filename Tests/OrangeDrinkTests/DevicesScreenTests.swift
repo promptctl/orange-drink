@@ -43,11 +43,15 @@ import Testing
     @Test func anEmptyDetectedCardSaysWhy() throws {
         var list = DeviceList()
         let note = { DetectedDevices(list, settings: DeviceSettings()).emptyNote }
-        #expect(note() == "No connected Bluetooth devices report a battery.")
+        #expect(note() == UnreadDevices.waiting.explanation)
         list.apply(.permission(.notDetermined))
-        #expect(note() == BluetoothPermission.notDetermined.explanation)
+        #expect(note() == UnreadDevices.unanswered.explanation)
         list.apply(.permission(.denied))
-        #expect(note() == BluetoothPermission.denied.explanation)
+        #expect(note() == UnreadDevices.denied.explanation)
+        list.apply(.swept([]))
+        #expect(note() == "No connected Bluetooth devices report a battery.")
+        list.end()
+        #expect(note() == UnreadDevices.ended.explanation)
     }
 
     @Test func theSwitchRemovesAndRestoresThePanelSection() throws {

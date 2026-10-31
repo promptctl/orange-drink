@@ -6184,6 +6184,28 @@
         }
       }
     },
+    "Reading your Bluetooth devices…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading your Bluetooth devices…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leyendo tus dispositivos Bluetooth…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture de vos appareils Bluetooth…"
+          }
+        }
+      }
+    },
     "Answer the Bluetooth prompt to see your devices.": {
       "localizations": {
         "en": {

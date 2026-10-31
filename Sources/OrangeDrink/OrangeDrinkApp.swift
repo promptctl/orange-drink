@@ -71,15 +71,9 @@ struct OrangeDrinkApp: App {
         do { shelf = try WidgetShelf.groupContainer() } catch { fatalError("no widget shelf: \(error)") }
         let reload: @MainActor (WidgetKind) -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: $0.rawValue) }
         let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf, reload: reload)
-        let deviceWidgets = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf, reload: reload)
-        // The shelf holds the model's list from launch, so a file a crashed run left behind is not drawn
-        // as current while the first Bluetooth sweep is still out.
-        deviceWidgets.publish(WidgetDevice.list(DeviceList()))
-        let devices = DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
-            deviceWidgets.publish(WidgetDevice.list($0))
+        let deviceWidgets = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf, reload: reload)
+        let devices = DevicesModel(events: BluetoothDevices.appEvents(), shelf: deviceWidgets, onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
-        }, onEnded: {
-            deviceWidgets.publish(WidgetDevice.list(DeviceList()))
         })
         _devices = State(initialValue: devices)
         pinnedItems = PinnedItemsController()

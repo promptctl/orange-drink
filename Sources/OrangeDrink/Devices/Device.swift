@@ -68,20 +68,51 @@ enum DeviceEvent: Equatable, Sendable {
 /// events to the list; nothing else holds a device.
 struct DeviceList: Equatable, Sendable {
     private var byID: [DeviceID: Device] = [:]
-    /// Allowed until the stream says otherwise, so a list with no stream behind it reads as one with nothing connected.
-    private(set) var permission = BluetoothPermission.allowed
+    /// Why this is no list of what is connected, or nil once a sweep has read one. [LAW:types-are-the-program] A device
+    /// reported before the first sweep leaves it unread: one device is not what is connected, and the connect a registration
+    /// replays has no order with that sweep.
+    private(set) var unread: UnreadDevices? = .waiting
 
     mutating func apply(_ event: DeviceEvent) {
         switch event {
         case .reported(let device): byID[device.id] = device
         case .gone(let id): byID[id] = nil
-        case .swept(let devices): byID = Dictionary(devices.map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
-        case .permission(let permission): self.permission = permission
+        case .swept(let devices):
+            byID = Dictionary(devices.map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
+            unread = nil
+        case .permission(let permission): unread = UnreadDevices(permission)
         }
+    }
+
+    /// The stream ended: no event will follow, so nothing is kept to go stale.
+    mutating func end() {
+        byID = [:]
+        unread = .ended
     }
 
     /// In a stable order, by name then address, so a view never reshuffles equal rows.
     var devices: [Device] {
         byID.values.sorted { ($0.name, $0.id.address) < ($1.name, $1.id.address) }
+    }
+}
+
+extension UnreadDevices {
+    /// What a sweep is waiting on for this permission: nothing yet when allowed, since the sweep is what reads the list.
+    init(_ permission: BluetoothPermission) {
+        self = switch permission {
+        case .allowed: .waiting
+        case .notDetermined: .unanswered
+        case .denied: .denied
+        }
+    }
+
+    /// Why a card that lists devices is empty.
+    var explanation: Phrase {
+        switch self {
+        case .waiting: "Reading your Bluetooth devices…"
+        case .unanswered: "Answer the Bluetooth prompt to see your devices."
+        case .denied: "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app."
+        case .ended: "Device readings stopped. Quit and reopen the app."
+        }
     }
 }

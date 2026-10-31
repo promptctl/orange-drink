@@ -66,6 +66,10 @@ struct Message: View {
     }
 }
 
+extension Message {
+    init(_ reason: UnreadDevices) { self.init(glyph: reason.glyph, text: reason.text) }
+}
+
 private extension View {
     /// Every widget's background.
     func widgetBackground() -> some View { containerBackground(.fill.tertiary, for: .widget) }
@@ -109,7 +113,7 @@ struct MacBatteryView: View {
 struct DeviceBatteryEntry: TimelineEntry {
     let date: Date
     /// What the app put on the shelf, or why there is nothing to read.
-    let shelf: Result<Shelved<[WidgetDevice]>, any Error>
+    let shelf: Result<Shelved<WidgetDevices>, any Error>
     /// The device the widget is set to, by address; nil until one is chosen.
     let chosen: String?
 }
@@ -129,7 +133,8 @@ struct DeviceBatteryView: View {
     @ViewBuilder private var content: some View {
         switch entry.shelf {
         case .failure, .success(.appNotRunning): Message(glyph: "dot.radiowaves.left.and.right", text: "Open \(appName)")
-        case .success(.running(let devices)): chosen(from: devices)
+        case .success(.running(.unread(let reason))): Message(reason)
+        case .success(.running(.connected(let devices))): chosen(from: devices)
         }
     }
 
@@ -166,7 +171,7 @@ struct AllBatteriesEntry: TimelineEntry {
     let date: Date
     /// What the app put on the shelf, or why there is nothing to read.
     let mac: Result<Shelved<MacBattery>, any Error>
-    let devices: Result<Shelved<[WidgetDevice]>, any Error>
+    let devices: Result<Shelved<WidgetDevices>, any Error>
 }
 
 extension AllBatteriesEntry {
@@ -190,6 +195,11 @@ struct RingGrid {
         }
     }
 
+    /// One ring's share of a widget's space.
+    func cell(in space: CGSize) -> CGSize {
+        CGSize(width: space.width / CGFloat(columns), height: space.height / CGFloat(rows))
+    }
+
     /// As many batteries as fit, a row at a time.
     func rows(of batteries: [WidgetBattery]) -> [[WidgetBattery]] {
         let fitting = Array(batteries.prefix(columns * rows))
@@ -205,15 +215,34 @@ struct BatteryRings: View {
 
     var body: some View {
         GeometryReader { space in
-            let (width, height) = (space.size.width / CGFloat(grid.columns), space.size.height / CGFloat(grid.rows))
+            let cell = grid.cell(in: space.size)
             VStack(spacing: 0) {
                 ForEach(Array(grid.rows(of: batteries).enumerated()), id: \.offset) { _, row in
                     HStack(spacing: 0) {
                         ForEach(Array(row.enumerated()), id: \.offset) { _, battery in
-                            BatteryRing(battery: battery).frame(width: width, height: height)
+                            BatteryRing(battery: battery).frame(width: cell.width, height: cell.height)
                         }
                     }
                 }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+/// The Mac's ring, the size the grid makes it, above why no device is beside it.
+struct RingAndReason: View {
+    let mac: WidgetBattery
+    let reason: UnreadDevices
+    let grid: RingGrid
+
+    var body: some View {
+        GeometryReader { space in
+            let cell = grid.cell(in: space.size)
+            VStack(spacing: 0) {
+                BatteryRing(battery: mac).frame(width: cell.width, height: cell.height)
+                Text(reason.text).font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                    .frame(height: cell.height)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -233,16 +262,17 @@ struct AllBatteriesView: View {
 
     @ViewBuilder private var content: some View {
         switch (entry.mac, entry.devices) {
-        case (.success(.running(let mac)), .success(.running(let devices))): batteries(AllBatteries.list(mac: mac, devices: devices))
+        case (.success(.running(let mac)), .success(.running(let devices))): rings(AllBatteries(mac: mac, devices: devices))
         default: Message(glyph: MacBattery.glyph, text: "Open \(appName)")
         }
     }
 
-    @ViewBuilder private func batteries(_ batteries: [WidgetBattery]) -> some View {
-        if batteries.isEmpty {
-            Message(glyph: MacBattery.glyph, text: "No batteries")
-        } else {
-            BatteryRings(batteries: batteries, grid: RingGrid(family))
+    @ViewBuilder private func rings(_ all: AllBatteries) -> some View {
+        switch all {
+        case .listed(let batteries) where batteries.isEmpty: Message(glyph: MacBattery.glyph, text: "No batteries")
+        case .listed(let batteries): BatteryRings(batteries: batteries, grid: RingGrid(family))
+        case .unread(nil, let reason): Message(reason)
+        case .unread(let mac?, let reason): RingAndReason(mac: mac, reason: reason, grid: RingGrid(family))
         }
     }
 }

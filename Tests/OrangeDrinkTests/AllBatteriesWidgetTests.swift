@@ -12,7 +12,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
 
 @MainActor @Suite(.timeLimit(.minutes(1))) final class AllBatteriesWidgetTests {
     /// WidgetKit keeps this margin inside a widget: a rendering is the content area.
-    static let margin: CGFloat = 16
+    nonisolated static let margin: CGFloat = 16
 
     static let charging = MacBattery.level(percent: 80, charging: true)
     static let onBattery = MacBattery.level(percent: 79, charging: false)
@@ -28,7 +28,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
     static let three = [device("AA", 95, kind: .phone), device("BB", 54), device("CC", 40, kind: .tablet)]
 
     static func entry(_ mac: MacBattery, _ devices: [WidgetDevice]) -> AllBatteriesEntry {
-        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(devices)))
+        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.connected(devices))))
     }
 
     static func view(_ entry: AllBatteriesEntry, _ family: WidgetFamily = .systemSmall) -> AllBatteriesView {
@@ -43,23 +43,22 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
     // MARK: the list
 
     @Test func theMacComesFirstThenTheDevicesInThePanelsRanking() {
-        let list = AllBatteries.list(mac: Self.charging, devices: Self.three)
-        #expect(list == [
+        #expect(AllBatteries(mac: Self.charging, devices: .connected(Self.three)) == .listed([
             WidgetBattery(glyph: "laptopcomputer", level: BatteryLevel(percent: 80, approximate: false), charging: true),
             WidgetBattery(glyph: "iphone", level: BatteryLevel(percent: 95, approximate: false), charging: false),
             WidgetBattery(glyph: "dot.radiowaves.left.and.right", level: BatteryLevel(percent: 54, approximate: false), charging: false),
             WidgetBattery(glyph: "ipad", level: BatteryLevel(percent: 40, approximate: false), charging: false),
-        ])
+        ]))
     }
 
     @Test func aMacWithNoBatteryIsNotListedAndOneWithNoReadingIsListedEmpty() {
         let devices = [Self.device("AA", 95, approximate: true)]
-        #expect(AllBatteries.list(mac: .noBattery, devices: devices) == [WidgetBattery(devices[0])])
+        #expect(AllBatteries(mac: .noBattery, devices: .connected(devices)) == .listed([WidgetBattery(devices[0])]))
         let waiting = WidgetBattery(glyph: "laptopcomputer", level: nil, charging: false)
-        #expect(AllBatteries.list(mac: .waiting, devices: devices) == [waiting, WidgetBattery(devices[0])])
+        #expect(AllBatteries(mac: .waiting, devices: .connected(devices)) == .listed([waiting, WidgetBattery(devices[0])]))
         let stopped = WidgetBattery(glyph: "exclamationmark.triangle", level: nil, charging: false)
-        #expect(AllBatteries.list(mac: .ended, devices: devices) == [stopped, WidgetBattery(devices[0])])
-        #expect(AllBatteries.list(mac: .ended, devices: []) == [stopped])
+        #expect(AllBatteries(mac: .ended, devices: .connected(devices)) == .listed([stopped, WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .ended, devices: .connected([])) == .listed([stopped]))
         #expect(WidgetBattery(devices[0]).level == BatteryLevel(percent: 95, approximate: true))
     }
 
@@ -161,7 +160,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
 
     @Test func whatEachStateSays() throws {
         func open(_ entry: AllBatteriesEntry) throws { #expect(try Self.texts(entry) == ["Open Orange Drink"]) }
-        let running = Result<Shelved<[WidgetDevice]>, any Error>.success(.running(Self.three))
+        let running = Result<Shelved<WidgetDevices>, any Error>.success(.running(.connected(Self.three)))
         try open(AllBatteriesEntry(date: .now, mac: .success(.appNotRunning), devices: running))
         try open(AllBatteriesEntry(date: .now, mac: .failure(ShelfError.noGroupEntitlement), devices: running))
         try open(AllBatteriesEntry(date: .now, mac: .success(.running(Self.charging)), devices: .success(.appNotRunning)))
@@ -190,7 +189,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         defer { try? FileManager.default.removeItem(at: shelf) }
         var asked: [WidgetKind] = []
         let mac = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { asked.append($0) }
-        let devices = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) { asked.append($0) }
+        let devices = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { asked.append($0) }
         func reloads(_ change: () -> Void) -> [WidgetKind] {
             asked = []
             change()
@@ -198,9 +197,9 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         }
 
         #expect(reloads { mac.publish(Self.charging) } == [.macBattery, .allBatteries])
-        #expect(reloads { devices.publish(Self.three) } == [.deviceBattery, .allBatteries])
+        #expect(reloads { devices.publish(.connected(Self.three)) } == [.deviceBattery, .allBatteries])
         #expect(reloads { mac.publish(Self.charging) } == [])
-        #expect(reloads { devices.publish(Self.three) } == [])
+        #expect(reloads { devices.publish(.connected(Self.three)) } == [])
 
         func shelved() -> AllBatteriesEntry { AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log) }
         #expect(try Self.texts(shelved()) == ["80%", "95%", "54%", "40%"])

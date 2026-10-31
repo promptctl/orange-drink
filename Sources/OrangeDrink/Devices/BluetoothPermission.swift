@@ -20,25 +20,16 @@ enum BluetoothPermission: Equatable, Sendable {
         }
     }
 
-    /// Why a device list is empty for this permission, or nil when the list is empty because nothing is connected.
-    var explanation: Phrase? {
-        switch self {
-        case .allowed: nil
-        case .notDetermined: "Answer the Bluetooth prompt to see your devices."
-        case .denied: "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app."
-        }
-    }
-
-    /// Reports each update and returns at the first answer. A prompt left open is a wait with no end, and only the device
-    /// list is held by it. Updates end without an answer only when the wait is cancelled, so nothing past it can run unanswered.
+    /// Reports each update and returns once reading is allowed. A prompt left open and a refusal are both waits with no
+    /// end, and only the device list is held by them: nothing sweeps a Bluetooth that macOS refused, so a sweep always means
+    /// the list was read (`DeviceList`). Updates end without an answer only when the wait is cancelled, so nothing past it can run unanswered.
     static func answer(from updates: AsyncStream<CBManagerAuthorization>, report: (BluetoothPermission) -> Void) async throws {
         for await update in updates {
             let permission = BluetoothPermission(update)
             report(permission)
-            guard permission == .notDetermined else {
-                BluetoothDevices.log.notice("bluetooth permission answered: \(String(describing: permission), privacy: .public)")
-                return
-            }
+            guard permission != .notDetermined else { continue }
+            BluetoothDevices.log.notice("bluetooth permission answered: \(String(describing: permission), privacy: .public)")
+            if permission == .allowed { return }
         }
         throw CancellationError()
     }

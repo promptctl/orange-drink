@@ -24,11 +24,27 @@ extension WidgetDevice {
     init(_ row: DeviceRow) {
         self.init(address: row.id.address, name: row.name, kind: row.kind, level: row.level)
     }
+}
 
-    /// The devices the widgets can draw. [LAW:one-source-of-truth] Derived from the one ranking the panel
-    /// reads, so a widget shows the level the panel shows.
-    static func list(_ devices: DeviceList) -> [WidgetDevice] {
-        DeviceRanking.rows(devices).map(WidgetDevice.init)
+extension WidgetDevices {
+    /// What the widgets draw for the list. [LAW:one-source-of-truth] Derived from the one ranking the panel
+    /// reads, so a widget shows the level the panel shows, and from the list's one word on whether it was read.
+    init(_ list: DeviceList) {
+        self = list.unread.map(Self.unread) ?? .connected(DeviceRanking.rows(list).map(WidgetDevice.init))
+    }
+}
+
+extension DevicesModel {
+    /// A model whose every list reaches the shelf, the one it starts from included: a file a crashed run left behind
+    /// is not drawn as current while the first Bluetooth sweep is still out.
+    convenience init<Events: AsyncSequence & Sendable>(
+        events: Events, shelf: ShelfPublisher<WidgetDevices>, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
+    ) where Events.Element == DeviceEvent {
+        shelf.publish(WidgetDevices(DeviceList()))
+        self.init(events: events, onChange: {
+            shelf.publish(WidgetDevices($0))
+            onChange($0)
+        })
     }
 }
 

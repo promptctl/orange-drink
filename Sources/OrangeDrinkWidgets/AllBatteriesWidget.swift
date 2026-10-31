@@ -11,7 +11,7 @@ struct AllBatteriesProvider: TimelineProvider {
             WidgetDevice(address: "earbuds", name: "Earbuds", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
             WidgetDevice(address: "tablet", name: "iPad", kind: .tablet, level: BatteryLevel(percent: 62, approximate: false)),
         ]
-        return AllBatteriesEntry(date: .now, mac: .success(.running(.level(percent: 80, charging: true))), devices: .success(.running(devices)))
+        return AllBatteriesEntry(date: .now, mac: .success(.running(.level(percent: 80, charging: true))), devices: .success(.running(.connected(devices))))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (AllBatteriesEntry) -> Void) {

@@ -170,8 +170,8 @@ wait $!
 wait_for "the log never said the alert beside Script Editor's was closed" 8 closed_after "$before"
 say "the alert closed and Script Editor's notification with the same words stayed: $other"
 
-# The denied path starts the watcher too, and macOS 14 and 15 are read nowhere else: a registration refused there would end
-# the subscription, and the panel would say readings stopped instead of why.
+# A refusal never reaches IOBluetooth, and macOS 14 and 15 are read nowhere else: a registration refused there would end the
+# subscription, and the panel would say readings stopped instead of why.
 watcher_starts() { log_lines devices | awk '/device watcher started/ { n++ } END { print n + 0 }'; }
 started_after() { [ "$(watcher_starts)" -gt "$1" ]; }
 guest pkill -x OrangeDrink
@@ -182,5 +182,7 @@ guest tccutil reset BluetoothAlways
 start_app
 wait_for "the Bluetooth prompt never came back after the reset" 30 guest "$tree" answer 'Don’t Allow'
 wait_for "the app never logged the refusal" 30 logged devices 'bluetooth permission answered: denied'
-wait_for "the device watcher never started after the refusal" 30 started_after "$before"
-say "denied: the app logged the refusal, then started the device watcher"
+# The line follows the answer within the second when it comes, so its absence is read after a few.
+sleep 5
+! started_after "$before" || fail "the device watcher started after the refusal"
+say "denied: the app logged the refusal and did not start the device watcher"

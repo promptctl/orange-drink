@@ -66,12 +66,61 @@ extension WidgetBattery {
     }
 }
 
-/// What the All Batteries widget lists. [LAW:dataflow-not-control-flow] Pure over the shelf's two values.
-enum AllBatteries {
+/// Why the app has no list of what is connected. [LAW:types-are-the-program] Each is a list the app could not
+/// give, so none of them can reach a widget as a list with nothing on it.
+enum UnreadDevices: String, Codable, Equatable, Sendable {
+    /// Nothing has read the list yet.
+    case waiting
+    /// The Bluetooth prompt is open.
+    case unanswered
+    /// macOS refuses this app Bluetooth.
+    case denied
+    /// The app's readings stopped; its panel says why.
+    case ended
+}
+
+extension UnreadDevices {
+    /// A reading that is coming keeps the devices' glyph; one that will not come warns, as a stopped Mac does.
+    var glyph: String {
+        switch self {
+        case .waiting, .unanswered: DeviceKind.accessory.symbol
+        case .denied, .ended: MacBattery.stoppedGlyph
+        }
+    }
+
+    /// What a widget says for it. A widget is too small for the panel's sentences, and the panel says why at length.
+    var text: String {
+        switch self {
+        case .waiting: "Reading devices…"
+        case .unanswered: "Answer the Bluetooth prompt"
+        case .denied: "Allow Bluetooth in System Settings, then reopen the app"
+        case .ended: "Devices unavailable"
+        }
+    }
+}
+
+/// What the app knows of its devices, as the widgets draw them. A list is one the app read, so an empty one
+/// can only mean nothing is connected. The app derives it from `DeviceList`.
+enum WidgetDevices: Codable, Equatable, Sendable {
+    case connected([WidgetDevice])
+    case unread(UnreadDevices)
+}
+
+/// What the All Batteries widget draws, whatever its style. [LAW:dataflow-not-control-flow] Pure over the
+/// shelf's two values.
+enum AllBatteries: Equatable, Sendable {
     /// The Mac first, so a full widget never pushes it out, then the devices in the panel's ranking, so the
-    /// lowest are the ones that fit.
-    static func list(mac: MacBattery, devices: [WidgetDevice]) -> [WidgetBattery] {
-        [mac.battery].compactMap(\.self) + devices.map(WidgetBattery.init)
+    /// lowest are the ones that fit. Empty on a Mac with no battery and nothing connected.
+    case listed([WidgetBattery])
+    /// The Mac, nil when it has no battery, and why no device is listed. It keeps its place beside the reason:
+    /// it is the one thing the widget can show a person who keeps Bluetooth refused.
+    case unread(mac: WidgetBattery?, UnreadDevices)
+
+    init(mac: MacBattery, devices: WidgetDevices) {
+        self = switch devices {
+        case .connected(let devices): .listed([mac.battery].compactMap(\.self) + devices.map(WidgetBattery.init))
+        case .unread(let reason): .unread(mac: mac.battery, reason)
+        }
     }
 }
 
@@ -156,24 +205,24 @@ extension WidgetShelf.Item where Value == MacBattery {
     static var macBattery: Self { Self(file: "mac.json", readers: [.macBattery, .allBatteries]) }
 }
 
-extension WidgetShelf.Item where Value == [WidgetDevice] {
+extension WidgetShelf.Item where Value == WidgetDevices {
     static var devices: Self { Self(file: "devices.json", readers: [.deviceBattery, .allBatteries]) }
 }
 
 /// What the Device Battery widget's settings offer and resolve. [LAW:dataflow-not-control-flow] Pure over
 /// the shelf's value, so the extension's AppIntents entity query only maps these and a test calls them.
-enum WidgetDevices {
-    /// The devices a widget can be set to: the connected ones, none while the app is not running.
-    static func choices(in shelf: Shelved<[WidgetDevice]>) -> [WidgetDevice] {
+extension WidgetDevices {
+    /// The devices a widget can be set to: the connected ones, none while the app has no list or is not running.
+    static func choices(in shelf: Shelved<WidgetDevices>) -> [WidgetDevice] {
         switch shelf {
-        case .running(let devices): devices
-        case .appNotRunning: []
+        case .running(.connected(let devices)): devices
+        case .running(.unread), .appNotRunning: []
         }
     }
 
     /// One result per id asked for, present or not: a chosen device that has disconnected still resolves
     /// (to nil), so its widget draws "Not connected" instead of losing its choice.
-    static func resolve(_ addresses: [String], in shelf: Shelved<[WidgetDevice]>) -> [(address: String, device: WidgetDevice?)] {
+    static func resolve(_ addresses: [String], in shelf: Shelved<WidgetDevices>) -> [(address: String, device: WidgetDevice?)] {
         let connected = choices(in: shelf)
         return addresses.map { address in (address, connected.first { $0.address == address }) }
     }

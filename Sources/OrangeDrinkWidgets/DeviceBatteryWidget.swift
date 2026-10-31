@@ -34,7 +34,7 @@ struct DeviceQuery: EntityQuery {
     }
 
     /// [LAW:no-silent-failure] A shelf that cannot be read offers no devices, and the log says why.
-    private static func shelf() -> Shelved<[WidgetDevice]> {
+    private static func shelf() -> Shelved<WidgetDevices> {
         switch WidgetShelf.load(.devices, from: Swift.Result { try WidgetShelf.groupContainer() }, log: log) {
         case .success(let shelved): shelved
         case .failure: .appNotRunning
@@ -52,7 +52,7 @@ struct SelectDeviceIntent: WidgetConfigurationIntent {
 struct DeviceBatteryProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> DeviceBatteryEntry {
         let phone = WidgetDevice(address: "placeholder", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
-        return DeviceBatteryEntry(date: .now, shelf: .success(.running([phone])), chosen: phone.address)
+        return DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected([phone]))), chosen: phone.address)
     }
 
     func snapshot(for configuration: SelectDeviceIntent, in context: Context) async -> DeviceBatteryEntry {
