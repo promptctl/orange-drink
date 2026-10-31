@@ -1,0 +1,391 @@
+
+=== 26.6.2 25G83
+com.apple.battery-monitor.bundle
+com.apple.controlcenter.notifications.low-battery.bundle
+InfoPlist.loctable
+Localizable.loctable
+en.lproj
+
+=== a stand-in battery, and ControlCenter restarted to build its Battery module
+set level 1 -> true read 1
+notify_post -> 0
+Now drawing from 'AC Power'
+ -InternalBattery-0 (id=47387528)	4%; discharging; 0:06 remaining present: true
+
+=== Script Editor allowed banners, the Allow a person gives, which macOS 15 and 26 ask for before a new app's first
+other AXNotificationCenterBanner title=First body=A banner description=Script Editor, First, A banner stacking=- actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+1 notifications, 77 sets of words, scan took 13 ms
+
+=== the final warning, and another app with the same words a second later
+set level 3 -> true read 3
+notify_post -> 0
+showing: BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=- actions=["AXPress", "Name:Show Details", "Name:Close"]
+showing: other AXNotificationCenterBanner title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=- actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+closing AXNotificationCenterAlert: 0 (0 is success)
+gone from the tree after 0.98s
+after: other AXNotificationCenterBanner title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=- actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+1 notifications after
+AXLayoutChanged 0
+AXWindowCreated 0
+AXCreated 0
+AXUIElementDestroyed 0
+1.10s AXCreated AXWindow AXSystemDialog
+1.10s AXWindowCreated AXWindow AXSystemDialog
+1.11s AXLayoutChanged AXGroup AXNotificationCenterAlert
+1.11s AXLayoutChanged AXScrollArea -
+3.14s AXLayoutChanged AXGroup AXNotificationCenterBanner
+3.14s AXLayoutChanged AXGroup -
+3.14s AXLayoutChanged AXScrollArea -
+4.18s AXUIElementDestroyed - -
+4.18s AXLayoutChanged AXGroup AXNotificationCenterAlert
+4.18s AXLayoutChanged AXScrollArea -
+4.69s AXUIElementDestroyed - -
+4.69s AXUIElementDestroyed - -
+4.69s AXUIElementDestroyed - -
+4.69s AXUIElementDestroyed - -
+7.21s AXLayoutChanged AXScrollArea -
+7.52s AXUIElementDestroyed - -
+7.72s AXUIElementDestroyed - -
+7.72s AXUIElementDestroyed - -
+7.72s AXUIElementDestroyed - -
+
+=== closed: the same warning level again, with no change, does not bring it back
+set level 3 -> true read 3
+notify_post -> 0
+0 notifications, 77 sets of words, scan took 10 ms
+
+=== the panel open over the final warning
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+pressing the clock: 0 (0 is success)
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=- actions=["AXPress", "Name:Show Details", "Name:Close"]
+other AXNotificationCenterBannerStack title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet., stacked stacking=- actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Clear All"]
+2 notifications, 77 sets of words, scan took 17 ms
+closing AXNotificationCenterAlert: 0 (0 is success)
+other AXNotificationCenterBannerStack title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet., stacked stacking=- actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Clear All"]
+1 notifications, 77 sets of words, scan took 13 ms
+pressing the clock: 0 (0 is success)
+
+=== the early warning: no notification
+set level 1 -> true read 1
+notify_post -> 0
+set level 2 -> true read 2
+notify_post -> 0
+0 notifications, 77 sets of words, scan took 10 ms
+
+=== the final warning with the suppression preference on: nothing posted
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+0 notifications, 77 sets of words, scan took 11 ms
+
+=== the preference off, and the warning raised again: posted
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=- actions=["AXPress", "Name:Show Details", "Name:Close"]
+1 notifications, 77 sets of words, scan took 13 ms
+
+=== the warning withdrawn with the power: macOS hides it itself
+set level 1 -> true read 1
+notify_post -> 0
+0 notifications, 77 sets of words, scan took 11 ms
+
+=== a Mac in French: the words and the Close action change, and the notification is still found and closed
+set level 3 -> true read 3
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Batterie faible body=Branchez le Mac sur secteur pour ne pas suspendre l’activité. description=Batterie faible, Branchez le Mac sur secteur pour ne pas suspendre l’activité. stacking=- actions=["AXPress", "Name:Afficher les détails", "Name:Fermer"]
+1 notifications, 77 sets of words, scan took 14 ms
+closing AXNotificationCenterAlert: 0 (0 is success)
+0 notifications, 77 sets of words, scan took 12 ms
+
+=== ControlCenter's own log
+2026-10-31 15:25:47.593 Df ControlCenter[747:1474] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:25:47.594 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:25:56.593 Df ControlCenter[747:1474] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:25:56.593 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:25:57.693 Df ControlCenter[747:1474] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:25:57.694 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:26:05.976 Df ControlCenter[747:1474] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:26:05.976 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:26:07.073 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 2
+2026-10-31 15:26:09.136 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:26:10.240 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] suppress warnings: true
+2026-10-31 15:26:10.240 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:26:13.336 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] suppress warnings: false
+2026-10-31 15:26:13.336 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:26:14.360 Df ControlCenter[747:1474] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:26:14.360 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:26:17.415 Df ControlCenter[747:1474] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:26:17.415 I  ControlCenter[747:1474] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:26:29.641 Df ControlCenter[933:1b9b] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:26:29.642 I  ControlCenter[933:1b9b] [com.apple.controlcenter:battery] warning level: 3
+IOPSCreatePowerSource -> 0
+IOPSSetPowerSourceDetails -> 0
+warning level 1
+
+=== 15.7.7 24G720
+com.apple.battery-monitor.bundle
+com.apple.controlcenter.notifications.low-battery.bundle
+InfoPlist.loctable
+Localizable.loctable
+en.lproj
+
+=== a stand-in battery, and ControlCenter restarted to build its Battery module
+set level 1 -> true read 1
+notify_post -> 0
+Now drawing from 'AC Power'
+ -InternalBattery-0 (id=38015880)	4%; discharging; 0:06 remaining present: true
+
+=== Script Editor allowed banners, the Allow a person gives, which macOS 15 and 26 ask for before a new app's first
+other AXNotificationCenterBanner title=First body=A banner description=Script Editor, First, A banner stacking=bundleIdentifier=com.apple.ScriptEditor2 actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+1 notifications, 39 sets of words, scan took 18 ms
+
+=== the final warning, and another app with the same words a second later
+set level 3 -> true read 3
+notify_post -> 0
+showing: BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=ADAE734A-20FA-4DF4-B5AE-42D695023325 actions=["AXPress", "Name:Show Details", "Name:Close"]
+showing: other AXNotificationCenterBanner title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=bundleIdentifier=com.apple.ScriptEditor2 actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+closing AXNotificationCenterAlert: 0 (0 is success)
+gone from the tree after 0.20s
+after: other AXNotificationCenterBanner title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=bundleIdentifier=com.apple.ScriptEditor2 actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+1 notifications after
+AXLayoutChanged 0
+AXWindowCreated 0
+AXCreated 0
+AXUIElementDestroyed 0
+1.25s AXCreated AXWindow AXSystemDialog
+1.26s AXWindowCreated AXWindow AXSystemDialog
+1.26s AXLayoutChanged AXGroup AXNotificationCenterAlert
+1.26s AXLayoutChanged AXScrollArea -
+2.33s AXLayoutChanged AXGroup AXNotificationCenterBanner
+2.33s AXLayoutChanged AXGroup -
+2.33s AXLayoutChanged AXScrollArea -
+2.60s AXUIElementDestroyed - -
+2.60s AXLayoutChanged AXGroup AXNotificationCenterAlert
+2.60s AXLayoutChanged AXScrollArea -
+2.87s AXUIElementDestroyed - -
+2.87s AXUIElementDestroyed - -
+2.87s AXUIElementDestroyed - -
+2.87s AXUIElementDestroyed - -
+7.33s AXLayoutChanged AXScrollArea -
+7.59s AXUIElementDestroyed - -
+7.59s AXUIElementDestroyed - -
+7.59s AXUIElementDestroyed - -
+7.59s AXUIElementDestroyed - -
+
+=== closed: the same warning level again, with no change, does not bring it back
+set level 3 -> true read 3
+notify_post -> 0
+0 notifications, 39 sets of words, scan took 9 ms
+
+=== the panel open over the final warning
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+pressing the clock: 0 (0 is success)
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=8F5145E3-914C-44AE-B3E6-9916889AA1C8 actions=["AXPress", "Name:Show Details", "Name:Close"]
+other AXNotificationCenterBannerStack title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet., stacked stacking=bundleIdentifier=com.apple.ScriptEditor2 actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Clear All"]
+2 notifications, 39 sets of words, scan took 499 ms
+closing AXNotificationCenterAlert: 0 (0 is success)
+other AXNotificationCenterBannerStack title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet., stacked stacking=bundleIdentifier=com.apple.ScriptEditor2 actions=["AXPress", "Name:Show Details", "Name:Show", "Name:Clear All"]
+1 notifications, 39 sets of words, scan took 15 ms
+pressing the clock: 0 (0 is success)
+
+=== the early warning: no notification
+set level 1 -> true read 1
+notify_post -> 0
+set level 2 -> true read 2
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=CA8F3FC6-2C3F-44C8-AA72-BBDA0658B6A9 actions=["AXPress", "Name:Show Details", "Name:Close"]
+1 notifications, 39 sets of words, scan took 12 ms
+
+=== the final warning with the suppression preference on: nothing posted
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+0 notifications, 39 sets of words, scan took 10 ms
+
+=== the preference off, and the warning raised again: posted
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery, Your Mac will sleep soon unless plugged into a power outlet. stacking=E9828546-B86F-4111-9030-319B943DAB03 actions=["AXPress", "Name:Show Details", "Name:Close"]
+1 notifications, 39 sets of words, scan took 11 ms
+
+=== the warning withdrawn with the power: macOS hides it itself
+set level 1 -> true read 1
+notify_post -> 0
+0 notifications, 39 sets of words, scan took 10 ms
+
+=== a Mac in French: the words and the Close action change, and the notification is still found and closed
+set level 3 -> true read 3
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Batterie faible body=Branchez le Mac sur secteur pour ne pas suspendre l’activité. description=Batterie faible, Branchez le Mac sur secteur pour ne pas suspendre l’activité. stacking=8F9CF8B0-FFB5-4789-A3A9-D3A28B0D7486 actions=["AXPress", "Name:Afficher les détails", "Name:Fermer"]
+1 notifications, 39 sets of words, scan took 14 ms
+closing AXNotificationCenterAlert: 0 (0 is success)
+0 notifications, 39 sets of words, scan took 11 ms
+
+=== ControlCenter's own log
+2026-10-31 15:29:12.109 Df ControlCenter[349:89c] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:29:28.855 Df ControlCenter[593:11d6] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:29:52.509 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:29:52.510 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:30:01.562 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:30:01.562 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:30:02.655 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:30:02.656 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:30:11.400 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:30:11.400 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:30:12.423 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:30:12.424 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 2
+2026-10-31 15:30:14.471 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:30:14.472 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:30:15.557 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] suppress warnings: true
+2026-10-31 15:30:15.557 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:30:18.602 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] suppress warnings: false
+2026-10-31 15:30:18.602 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:30:19.693 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:30:19.693 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:30:22.733 Df ControlCenter[593:11cd] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:30:22.733 I  ControlCenter[593:11cd] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:30:24.917 Df ControlCenter[817:179f] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:30:34.951 Df ControlCenter[817:178e] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:30:34.951 I  ControlCenter[817:178e] [com.apple.controlcenter:battery] warning level: 3
+IOPSCreatePowerSource -> 0
+IOPSSetPowerSourceDetails -> 0
+warning level 1
+
+=== 14.8.7 23J520
+com.apple.battery-monitor.bundle
+com.apple.controlcenter.notifications.low-battery.bundle
+InfoPlist.loctable
+Localizable.loctable
+en.lproj
+
+=== a stand-in battery, and ControlCenter restarted to build its Battery module
+set level 1 -> true read 1
+notify_post -> 0
+Now drawing from 'AC Power'
+ -InternalBattery-0 (id=34608008)	4%; discharging; 0:06 remaining present: true
+
+=== Script Editor allowed banners, the Allow a person gives, which macOS 15 and 26 ask for before a new app's first
+other AXNotificationCenterBanner title=First body=A banner description=Script Editor stacking=com.apple.ScriptEditor2 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+1 notifications, 38 sets of words, scan took 11 ms
+
+=== the final warning, and another app with the same words a second later
+set level 3 -> true read 3
+notify_post -> 0
+showing: BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery stacking=E44E8301-68CC-4DC5-97F8-6B98B3D10425 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Close"]
+showing: other AXNotificationCenterBanner title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor stacking=com.apple.ScriptEditor2 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+closing AXNotificationCenterAlert: 0 (0 is success)
+gone from the tree after 0.60s
+after: other AXNotificationCenterBanner title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor stacking=com.apple.ScriptEditor2 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Show", "Name:Close"]
+1 notifications after
+AXLayoutChanged 0
+AXWindowCreated 0
+AXCreated 0
+AXUIElementDestroyed 0
+1.19s AXCreated AXWindow AXSystemDialog
+1.20s AXWindowCreated AXWindow AXSystemDialog
+1.20s AXUIElementDestroyed - -
+1.20s AXUIElementDestroyed - -
+1.20s AXUIElementDestroyed - -
+1.20s AXLayoutChanged AXGroup AXNotificationCenterAlert
+1.20s AXLayoutChanged AXOpaqueProviderGroup AXOpaqueProviderList
+2.20s AXLayoutChanged AXGroup AXNotificationCenterBanner
+2.20s AXLayoutChanged AXOpaqueProviderGroup AXOpaqueProviderList
+2.73s AXLayoutChanged AXOpaqueProviderGroup AXOpaqueProviderList
+7.42s AXLayoutChanged AXOpaqueProviderGroup AXOpaqueProviderList
+
+=== closed: the same warning level again, with no change, does not bring it back
+set level 3 -> true read 3
+notify_post -> 0
+0 notifications, 38 sets of words, scan took 9 ms
+
+=== the panel open over the final warning
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+pressing the clock: 0 (0 is success)
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery stacking=0439D4FE-3D0B-481A-983E-CDCBBA6A42FC actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Close"]
+other AXNotificationCenterBannerStack title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, stacked stacking=com.apple.ScriptEditor2 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Show", "Name:Clear All"]
+2 notifications, 38 sets of words, scan took 15 ms
+closing AXNotificationCenterAlert: 0 (0 is success)
+other AXNotificationCenterBannerStack title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Script Editor, stacked stacking=com.apple.ScriptEditor2 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Show", "Name:Clear All"]
+1 notifications, 38 sets of words, scan took 14 ms
+pressing the clock: 0 (0 is success)
+
+=== the early warning: no notification
+set level 1 -> true read 1
+notify_post -> 0
+set level 2 -> true read 2
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery stacking=E6ABE41D-CB11-4DB2-B931-DDAADA2284F6 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Close"]
+1 notifications, 38 sets of words, scan took 10 ms
+
+=== the final warning with the suppression preference on: nothing posted
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+0 notifications, 38 sets of words, scan took 9 ms
+
+=== the preference off, and the warning raised again: posted
+set level 1 -> true read 1
+notify_post -> 0
+set level 3 -> true read 3
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Low Battery body=Your Mac will sleep soon unless plugged into a power outlet. description=Low Battery stacking=9511511A-0500-4B62-B4CF-331CBCFA8B13 actions=["AXScrollToVisible", "AXPress", "Name:Show Details", "Name:Close"]
+1 notifications, 38 sets of words, scan took 11 ms
+
+=== the warning withdrawn with the power: macOS hides it itself
+set level 1 -> true read 1
+notify_post -> 0
+0 notifications, 38 sets of words, scan took 9 ms
+
+=== a Mac in French: the words and the Close action change, and the notification is still found and closed
+set level 3 -> true read 3
+notify_post -> 0
+BATTERY AXNotificationCenterAlert title=Batterie faible body=Branchez le Mac sur secteur pour ne pas suspendre l’activité. description=Batterie faible stacking=6A2255FE-C6FA-4A56-9A61-761E0B1FC451 actions=["AXScrollToVisible", "AXPress", "Name:Afficher les détails", "Name:Fermer"]
+1 notifications, 38 sets of words, scan took 11 ms
+closing AXNotificationCenterAlert: 0 (0 is success)
+0 notifications, 38 sets of words, scan took 9 ms
+
+=== ControlCenter's own log
+2026-10-31 15:33:39.301 Df ControlCenter[342:884] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:33:55.943 Df ControlCenter[546:10b9] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:34:19.898 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:34:19.898 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:34:28.959 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:34:28.959 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:34:29.981 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:34:29.982 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:34:38.413 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:34:38.413 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:34:39.499 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:34:39.969 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 2
+2026-10-31 15:34:41.550 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:34:41.550 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:34:43.009 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] suppress warnings: true
+2026-10-31 15:34:43.009 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:34:46.050 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] suppress warnings: false
+2026-10-31 15:34:46.050 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:34:47.083 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:34:47.084 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 3
+2026-10-31 15:34:50.182 Df ControlCenter[546:10b7] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:34:50.182 I  ControlCenter[546:10b7] [com.apple.controlcenter:battery] warning level: 1
+2026-10-31 15:34:52.352 Df ControlCenter[788:171b] [com.apple.controlcenter:battery] === Hide Low Battery Notification ===
+2026-10-31 15:35:02.307 Df ControlCenter[788:16f1] [com.apple.controlcenter:battery] === Show Low Battery Notification ===
+2026-10-31 15:35:02.308 I  ControlCenter[788:16f1] [com.apple.controlcenter:battery] warning level: 3
+IOPSCreatePowerSource -> 0
+IOPSSetPowerSourceDetails -> 0
+warning level 1
