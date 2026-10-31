@@ -6,6 +6,15 @@ enum ElementRead<Value: Sendable>: Sendable {
     case value(Value)
     case absent
     case failed(AXError)
+
+    /// `invalidUIElement` is an element gone since the tree was read, as a closed notification is.
+    init(_ read: AXError, _ value: Value?) {
+        switch read {
+        case .success: self = value.map { .value($0) } ?? .absent
+        case .noValue, .attributeUnsupported, .invalidUIElement: self = .absent
+        default: self = .failed(read)
+        }
+    }
 }
 
 /// An element of another app's accessibility tree, as far as the look and the close use one.

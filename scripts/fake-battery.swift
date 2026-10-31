@@ -18,7 +18,7 @@ func warn(_ level: Int) {
 @_silgen_name("IOPSCreatePowerSource") func IOPSCreatePowerSource(_ source: UnsafeMutablePointer<OpaquePointer?>) -> IOReturn
 @_silgen_name("IOPSSetPowerSourceDetails") func IOPSSetPowerSourceDetails(_ source: OpaquePointer?, _ details: CFDictionary) -> IOReturn
 
-// proof.sh kills it, which would lose a buffer.
+// The check prints this process's output on a failure, with the process still running.
 setlinebuf(stdout)
 let arguments = CommandLine.arguments
 if arguments[1] == "warn" { warn(Int(arguments[2])!); exit(0) }

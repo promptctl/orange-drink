@@ -83,6 +83,8 @@ import OSLog
         case looked(Seen)
         case lookFailed(LookFailure)
         case closed
+        /// The second look found it gone though the press returned this, so the app may not be what closed it.
+        case gone(press: AXError)
         case closeFailed(CloseFailure)
 
         fileprivate var line: String {
@@ -92,6 +94,7 @@ import OSLog
             case .looked(let seen): "looked: \(seen.line)"
             case .lookFailed(let failure): "look failed: \(failure.reason)"
             case .closed: "closed"
+            case .gone(let press): "gone, and the press returned AXError \(press.rawValue)"
             case .closeFailed(let failure): "close failed: \(failure.reason)"
             }
         }
@@ -300,19 +303,21 @@ import OSLog
         }
     }
 
+    /// [LAW:dataflow-not-control-flow] Every press gets the same wait and the same second look, because only the look says
+    /// what is showing: a press can return an error having worked, and `invalidUIElement` means the notification had gone.
     /// [LAW:no-ambient-temporal-coupling] The one deadline, inside the pass, so nothing else moves while it runs. A press
     /// that is not confirmed gone is never repeated. One confirmed gone stays watching, so a macOS that posts again at the
     /// final warning is closed too.
     private func close(_ notification: ShownNotification, with action: String, words: Set<LowBatteryWords>, pid: pid_t?) async -> Outcome {
         let pressed = await blocking { notification.element.press(action) }
-        // `invalidUIElement` is a notification gone since the look, as it is for a read, and the second look says so.
-        guard pressed == .success || pressed == .invalidUIElement else { return stuck(words, .press(pressed)) }
         // This task is never cancelled, and a sleep cut short only looks sooner.
         try? await timekeeper.sleep(for: Self.closeDeadline)
         switch await look(pid) {
         case .failure(let failure): return stuck(words, .secondLook(failure))
-        case .success(let shown):
-            return shown.contains { $0.values.isStill(notification.values) } ? stuck(words, .stayed) : .closed
+        case .success(let shown) where shown.contains(where: { $0.values.isStill(notification.values) }):
+            return stuck(words, pressed == .success ? .stayed : .press(pressed))
+        case .success:
+            return pressed == .success ? .closed : .gone(press: pressed)
         }
     }
 

@@ -386,21 +386,33 @@ import ViewInspector
         #expect(try await closing.outcome == .closeFailed(.stayed))
     }
 
-    @Test func anAlertGoneBeforeThePressIsNotAFailedClose() async throws {
+    /// `invalidUIElement` is an alert that left before the press, and `cannotComplete` a press that timed out having arrived.
+    @Test(arguments: [AXError.invalidUIElement, .cannotComplete]) func anAlertGoneDespiteThePressesErrorIsNotAFailedCloseAndNotClosed(error: AXError) async throws {
         let bed = try Bed()
-        bed.mac.with { $0.pressReturns = .invalidUIElement; $0.showing = [NotificationFixtures.alert] }
+        bed.mac.with { $0.pressReturns = error; $0.showing = [NotificationFixtures.alert] }
         try await bed.launch()
         async let closing = bed.warn(kIOPSLowBatteryWarningFinal)
         await bed.clock.asleep()
         bed.clock.advance(by: BatteryNotificationDismissal.closeDeadline)
-        #expect(try await closing.outcome == .closed)
+        let pass = try await closing
+        #expect(pass.outcome == .gone(press: error))
+        #expect(!BatteryNotificationDismissal.Event.pass(pass).line.hasSuffix(", closed"))
+
+        bed.mac.with { $0.pressReturns = .success; $0.showing = [NotificationFixtures.alert] }
+        bed.mac.layoutChanged()
+        await bed.clock.asleep()
+        bed.clock.advance(by: BatteryNotificationDismissal.closeDeadline)
+        #expect(await bed.nextPass().outcome == .closed)
     }
 
     @Test func aPressThatReturnsAnErrorIsNotRepeatedAndIsLogged() async throws {
         let bed = try Bed()
         bed.mac.with { $0.pressCloses = false; $0.pressReturns = .cannotComplete; $0.showing = [NotificationFixtures.alert] }
         try await bed.launch()
-        #expect(try await bed.warn(kIOPSLowBatteryWarningFinal).outcome == .closeFailed(.press(.cannotComplete)))
+        async let closing = bed.warn(kIOPSLowBatteryWarningFinal)
+        await bed.clock.asleep()
+        bed.clock.advance(by: BatteryNotificationDismissal.closeDeadline)
+        #expect(try await closing.outcome == .closeFailed(.press(.cannotComplete)))
         bed.mac.layoutChanged()
         _ = await bed.nextPass()
         #expect(bed.mac.presses.count == 1)
@@ -421,7 +433,10 @@ import ViewInspector
         let bed = try Bed()
         bed.mac.with { $0.pressCloses = false; $0.pressReturns = .cannotComplete; $0.showing = [NotificationFixtures.alert] }
         try await bed.launch()
-        #expect(try await bed.warn(kIOPSLowBatteryWarningFinal).outcome == .closeFailed(.press(.cannotComplete)))
+        async let closing = bed.warn(kIOPSLowBatteryWarningFinal)
+        await bed.clock.asleep()
+        bed.clock.advance(by: BatteryNotificationDismissal.closeDeadline)
+        #expect(try await closing.outcome == .closeFailed(.press(.cannotComplete)))
         try await bed.warn(kIOPSLowBatteryWarningNone)
         bed.mac.with { $0.pressReturns = .success; $0.pressCloses = true }
         async let again = bed.warn(kIOPSLowBatteryWarningEarly)
@@ -505,6 +520,14 @@ import ViewInspector
     @Test func theLookFindsTheNotificationInTheDialogWindowWithItsValues() throws {
         let shown = try look([RecordedElement.window([RecordedElement.notification(NotificationFixtures.alert)])]).get()
         #expect(shown.map(\.values) == [NotificationFixtures.alert])
+    }
+
+    @Test(arguments: [AXError.noValue, .attributeUnsupported, .invalidUIElement]) func aReplyThatNothingIsThereIsAbsent(reply: AXError) {
+        guard case .absent = ElementRead<String>(reply, nil) else { Issue.record("\(reply.rawValue) is not absent"); return }
+    }
+
+    @Test(arguments: [AXError.cannotComplete, .failure, .apiDisabled, .notImplemented]) func anyOtherReplyIsAFailedRead(reply: AXError) {
+        guard case .failed(reply) = ElementRead<String>(reply, nil) else { Issue.record("\(reply.rawValue) is not a failed read"); return }
     }
 
     @Test func noWindowIsNothingShowing() throws {

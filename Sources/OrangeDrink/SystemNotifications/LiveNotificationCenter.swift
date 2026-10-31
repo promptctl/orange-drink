@@ -2,17 +2,6 @@ import AppKit
 // AX's option keys are declared as mutable globals, and macOS never writes them.
 @preconcurrency import ApplicationServices
 
-extension ElementRead {
-    /// `invalidUIElement` is an element gone since the tree was read, as a closed notification is.
-    fileprivate init(_ read: AXError, _ value: Value?) {
-        switch read {
-        case .success: self = value.map { .value($0) } ?? .absent
-        case .noValue, .attributeUnsupported, .invalidUIElement: self = .absent
-        default: self = .failed(read)
-        }
-    }
-}
-
 /// [LAW:effects-at-boundaries] The one edge that calls the accessibility API.
 private struct LiveElement: AccessibleElement, @unchecked Sendable {
     let element: AXUIElement

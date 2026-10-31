@@ -30,7 +30,7 @@ list() { guest "$tree" list; }
 read_tree() { showing=$(list); }
 on_failure() {
   log_lines >&2
-  guest sh -c 'cat /tmp/app.out' >&2
+  guest sh -c 'cat /tmp/app.out /tmp/battery.out' >&2
   list >&2
 }
 say() { echo "battery-notification-check: $image: $*" >&2; }
