@@ -1,5 +1,4 @@
 import Testing
-import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:verifiable-goals] The card's rows from simulated devices: no Bluetooth in the room.
@@ -44,23 +43,11 @@ struct ConnectedDevicesTests {
         #expect(rows([device("1", "Speaker", .none)]).isEmpty)
     }
 
-    private func connected(_ devices: [Device]) -> ConnectedDevices {
-        var list = DeviceList()
-        list.apply(.swept(devices))
-        return ConnectedDevices(list, settings: DeviceSettings())
-    }
-
-    @Test func aDeviceWhoseLevelsAreUnreadHasNoRowAndTheListSaysSo() {
-        let unread = connected([device("1", "Speaker", .unread)])
-        #expect(unread.rows.isEmpty && unread.levelsUnread)
-        #expect(!connected([device("1", "Speaker", .none)]).levelsUnread)
-    }
-
-    @MainActor @Test func anEmptyCardSaysLevelsAreUnreadNotThatNothingIsConnected() throws {
-        let card = ConnectedDevicesView(connected: connected([device("1", "Speaker", .unread)]), failed: false)
-        #expect(throws: Never.self) { try card.inspect().find(text: "Device batteries can't be read right now.") }
-        let empty = ConnectedDevicesView(connected: connected([]), failed: false)
-        #expect(throws: Never.self) { try empty.inspect().find(text: "No connected Bluetooth devices to show.") }
+    @Test func aDeviceWhoseLevelsAreUnreadKeepsItsRowWithNoLevelBelowTheRanking() {
+        let rows = rows([device("1", "Aardvark", .unread), device("2", "Mouse", single(95)), device("3", "Speaker", .none)])
+        #expect(rows.map(\.name) == ["Mouse", "Aardvark"])
+        #expect(rows.map(\.percent) == ["95%", "–"])
+        #expect(rows.map(\.fraction) == [0.95, 0])
     }
 
     @Test func earbudsShowTheirLowestBudNotTheCase() {

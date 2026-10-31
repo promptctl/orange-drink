@@ -14,15 +14,15 @@ struct DeviceRow: Equatable, Identifiable {
 }
 
 /// [LAW:one-source-of-truth] The one ranking of the live device list: every device that reports a
-/// level, lowest first, so the one that needs charging is on top. The panel and the Devices screen
-/// both read it, so the two lists cannot disagree about order.
+/// level, lowest first, so the one that needs charging is on top, then every device whose levels are
+/// unknown. The panel and the Devices screen both read it, so the two lists cannot disagree about order.
 enum DeviceRanking {
     /// From this level up a device is nearly full and its bar turns green.
     static let nearlyFull = 90
 
     /// Equal levels fall in name then address order, so a row never reshuffles between renders.
     static func rows(_ list: DeviceList) -> [DeviceRow] {
-        list.devices
+        let levelled = list.devices
             .compactMap { device in device.levels.lowest.map { (device, $0) } }
             .sorted { ($0.1.percent, $0.0.name, $0.0.id.address) < ($1.1.percent, $1.0.name, $1.0.id.address) }
             .map { device, level in
@@ -31,6 +31,12 @@ enum DeviceRanking {
                           fraction: Double(level.percent) / 100,
                           tone: level.percent >= nearlyFull ? .nearlyFull : .normal)
             }
+        // An unknown level keeps its row: the device is still connected, and a pinned item keeps its
+        // place in the bar through an outage instead of showing a stale percent or leaving.
+        let unread = list.devices.filter { $0.levels == .unread }.map {
+            DeviceRow(id: $0.id, name: $0.name, kind: $0.kind, percent: "–", fraction: 0, tone: .normal)
+        }
+        return levelled + unread
     }
 }
 
@@ -39,13 +45,11 @@ enum DeviceRanking {
 struct ConnectedDevices: Equatable {
     let isShown: Bool
     let rows: [DeviceRow]
-    /// Devices that report a level but are hidden from this card, so an empty card can say why.
+    /// Ranked devices hidden from this card, so an empty card can say why.
     let hiddenCount: Int
-    let levelsUnread: Bool
 
     init(_ list: DeviceList, settings: DeviceSettings) {
         isShown = settings.showConnectedDevices
-        levelsUnread = list.levelsUnread
         let ranked = DeviceRanking.rows(list)
         rows = ranked.filter { !settings.hidden.contains($0.id) }
         hiddenCount = ranked.count - rows.count

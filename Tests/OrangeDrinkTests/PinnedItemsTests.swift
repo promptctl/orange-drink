@@ -51,6 +51,18 @@ import Testing
         #expect(items.made[0].shown?.row.percent == "30%")
     }
 
+    // Removing an item would lose its place in the bar: a new one starts from the list's order.
+    @Test func anOutageKeepsThePinnedItemAndShowsNoLevel() {
+        let items = Items()
+        let controller = controller(items)
+        controller.apply(PinnedItem.items(list([Self.mouse: level(37)]), pinned: [Self.mouse]))
+        var unread = DeviceList()
+        unread.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .unread)]))
+        controller.apply(PinnedItem.items(unread, pinned: [Self.mouse]))
+        #expect(items.made.count == 1 && !items.made[0].removed)
+        #expect(items.made[0].shown?.row.percent == "–")
+    }
+
     @Test func anApproximateLevelIsMarked() {
         #expect(PinnedItem.items(list([Self.mouse: level(50, approximate: true)]), pinned: [Self.mouse]).map(\.row.percent) == ["~50%"])
     }

@@ -82,7 +82,7 @@ struct DeviceListTests {
 
 @MainActor struct DevicesModelTests {
     /// The list once `accepted` holds for it. [LAW:no-ambient-temporal-coupling] Awaited through Observation, never polled.
-    func list(of model: DevicesModel, once accepted: (DeviceList) -> Bool) async -> DeviceList {
+    private func list(of model: DevicesModel, once accepted: (DeviceList) -> Bool) async -> DeviceList {
         let (changes, change) = AsyncStream.makeStream(of: Void.self)
         var next = changes.makeAsyncIterator()
         while !accepted(model.list) {
@@ -108,10 +108,10 @@ struct DeviceListTests {
         let sources = DeviceReaderTests.Sources(unanswered: .unanswered(call: "the model's outage"))
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let silent = await list(of: model) { !$0.devices.isEmpty }
-        #expect(silent.levelsUnread && DeviceRanking.rows(silent).isEmpty)
+        #expect(DeviceRanking.rows(silent).map(\.percent) == ["–"])
         sources.unanswered = nil
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
-        let answered = await list(of: model) { !$0.levelsUnread }
+        let answered = await list(of: model) { $0.devices.first?.levels != .unread }
         #expect(DeviceRanking.rows(answered).map(\.percent) == ["47%"])
         #expect(model.failure == nil)
     }
@@ -165,7 +165,7 @@ struct DeviceListTests {
             list.apply(event)
             break
         }
-        try #require(!list.levelsUnread, "powerd did not answer the sweep; the devices log names the call")
+        try #require(!list.devices.contains { $0.levels == .unread }, "powerd did not answer the sweep; the devices log names the call")
         // system_profiler names its devices and nothing more, so the name is the only key the two lists share.
         let swept = try Dictionary(list.devices.map { ($0.name, $0) }) { _, _ in
             throw DevicesLiveError.sharedName(list.devices.map(\.name))

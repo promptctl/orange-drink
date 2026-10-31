@@ -34,8 +34,7 @@ struct PinnedDevicesCard: View {
             SettingEditor(settings) { edits in
                 let list = PinnedDevicesList(devices.list, pinned: edits.value.pinned)
                 if list.entries.isEmpty {
-                    Text(devices.list.levelsUnread ? "Device batteries can't be read right now." : "Pin a connected device from the Devices screen to arrange it here.")
-                        .foregroundStyle(.secondary)
+                    Text("Pin a connected device from the Devices screen to arrange it here.").foregroundStyle(.secondary)
                 } else {
                     SettingCard {
                         ForEach(list.entries) { entry in

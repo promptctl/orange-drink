@@ -103,7 +103,4 @@ struct DeviceList: Equatable, Sendable {
     var devices: [Device] {
         byID.values.sorted { ($0.name, $0.id.address) < ($1.name, $1.id.address) }
     }
-
-    /// Whether a device's levels are unknown, so an empty ranking must not read as nothing connected.
-    var levelsUnread: Bool { byID.values.contains { $0.levels == .unread } }
 }

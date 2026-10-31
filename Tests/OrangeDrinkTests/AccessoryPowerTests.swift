@@ -43,7 +43,7 @@ struct AccessoryPowerTests {
         }
     }
 
-    @Test func aReadThatAnsweredSaysEachDevicesLevelsAndOneThatDidNotSaysNone() {
+    @Test func aReadThatAnsweredSaysEachDevicesLevelsAndOneThatDidNotSaysUnread() {
         let answered = AccessoryPower.Reading.answered(AccessoryPower.levels(from: [Self.source("FluffPods", "Single", 47)]))
         #expect(answered.levels(of: "FluffPods") == .single(Self.level(47)))
         #expect(answered.levels(of: "Speaker") == .none)

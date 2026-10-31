@@ -7,8 +7,8 @@ struct PinnedItem: Equatable, Identifiable {
     let row: DeviceRow
     var id: DeviceID { row.id }
 
-    /// One item for each pinned device that is connected and reports a level, in the order the
-    /// user arranged them on the Menu Bar screen.
+    /// One item for each pinned device with a row in the ranking, in the order the user arranged
+    /// them on the Menu Bar screen.
     ///
     /// [LAW:one-source-of-truth] Derived from the live list and the pinned order on every call; no
     /// item outlives the facts it shows.

@@ -39,7 +39,7 @@ enum BluetoothDevices {
     /// of its own, which is why the watcher is not main-actor isolated.
     static func events(
         timekeeper: any Timekeeper = SystemTimekeeper(),
-        power: @escaping @Sendable () throws -> AccessoryPower = { try AccessoryPower() }
+        power: @escaping @Sendable () throws(BluetoothDevicesError) -> AccessoryPower = { () throws(BluetoothDevicesError) in try AccessoryPower() }
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {

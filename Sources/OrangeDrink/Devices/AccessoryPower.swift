@@ -15,7 +15,7 @@ struct AccessoryPower {
 
     /// [LAW:single-enforcer] The private symbol is resolved once, at the border: an OS without it is one
     /// this edge does not understand, which fails the subscription instead of reading as no levels.
-    init() throws {
+    init() throws(BluetoothDevicesError) {
         guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "IOPSCopyPowerSourcesByType") else {
             throw BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType")
         }
