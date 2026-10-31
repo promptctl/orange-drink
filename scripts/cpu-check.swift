@@ -95,6 +95,11 @@ func powerSource() throws -> String {
     return String(match.1)
 }
 
+/// The General screen's battery notification switch, on, as a default in the argument domain: nothing is written to this
+/// Mac's preferences, and the steady state measured is the one with that feature's wake registered.
+let dismissingSystemNotifications = ["-systemNotifications",
+                                     "<" + Data(#"{"dismissBatteryNotifications":true}"#.utf8).map { String(format: "%02x", $0) }.joined() + ">"]
+
 struct MeasuredWindow {
     let cpu: Duration
     let elapsed: Duration
@@ -107,6 +112,7 @@ struct MeasuredWindow {
 func measure(executable: String) throws -> MeasuredWindow {
     let app = Process()
     app.executableURL = URL(fileURLWithPath: executable)
+    app.arguments = dismissingSystemNotifications
     try app.run()
     defer {
         app.terminate()

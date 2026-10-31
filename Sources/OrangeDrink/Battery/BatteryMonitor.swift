@@ -17,26 +17,37 @@ enum BatteryMonitor {
     /// the CPU budget allows.
     static func readings() -> AsyncThrowingStream<BatteryReading?, any Error> {
         AsyncThrowingStream { continuation in
-            // [LAW:no-ambient-temporal-coupling] One serial queue owns every read for this
-            // subscription, and the registration, the cancellation hook, and the first read
-            // all happen in one block on it, so no publish can land before the hook is armed
-            // and the first read cannot interleave with a notification read.
-            let queue = DispatchQueue(label: "\(IOKitBattery.logSubsystem).battery-monitor")
-            queue.sync {
-                var token: Int32 = 0
-                let status = notify_register_dispatch(kIOPSNotifyAnyPowerSource, &token, queue) { _ in
-                    publish(into: continuation)
-                }
-                guard status == NOTIFY_STATUS_OK else {
-                    IOKitBattery.log.error("battery notifications: notify_register_dispatch failed with \(status, privacy: .public)")
-                    continuation.finish(throwing: BatteryMonitorError.notifyRegistration(status: status))
-                    return
-                }
-                let registered = token
-                IOKitBattery.log.info("battery notifications: registered token \(registered, privacy: .public)")
-                continuation.onTermination = { _ in notify_cancel(registered) }
-                publish(into: continuation)
+            subscribe(to: kIOPSNotifyAnyPowerSource, continuation) { publish(into: continuation) }
+        }
+    }
+
+    /// A wake at subscribing and at each change of the warning level, read from `IOKitBattery.warningLevel()`. Unlike
+    /// `readings()`, powerd posts this key only when the level changes, and on external power it writes none and posts, so
+    /// the end of a warning arrives too. A subscriber that is behind has one wake waiting, since the level is read then.
+    static func warningChanges() -> AsyncThrowingStream<Void, any Error> {
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            subscribe(to: kIOPSNotifyLowBattery, continuation) { continuation.yield() }
+        }
+    }
+
+    /// [LAW:no-ambient-temporal-coupling] One serial queue owns every post for a subscription, and the registration, the
+    /// cancellation hook, and the first `publish` all happen in one block on it, so no publish can land before the hook is
+    /// armed and the first cannot interleave with a notification's.
+    private static func subscribe<Element>(to key: String, _ continuation: AsyncThrowingStream<Element, any Error>.Continuation,
+                                           publish: @escaping @Sendable () -> Void) {
+        let queue = DispatchQueue(label: "\(IOKitBattery.logSubsystem).battery-monitor")
+        queue.sync {
+            var token: Int32 = 0
+            let status = notify_register_dispatch(key, &token, queue) { _ in publish() }
+            guard status == NOTIFY_STATUS_OK else {
+                IOKitBattery.log.error("\(key, privacy: .public): notify_register_dispatch failed with \(status, privacy: .public)")
+                continuation.finish(throwing: BatteryMonitorError.notifyRegistration(status: status))
+                return
             }
+            let registered = token
+            IOKitBattery.log.info("\(key, privacy: .public): registered token \(registered, privacy: .public)")
+            continuation.onTermination = { _ in notify_cancel(registered) }
+            publish()
         }
     }
 

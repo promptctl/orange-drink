@@ -62,7 +62,9 @@ import ViewInspector
 
     private func screen(_ login: LaunchAtLogin) throws -> GeneralScreen {
         GeneralScreen(appearance: try NotificationAppearanceModel(defaults: Self.defaults()), look: try AppAppearanceModel(defaults: Self.defaults()),
-                      language: try AppLanguageModel(defaults: Self.defaults()), launchAtLogin: login)
+                      language: try AppLanguageModel(defaults: Self.defaults()), launchAtLogin: login,
+                      batteryNotifications: BatteryNotificationDismissal(settings: try SystemNotificationSettingsModel(defaults: Self.defaults()), effects: FakeMac().effects,
+                                                                         warningChanges: AsyncThrowingStream { _ in }, center: system.center))
     }
 
     private static func defaults() -> UserDefaults { UserDefaults(suiteName: "LaunchAtLoginTests")! }

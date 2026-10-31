@@ -1,11 +1,12 @@
 # The throwaway Tart VM the checks that must not touch this Mac's screen run in: scripts/update-check,
 # scripts/login-item-check, and scripts/vm-test source this under `set -euo pipefail`, so nothing shows on the Mac running
 # them. A check may set:
+#   image        before sourcing: the Tart image to clone, for a check on another macOS
 #   vm_cleanup   directories to remove however the run ends, beside the scratch directory
 #   uitest_env   NAME=value words for its XCUITests; xcodebuild passes each TEST_RUNNER_ variable without that prefix
 #   on_failure   a function printing the guest's logs it wants when a run fails with the VM up
 
-image=orange-drink-xcode
+image=${image:-orange-drink-xcode}
 vm=orange-drink-check-$$
 scratch=$(realpath "$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-vm-check.XXXXXX")")
 # The VM's view of $scratch, and of itself: it is new each run, so its paths are fixed.
@@ -50,15 +51,20 @@ stopped() { [ -z "$(pids)" ]; }
 
 tart get "$image" >/dev/null || fail "no VM named $image: tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 $image"
 
-# Clones and boots the VM with no window, with the built tests beside <xctestrun> unpacked in it.
+# Clones and boots the VM with no window. This is all an image with no Xcode can take.
+vm_boot() {
+  tart clone "$image" "$vm"
+  cloned=yes
+  tart run --no-graphics --dir="run:$scratch:ro" "$vm" >&2 &
+  wait_for "the VM did not come up" 180 guest true
+}
+
+# Boots the VM with the built tests beside <xctestrun> unpacked in it.
 vm_start() {
   xctestrun=$1
   # One file, because the VM's shared directory does not carry a framework's symbolic links.
   tar -C "$(dirname "$xctestrun")" -cf "$scratch/tests.tar" .
-  tart clone "$image" "$vm"
-  cloned=yes
-  tart run --no-graphics --dir="run:$scratch:ro" "$vm" >&2 &
-  wait_for "the VM did not come up" 120 guest true
+  vm_boot
   guest sudo -n automationmodetool enable-automationmode-without-authentication >&2
   guest sh -c "mkdir $tests && tar -C $tests -xf '$shared/tests.tar'"
 }

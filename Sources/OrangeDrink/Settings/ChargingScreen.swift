@@ -29,8 +29,8 @@ struct ChargingScreen: View {
                 }
                 if edits.value.isOn {
                     if let failure = hold.failure {
-                        LoginItemFailureLine(explanation: Self.explanation(of: failure, appName: appName),
-                                             openLoginItems: failure.cause == .needsApproval ? { hold.openLoginItems() } : nil)
+                        SystemSettingFailureLine(explanation: Self.explanation(of: failure, appName: appName),
+                                                 fix: failure.cause == .needsApproval ? .loginItems { hold.openLoginItems() } : nil)
                             .padding(.horizontal, 16).padding(.bottom, 10)
                     }
                     SettingRow(title: "Target", description: "Charging pauses at this level") {

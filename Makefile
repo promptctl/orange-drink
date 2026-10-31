@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check
+.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check battery-notification-check
 
 generate:
 	xcodegen generate --use-cache
@@ -143,6 +143,13 @@ login-item-check: generate
 	dmg=$$(scripts/dmg "$$out/dmg"); \
 	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
 	scripts/login-item-check "$$dmg" "$$out"/ui/Build/Products/*.xctestrun
+
+# Closing macOS's low battery notification on real macOS, in a VM of each macOS the finding proved, with no window, because
+# only a real discharge raises the notification on a Mac with a battery. scripts/battery-notification-check reads each
+# result from NotificationCenter's accessibility tree. It needs Tart and these images.
+BATTERY_NOTIFICATION_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest ghcr.io/cirruslabs/macos-sonoma-base:latest
+battery-notification-check: release
+	@set -e; for image in $(BATTERY_NOTIFICATION_IMAGES); do scripts/battery-notification-check "$(RELEASE_APP)" "$$image"; done
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

@@ -77,6 +77,17 @@ expect_status 0 "empty lists"
 grep -q 'tart delete' "$scratch/calls" || broken "an empty vm_cleanup ended the trap before the VM was deleted"
 ok "empty lists work under set -u on macOS's bash"
 
+: >"$scratch/calls"
+status=0
+TMPDIR=$scratch /bin/bash -c "set -euo pipefail
+  image=another-image
+  . '$repo/scripts/vm-check-lib'
+  vm_boot" 2>/dev/null || status=$?
+expect_status 0 "a check on another image"
+grep -q 'tart clone' "$scratch/calls" || broken "vm_boot did not clone"
+[ "$(grep -c 'tart exec' "$scratch/calls")" -eq 1 ] || broken "vm_boot asked more of the guest than whether it is up"
+ok "a check can name its image, and vm_boot needs no Xcode in it"
+
 sed -i '' 's/^exit 0$/[ "$1" != get ]/' "$scratch/bin/tart"
 run_check "$listed" ':'
 expect_status 1 "no image"
