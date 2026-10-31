@@ -34,4 +34,10 @@ struct BatteryLevel: Codable, Equatable, Sendable {
     let percent: Int
     /// Shown as "~50%": the source only knows the level roughly.
     let approximate: Bool
+
+    /// "37%", "~50%" when the level is only approximate, or "–" when it is unknown.
+    /// [LAW:one-source-of-truth] design-docs/devices.md: an approximate level is "~" wherever it appears.
+    static func text(_ level: BatteryLevel?) -> String {
+        level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–"
+    }
 }

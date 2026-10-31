@@ -45,7 +45,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     @Test func theWidgetReadsEachDevicesLevelAfterEveryChange() async throws {
         let reloads = Reloads()
-        let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) { reloads.count += 1 }
+        let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) { if $0 == .deviceBattery { reloads.count += 1 } }
         let (changed, signal) = AsyncStream.makeStream(of: Void.self)
         var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
@@ -68,7 +68,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func anEndedDeviceStreamEmptiesTheShelfInsteadOfFreezingItsLevels() async throws {
-        let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) {}
+        let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) { _ in }
         let (changed, signal) = AsyncStream.makeStream(of: Void.self)
         var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
@@ -104,7 +104,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func aDeviceThatDisconnectsLeavesTheShelfAndTheAppQuittingSaysSo() async throws {
-        let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) {}
+        let publisher = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) { _ in }
         var list = DeviceList()
         list.apply(.reported(Self.iPhone))
         publisher.publish(WidgetDevice.list(list))
@@ -154,12 +154,6 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         DeviceBatteryEntry(date: .now, shelf: shelf, chosen: chosen)
     }
 
-    static func render(_ widget: DeviceBatteryView, size: CGSize) throws -> RingPixels {
-        let renderer = ImageRenderer(content: widget.environment(\.colorScheme, .light).frame(width: size.width, height: size.height))
-        renderer.scale = 1
-        return try RingPixels(#require(renderer.cgImage))
-    }
-
     @Test func theWidgetDeclaresSmallMediumAndLarge() {
         #expect(WidgetFamilies.deviceBattery == [.systemSmall, .systemMedium, .systemLarge])
     }
@@ -168,7 +162,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         let devices = WidgetDevice.list({ var list = DeviceList(); list.apply(.swept([Self.iPhone, Self.earbuds(54)])); return list }())
         func filled(_ address: String) throws -> Double {
             let view = DeviceBatteryView(entry: Self.entry(.success(.running(devices)), chosen: address), appName: "Orange Drink", family: family)
-            return try Self.render(view, size: size).filledFraction
+            return try RingPixels(widgetImage(view, size: size, scheme: .light, scale: 1)).filledFraction
         }
         let (phone, buds) = (try filled("AA"), try filled("BB"))
         #expect(abs(phone - 0.95) < 0.03, "the iPhone filled \(phone)")
@@ -190,6 +184,12 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 }
 
+@MainActor func widgetImage(_ widget: some View, size: CGSize, scheme: ColorScheme, scale: CGFloat) throws -> CGImage {
+    let renderer = ImageRenderer(content: widget.environment(\.colorScheme, scheme).frame(width: size.width, height: size.height))
+    renderer.scale = scale
+    return try #require(renderer.cgImage)
+}
+
 /// A rendered ring, read back: where it is, and how far round from the top its arc runs.
 struct RingPixels {
     private struct Body { var size = 0, minX = Int.max, maxX = 0, minY = Int.max, maxY = 0 }
@@ -199,7 +199,8 @@ struct RingPixels {
     private let radius: Double
 
     /// The track is part-transparent and the arc opaque; the ring is the largest connected body of either: its glyph, percentage and name are
-    /// ink too, but each is a body of its own, so the ring's bounding box is the ring's.
+    /// ink too, but each is a body of its own, so the ring's bounding box is the ring's. A charging ring's top is its bolt's gap, so its
+    /// centre is measured from its bottom edge.
     init(_ image: CGImage) throws {
         let rep = NSBitmapImageRep(cgImage: image)
         self.rep = rep
@@ -224,25 +225,57 @@ struct RingPixels {
             if body.size > largest.size { largest = body }
         }
         try #require(largest.size > 0, "no ring in the rendering")
-        centre = CGPoint(x: Double(largest.minX + largest.maxX) / 2, y: Double(largest.minY + largest.maxY) / 2)
+        let across = Double(largest.maxX - largest.minX)
+        centre = CGPoint(x: Double(largest.minX + largest.maxX) / 2, y: Double(largest.maxY) - across / 2)
         // The stroke is centred on a circle a tenth narrower than its outer edge, which the bounding box measures.
-        radius = Double(largest.maxX - largest.minX + 1) / 2 / 1.1
+        radius = (across + 1) / 2 / 1.1
     }
 
-    private static func brightness(_ rep: NSBitmapImageRep, _ x: Int, _ y: Int) -> Double? {
-        guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB), c.alphaComponent > 0.9 else { return nil }
-        return c.brightnessComponent
-    }
-    private static func isInk(_ rep: NSBitmapImageRep, _ x: Int, _ y: Int) -> Bool { (brightness(rep, x, y) ?? 1) < 0.4 }
+    /// The ring's width, along the circle its stroke is centred on: what the reference's "38 pt across" measures.
+    var across: Double { radius * 2 }
+
+    private func colour(_ x: Int, _ y: Int) -> NSColor? { rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) }
+
+    /// Dark ink on a light widget.
+    static func isInk(_ colour: NSColor) -> Bool { colour.alphaComponent > 0.9 && colour.brightnessComponent < 0.4 }
 
     /// How far, as a fraction of the way round, the arc runs unbroken clockwise from twelve o'clock.
-    var filledFraction: Double {
+    var filledFraction: Double { filledFraction(from: 0, isArc: Self.isInk) }
+
+    /// How far round the arc reaches, walking clockwise from `start`, a fraction of the way round.
+    func filledFraction(from start: Double, isArc: (NSColor) -> Bool) -> Double {
         let steps = 720
-        let run = (0..<steps).prefix { step in
+        let first = Int(start * Double(steps))
+        let run = (first..<steps).prefix { step in
             let angle = Double(step) / Double(steps) * 2 * .pi
-            return Self.isInk(rep, Int((centre.x + radius * sin(angle)).rounded()), Int((centre.y - radius * cos(angle)).rounded()))
+            return colour(Int((centre.x + radius * sin(angle)).rounded()), Int((centre.y - radius * cos(angle)).rounded())).map(isArc) ?? false
         }
-        return Double(run.count) / Double(steps)
+        return Double(first + run.count) / Double(steps)
+    }
+
+    /// Whether any pixel within `reach` pixels of the given point is of a colour.
+    private func anyPixel(aroundX x: Double, y: Double, within reach: Double, _ matches: (NSColor) -> Bool) -> Bool {
+        let (xs, ys) = (max(0, Int(x - reach))...min(rep.pixelsWide - 1, Int(x + reach)), max(0, Int(y - reach))...min(rep.pixelsHigh - 1, Int(y + reach)))
+        return ys.contains { y in xs.contains { x in colour(x, y).map(matches) ?? false } }
+    }
+
+    /// Whether the colour is anywhere in the rendering.
+    func contains(_ matches: (NSColor) -> Bool) -> Bool {
+        anyPixel(aroundX: Double(rep.pixelsWide) / 2, y: Double(rep.pixelsHigh) / 2, within: Double(max(rep.pixelsWide, rep.pixelsHigh)), matches)
+    }
+
+    /// Whether the colour is in the ring's twelve o'clock gap, where the bolt sits: nearer the top than the arc reaches.
+    func containsAtTwelve(_ matches: (NSColor) -> Bool) -> Bool {
+        anyPixel(aroundX: centre.x, y: centre.y - radius, within: radius * 0.15, matches)
+    }
+
+    /// Whether the ring is cut open either side of twelve o'clock, beyond the bolt's own width. An unbroken
+    /// arc also has its colour at twelve, so this is what makes that colour the bolt's.
+    var isOpenAtTwelve: Bool {
+        [-0.2, 0.2].allSatisfy { side in
+            let (x, y) = (Int((centre.x + radius * side).rounded()), Int((centre.y - radius).rounded()))
+            return (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) < 0.1
+        }
     }
 }
 

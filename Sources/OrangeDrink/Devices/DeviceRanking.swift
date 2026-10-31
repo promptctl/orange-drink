@@ -10,8 +10,7 @@ struct DeviceRow: Equatable, Identifiable {
     /// nil when the device's levels are unknown this read.
     let level: BatteryLevel?
 
-    /// "37%", "~50%" when the level is only approximate, or "–" when it is unknown.
-    var percent: String { level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–" }
+    var percent: String { BatteryLevel.text(level) }
     var fraction: Double { Double(level?.percent ?? 0) / 100 }
     var tone: Tone { level?.percent ?? 0 >= DeviceRanking.nearlyFull ? .nearlyFull : .normal }
 }

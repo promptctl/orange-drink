@@ -1,5 +1,7 @@
 import Foundation
+import SwiftUI
 import Testing
+import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is what the widget reads off the shelf after each state
@@ -24,7 +26,7 @@ import Testing
 
     /// The model the app builds, its states published the way the app publishes them.
     static func model(readings: AsyncThrowingStream<BatteryReading?, any Error>, shelf: URL, reloads: Reloads) -> BatteryModel {
-        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { reloads.count += 1 }
+        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }
         return BatteryModel(readings: readings, onState: { widgets.publish(MacBattery($0)) })
     }
 
@@ -51,13 +53,13 @@ import Testing
     @Test func aValueTheShelfHoldsCostsNoWriteAndNoReload() async throws {
         let log = try BatteryLog(category: ShelfLog.category)
         let reloads = Reloads()
-        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { reloads.count += 1 }
+        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }
 
         widgets.publish(.level(percent: 50, charging: false))
         widgets.publish(.level(percent: 50, charging: false))
         #expect(reloads.count == 1)
         // The host app publishes into the same log category; the shelf's path makes each line this test's own.
-        #expect(try await log.logged("widget shelf written, reload asked: level(percent: 50, charging: false) in \(shelf.path)"))
+        #expect(try await log.logged("widget shelf written, reload asked: level(percent: 50, charging: false) in \(shelf.path) for MacBattery, AllBatteries"))
         #expect(try await log.logged("widget shelf unchanged: level(percent: 50, charging: false) in \(shelf.path)"))
     }
 
@@ -65,7 +67,7 @@ import Testing
         let log = try BatteryLog(category: ShelfLog.category)
         let reloads = Reloads()
         let missing = shelf.appending(path: "missing")
-        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: missing) { reloads.count += 1 }
+        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: missing) { _ in reloads.count += 1 }
 
         widgets.publish(.level(percent: 50, charging: false))
         #expect(reloads.count == 0)
@@ -87,8 +89,8 @@ import Testing
     /// running app's next state, though unchanged for it, puts the level back.
     @Test func anotherCopysMarkIsCorrectedByTheNextState() throws {
         let reloads = Reloads()
-        let running = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { reloads.count += 1 }
-        let quitting = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) {}
+        let running = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }
+        let quitting = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { _ in }
 
         running.publish(.level(percent: 50, charging: false))
         quitting.publishQuit()
@@ -97,13 +99,31 @@ import Testing
         #expect(reloads.count == 2)
     }
 
+    @Test func theWidgetDeclaresSmallMediumAndLarge() {
+        #expect(WidgetFamilies.macBattery == [.systemSmall, .systemMedium, .systemLarge])
+    }
+
+    @Test func eachStateDrawsWhatItSays() throws {
+        func texts(_ battery: Result<Shelved<MacBattery>, any Error>) throws -> [String] {
+            try MacBatteryView(entry: MacBatteryEntry(date: .now, battery: battery), appName: "Orange Drink").inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        }
+        #expect(try texts(.success(.running(.level(percent: 80, charging: true)))) == ["80%"])
+        #expect(try texts(.success(.running(.waiting))) == ["–"])
+        #expect(try texts(.success(.running(.noBattery))) == ["No battery"])
+        #expect(try texts(.success(.running(.ended))) == ["Battery unavailable"])
+        let stopped = MacBatteryEntry(date: .now, battery: .success(.running(.ended)))
+        #expect(try MacBatteryView(entry: stopped, appName: "Orange Drink").inspect().find(ViewType.Image.self).actualImage().name() == "exclamationmark.triangle")
+        #expect(try texts(.success(.appNotRunning)) == ["Open Orange Drink"])
+        #expect(try texts(.failure(ShelfError.noGroupEntitlement)) == ["Open Orange Drink"])
+    }
+
     /// The file the app wrote before the envelope: a bare value. The widget cannot read it, and the app's next
     /// state, though the same value, writes the new shape over it.
     @Test func aFileInTheShapeBeforeTheEnvelopeIsRewrittenByTheNextState() throws {
         try JSONEncoder().encode(MacBattery.level(percent: 50, charging: false)).write(to: shelf.appending(path: "mac.json"))
         #expect(throws: (any Error).self) { try WidgetShelf.read(.macBattery, from: shelf).get() as Shelved<MacBattery> }
         let reloads = Reloads()
-        ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { reloads.count += 1 }.publish(.level(percent: 50, charging: false))
+        ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }.publish(.level(percent: 50, charging: false))
         #expect(try WidgetShelf.read(.macBattery, from: shelf).get() == .running(.level(percent: 50, charging: false)))
         #expect(reloads.count == 1)
     }

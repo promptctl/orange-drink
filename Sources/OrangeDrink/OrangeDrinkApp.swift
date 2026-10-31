@@ -69,12 +69,9 @@ struct OrangeDrinkApp: App {
         // container is a broken build, not a case to run past.
         let shelf: URL
         do { shelf = try WidgetShelf.groupContainer() } catch { fatalError("no widget shelf: \(error)") }
-        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) {
-            WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.Item.macBattery.kind)
-        }
-        let deviceWidgets = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) {
-            WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.Item.devices.kind)
-        }
+        let reload: @MainActor (WidgetKind) -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: $0.rawValue) }
+        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf, reload: reload)
+        let deviceWidgets = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf, reload: reload)
         // The shelf holds the model's list from launch, so a file a crashed run left behind is not drawn
         // as current while the first Bluetooth sweep is still out.
         deviceWidgets.publish(WidgetDevice.list(DeviceList()))

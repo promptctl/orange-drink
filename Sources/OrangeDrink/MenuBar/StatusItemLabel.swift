@@ -13,7 +13,7 @@ enum StatusItemContent: Equatable {
         case (.known(let reading?), _): .icon(MenuBarIcon(reading, config, on: bar))
         case (.unknown, _): .symbol("battery.0percent")
         case (.known(nil), _): .symbol("powerplug")
-        case (.ended, _): .symbol("exclamationmark.triangle")
+        case (.ended, _): .symbol(MacBattery.stoppedGlyph)
         }
     }
 }
