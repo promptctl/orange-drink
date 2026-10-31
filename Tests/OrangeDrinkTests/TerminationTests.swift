@@ -3,8 +3,12 @@ import Testing
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is what the log says about a quit: who asked, and from where.
-@MainActor struct TerminationTests {
+@MainActor final class TerminationTests {
     private let quits = QuitRecords(url: FileManager.default.temporaryDirectory.appending(components: UUID().uuidString, "quits.log"), build: "test build")
+
+    deinit {
+        try? FileManager.default.removeItem(at: quits.url.deletingLastPathComponent())
+    }
 
     @Test func aQuitAppleEventNamesItsSender() {
         let lines = TerminationRequest.quitEvent(sender: .init(pid: 412, name: "osascript")).lines(stack: ["delegate", "b"])
@@ -91,19 +95,25 @@ import Testing
         let sender = Process()
         sender.executableURL = URL(filePath: "/bin/kill")
         sender.arguments = ["-USR2", "\(getpid())"]
-        var log: TerminationLog?
-        await withCheckedContinuation { (asked: CheckedContinuation<Void, Never>) in
-            log = TerminationLog(records: quits, signal: SIGUSR2, terminate: { asked.resume() })
-            log?.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
-            #expect(throws: Never.self) { try sender.run() }
-        }
-        #expect(log?.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
+        let (asked, ask) = AsyncStream.makeStream(of: Void.self)
+        let log = TerminationLog(records: quits, signal: SIGUSR2, terminate: { ask.yield() })
+        log.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
+        try sender.run()
+        // A stream, because the time limit cancels and then waits for the test: a signal that never comes must end
+        // this wait for the test to fail rather than hang.
+        for await _ in asked { break }
+        #expect(log.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
         #expect(try String(contentsOf: quits.url, encoding: .utf8).contains("SIGTERM from pid \(sender.processIdentifier) ("))
     }
 
     @Test func aRecordThatCannotBeWrittenNeverStopsTheQuit() {
         let unwritable = QuitRecords(url: URL(filePath: "/dev/null/quits.log"), build: "test build")
         #expect(TerminationLog(records: unwritable, signal: SIGUSR2, terminate: {}).applicationShouldTerminate(NSApplication.shared) == .terminateNow)
+    }
+
+    @Test func aStoreThatCannotBeOpenedSaysWhy() throws {
+        try FileManager.default.createDirectory(at: quits.url, withIntermediateDirectories: true)
+        #expect(throws: POSIXError(.EISDIR)) { try quits.append([], at: Date()) }
     }
 
     // What macOS acts on, read from the launched test host: SwiftUI's adaptor reached the delegate at launch.

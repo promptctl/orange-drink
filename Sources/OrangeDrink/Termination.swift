@@ -153,7 +153,7 @@ enum SignalWatch {
     /// Takes over `number` from its default action. The caller keeps the source alive for as long as it watches.
     static func start(_ number: Int32, sent: @escaping @MainActor (Int32) -> Void) -> any DispatchSourceRead {
         var ends: [Int32] = [0, 0]
-        precondition(pipe(&ends) == 0, "no pipe for signal \(number): errno \(errno)")
+        guard pipe(&ends) == 0 else { fatalError("no pipe for signal \(number): errno \(errno)") }
         let readEnd = ends[0]
         // Close-on-exec, so no process the app runs holds the pipe. Non-blocking, so a full pipe drops a repeat
         // of a signal already waiting there instead of stopping a thread inside the handler.
@@ -179,7 +179,7 @@ enum SignalWatch {
             errno = interrupted
         }
         action.sa_flags = SA_SIGINFO | SA_RESTART
-        precondition(sigaction(number, &action, nil) == 0, "no handler for signal \(number): errno \(errno)")
+        guard sigaction(number, &action, nil) == 0 else { fatalError("no handler for signal \(number): errno \(errno)") }
         return source
     }
 }
