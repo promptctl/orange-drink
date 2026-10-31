@@ -60,8 +60,24 @@ struct OrangeDrinkApp: App {
         } catch {
             fatalError("stored alert, appearance, device, menu bar, app appearance, app language, shortcut, or charge limit settings do not decode: \(error)")
         }
+        // [LAW:one-source-of-truth] project.yml signs every build into the app group, so a missing
+        // container is a broken build, not a case to run past.
+        let shelf: URL
+        do { shelf = try WidgetShelf.groupContainer() } catch { fatalError("no widget shelf: \(error)") }
+        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) {
+            WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.Item.macBattery.kind)
+        }
+        let deviceWidgets = ShelfPublisher<[WidgetDevice]>(item: .devices, directory: shelf) {
+            WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.Item.devices.kind)
+        }
+        // The shelf holds the model's list from launch, so a file a crashed run left behind is not drawn
+        // as current while the first Bluetooth sweep is still out.
+        deviceWidgets.publish(WidgetDevice.list(DeviceList()))
         let devices = DevicesModel(events: BluetoothDevices.appEvents(), onChange: {
+            deviceWidgets.publish(WidgetDevice.list($0))
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
+        }, onEnded: {
+            deviceWidgets.publish(WidgetDevice.list(DeviceList()))
         })
         _devices = State(initialValue: devices)
         pinnedItems = PinnedItemsController()
@@ -97,14 +113,6 @@ struct OrangeDrinkApp: App {
         case .failure(let error): log.error("no battery history: \(error)")
         }
         self.history = history
-        // [LAW:one-source-of-truth] project.yml signs every build into the app group, so a missing
-        // container is a broken build, not a case to run past.
-        let widgets: MacBatteryPublisher
-        do {
-            widgets = MacBatteryPublisher(directory: try WidgetShelf.groupContainer()) {
-                WidgetCenter.shared.reloadTimelines(ofKind: WidgetShelf.macBatteryKind)
-            }
-        } catch { fatalError("no widget shelf: \(error)") }
         // [LAW:no-ambient-temporal-coupling] The one place the app's state is saved at its normal end: a menu
         // Quit, logout, shutdown, and SIGTERM (routed to terminate by SignalTermination) arrive here; a
         // crash or SIGKILL does not. The helper's record is released at exit() instead, which the test
@@ -113,7 +121,8 @@ struct OrangeDrinkApp: App {
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
                 if case .success(let recording) = history { recording.flush() }
-                widgets.publish(.appNotRunning)
+                widgets.publishQuit()
+                deviceWidgets.publishQuit()
             }
         }
         // [LAW:no-silent-failure] App energy needs the history store and the system's responsibility symbol;
