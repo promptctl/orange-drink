@@ -18,6 +18,8 @@ func warn(_ level: Int) {
 @_silgen_name("IOPSCreatePowerSource") func IOPSCreatePowerSource(_ source: UnsafeMutablePointer<OpaquePointer?>) -> IOReturn
 @_silgen_name("IOPSSetPowerSourceDetails") func IOPSSetPowerSourceDetails(_ source: OpaquePointer?, _ details: CFDictionary) -> IOReturn
 
+// proof.sh kills it, which would lose a buffer.
+setlinebuf(stdout)
 let arguments = CommandLine.arguments
 if arguments[1] == "warn" { warn(Int(arguments[2])!); exit(0) }
 let percent = Int(arguments[1])!, minutes = Int(arguments[2])!, hold = TimeInterval(arguments[3])!

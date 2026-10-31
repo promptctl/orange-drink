@@ -8,6 +8,7 @@
 //   banners observe <secs> prints each accessibility notification NotificationCenter sends, to show what could wake a closer
 //   banners wait <n> <secs> returns when exactly n notifications are showing, and fails if that never comes
 //   banners panel          presses the clock in the menu bar, which opens the Notification Center panel
+//   banners words          prints the low battery notification's title and body, a line each, for another app to post
 import AppKit
 import ApplicationServices
 
@@ -63,24 +64,28 @@ func notifications() -> [Notification] {
     return found
 }
 
-// The bundle macOS posts the notification under holds its words, in every language macOS speaks. All of them are read, so
-// nothing here has to know which language NotificationCenter is showing.
-let lowBatteryTable = URL(fileURLWithPath: "/System/Library/UserNotifications/Bundles/com.apple.controlcenter.notifications.low-battery.bundle/Contents/Resources/Localizable.loctable")
+// The bundle macOS posts the notification under holds its display name, which is what shows as its title, and its body,
+// in every language macOS speaks. All of them are read, so nothing here has to know which language NotificationCenter is
+// showing. LOW_BATTERY_TITLE is not what shows: in Brazilian Portuguese it differs, and the display name is on screen.
+func lowBatteryTable(_ name: String) -> [String: Any] {
+    let bundle = "/System/Library/UserNotifications/Bundles/com.apple.controlcenter.notifications.low-battery.bundle"
+    return NSDictionary(contentsOf: URL(fileURLWithPath: "\(bundle)/Contents/Resources/\(name).loctable"))! as! [String: Any]
+}
 struct Words: Hashable { let title: String, body: String }
-// Beside its languages the table has one entry, LocProvenance, with no words in it.
-let lowBatteryWords = Set(NSDictionary(contentsOf: lowBatteryTable)!.allValues.flatMap { language -> [Words] in
-    guard let words = language as? NSDictionary, let title = words["LOW_BATTERY_TITLE"] as? String else { return [] }
-    return ["LOW_BATTERY_BODY", "LOW_BATTERY_LOCKDOWN_BODY"].compactMap { key in (words[key] as? String).map { Words(title: title, body: $0) } }
+let bodies = lowBatteryTable("Localizable")
+// Beside its languages each table has one entry, LocProvenance, with no words in it.
+let lowBatteryWords = Set(lowBatteryTable("InfoPlist").flatMap { language, names -> [Words] in
+    guard let title = (names as? [String: String])?["CFBundleDisplayName"], let words = bodies[language] as? [String: String] else { return [] }
+    return ["LOW_BATTERY_BODY", "LOW_BATTERY_LOCKDOWN_BODY"].compactMap { key in words[key].map { Words(title: title, body: $0) } }
 })
 
 // Words alone would also catch another app that posts the same ones, so the subrole and the description have to agree.
 // This notification is always an alert, and an app's is a banner unless its user chose Alerts. macOS 14 makes the
-// description the poster's display name, which for this bundle is the title. macOS 15 and 26 make it "poster, title,
-// body", leaving the poster out when it is the title, and join the parts in the Mac's language: "、" in Japanese, a space
-// in Chinese, "،" and bidi marks in Arabic. So with the words taken out, nothing that could be a name may be left. An
-// app's notification with these words reads "Script Editor" or "Script Editor, Low Battery, ...". macOS 26 gives a
-// notification no attribute that names its poster, so an app displayed as "Low Battery", set to Alerts, posting these
-// exact words should still pass. No run posted as one.
+// description the title. macOS 15 and 26 make it "title, body", and join the two in the Mac's language: "、" in Japanese,
+// a space in Chinese, "،" and bidi marks in Arabic. So with the words taken out, nothing that could be a name may be left.
+// An app's notification with these words reads "Script Editor" or "Script Editor, Low Battery, ...". macOS 26 gives a
+// notification no attribute that names its poster, so an app displayed as "Low Battery" or in punctuation alone, set to
+// Alerts, posting these exact words should still pass. No run posted as one.
 func isSystemLowBattery(_ notification: Notification) -> Bool {
     let rest = notification.description.replacingOccurrences(of: notification.title, with: "").replacingOccurrences(of: notification.body, with: "")
     return notification.subrole == "AXNotificationCenterAlert"
@@ -90,10 +95,11 @@ func isSystemLowBattery(_ notification: Notification) -> Bool {
 }
 
 func close(_ notification: Notification) -> AXError {
-    // The action's name is in the Mac's language ("Name:Fermer"), so its position is what's read: Close is the last. An
-    // alert with no custom action would leave AXPress last, which opens the poster instead.
-    guard let action = notification.actions.last, action.hasPrefix("Name:") else { return .actionUnsupported }
-    return AXUIElementPerformAction(notification.element, action as CFString)
+    // Its custom actions are Show Details and Close, named in the Mac's language ("Name:Fermer"), so position is what's
+    // read. Any other shape stays showing: its last action might open the poster.
+    let custom = notification.actions.filter { $0.hasPrefix("Name:") }
+    guard custom.count == 2 else { return .actionUnsupported }
+    return AXUIElementPerformAction(notification.element, custom[1] as CFString)
 }
 
 func describe(_ notification: Notification) -> String {
@@ -137,6 +143,10 @@ case "closer":
             let after = notifications()
             after.forEach { print("after: " + describe($0)) }
             print("\(after.count) notifications after")
+            guard after.count == shown.count - 1, after.allSatisfy({ $0.description.hasPrefix("Script Editor") }) else {
+                print("another app's notification did not stay")
+                exit(1)
+            }
             exit(0)
         }
         Thread.sleep(forTimeInterval: 0.05)
@@ -166,6 +176,10 @@ case "panel":
     let extras = attribute(AXUIElementCreateApplication(controlCenter.processIdentifier), "AXExtrasMenuBar") as! AXUIElement
     let clock = children(extras).first { string($0, kAXIdentifierAttribute) == "com.apple.menuextra.clock" }!
     print("pressing the clock: \(AXUIElementPerformAction(clock, kAXPressAction as CFString).rawValue) (0 is success)")
+case "words":
+    let battery = notifications().first(where: isSystemLowBattery)!
+    print(battery.title)
+    print(battery.body)
 default:
-    fatalError("usage: banners dump | list | close | closer <count> <seconds> | observe <seconds> | wait <count> <seconds> | panel")
+    fatalError("usage: banners dump | list | close | closer <count> <seconds> | observe <seconds> | wait <count> <seconds> | panel | words")
 }

@@ -3,7 +3,7 @@
 - `banners.swift`: reads NotificationCenter's accessibility tree, says which notification is the system's low battery one, and closes it. Its modes are listed at the top of the file.
 - `fake-battery.swift`: raises the warning on a VM, which has no battery. It publishes a stand-in power source to powerd and writes the warning level where powerd publishes it. ControlCenter's own code then posts the real notification. Run it only in a VM.
 - `proof.sh`: the steps, run inside a VM by `run.sh`.
-- `run.sh`: `./run.sh <tart image>...` runs `proof.sh` in a throwaway VM of each image and appends to `output.txt`. A step that fails stops the run and records nothing. Nothing shows on the Mac running it.
+- `run.sh`: `./run.sh <tart image>...` runs `proof.sh` in a throwaway VM of each image and replaces `output.txt`. A step that fails stops the run and records nothing. Nothing shows on the Mac running it.
 - `output.txt`: macOS 26.6.2, 15.7.7, and 14.8.7, from `./run.sh orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest ghcr.io/cirruslabs/macos-sonoma-base:latest`.
 
 The finding is on the ticket.

@@ -14,6 +14,7 @@ ls "/System/Library/UserNotifications/Bundles/com.apple.controlcenter.notificati
 
 step "a stand-in battery, and ControlCenter restarted to build its Battery module"
 sudo -n "$battery" 4 6 420 &
+trap 'sudo -n pkill -x fake-battery' EXIT
 sleep 3
 sudo -n "$battery" warn 1
 killall ControlCenter
@@ -127,17 +128,19 @@ sudo -n "$battery" warn 1
 "$banners" wait 0 3
 "$banners" list
 
-for language in fr-FR ja zh-Hans ar; do
-  step "a Mac in $language: the words, the description's punctuation, and the Close action, found and closed"
+for language in fr-FR ja zh-Hans ar pt-BR pl; do
+  step "a Mac in $language: the words, the description's punctuation, and the Close action, found and closed, and another app's with the same words stays"
   sudo -n "$battery" warn 1
   defaults write -g AppleLanguages -array "$language" en
   killall ControlCenter NotificationCenter usernoted
   sleep 10
   sudo -n "$battery" warn 3
   "$banners" wait 1 10
+  other "$("$banners" words | sed -n 1p)" "$("$banners" words | sed -n 2p)"
+  "$banners" wait 2 5
   "$banners" list
   "$banners" close
-  "$banners" wait 0 3
+  "$banners" wait 1 3
   "$banners" list
 done
 
