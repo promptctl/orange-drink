@@ -236,6 +236,8 @@ struct HelperRepairLive {
             Issue.record("launchd ran or refused the re-signed helper unexpectedly: \(String(describing: refusal))")
             return
         }
+        // A second refused spawn: after only one, launchd simply ran the good helper once it was back.
+        try #require(Self.reply(client) != nil, "launchd ran the re-signed helper")
         try restore()
         restored = true
 
