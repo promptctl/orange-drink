@@ -158,8 +158,8 @@ struct HelperRegistration: Sendable {
 
     static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "helper")
 
-    /// [LAW:one-source-of-truth] The plist this build embeds, read once at launch, so the exit handler does
-    /// not depend on the bundle still being on disk. A build without one is broken.
+    /// [LAW:one-source-of-truth] The plist this build embeds, read once at launch, so the exit handler can still name
+    /// the label with the bundle gone from disk. A build without one is broken.
     static let daemon: LaunchDaemon = {
         do { return try LaunchDaemon(in: .main) } catch { fatalError("no helper launchd plist: \(error)") }
     }()
