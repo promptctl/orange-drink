@@ -127,7 +127,7 @@ final class ChargingHolds {
                 recorded = (recorded || step == .mark) && step != .unmark
             }
             let did = steps.isEmpty ? "nothing to do" : steps.map(\.text).joined(separator: ", ")
-            return Outcome(result: .success(()), line: "charging \(trigger): \(holders.count) holding, marked \(marked), \(ChargingInhibit.key) \(Self.hex(read.bytes)): \(did)")
+            return Outcome(result: .success(()), line: "charging \(trigger): \(holders.count) holding, marked \(marked), \(ChargingInhibit.key) \(read.bytes.hex): \(did)")
         } catch {
             // [LAW:one-source-of-truth] A closed helper never touches the record again, so a refusal is this Mac's final
             // answer only while there is no record, even one this reconcile just made; and only a final one is reported
@@ -151,13 +151,11 @@ final class ChargingHolds {
             // answered for.
             let back = try key.read()
             guard back.inhibit == .allowed else {
-                throw .failed("\(ChargingInhibit.key) reads \(Self.hex(back.bytes)) after charging was allowed; the pause record is kept")
+                throw .failed("\(ChargingInhibit.key) reads \(back.bytes.hex) after charging was allowed; the pause record is kept")
             }
             try marker.unmark()
         }
     }
-
-    private static func hex(_ bytes: [UInt8]) -> String { bytes.map { String(format: "%02x", $0) }.joined() }
 }
 
 extension ChargingStep {

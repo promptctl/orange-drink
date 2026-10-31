@@ -68,12 +68,15 @@ struct HelperBuildTests {
         let refused = Registration.Outcome(refusal: refusal, status: "requiresApproval", attempts: 1, elapsed: .milliseconds(9))
         #expect(Registration.Event.launched(registered).line == "helper registration: registered; status enabled; attempt 3 after 1042 ms")
         #expect(Registration.Event.launched(refused).line == "helper registration: refused (\(refusal)); status requiresApproval; attempt 1 after 9 ms")
-        #expect(Registration.Event.reregistered(registered, handshake: nil).line == "helper registration, a call found no job: registered; status enabled; attempt 3 after 1042 ms; the helper answered")
-        #expect(Registration.Event.leftAlone(handshake: nil).line == "helper repair: left the job alone; the helper answered")
-        #expect(Registration.Event.leftAlone(handshake: "the helper failed: x").line == "helper repair: left the job alone; handshake the helper failed: x")
-        #expect(Registration.Event.repaired(.unregistered(error: nil), registered, handshake: nil).line == "helper repair: cleared ok; registered; status enabled; attempt 3 after 1042 ms; the helper answered")
-        #expect(Registration.Event.repaired(.unregistered(error: nil), registered, handshake: "no reply").line == "helper repair: cleared ok; registered; status enabled; attempt 3 after 1042 ms; handshake no reply")
-        #expect(Registration.Event.kept(.heldBy(pids: [41, 42])).line == "helper repair: kept for pid 41, 42; the job still will not run")
+        let older = Registration.Handshake.otherCode(executable: "/Old/Helper", cdhash: Data([0xab, 0x01]))
+        #expect(Registration.Event.reregistered(registered).line == "helper registration, a call found no job: registered; status enabled; attempt 3 after 1042 ms")
+        #expect(Registration.Event.leftAlone(.own).line == "helper check: left the job alone; the helper answered")
+        #expect(Registration.Event.leftAlone(.failed(.failed("x"))).line == "helper check: left the job alone; handshake the helper failed: x")
+        #expect(Registration.Event.repaired(found: older, .unregistered(error: nil), registered, handshake: .own).line == "helper repair: other code answered (cdhash ab01, started from /Old/Helper); cleared ok; registered; status enabled; attempt 3 after 1042 ms; the helper answered")
+        #expect(Registration.Event.repaired(found: older, .unregistered(error: nil), registered, handshake: older).line == "helper repair: other code answered (cdhash ab01, started from /Old/Helper); cleared ok; registered; status enabled; attempt 3 after 1042 ms; other code answered (cdhash ab01, started from /Old/Helper)")
+        #expect(Registration.Event.kept(.heldBy(pids: [41, 42]), older).line == "helper check: kept for pid 41, 42; other code answered (cdhash ab01, started from /Old/Helper)")
+        #expect(Registration.Event.leftAlone(.embeddedUnreadable("x")).line == "helper check: left the job alone; embedded helper unreadable: x")
+        #expect(Registration.Event.awaitingApproval.line == "helper check: left the job alone; the record waits for the user's approval")
         #expect(Registration.Event.exited(.unregistered(error: nil), status: "notRegistered").line
                 == "helper at exit: cleared ok; status notRegistered")
         #expect(Registration.Event.exited(.heldBy(pids: [41]), status: "enabled").line
@@ -109,9 +112,43 @@ struct HelperBuildTests {
     }
 
     func helperSigning() throws -> [String: Any] {
-        var code: SecStaticCode?
-        try #require(SecStaticCodeCreateWithPath(helper as CFURL, [], &code) == errSecSuccess)
-        return try SigningInformation.of(try #require(code), flags: kSecCSSigningInformation | kSecCSRequirementInformation)
+        try SigningInformation.of(file: helper, flags: kSecCSSigningInformation | kSecCSRequirementInformation)
+    }
+
+    /// A newer copy asks this of an older helper, so a change here leaves it unable to tell what answers. This stops
+    /// compiling if the reply's shape changes; the wire's name for the call is the selector.
+    @Test func theHandshakeStaysTheCallAnOlderHelperAnswers() {
+        let _: (PrivilegedHelper, @escaping @Sendable (String, UInt32, Data) -> Void) -> Void = { $0.identity(reply: $1) }
+        #expect(NSStringFromSelector(#selector(PrivilegedHelper.identity(reply:))) == "identityWithReply:")
+    }
+
+    /// The helper answers with the running reading and the app compares the file's, so one binary must read the same both ways.
+    @Test func theRunningCodeAndItsFileHaveOneHash() throws {
+        let running = try SigningInformation.cdhash(in: SigningInformation.ofSelf())
+        let file = try SigningInformation.cdhash(of: try #require(Bundle.main.executableURL))
+        #expect(running == file)
+        let embedded = try SigningInformation.cdhash(of: HelperRegistration.embeddedHelper)
+        #expect(try SigningInformation.cdhash(in: helperSigning()) == embedded)
+        #expect(embedded != running)
+    }
+
+    /// A bundle replaced under a running copy changes what `register` would run, so a look reads the file again: the
+    /// helper the replacement started is this copy's, and no repair could give it any other.
+    @Test func aLookReadsTheFileAsItIsNow() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let embedded = directory.appending(path: "helper")
+        let replacement = try #require(Bundle.main.executableURL)
+        try FileManager.default.copyItem(at: helper, to: embedded)
+        let cdhash = try SigningInformation.cdhash(of: replacement)
+        let answers = HelperIdentity(executable: "/Old/Helper", euid: 0, cdhash: cdhash)
+        typealias Handshake = HelperRegistration.Handshake
+        #expect(Handshake.look(at: embedded) { answers } == .otherCode(executable: "/Old/Helper", cdhash: cdhash))
+        try FileManager.default.removeItem(at: embedded)
+        #expect(Handshake.look(at: embedded) { answers }.replacesJob == false)
+        try FileManager.default.copyItem(at: replacement, to: embedded)
+        #expect(Handshake.look(at: embedded) { answers } == .own)
     }
 
     /// Whether this running process meets a requirement, as the helper's listener asks of a caller.

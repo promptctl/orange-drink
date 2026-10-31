@@ -102,7 +102,8 @@ helper-repair-check.covers := Sources/OrangeDrink/Helper Sources/HelperInterface
   Tests/OrangeDrinkTests/HelperLive.swift Tests/OrangeDrinkTests/BatteryLog.swift
 
 # The signed Release build's helper on a real Mac, approved as above: answers a charge-limit call at launch, and again
-# at the launch after a crash, and leaves no job once the app quits.
+# at the launch after a crash, and leaves no job once the app quits; and a copy running other code replaces the helper
+# a crash left running.
 release-helper-check: release
 	swift scripts/release-helper-check.swift "$(RELEASE_APP)"
 

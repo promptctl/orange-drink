@@ -6,9 +6,11 @@ import Security
 /// The privileged helper's XPC interface. [LAW:single-enforcer] The helper's listener admits only the app
 /// (see `Signer.callerRequirement`), so nothing here checks the caller again.
 @objc protocol PrivilegedHelper {
-    /// The connection's handshake: the helper's executable path and its effective user id. A reply proves the
-    /// helper accepted the caller, runs as root, and is the copy inside the app the caller expected.
-    func identity(reply: @escaping @Sendable (String, UInt32) -> Void)
+    /// The connection's handshake: the helper's executable path as it started, its effective user id, and the running
+    /// code's cdhash. A reply proves the helper accepted the caller and runs as root, and the cdhash says whether it is
+    /// the code inside the caller's copy. Every version keeps this call as it is, since a newer copy asks it of an older
+    /// helper (HelperBuildTests pins it).
+    func identity(reply: @escaping @Sendable (String, UInt32, Data) -> Void)
 
     /// Turns macOS Low Power Mode on or off on the power source the Mac is on now, if that can be done before
     /// `deadline`, the instant the caller's budget leaves for the reply. The reply is nil once pmset has written it, or what
@@ -150,6 +152,11 @@ struct LaunchDaemon {
     }
 }
 
+extension Sequence<UInt8> {
+    /// Bytes as a log line gives them.
+    var hex: String { map { String(format: "%02x", $0) }.joined() }
+}
+
 /// A signature's signing information: where the helper's identity and its rule for callers are read from.
 enum SigningInformation {
     static func of(_ code: SecStaticCode, flags: UInt32 = kSecCSSigningInformation) throws(HelperFailure) -> [String: Any] {
@@ -157,6 +164,25 @@ enum SigningInformation {
         let status = SecCodeCopySigningInformation(code, SecCSFlags(rawValue: flags), &info)
         guard status == errSecSuccess, let info = info as? [String: Any] else { throw HelperFailure("no signing information: OSStatus \(status)") }
         return info
+    }
+
+    /// A file's own, such as the helper an app embeds.
+    static func of(file: URL, flags: UInt32) throws(HelperFailure) -> [String: Any] {
+        var code: SecStaticCode?
+        let status = SecStaticCodeCreateWithPath(file as CFURL, [], &code)
+        guard status == errSecSuccess, let code else { throw HelperFailure("no static code at \(file.path): OSStatus \(status)") }
+        return try of(code, flags: flags)
+    }
+
+    /// The cdhash of a file's code as it is now. It needs no signing information, so no signature is parsed.
+    static func cdhash(of file: URL) throws(HelperFailure) -> Data {
+        try cdhash(in: of(file: file, flags: 0))
+    }
+
+    /// The code's cdhash, which names exactly this code wherever its file sits.
+    static func cdhash(in info: [String: Any]) throws(HelperFailure) -> Data {
+        guard let cdhash = info[kSecCodeInfoUnique as String] as? Data else { throw HelperFailure("the signature has no cdhash") }
+        return cdhash
     }
 
     /// The running process's own, read from the running code rather than the file on disk, so a file
@@ -170,7 +196,7 @@ enum SigningInformation {
     }
 }
 
-/// What a signed helper says about itself: the facts its caller requirement is built from.
+/// What a signed helper says about itself: the facts its caller requirement is built from, and its cdhash.
 struct Signer: Equatable {
     let team: String
     /// The helper's Mach service, which is its launchd label and its bundle identifier.
@@ -180,6 +206,8 @@ struct Signer: Equatable {
     /// Whether a caller may carry get-task-allow, which lets other code of the same user attach to it and
     /// act through it. Only a Debug helper admits one, because its Debug app carries it.
     let admitsDebuggableCallers: Bool
+    /// The running code's cdhash, which the app compares with its own embedded helper's.
+    let cdhash: Data
 
     /// [LAW:one-source-of-truth] Every fact comes from one signature: the team, and the Info.plist bound
     /// into it, never a file read off disk. [LAW:parse-dont-validate] A helper without a team, ad hoc for
@@ -196,6 +224,7 @@ struct Signer: Equatable {
         self.service = service
         self.app = app
         admitsDebuggableCallers = admits == "YES"
+        cdhash = try SigningInformation.cdhash(in: info)
     }
 
     /// Code Apple's CA issued to this helper's own team, carrying the app's identifier, and, outside Debug,
@@ -210,6 +239,7 @@ struct Signer: Equatable {
 struct HelperIdentity: Equatable, Sendable {
     let executable: String
     let euid: UInt32
+    let cdhash: Data
 }
 
 enum HelperCallError: Error, CustomStringConvertible, Equatable {
@@ -262,7 +292,7 @@ struct HelperClient {
 
     func identity() throws(HelperCallError) -> HelperIdentity {
         try call { helper, _, finish in
-            helper.identity { executable, euid in finish(.success(HelperIdentity(executable: executable, euid: euid))) }
+            helper.identity { executable, euid, cdhash in finish(.success(HelperIdentity(executable: executable, euid: euid, cdhash: cdhash))) }
         }
     }
 
