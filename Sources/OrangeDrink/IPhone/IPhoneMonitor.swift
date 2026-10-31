@@ -337,20 +337,18 @@ private final class MonitorState: @unchecked Sendable {
     /// new relay. A failed read holds nothing, so the next one opens afresh. Opening and reading are blocking calls of
     /// up to several deadlines, so they run off the queue and off the task's thread.
     private func read(over route: DeviceMap.Route, udid: String, held: HeldRelay?) async -> Read {
-        await withCheckedContinuation { done in
-            DispatchQueue.global(qos: .utility).async {
-                let reused = held.flatMap { $0.handle == route.handle ? $0.relay : nil }
-                let relay = reused == nil ? RelayUse.opened : .held
-                do throws(IPhoneReadError) {
-                    let open: any BatteryRelay
-                    switch reused {
-                    case let held?: open = held
-                    case nil: open = try self.inputs.connect(route.handle, udid)
-                    }
-                    done.resume(returning: Read(outcome: .success(try open.read()), held: HeldRelay(handle: route.handle, relay: open), relay: relay))
-                } catch {
-                    done.resume(returning: Read(outcome: .failure(error), held: nil, relay: relay))
+        await blocking(qos: .utility) {
+            let reused = held.flatMap { $0.handle == route.handle ? $0.relay : nil }
+            let relay = reused == nil ? RelayUse.opened : .held
+            do throws(IPhoneReadError) {
+                let open: any BatteryRelay
+                switch reused {
+                case let held?: open = held
+                case nil: open = try self.inputs.connect(route.handle, udid)
                 }
+                return Read(outcome: .success(try open.read()), held: HeldRelay(handle: route.handle, relay: open), relay: relay)
+            } catch {
+                return Read(outcome: .failure(error), held: nil, relay: relay)
             }
         }
     }

@@ -1,20 +1,19 @@
 import SwiftUI
 
-/// [LAW:one-source-of-truth] What a helper-backed control shows under itself when the helper did not act: how to fix a
-/// failure the user can (allow the helper, with the way to the setting), what went wrong otherwise. The control
-/// supplies its own sentence and the action that opens the setting.
-struct HelperFailureLine: View {
-    let failure: HelperUseFailure
+/// [LAW:one-source-of-truth] What a control that rests on a login item shows under itself when it did not act: how to fix a
+/// failure the user can, with the way to the setting, what went wrong otherwise. The control supplies its own sentence, and
+/// `openLoginItems` only when that setting is the fix.
+struct LoginItemFailureLine: View {
     let explanation: Phrase
-    let openLoginItems: () -> Void
+    let openLoginItems: (() -> Void)?
 
-    /// The way to the setting that allows the helper.
+    /// The way to the setting that allows a login item.
     static let openLoginItemsTitle: Phrase = "Open Login Items & Extensions…"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             let text = PhraseText(explanation)
-            if failure.cause == .needsApproval {
+            if let openLoginItems {
                 text.fixedSize(horizontal: false, vertical: true)
                 Button { openLoginItems() } label: { PhraseText(Self.openLoginItemsTitle) }
                     .buttonStyle(.link)

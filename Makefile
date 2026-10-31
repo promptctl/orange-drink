@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check
+.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check
 
 generate:
 	xcodegen generate --use-cache
@@ -81,7 +81,7 @@ unplug-check.covers := Sources/OrangeDrink/Battery Tests/OrangeDrinkTests/Batter
 # project.yml is covered because it keeps the app unsandboxed, which its connection to usbmuxd's socket needs.
 iphone-check: export TEST_RUNNER_IPHONE_CHECK = 1
 iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled()
-iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
+iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Blocking.swift Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
   Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
 # The devices ticket's step on a real Mac: with paired devices connected, holds every device system_profiler lists
@@ -133,6 +133,15 @@ update-check: generate
 	older_dmg=$$(scripts/dmg "$$out/older"); newer_dmg=$$("$$out/tree/scripts/dmg" "$$out/newer"); \
 	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
 	scripts/update-check "$$older_dmg" "$$newer_dmg" "$$out"/ui/Build/Products/*.xctestrun
+
+# Launch at login on real macOS, in a VM with no window, because registering posts a notification on the Mac it happens
+# on: installs a build from its disk image there, presses the General screen's switch on and off, and reads what
+# SMAppService.mainApp.status said after each off the app's log. It needs what update-check needs.
+login-item-check: generate
+	@set -e; out='$(CURDIR)/build/login-item-check'; rm -rf "$$out"; mkdir -p "$$out"; \
+	dmg=$$(scripts/dmg "$$out/dmg"); \
+	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
+	scripts/login-item-check "$$dmg" "$$out"/ui/Build/Products/*.xctestrun
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

@@ -6,6 +6,7 @@ struct SettingsView: View {
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
     let language: AppLanguageModel
+    let launchAtLogin: LaunchAtLogin
     let shortcuts: ShortcutsController
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
@@ -29,7 +30,7 @@ struct SettingsView: View {
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
-            ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
+            ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
                        deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
         }
         .appLook(look, language)
@@ -83,6 +84,7 @@ private struct ScreenView: View {
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
     let language: AppLanguageModel
+    let launchAtLogin: LaunchAtLogin
     let shortcuts: ShortcutsController
     let menuBarIcon: MenuBarIconModel
     let devices: DevicesModel
@@ -107,7 +109,7 @@ private struct ScreenView: View {
                     PhraseText(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
                 switch screen {
-                case .general: GeneralScreen(appearance: appearance, look: look, language: language)
+                case .general: GeneralScreen(appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin)
                 case .alerts: AlertsScreen(center: alerts)
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
                 case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold)
