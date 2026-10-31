@@ -19,7 +19,7 @@ import ServiceManagement
         /// macOS holds a login item while the app's Allow in the Background is off, as it is on a new install, since the
         /// helper's record shares that switch. The user turns it on in System Settings, and nothing here can.
         case needsApproval
-        /// What the system said, or nil when it gave no error and the status did not move; `answered` logs that status.
+        /// The system's own words, or nil when it gave no error and the status did not move. `answered` logs the rest.
         case failed(String?)
 
         /// [LAW:one-source-of-truth] A press is judged by the status after it, not by whether it threw, since macOS can
@@ -71,13 +71,13 @@ import ServiceManagement
                                   unregister: { HelperRegistration.attempt(SMAppService.mainApp.unregister) },
                                   status: { SMAppService.mainApp.status })
 
-        fileprivate func answer(_ call: Call) -> (status: SMAppService.Status, error: String?) {
+        fileprivate func answer(_ call: Call) -> (status: SMAppService.Status, error: NSError?) {
             let error: NSError? = switch call {
             case .read: nil
             case .set(true): register()
             case .set(false): unregister()
             }
-            return (status(), error.map(HelperRegistration.describe))
+            return (status(), error)
         }
     }
 
@@ -135,10 +135,10 @@ import ServiceManagement
         let effects = effects
         asking = Task {
             let answer = await blocking { effects.answer(call) }
-            refusal = call == .read && answer.status == status ? refusal : Refusal(call, status: answer.status, error: answer.error)
+            refusal = call == .read && answer.status == status ? refusal : Refusal(call, status: answer.status, error: answer.error?.localizedDescription)
             status = answer.status
             asking = nil
-            record(.answered(call, status: answer.status.name, error: answer.error))
+            record(.answered(call, status: answer.status.name, error: answer.error.map(HelperRegistration.describe)))
         }
     }
 }

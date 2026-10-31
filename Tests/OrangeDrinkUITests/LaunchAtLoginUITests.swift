@@ -45,7 +45,11 @@ import XCTest
         let (app, control) = try launched()
         expect(control, toRead: 0)
         control.click()
-        press(app.links["Open Login Items & Extensions…"])
+        let link = app.links["Open Login Items & Extensions…"]
+        XCTAssertTrue(link.waitForExistence(timeout: Self.installedAppTimeout), "the row never gave the way to the setting")
+        // The native switch moves under the click, ahead of the system's answer, so only this reads that it came back.
+        expect(control, toRead: 0)
+        press(link)
         allowInTheBackground()
         // Coming back is what reads the change made in System Settings.
         app.activate()

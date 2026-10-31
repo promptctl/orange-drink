@@ -140,7 +140,8 @@ import ViewInspector
         system.registering(leaves: .notFound, error: NSError(domain: "d", code: 2, userInfo: [NSLocalizedDescriptionKey: "broke"]))
         let login = await system.model()
         try await press(login)
-        #expect(login.refusal == .failed("d 2 broke"))
+        #expect(login.refusal == .failed("broke"))
+        #expect(system.events.last == .answered(.set(true), status: "notFound", error: "d 2 broke"))
         #expect(throws: (any Error).self) { try screen(login).inspect().find(button: "Open Login Items & Extensions…") }
     }
 
