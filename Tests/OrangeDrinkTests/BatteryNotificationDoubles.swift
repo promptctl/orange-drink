@@ -64,6 +64,8 @@ final class FakeMac: @unchecked Sendable {
         /// What a press returns, and whether it takes the notification away.
         var pressReturns = AXError.success
         var pressCloses = true
+        /// What shows after a press, for a notification that changes rather than goes.
+        var pressLeaves: NotificationValues?
         var windowsRead: ElementRead<[any AccessibleElement]>?
         var failLookAfterPress: AXError?
         var observeFails: AXError?
@@ -100,6 +102,7 @@ final class FakeMac: @unchecked Sendable {
                 with { state in
                     state.presses.append(action)
                     if state.pressCloses { state.showing.removeAll { $0 == values } }
+                    if let left = state.pressLeaves { state.showing = [left] }
                     return state.pressReturns
                 }
             }

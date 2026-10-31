@@ -191,10 +191,19 @@ import ViewInspector
         #expect(scriptEditor.verdict(knowing: NotificationFixtures.words) == .refused(.description))
     }
 
-    @Test func aStackIsLeftShowing() {
+    private nonisolated static var stackedAlert: NotificationValues {
         let alert = NotificationFixtures.alert
-        let stacked = NotificationValues(subrole: NotificationValues.alert, title: alert.title, body: alert.body, description: "\(alert.description), stacked", actions: alert.actions + ["Name:Clear All"])
-        #expect(stacked.verdict(knowing: NotificationFixtures.words) == .refused(.description))
+        return NotificationValues(subrole: NotificationValues.alert, title: alert.title, body: alert.body, description: "\(alert.description), stacked", actions: alert.actions + ["Name:Clear All"])
+    }
+
+    @Test func aStackIsLeftShowing() {
+        #expect(Self.stackedAlert.verdict(knowing: NotificationFixtures.words) == .refused(.description))
+    }
+
+    @Test func aBodyThatHoldsItsTitleIsStillTheAlert() {
+        let alert = NotificationValues(subrole: NotificationValues.alert, title: "Batterie", body: "Batterie faible, branchez le Mac.",
+                                       description: "Batterie, Batterie faible, branchez le Mac.", actions: NotificationFixtures.alert.actions)
+        #expect(alert.verdict(knowing: [LowBatteryWords(title: alert.title, body: alert.body)]) == .close(action: "Name:Close"))
     }
 
     @Test(arguments: [["AXPress", "Name:Close"], ["AXPress", "Name:Show Details", "Name:Show", "Name:Close"], ["AXPress"]])
@@ -365,6 +374,26 @@ import ViewInspector
         let after = await bed.nextPass()
         #expect(after.outcome == .looked(.init([.close(action: "")])))
         #expect(bed.mac.presses.count == 1)
+    }
+
+    @Test func anAlertThatStacksInsteadOfClosingIsAFailedClose() async throws {
+        let bed = try Bed()
+        bed.mac.with { $0.pressCloses = false; $0.pressLeaves = Self.stackedAlert; $0.showing = [NotificationFixtures.alert] }
+        try await bed.launch()
+        async let closing = bed.warn(kIOPSLowBatteryWarningFinal)
+        await bed.clock.asleep()
+        bed.clock.advance(by: BatteryNotificationDismissal.closeDeadline)
+        #expect(try await closing.outcome == .closeFailed(.stayed))
+    }
+
+    @Test func anAlertGoneBeforeThePressIsNotAFailedClose() async throws {
+        let bed = try Bed()
+        bed.mac.with { $0.pressReturns = .invalidUIElement; $0.showing = [NotificationFixtures.alert] }
+        try await bed.launch()
+        async let closing = bed.warn(kIOPSLowBatteryWarningFinal)
+        await bed.clock.asleep()
+        bed.clock.advance(by: BatteryNotificationDismissal.closeDeadline)
+        #expect(try await closing.outcome == .closed)
     }
 
     @Test func aPressThatReturnsAnErrorIsNotRepeatedAndIsLogged() async throws {

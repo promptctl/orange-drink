@@ -5,6 +5,9 @@
 //   notification-tree closes <line> <seconds>
 //                             watches until `line` from `list` has shown and gone, with another notification showing that
 //                             has its title and body. Prints that one, and fails if that never comes
+//   notification-tree goes <line> <seconds>
+//                             watches for `line` from `list` to show, and fails unless it is gone within that many
+//                             seconds of showing. Prints how long it showed
 import AppKit
 import ApplicationServices
 
@@ -69,6 +72,23 @@ case "closes":
         Thread.sleep(forTimeInterval: 0.05)
     }
     fail(seen ? "it closed, and nothing with its words was left showing" : "it never showed")
+case "goes":
+    let line = CommandLine.arguments[2], limit = TimeInterval(CommandLine.arguments[3])!
+    var shown: Date?
+    var deadline = Date().addingTimeInterval(30)
+    while Date() < deadline {
+        if notifications().contains(line) {
+            if shown == nil {
+                shown = Date()
+                deadline = Date().addingTimeInterval(limit)
+            }
+        } else if let shown {
+            print(String(format: "it showed for %.2f s", Date().timeIntervalSince(shown)))
+            exit(0)
+        }
+        Thread.sleep(forTimeInterval: 0.05)
+    }
+    fail(shown == nil ? "it never showed" : "it was still showing after \(limit) s")
 case "allow":
     guard let prompt = application("com.apple.UserNotificationCenter").flatMap({ windows($0).first }),
           let allow = children(prompt).first(where: { string($0, kAXTitleAttribute) == "Allow" })
@@ -76,5 +96,5 @@ case "allow":
     let pressed = AXUIElementPerformAction(allow, kAXPressAction as CFString)
     guard pressed == .success else { fail("pressing Allow failed with AXError \(pressed.rawValue)") }
 default:
-    fail("usage: notification-tree list | allow")
+    fail("usage: notification-tree list | allow | closes <line> <seconds> | goes <line> <seconds>")
 }

@@ -87,6 +87,8 @@ private struct HeldObserver: @unchecked Sendable {
     func stop() {
         CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         AXObserverRemoveNotification(observer, application, kAXLayoutChangedNotification as CFString)
-        callback.release()
+        // [LAW:no-ambient-temporal-coupling] This runs off the main thread and the callback on it, so the last reference
+        // goes where no call to it can be under way.
+        DispatchQueue.main.async { callback.release() }
     }
 }

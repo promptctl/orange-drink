@@ -116,7 +116,7 @@ import OSLog
         case noWarningChanges(String)
 
         /// [LAW:effects-at-boundaries] The log line, a pure function of the event. scripts/battery-notification-check reads
-        /// `closed` and `not wanted`.
+        /// `pass: `, `switch on, trusted`, and `, closed`.
         var line: String {
             switch self {
             case .pass(let pass):
@@ -252,8 +252,9 @@ import OSLog
         record(.pass(Pass(level: level, isOn: isOn, trusted: trust, episode: episode, observer: change, outcome: outcome)))
     }
 
-    /// One comparison covers starting, ending, and NotificationCenter restarting during a warning, and it runs before the
-    /// look, so nothing arrives between the look and the watching.
+    /// One comparison covers starting, ending, and a NotificationCenter that restarted since the last wake. A dead process
+    /// posts nothing, so the next wake finds it, and macOS raises its alert just after the level wake that does. It runs
+    /// before the look, so nothing arrives between the look and the watching.
     private func observe(_ pid: pid_t?) async -> ObserverChange {
         guard pid != observer?.pid else { return .unchanged }
         let effects = effects, wake = wake, old = observer
@@ -288,13 +289,13 @@ import OSLog
             switch await look(pid) {
             case .failure(let failure): return .lookFailed(failure)
             case .success(let shown):
-                let verdicts = shown.map { (element: $0.element, verdict: $0.values.verdict(knowing: words)) }
-                for (element, verdict) in verdicts {
+                let verdicts = shown.map { $0.values.verdict(knowing: words) }
+                for (notification, verdict) in zip(shown, verdicts) {
                     if case .watching = episode, case .close(let action) = verdict {
-                        return await close(element, with: action, words: words, pid: pid)
+                        return await close(notification, with: action, words: words, pid: pid)
                     }
                 }
-                return .looked(Seen(verdicts.map(\.verdict)))
+                return .looked(Seen(verdicts))
             }
         }
     }
@@ -302,16 +303,16 @@ import OSLog
     /// [LAW:no-ambient-temporal-coupling] The one deadline, inside the pass, so nothing else moves while it runs. A press
     /// that is not confirmed gone is never repeated. One confirmed gone stays watching, so a macOS that posts again at the
     /// final warning is closed too.
-    private func close(_ element: any AccessibleElement, with action: String, words: Set<LowBatteryWords>, pid: pid_t?) async -> Outcome {
-        let pressed = await blocking { element.press(action) }
-        guard pressed == .success else { return stuck(words, .press(pressed)) }
+    private func close(_ notification: ShownNotification, with action: String, words: Set<LowBatteryWords>, pid: pid_t?) async -> Outcome {
+        let pressed = await blocking { notification.element.press(action) }
+        // `invalidUIElement` is a notification gone since the look, as it is for a read, and the second look says so.
+        guard pressed == .success || pressed == .invalidUIElement else { return stuck(words, .press(pressed)) }
         // This task is never cancelled, and a sleep cut short only looks sooner.
         try? await timekeeper.sleep(for: Self.closeDeadline)
         switch await look(pid) {
         case .failure(let failure): return stuck(words, .secondLook(failure))
         case .success(let shown):
-            let stayed = shown.contains { if case .close = $0.values.verdict(knowing: words) { true } else { false } }
-            return stayed ? stuck(words, .stayed) : .closed
+            return shown.contains { $0.values.isStill(notification.values) } ? stuck(words, .stayed) : .closed
         }
     }
 

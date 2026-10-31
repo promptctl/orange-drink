@@ -119,11 +119,20 @@ guest defaults write "$identifier" systemNotifications -data "$(printf '%s' '{"d
 start_app
 wait_for "the app never read the switch on and itself trusted" 30 logged 'switch on, trusted'
 
+# Times the alert from the guest, at 50 ms: reading the log takes seconds of its own, and the app logs `closed` only after
+# its deadline. The watcher starts first, so an alert that goes fast cannot pass it unseen.
+gone_within_5_seconds() {
+  guest "$tree" goes "$alert" 5 >&2 &
+  local watcher=$!
+  sleep 2
+  warn "$1"
+  wait "$watcher"
+}
+
 before=$(closes)
-warn "$first"
 # Before anything else moves in NotificationCenter: another event would wake the app and hide a first look that came early.
-wait_for "with the switch on, the alert was not closed" 8 closed_after "$before"
-gone || fail "the log says closed and the tree still shows the alert"
+gone_within_5_seconds "$first"
+wait_for "with the switch on, the log never said closed" 8 closed_after "$before"
 while IFS= read -r line; do shows "$line" || fail "this did not stay: $line"; done <<<"$installed"
 say "on: the alert closed with no press from the check, and the login items alert stayed"
 
@@ -138,9 +147,8 @@ else
   sleep 3
   [ -z "$(new_alerts "$(list)")" ] || fail "the early warning showed an alert on macOS 26"
   before=$(closes)
-  warn 3
-  wait_for "the final warning's alert was not closed" 8 closed_after "$before"
-  gone || fail "the log says closed and the tree still shows the final warning's alert"
+  gone_within_5_seconds 3
+  wait_for "the log never said the final warning's alert was closed" 8 closed_after "$before"
   say "the early warning left nothing to close, and the final warning's alert closed"
 fi
 

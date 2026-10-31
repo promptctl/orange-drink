@@ -39,10 +39,16 @@ extension NotificationValues {
     func verdict(knowing words: Set<LowBatteryWords>) -> Verdict {
         guard subrole == Self.alert else { return .refused(.subrole) }
         guard words.contains(LowBatteryWords(title: title, body: body)) else { return .refused(.words) }
-        let rest = description.replacingOccurrences(of: title, with: "").replacingOccurrences(of: body, with: "")
+        let rest = description.replacingOccurrences(of: body, with: "").replacingOccurrences(of: title, with: "")
         guard description.contains(title), !rest.contains(where: { $0.isLetter || $0.isNumber || $0.isSymbol }) else { return .refused(.description) }
         let custom = actions.filter { $0.hasPrefix("Name:") }
         guard custom.count == 2 else { return .refused(.actions) }
         return .close(action: custom[1])
+    }
+
+    /// Whether this is `other` as it shows now, which the rule cannot say: a stack changes a notification's description
+    /// and actions, and leaves these.
+    func isStill(_ other: NotificationValues) -> Bool {
+        subrole == other.subrole && title == other.title && body == other.body
     }
 }
