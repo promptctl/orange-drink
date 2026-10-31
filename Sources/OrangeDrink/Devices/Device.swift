@@ -27,10 +27,12 @@ struct BatteryLevel: Equatable, Sendable {
 }
 
 /// [LAW:types-are-the-program] What a device reports, and no more: a device with one battery, one
-/// with earbuds and a case (each part may be missing, e.g. a bud out of its case), or none at all.
-/// An unreported level is absent; 0% is a reading, a drained battery.
+/// with earbuds and a case (each part may be missing, e.g. a bud out of its case), none at all, or
+/// not known this read. An unreported level is absent; 0% is a reading, a drained battery.
 enum DeviceLevels: Equatable, Sendable {
     case none
+    /// Power management did not answer, so this device's levels are unknown, not absent.
+    case unread
     case single(BatteryLevel)
     case earbuds(left: BatteryLevel?, right: BatteryLevel?, case: BatteryLevel?)
 
@@ -38,7 +40,7 @@ enum DeviceLevels: Equatable, Sendable {
     /// the level falling from the buds' to the case's, so the case is never the level.
     var alertLevel: BatteryLevel? {
         switch self {
-        case .none: nil
+        case .none, .unread: nil
         case .single(let level): level
         case .earbuds(let left, let right, _): [left, right].compactMap { $0 }.min { $0.percent < $1.percent }
         }
@@ -48,7 +50,7 @@ enum DeviceLevels: Equatable, Sendable {
     /// earbud reports, because the case does not power playback.
     var lowest: BatteryLevel? {
         switch self {
-        case .none: nil
+        case .none, .unread: nil
         case .single(let level): level
         case .earbuds(let left, let right, let `case`): [left, right].compactMap { $0 }.min { $0.percent < $1.percent } ?? `case`
         }
@@ -101,4 +103,7 @@ struct DeviceList: Equatable, Sendable {
     var devices: [Device] {
         byID.values.sorted { ($0.name, $0.id.address) < ($1.name, $1.id.address) }
     }
+
+    /// Whether a device's levels are unknown, so an empty ranking must not read as nothing connected.
+    var levelsUnread: Bool { byID.values.contains { $0.levels == .unread } }
 }

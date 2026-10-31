@@ -110,6 +110,20 @@ import Testing
         #expect(engine.observe(silent, watching: [Self.mouse], alerts: [alert]).isEmpty)
     }
 
+    @Test func aLevelReturningAfterAnUnreadListDoesNotFireAgain() {
+        var engine = DeviceAlertEngine()
+        func list(_ levels: DeviceLevels) -> DeviceList {
+            var list = DeviceList()
+            list.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: levels)]))
+            return list
+        }
+        let low = DeviceLevels.single(BatteryLevel(percent: 19, approximate: false))
+        #expect(engine.observe(list(.single(BatteryLevel(percent: 40, approximate: false))), watching: [Self.mouse], alerts: [alert]).isEmpty)
+        #expect(engine.observe(list(low), watching: [Self.mouse], alerts: [alert]).count == 1)
+        #expect(engine.observe(list(.unread), watching: [Self.mouse], alerts: [alert]).isEmpty)
+        #expect(engine.observe(list(low), watching: [Self.mouse], alerts: [alert]).isEmpty)
+    }
+
     private func center(_ delivered: Box) throws -> AlertCenter {
         let defaults = UserDefaults(suiteName: "DeviceAlertTests.\(UUID())")!
         let center = try AlertCenter(defaults: defaults, deliver: { _, _ in },

@@ -17,13 +17,13 @@ struct AccessoryPower {
     /// this edge does not understand, which fails the subscription instead of reading as no levels.
     init() throws {
         guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "IOPSCopyPowerSourcesByType") else {
-            throw PowerSourcesError.missingSymbol("IOPSCopyPowerSourcesByType")
+            throw BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType")
         }
         copySources = unsafeBitCast(symbol, to: CopySourcesByType.self)
     }
 
     /// [LAW:effects-at-boundaries] The one read of power management's sources; `levels(from:)` is the parse.
-    func read() throws -> [[String: Any]] {
+    func read() throws(PowerSourcesError) -> [[String: Any]] {
         try PowerSources.descriptions(copySources(Self.allSources), copiedBy: "IOPSCopyPowerSourcesByType")
     }
 
@@ -47,6 +47,21 @@ struct AccessoryPower {
     struct Attribution: Equatable {
         let unlevelled: [String]
         let unclaimed: [String]
+    }
+
+    /// One read of the sources: what they say, or that powerd did not answer.
+    enum Reading: Equatable {
+        case answered(Levels)
+        case unanswered(PowerSourcesError)
+
+        /// [LAW:types-are-the-program] A device a read that answered does not list has no battery; with no
+        /// answer, every device's levels are unknown, which readers must not take for no battery.
+        func levels(of name: String) -> DeviceLevels {
+            switch self {
+            case .answered(let levels): levels.byName[name] ?? .none
+            case .unanswered: .unread
+            }
+        }
     }
 
     /// [LAW:parse-dont-validate] The crossing from power management's untyped sources to levels. The parts

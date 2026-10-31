@@ -11,7 +11,7 @@ struct ConnectedDevicesView: View {
         } else {
             let rows = connected.rows
             if rows.isEmpty {
-                note(connected.hiddenCount > 0 ? "Every device is hidden. Show them again in Settings → Devices." : "No connected Bluetooth devices to show.")
+                note(emptyNote)
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
@@ -21,6 +21,11 @@ struct ConnectedDevicesView: View {
                 }
             }
         }
+    }
+
+    private var emptyNote: LocalizedStringKey {
+        if connected.levelsUnread { return "Device batteries can't be read right now." }
+        return connected.hiddenCount > 0 ? "Every device is hidden. Show them again in Settings → Devices." : "No connected Bluetooth devices to show."
     }
 
     private func note(_ text: LocalizedStringKey) -> some View {

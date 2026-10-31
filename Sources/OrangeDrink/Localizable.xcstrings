@@ -2466,6 +2466,28 @@
         }
       }
     },
+    "Device batteries can't be read right now.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device batteries can't be read right now."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire les batteries des appareils pour le moment."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pueden leer las baterías de los dispositivos en este momento."
+          }
+        }
+      }
+    },
     "Device readings stopped. Quit and reopen the app.": {
       "localizations": {
         "en": {

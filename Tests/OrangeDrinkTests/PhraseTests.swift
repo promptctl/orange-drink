@@ -139,6 +139,7 @@ import Testing
                     "Green when charging, orange for low battery. Off keeps the icon neutral and only turns it red when critical.",
                     "Bluetooth Devices", "Show Connected Devices", "Display battery levels for paired Bluetooth devices in the menu bar dropdown",
                     "Detected Devices", "Device readings stopped. Quit and reopen the app.", "No connected Bluetooth devices report a battery.",
+                    "Device batteries can't be read right now.",
                     "Pinned Devices", "Pin a connected device from the Devices screen to arrange it here.",
                     "The top device sits leftmost in the menu bar. Dragging an item in the menu bar is undone when a pinned device connects, disconnects, or is moved here."]
         phrases += ["Charge Limit", "Pause charging at your target so the battery sits in a healthier range.", "Target", "Charging pauses at this level",

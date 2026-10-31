@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:verifiable-goals] The Devices screen's behaviour from simulated devices and a throwaway
@@ -47,6 +48,15 @@ import Testing
         #expect(!ConnectedDevices(list, settings: settings.value).isShown)
         try settings.update { $0.showConnectedDevices = true }
         #expect(ConnectedDevices(list, settings: settings.value).isShown)
+    }
+
+    @Test func anEmptyDetectedDevicesCardSaysLevelsAreUnreadNotThatNoDeviceReports() async throws {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let devices = DevicesModel(events: events)
+        send.yield(.swept([Device(id: DeviceID(address: "a"), name: "Device a", kind: .accessory, levels: .unread)]))
+        _ = await DevicesModelTests().list(of: devices) { $0.levelsUnread }
+        let screen = DevicesScreen(devices: devices, settings: try model(), select: { _ in })
+        #expect(throws: Never.self) { try screen.inspect().find(text: "Device batteries can't be read right now.") }
     }
 
     @Test func settingsSurviveARelaunch() throws {

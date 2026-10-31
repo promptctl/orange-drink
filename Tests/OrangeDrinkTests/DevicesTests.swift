@@ -82,7 +82,7 @@ struct DeviceListTests {
 
 @MainActor struct DevicesModelTests {
     /// The list once `accepted` holds for it. [LAW:no-ambient-temporal-coupling] Awaited through Observation, never polled.
-    private func list(of model: DevicesModel, once accepted: (DeviceList) -> Bool) async -> DeviceList {
+    func list(of model: DevicesModel, once accepted: (DeviceList) -> Bool) async -> DeviceList {
         let (changes, change) = AsyncStream.makeStream(of: Void.self)
         var next = changes.makeAsyncIterator()
         while !accepted(model.list) {
@@ -100,6 +100,20 @@ struct DeviceListTests {
         #expect(await list(of: model) { $0.devices.count == 2 }.devices == [DeviceListTests.pods, DeviceListTests.mouse])
         send.yield(.gone(DeviceListTests.mouse.id))
         #expect(await list(of: model) { $0.devices.count == 1 }.devices == [DeviceListTests.pods])
+    }
+
+    @Test func powerdGoingSilentIsNoFailureAndItsNextAnswerRestoresTheRow() async {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let model = DevicesModel(events: events)
+        let sources = DeviceReaderTests.Sources(unanswered: .unanswered(call: "the model's outage"))
+        send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
+        let silent = await list(of: model) { !$0.devices.isEmpty }
+        #expect(silent.levelsUnread && DeviceRanking.rows(silent).isEmpty)
+        sources.unanswered = nil
+        send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
+        let answered = await list(of: model) { !$0.levelsUnread }
+        #expect(DeviceRanking.rows(answered).map(\.percent) == ["47%"])
+        #expect(model.failure == nil)
     }
 
     @Test func aFinishedStreamIsAFailureNotAFrozenList() async {
@@ -187,7 +201,7 @@ struct DeviceListTests {
 
     static func percents(_ levels: DeviceLevels) -> [String: Int] {
         switch levels {
-        case .none: [:]
+        case .none, .unread: [:]
         case .single(let level): ["Single": level.percent]
         case .earbuds(let left, let right, let `case`):
             ["Left": left?.percent, "Right": right?.percent, "Case": `case`?.percent].compactMapValues { $0 }
