@@ -54,6 +54,13 @@ done <<<"$(sed 's/^[[:space:]]*"//;s/"$//' <<<"$listing")"
 [ ${#searched[@]} -gt 0 ] || fail "the keychain search list read as empty; not rewriting it"
 security list-keychains -d user -s "$keychain" "${searched[@]}"
 
+# Read here, with the search list written, because validity is judged through the chain to Apple's root; and
+# read from the output, because find-identity exits 0 having found nothing. So a .p12 holding another
+# identity, or an expired one, fails here instead of inside the build.
+identities=$(security find-identity -v -p codesigning "$keychain")
+grep -qF "\"$identity\"" <<<"$identities" \
+  || fail "DEVELOPER_ID_APPLICATION_P12 gave no valid \"$identity\": $identities"
+
 xcrun notarytool store-credentials "$notary_profile" --keychain "$keychain" \
   --apple-id "$NOTARY_APPLE_ID" --team-id "$developer_team" --password "$NOTARY_PASSWORD" >&2
 echo "release-keychain: $keychain holds the Developer ID identity and notary profile $notary_profile"

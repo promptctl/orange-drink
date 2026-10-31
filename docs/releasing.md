@@ -5,9 +5,10 @@ Pushing the tag `v<version>` publishes that version's notarized DMG as a GitHub 
 
 ## Cut a release
 
-1. Raise `MARKETING_VERSION` in a PR and merge it.
-2. `git fetch origin && git tag v<version> origin/master && git push origin v<version>`
-3. Check that the run's commit is on master, then approve it when GitHub asks: the `release` environment holds the
+1. Raise `MARKETING_VERSION` in a PR and merge it. The build number follows it.
+2. Run `make test` on that commit. The release workflow does not run the tests.
+3. `git fetch origin && git tag v<version> origin/master && git push origin v<version>`
+4. Check that the run's commit is on master, then approve it when GitHub asks: the `release` environment holds the
    signing secrets and has a required reviewer. `git fetch origin && git merge-base --is-ancestor <commit> origin/master`
    exits 0 for a commit on master.
 
@@ -15,10 +16,11 @@ The `preflight` job runs first, with no approval. It fails a tag that is not `v<
 commit is not on master (`scripts/release-preflight`), so a bad tag is read from a failed run
 (`gh run view <id> --log-failed`) and is never put up for approval. Delete a bad tag with
 `git push origin :refs/tags/<tag>`. A tag with a release already made fails at `gh release create`; it never
-replaces one.
+replaces one. A tag moved after its run began fails that run at publishing (`scripts/release-publish`), so a
+release never pairs one commit's DMG with another commit's tag.
 
 A tag runs the workflow in its own commit, so a commit off master can carry a copy with `preflight` removed, and
-that copy still asks for the same approval. The approval is what protects the Developer ID key, which is why step 3
+that copy still asks for the same approval. The approval is what protects the Developer ID key, which is why step 4
 checks the commit.
 
 ## The `release` environment's secrets

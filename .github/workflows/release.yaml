@@ -8,8 +8,8 @@ on:
   push:
     tags: ['v*']
 
-# One run per tag at a time: a second push of a tag waits behind the running one, then finds the release
-# the first made and fails at `gh release create` rather than replacing it.
+# One run per tag at a time: a second push of a tag waits behind the running one. scripts/release-publish
+# lets only the run of the commit the tag still names publish, and `gh release create` never replaces a release.
 concurrency:
   group: release-${{ github.ref_name }}
   cancel-in-progress: false
@@ -44,7 +44,9 @@ jobs:
     needs: preflight
     runs-on: macos-26
     environment: release
-    timeout-minutes: 60
+    # The build, then two notary waits of at most 30 minutes each (scripts/notarize), so a stalled
+    # submission is reported by scripts/notarize and not cut off by this limit.
+    timeout-minutes: 90
     # The release is written with the workflow's own token.
     permissions:
       contents: write
@@ -91,5 +93,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DMG: ${{ steps.dmg.outputs.path }}
-        # preflight proved the tag is v<MARKETING_VERSION>, so the tag carries the version.
-        run: gh release create "$TAG" "$DMG" --verify-tag --title "Orange Drink ${TAG#v}" --generate-notes
+        run: scripts/release-publish "$TAG" "$DMG"

@@ -1,7 +1,7 @@
 #!/bin/bash
 # [LAW:behavior-not-structure] The release scripts seen from outside: scripts/version, release-preflight,
-# release-keychain and notarize, each run from a scratch copy of the tree with security, xcrun, base64 and
-# spctl stood in on PATH. The stand-ins record every call to $SCRATCH/calls; each case asserts what was
+# release-keychain, release-publish, notarize and dmg, each run from a scratch copy of the tree with the tools
+# they call stood in on PATH. The stand-ins record every call to $SCRATCH/calls; each case asserts what was
 # printed, how it exited, and what was called. Trust, validation and real signing are proved by a release
 # run, not here.
 set -euo pipefail
@@ -12,7 +12,7 @@ trap 'rm -rf "$scratch"' EXIT
 export SCRATCH=$scratch
 
 mkdir "$scratch/bin"
-for tool in security xcrun base64 spctl; do
+for tool in security xcrun base64 spctl gh make hdiutil codesign sleep; do
   cat > "$scratch/bin/$tool" <<'STUB'
 #!/bin/bash
 echo "$(basename "$0") $*" >>"$SCRATCH/calls"
@@ -26,6 +26,15 @@ case "$(basename "$0") $1 $2" in
   "xcrun notarytool log") echo "the notary log" ;;
   "base64 --decode "*) [ ! -e "$SCRATCH/decode-fails" ] || exit 1; cat ;;
   "spctl --assess"*) echo "$SCRATCH/x: accepted" >&2; echo "source=Notarized Developer ID" >&2 ;;
+  "security find-identity -v")
+    [ ! -e "$SCRATCH/no-identity" ] || { echo "     0 valid identities found"; exit 0; }
+    echo '  1) ABC123 "Developer ID Application: Brandon Fryslie (6R988MUU27)"' ;;
+  "gh api "*) cat "$SCRATCH/tag-commit" ;;
+  "make --no-print-directory release") echo "$SCRATCH/built/OrangeDrink.app" ;;
+  "hdiutil create "*)
+    fails=$(cat "$SCRATCH/hdiutil-fails")
+    if [ "$fails" -gt 0 ]; then echo $((fails - 1)) >"$SCRATCH/hdiutil-fails"; echo "hdiutil: create failed - Resource busy" >&2; exit 1; fi
+    touch "${!#}" ;;
 esac
 exit 0
 STUB
@@ -56,7 +65,7 @@ tree() {
   local dir=$scratch/tree
   rm -rf "$dir"; mkdir -p "$dir/scripts"
   cp "$repo/scripts/version" "$repo/scripts/release-preflight" "$repo/scripts/release-keychain" \
-     "$repo/scripts/notarize" "$repo/scripts/developer-id" "$dir/scripts/"
+     "$repo/scripts/release-publish" "$repo/scripts/notarize" "$repo/scripts/dmg" "$repo/scripts/developer-id" "$dir/scripts/"
   sed "s/^\(  *\)MARKETING_VERSION:.*/\1$1/" "$repo/project.yml" >"$dir/project.yml"
   echo "$dir"
 }
@@ -115,6 +124,9 @@ rm -f "$scratch/import-fails"
 calls_reset; secrets; touch "$scratch/decode-fails"
 expect "a secret that is not base64 fails, naming it" 1 "DEVELOPER_ID_APPLICATION_P12 is not base64" -- "$t/scripts/release-keychain"
 rm -f "$scratch/decode-fails"
+calls_reset; secrets; touch "$scratch/no-identity"
+expect "a .p12 without the Developer ID identity fails, naming it" 1 'gave no valid "Developer ID Application: Brandon Fryslie (6R988MUU27)"' -- "$t/scripts/release-keychain"
+rm -f "$scratch/no-identity"
 for failure in "list-empty:the keychain search list read as empty" "list-fails:list-keychains broke"; do
   marker=${failure%%:*}
   calls_reset; secrets; touch "$scratch/$marker"
@@ -136,6 +148,7 @@ want=(
   "security set-key-partition-list -S apple-tool:,apple: -k * $k"
   "security list-keychains -d user"
   "security list-keychains -d user -s $k /Users/me/Library/Keychains/login.keychain-db /Users/me/Library/Keychains/my keys.keychain-db"
+  "security find-identity -v -p codesigning $k"
   "xcrun notarytool store-credentials orange-drink-notary --keychain $k --apple-id me@example.com --team-id 6R988MUU27 --password app-pw"
 )
 got=$(cat "$scratch/calls")
@@ -166,5 +179,31 @@ calls_reset
 NOTARY_KEYCHAIN="$scratch/job keys.keychain-db" expect "a refused submission fails with its log" 1 "the notary log" -- "$t/scripts/notarize" "$scratch/image.dmg"
 called "xcrun notarytool log sub-2 --keychain-profile orange-drink-notary --keychain $scratch/job keys.keychain-db" \
   && pass "the log is fetched from the same keychain" || fail "the log is fetched from the same keychain: $(cat "$scratch/calls")"
+
+# --- scripts/dmg: hdiutil create fails now and then on hosted runners
+t=$(tree 'MARKETING_VERSION: "1.2.3"')
+mkdir -p "$scratch/built/OrangeDrink.app/Contents"
+cat >"$scratch/built/OrangeDrink.app/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>1.2.3</string></dict></plist>
+PLIST
+echo '{"status":"Accepted","id":"sub-3"}' >"$scratch/submit.json"
+echo 2 >"$scratch/hdiutil-fails"
+expect "an hdiutil create that fails twice is tried again and the image is made" 0 "$scratch/out/OrangeDrink-1.2.3.dmg" -- "$t/scripts/dmg" "$scratch/out"
+echo 99 >"$scratch/hdiutil-fails"
+expect "an hdiutil create that keeps failing stops the build, saying so" 1 "hdiutil create failed 5 times" -- "$t/scripts/dmg" "$scratch/out"
+
+# --- scripts/release-publish: a release goes out only for the commit the tag still names
+t=$(tree 'MARKETING_VERSION: "1.2.3"')
+export GITHUB_REPOSITORY=promptctl/orange-drink GITHUB_SHA=built-commit
+echo built-commit >"$scratch/tag-commit"
+calls_reset
+expect "the release is made while the tag names the commit that was built" 0 "" -- "$t/scripts/release-publish" v1.2.3 "$scratch/image.dmg"
+called "gh api repos/promptctl/orange-drink/commits/tags/v1.2.3 --jq .sha" && called "gh release create v1.2.3 $scratch/image.dmg --verify-tag --title Orange Drink 1.2.3 --generate-notes" \
+  && pass "it reads the tag's commit, then publishes under the tag's version" || fail "it reads the tag's commit, then publishes under the tag's version: $(cat "$scratch/calls")"
+echo moved-commit >"$scratch/tag-commit"
+calls_reset
+expect "a tag that moved stops the release, naming both commits" 1 "tag v1.2.3 now names moved-commit, and this run built built-commit" -- "$t/scripts/release-publish" v1.2.3 "$scratch/image.dmg"
+called "gh release create" && fail "a moved tag was released" || pass "a moved tag makes no release"
 
 exit $failed
