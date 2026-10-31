@@ -42,7 +42,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
 
     // MARK: the list
 
-    @Test func theMacComesFirstThenTheDevicesInThePanelsOrder() {
+    @Test func theMacComesFirstThenTheDevicesInThePanelsRanking() {
         let list = AllBatteries.list(mac: Self.charging, devices: Self.three)
         #expect(list == [
             WidgetBattery(glyph: "laptopcomputer", level: BatteryLevel(percent: 80, approximate: false), charging: true),
@@ -55,10 +55,11 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
     @Test func aMacWithNoBatteryIsNotListedAndOneWithNoReadingIsListedEmpty() {
         let devices = [Self.device("AA", 95, approximate: true)]
         #expect(AllBatteries.list(mac: .noBattery, devices: devices) == [WidgetBattery(devices[0])])
-        for mac in [MacBattery.waiting, .ended] {
-            let empty = WidgetBattery(glyph: "laptopcomputer", level: nil, charging: false)
-            #expect(AllBatteries.list(mac: mac, devices: devices) == [empty, WidgetBattery(devices[0])])
-        }
+        let waiting = WidgetBattery(glyph: "laptopcomputer", level: nil, charging: false)
+        #expect(AllBatteries.list(mac: .waiting, devices: devices) == [waiting, WidgetBattery(devices[0])])
+        let stopped = WidgetBattery(glyph: "exclamationmark.triangle", level: nil, charging: false)
+        #expect(AllBatteries.list(mac: .ended, devices: devices) == [stopped, WidgetBattery(devices[0])])
+        #expect(AllBatteries.list(mac: .ended, devices: []) == [stopped])
         #expect(WidgetBattery(devices[0]).level == BatteryLevel(percent: 95, approximate: true))
     }
 
@@ -74,6 +75,17 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         let shown = try WidgetFamilies.allBatteries.map { try Self.texts(entry, $0) }
         #expect(shown.map(\.count) == [4, 8, 16, 21])
         for rings in shown { #expect(rings == Array(levels.prefix(rings.count))) }
+    }
+
+    @Test func aFullWidgetFillsItsGridARowAtATime() throws {
+        let forty = (1...40).map { Self.device("\($0)", $0) }
+        let rows = { (family: WidgetFamily, batteries: [WidgetDevice]) in
+            RingGrid(family).rows(of: batteries.map(WidgetBattery.init)).map(\.count)
+        }
+        #expect(WidgetFamilies.allBatteries.map { rows($0, forty) } == [[2, 2], [4, 4], [4, 4, 4, 4], [8, 8, 8, 8]])
+        #expect(rows(.systemMedium, Array(forty.prefix(5))) == [4, 1])
+        let drawn = try WidgetFamilies.allBatteries.map { try Self.texts(Self.entry(.noBattery, forty), $0).count }
+        #expect(drawn == [4, 8, 16, 32])
     }
 
     // MARK: the drawing
@@ -158,7 +170,8 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
 
         #expect(try Self.texts(Self.entry(.noBattery, [])) == ["No batteries"])
         #expect(try Self.texts(Self.entry(.noBattery, Self.three)) == ["95%", "54%", "40%"])
-        // A cell has no room for Mac Battery's sentence, and a ring that stopped keeps the rings beside it on the widget.
+        // A cell has no room for Mac Battery's sentence, and a ring that stopped keeps the rings beside it on
+        // the widget. Its warning is the ring's glyph, which the list's test holds.
         #expect(try Self.texts(Self.entry(.ended, Self.three)) == ["–", "95%", "54%", "40%"])
         #expect(try Self.texts(Self.entry(.waiting, Self.three)) == ["–", "95%", "54%", "40%"])
         #expect(try Self.texts(Self.entry(.noBattery, [Self.device("AA", 40, approximate: true)])) == ["~40%"])

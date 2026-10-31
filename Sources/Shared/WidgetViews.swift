@@ -11,11 +11,6 @@ struct BatteryRing: View {
 
     private var tint: Color { battery.charging ? .green : .primary }
 
-    /// An estimate (a device that reports only a coarse step) is shown "~40%", as the panel shows it.
-    private var percentage: String {
-        battery.level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–"
-    }
-
     var body: some View {
         GeometryReader { space in
             let side = min(space.size.width, space.size.height) * 0.62
@@ -45,7 +40,7 @@ struct BatteryRing: View {
                         .opacity(battery.charging ? 1 : 0)
                 }
                 .frame(width: side, height: side)
-                Text(percentage)
+                Text(BatteryLevel.text(battery.level))
                     .font(.system(size: side * 0.2, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(tint)

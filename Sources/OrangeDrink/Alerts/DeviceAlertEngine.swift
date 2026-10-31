@@ -6,7 +6,7 @@ struct DeviceFiring: Equatable, Sendable, CustomStringConvertible {
     let name: String
     let level: BatteryLevel
 
-    var description: String { "\(name) \(level.approximate ? "~" : "")\(level.percent)%: low \(alert.threshold)%" }
+    var description: String { "\(name) \(BatteryLevel.text(level)): low \(alert.threshold)%" }
 }
 
 /// Decides which low alerts a device's new level sets off: each once per crossing, never for hovering.

@@ -1,10 +1,5 @@
 import SwiftUI
 import WidgetKit
-import os
-
-// [LAW:one-source-of-truth] project.yml fills both keys; absent, the extension is a broken build.
-let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "widgets")
-let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as! String
 
 struct MacBatteryProvider: TimelineProvider {
     func placeholder(in context: Context) -> MacBatteryEntry {
@@ -35,14 +30,5 @@ struct MacBatteryWidget: Widget {
         .configurationDisplayName("Mac Battery")
         .description("Your Mac's battery at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
-    }
-}
-
-@main
-struct OrangeDrinkWidgets: WidgetBundle {
-    var body: some Widget {
-        MacBatteryWidget()
-        DeviceBatteryWidget()
-        AllBatteriesWidget()
     }
 }

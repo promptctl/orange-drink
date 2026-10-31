@@ -4,7 +4,7 @@ import os
 
 // Compiled into the app and its widget extension: what the app hands its widgets, and where.
 
-/// What the Mac Battery widget draws.
+/// The Mac as the widgets draw it.
 ///
 /// [LAW:types-are-the-program] The app's battery state, so the widget can tell a level from "no more
 /// readings". Whether the app is running at all is the shelf's own fact (`Shelved`).
@@ -19,19 +19,23 @@ enum MacBattery: Codable, Equatable, Sendable {
 
 extension MacBattery {
     static let glyph = "laptopcomputer"
+    /// Readings that stopped, in the menu bar and in a widget's ring.
+    static let stoppedGlyph = "exclamationmark.triangle"
 
-    /// The Mac as a widget draws it: the empty ring until there is a reading, or after the readings end.
-    /// nil when it has no battery, a desktop Mac.
+    /// The Mac as a widget draws it: the empty ring until there is a reading, and the empty ring with a
+    /// warning after the readings end, so a stopped Mac never reads as one still waiting. nil when it has
+    /// no battery, a desktop Mac.
     var battery: WidgetBattery? {
         switch self {
         case .level(let percent, let charging): WidgetBattery(glyph: Self.glyph, level: BatteryLevel(percent: percent, approximate: false), charging: charging)
-        case .waiting, .ended: WidgetBattery(glyph: Self.glyph, level: nil, charging: false)
+        case .waiting: WidgetBattery(glyph: Self.glyph, level: nil, charging: false)
+        case .ended: WidgetBattery(glyph: Self.stoppedGlyph, level: nil, charging: false)
         case .noBattery: nil
         }
     }
 }
 
-/// One connected device, as the Device Battery widget draws it. [LAW:one-source-of-truth] The kind and
+/// One connected device, as the widgets draw it. [LAW:one-source-of-truth] The kind and
 /// level are the app's own types (`DeviceKind`, `BatteryLevel`), derived from the one ranking the panel reads.
 struct WidgetDevice: Codable, Equatable, Sendable, Identifiable, CustomDebugStringConvertible {
     let address: String
@@ -64,7 +68,7 @@ extension WidgetBattery {
 
 /// What the All Batteries widget lists. [LAW:dataflow-not-control-flow] Pure over the shelf's two values.
 enum AllBatteries {
-    /// The Mac first, so a full widget never pushes it out, then the devices in the panel's order, so the
+    /// The Mac first, so a full widget never pushes it out, then the devices in the panel's ranking, so the
     /// lowest are the ones that fit.
     static func list(mac: MacBattery, devices: [WidgetDevice]) -> [WidgetBattery] {
         [mac.battery].compactMap(\.self) + devices.map(WidgetBattery.init)

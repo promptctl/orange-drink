@@ -70,14 +70,6 @@ struct DeviceBatteryProvider: AppIntentTimelineProvider {
     }
 }
 
-/// Hands a view the family WidgetKit places it at.
-struct FamilyReading<Content: View>: View {
-    let content: (WidgetFamily) -> Content
-    @Environment(\.widgetFamily) private var family
-
-    var body: some View { content(family) }
-}
-
 struct DeviceBatteryWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: WidgetKind.deviceBattery.rawValue, intent: SelectDeviceIntent.self, provider: DeviceBatteryProvider()) { entry in
