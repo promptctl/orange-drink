@@ -183,8 +183,9 @@ private extension Device {
         }
         // The name System Settings shows is the user's alias, which only the private getDisplayName
         // returns; `name` is the name the device broadcasts ("Beats Studio Buds +", not "Brandon’s Beats Studio Buds +").
-        let name = device.perform(Selector(("getDisplayName")))?.takeUnretainedValue() as? String
-            ?? device.name ?? id.address
+        let name = Device.name(
+            alias: device.perform(Selector(("getDisplayName")))?.takeUnretainedValue() as? String,
+            broadcast: device.name, address: id.address)
         let (left, right, `case`) = (level("batteryPercentLeft"), level("batteryPercentRight"), level("batteryPercentCase"))
         let levels: DeviceLevels
         if left != nil || right != nil || `case` != nil {

@@ -60,6 +60,13 @@ struct Device: Equatable, Sendable, Identifiable {
     let name: String
     let kind: DeviceKind
     let levels: DeviceLevels
+
+    /// [LAW:parse-dont-validate] The one place a device's name is chosen: the user's alias, else the
+    /// name the device broadcasts, else its address. IOBluetooth answers "" for a name it does not
+    /// have yet (orange-devices-bue.suy), so a blank is no name, never a name.
+    static func name(alias: String?, broadcast: String?, address: String) -> String {
+        [alias, broadcast].lazy.compactMap { $0 }.first { !$0.allSatisfy(\.isWhitespace) } ?? address
+    }
 }
 
 /// What the Bluetooth edge tells the list: a device's current state, that it is gone, or the
