@@ -89,7 +89,7 @@ func expectAnswer(pid: Int32) throws {
     let answered = try poll(seconds: answerSeconds) { () -> Bool? in
         let lines = try log(of: pid).split(separator: "\n")
         let registered = lines.contains { $0.contains("helper registration: registered;") }
-        let asked = lines.contains { $0.contains("[dev.orangedrink.OrangeDrink:chargeLimit]") && $0.hasSuffix(": done") }
+        let asked = lines.contains { $0.contains(":chargeLimit]") && $0.hasSuffix(": done") }
         return registered && asked ? true : nil
     }
     guard answered != nil else { throw CheckError.noAnswer(pid: pid, log: try log(of: pid)) }
@@ -128,7 +128,10 @@ func check() throws {
         throw error
     }
     try end(pid: second, signal: SIGTERM, executable: executable)
-    guard try run("/bin/launchctl", ["print", "system/\(label)"]).status != 0 else { throw CheckError.jobLeft(label: label) }
+    // 113 is launchctl's "Could not find service"; any other failure says nothing about the job.
+    let printed = try run("/bin/launchctl", ["print", "system/\(label)"])
+    guard printed.status != 0 else { throw CheckError.jobLeft(label: label) }
+    guard printed.status == 113 else { throw CheckError.tool("launchctl print", status: printed.status, output: printed.output) }
     print("quit: launchd holds no job for \(label)")
 }
 

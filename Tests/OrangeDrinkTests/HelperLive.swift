@@ -87,9 +87,6 @@ struct HelperLive {
         #expect(lines.contains { $0.hasPrefix("helper registration: registered; status enabled;") }, "\(lines)")
     }
 
-    /// Low Power Mode through the helper, read back from pmset on the source the Mac is on, from the system as the
-    /// app reads it, and from the helper's log, with every other source left as it was; then put back
-    /// (orange-admin-helper-b2q.0ld).
     /// What a launch does after a crash: the record and job are already there. An `unregister` first would have the
     /// `register` after it refused (orange-admin-helper-b2q.8ew).
     @Test func theLaunchsStepOverARunningJobLeavesItAnswering() throws {
@@ -101,6 +98,9 @@ struct HelperLive {
         try expectAppAccepted()
     }
 
+    /// Low Power Mode through the helper, read back from pmset on the source the Mac is on, from the system as the
+    /// app reads it, and from the helper's log, with every other source left as it was; then put back
+    /// (orange-admin-helper-b2q.0ld).
     @Test func setsLowPowerModeOnTheCurrentSourceOnly() throws {
         let status = SMAppService.daemon(plistName: "\(label).plist").status
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
