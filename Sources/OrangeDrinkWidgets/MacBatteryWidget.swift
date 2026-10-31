@@ -29,6 +29,6 @@ struct MacBatteryWidget: Widget {
         }
         .configurationDisplayName("Mac Battery")
         .description("Your Mac's battery at a glance.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies(WidgetFamilies.macBattery)
     }
 }

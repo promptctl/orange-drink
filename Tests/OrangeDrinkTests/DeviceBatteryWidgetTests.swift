@@ -268,6 +268,15 @@ struct RingPixels {
     func containsAtTwelve(_ matches: (NSColor) -> Bool) -> Bool {
         anyPixel(aroundX: centre.x, y: centre.y - radius, within: radius * 0.15, matches)
     }
+
+    /// Whether the ring is cut open either side of twelve o'clock, beyond the bolt's own width. An unbroken
+    /// arc also has its colour at twelve, so this is what makes that colour the bolt's.
+    var isOpenAtTwelve: Bool {
+        [-0.2, 0.2].allSatisfy { side in
+            let (x, y) = (Int((centre.x + radius * side).rounded()), Int((centre.y - radius).rounded()))
+            return (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) < 0.1
+        }
+    }
 }
 
 @MainActor private final class Ended { var count = 0 }

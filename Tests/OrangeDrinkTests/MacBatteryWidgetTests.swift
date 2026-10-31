@@ -99,6 +99,10 @@ import ViewInspector
         #expect(reloads.count == 2)
     }
 
+    @Test func theWidgetDeclaresSmallMediumAndLarge() {
+        #expect(WidgetFamilies.macBattery == [.systemSmall, .systemMedium, .systemLarge])
+    }
+
     @Test func eachStateDrawsWhatItSays() throws {
         func texts(_ battery: Result<Shelved<MacBattery>, any Error>) throws -> [String] {
             try MacBatteryView(entry: MacBatteryEntry(date: .now, battery: battery), appName: "Orange Drink").inspect().findAll(ViewType.Text.self).map { try $0.string() }
@@ -107,6 +111,8 @@ import ViewInspector
         #expect(try texts(.success(.running(.waiting))) == ["–"])
         #expect(try texts(.success(.running(.noBattery))) == ["No battery"])
         #expect(try texts(.success(.running(.ended))) == ["Battery unavailable"])
+        let stopped = MacBatteryEntry(date: .now, battery: .success(.running(.ended)))
+        #expect(try MacBatteryView(entry: stopped, appName: "Orange Drink").inspect().find(ViewType.Image.self).actualImage().name() == "exclamationmark.triangle")
         #expect(try texts(.success(.appNotRunning)) == ["Open Orange Drink"])
         #expect(try texts(.failure(ShelfError.noGroupEntitlement)) == ["Open Orange Drink"])
     }

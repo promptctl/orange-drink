@@ -19,7 +19,7 @@ enum MacBattery: Codable, Equatable, Sendable {
 
 extension MacBattery {
     static let glyph = "laptopcomputer"
-    /// Readings that stopped, in the menu bar and in a widget's ring.
+    /// Readings that stopped, wherever they are drawn: the menu bar and every widget.
     static let stoppedGlyph = "exclamationmark.triangle"
 
     /// The Mac as a widget draws it: the empty ring until there is a reading, and the empty ring with a
@@ -47,7 +47,7 @@ struct WidgetDevice: Codable, Equatable, Sendable, Identifiable, CustomDebugStri
     var id: String { address }
 
     /// What the shelf's logs carry, which are public: the kind and level, never the name or address.
-    var debugDescription: String { "\(kind) \(level.map { "\($0.percent)%" } ?? "unknown")" }
+    var debugDescription: String { "\(kind) \(BatteryLevel.text(level))" }
 }
 
 /// One battery as a widget draws it, whatever the style.

@@ -132,6 +132,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         let cells = try Self.cells(Self.entry(Self.charging, Self.three))
         let filled = cells[0].filledFraction(from: Self.boltGap, isArc: Self.isGreen)
         #expect(abs(filled - 0.80) < 0.03, "the Mac's ring filled \(filled)")
+        #expect(cells[0].isOpenAtTwelve)
         #expect(cells[0].containsAtTwelve(Self.isGreen))
         Self.expectOtherRingsAreGrey(cells)
     }
@@ -140,6 +141,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         let cells = try Self.cells(Self.entry(Self.onBattery, Self.three))
         let filled = cells[0].filledFraction(from: 0, isArc: Self.isGrey)
         #expect(abs(filled - 0.79) < 0.03, "the Mac's ring filled \(filled)")
+        #expect(!cells[0].isOpenAtTwelve)
         #expect(!cells[0].contains(Self.isGreen))
         Self.expectOtherRingsAreGrey(cells)
     }
@@ -178,6 +180,12 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
     }
 
     // MARK: the shelf
+
+    @Test func aPlacedWidgetKeepsTheKindItWasSavedUnder() {
+        #expect(WidgetKind.macBattery.rawValue == "MacBattery")
+        #expect(WidgetKind.deviceBattery.rawValue == "DeviceBattery")
+        #expect(WidgetKind.allBatteries.rawValue == "AllBatteries")
+    }
 
     @Test func eachFileRedrawsTheWidgetsThatDrawItAndTheWidgetReadsBothFiles() throws {
         let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")

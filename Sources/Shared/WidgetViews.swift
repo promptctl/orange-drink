@@ -24,7 +24,9 @@ struct BatteryRing: View {
                             .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                         // The bolt sits in a gap cut from the ring: drawn over the green arc it would not read.
+                        // Opaque, because destinationOut removes only as much as the cut's own alpha.
                         Circle()
+                            .fill(.black)
                             .frame(width: side * 0.26, height: side * 0.26)
                             .offset(y: -side / 2)
                             .blendMode(.destinationOut)
@@ -65,6 +67,7 @@ struct Message: View {
 
 /// The sizes a widget declares, one list per widget so a test reads what the widget offers.
 enum WidgetFamilies {
+    static let macBattery: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge]
     static let deviceBattery: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge]
     static let allBatteries: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
 }
@@ -85,7 +88,7 @@ struct MacBatteryView: View {
 
     @ViewBuilder private var content: some View {
         switch entry.battery {
-        case .success(.running(.ended)): Message(glyph: MacBattery.glyph, text: "Battery unavailable")
+        case .success(.running(.ended)): Message(glyph: MacBattery.stoppedGlyph, text: "Battery unavailable")
         case .success(.running(let mac)):
             if let battery = mac.battery {
                 BatteryRing(battery: battery)
