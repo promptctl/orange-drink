@@ -107,19 +107,21 @@ helper-repair-check.covers := Sources/OrangeDrink/Helper Sources/HelperInterface
 release-helper-check: release
 	swift scripts/release-helper-check.swift "$(RELEASE_APP)"
 
-# An update on a real Mac: installs a build from its disk image, then has its updater find nothing newer on a local
-# feed, and install a higher version from it. scripts/update-check reads each result off the installed app. The newer
-# build is the tree with only its version raised, built and notarized as a release is. It needs the signing key in this
-# Mac's keychain and Accessibility trust; nobody clicks. The tree is generated uncached: the generated files are under
-# build/, which is not copied, and `--use-cache` would call a second run's copy unchanged and leave them missing.
-update-check:
+# An update in place on real macOS, in a VM with no window: installs a build from its disk image there, then has its
+# updater find nothing newer on a local feed, and install a higher version from it. scripts/update-check reads each result
+# off the installed app. The newer build is the tree with only its version raised, built and notarized as a release is.
+# It needs Tart, the VM image scripts/update-check names, and the signing key in this Mac's keychain. The tree is generated
+# uncached: the generated files are under build/, which is not copied, and `--use-cache` would call a second run's copy
+# unchanged and leave them missing.
+update-check: generate
 	@set -e; out='$(CURDIR)/build/update-check'; rm -rf "$$out"; mkdir -p "$$out/tree"; \
 	rsync -a --exclude .git --exclude .claude --exclude build ./ "$$out/tree/"; \
 	version=$$(scripts/version); newer=$${version%.*}.$$(( $${version##*.} + 1 )); \
 	sed -i '' "s/MARKETING_VERSION: .*/MARKETING_VERSION: \"$$newer\"/" "$$out/tree/project.yml"; \
 	xcodegen generate --spec "$$out/tree/project.yml"; \
 	older_dmg=$$(scripts/dmg "$$out/older"); newer_dmg=$$("$$out/tree/scripts/dmg" "$$out/newer"); \
-	scripts/update-check "$$older_dmg" "$$newer_dmg"
+	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
+	scripts/update-check "$$older_dmg" "$$newer_dmg" "$$out"/ui/Build/Products/*.xctestrun
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

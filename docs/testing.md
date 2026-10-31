@@ -33,6 +33,10 @@ A live check observes every fact it asserts or records itself. It never asks a p
 
 A person does only what no process can: move a cable or an adapter when the check prints that it's time, or give an approval macOS reserves for the user. The recorder (`scripts/hardware-check.swift`) reads nothing from the person, and it refuses an `--ask` flag.
 
+## Tests that show UI
+
+A test that puts anything on the screen never runs on a Mac someone is using. It appears in front of them, they close it, and its failure then says nothing about the app. A test that has to drive the real UI is an XCUITest, the framework Apple built for it, and it runs in a [Tart](https://tart.run) VM with no window, as `make update-check` does. Its clicks land where a person's would, so it also finds what a press through the accessibility API misses, such as a button another window covers.
+
 ## Writing a ticket's "Done when"
 
 Name the test at the layer above that proves the outcome: "`make test` passes a test that …". Add a live check only for a real device's or service's reply, and say which values it reads and what they're compared with. Never write "a person sees", "matches what the phone shows", "matches Control Center", or "on a real Mac, X appears on screen". Those are a test at a lower layer, or a value the check reads itself.

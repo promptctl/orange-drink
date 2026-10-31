@@ -1,121 +1,118 @@
 #!/bin/bash
-# An update on a real Mac, read off the installed app. Installs the older build from its disk image and points it,
-# for that launch alone, at a feed served from this Mac and signed by scripts/appcast. Then presses the panel's row:
-# with the feed offering the same version, Sparkle's no-update result names that feed and the same version is still
-# installed; with the feed offering the newer build, the app replaces itself and comes back as a new process at the
-# same path, with the newer version. Run by `make update-check`.
+# An update in place on real macOS, inside a throwaway VM with no window, so nothing shows on the Mac running it.
+# Installs the older build from its disk image in a fresh clone of the VM and points it, for each launch, at a feed
+# served in the VM and signed by scripts/appcast. The XCUITests press the panel's row: with the feed offering the same
+# version, Sparkle says it is up to date and the same version stays installed; with the feed offering the newer build,
+# the app replaces itself and comes back showing that version. Run by `make update-check`.
 #
-#   scripts/update-check <older dmg> <newer dmg>
+#   scripts/update-check <older dmg> <newer dmg> <xctestrun of the OrangeDrinkUITests scheme>
 #
-# Exits 0 when every reading holds and 1 naming the first that does not. Nobody clicks; the presses are
-# scripts/update-press.swift, so the invoking process must be trusted for Accessibility.
+# Exits 0 when every reading holds and 1 naming the first that does not. The signing key stays on this Mac: only the
+# signed feeds reach the VM.
 set -euo pipefail
 
-older=$(realpath "${1:?usage: scripts/update-check <older dmg> <newer dmg>}")
-newer=$(realpath "${2:?usage: scripts/update-check <older dmg> <newer dmg>}")
+usage='usage: scripts/update-check <older dmg> <newer dmg> <xctestrun>'
+older=$(realpath "${1:?$usage}")
+newer=$(realpath "${2:?$usage}")
+xctestrun=$(realpath "${3:?$usage}")
 cd "$(dirname "$0")/.."
 
-# Resolved, since macOS reports a process by its real path, and $TMPDIR's /var is a link to /private/var.
+image=orange-drink-xcode
+vm=orange-drink-update-check-$$
 scratch=$(realpath "$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-update-check.XXXXXX")")
-server=
-app=$scratch/installed/OrangeDrink.app
-mount=$scratch/mount
-executable=$app/Contents/MacOS/OrangeDrink
-subsystem=dev.orangedrink.OrangeDrink
+key=$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-update-key.XXXXXX")
+cloned=
+# The VM's view of $scratch, and of itself: it is new each run, so its port and paths are fixed.
+shared='/Volumes/My Shared Files/run'
+url=http://127.0.0.1:8000/
+app=/Users/admin/Applications/OrangeDrink.app
+tests=/tmp/tests
+served=/tmp/served
 
-pids() { pgrep -f "^$executable( |\$)" || true; }
-# Quits what it launched, stops the server, and takes the key file with the rest of the scratch directory. Every step
-# runs whatever the last one did, and the run keeps its own status, so errexit ends here.
+# Stops and deletes the VM, with everything that happened in it, and takes the key file with the scratch directories.
+# Every step runs whatever the last one did, and the run keeps its own status, so errexit ends here.
 finish() {
   status=$?
   set +e
-  pid=$(pids)
-  if [ -n "$pid" ]; then
-    kill $pid
-    # The app gives up its helper as it quits, so its bundle stays until it is gone.
-    for _ in $(seq 1 30); do
-      if [ -z "$(pids)" ]; then break; fi
-      sleep 1
-    done
-    if [ -n "$(pids)" ]; then echo "update-check: pid $(pids) did not quit" >&2; fi
+  if [ -n "$cloned" ]; then
+    if [ "$status" -ne 0 ]; then
+      guest cat /tmp/server.log >&2
+      guest /usr/bin/log show --last 15m --style compact --predicate 'category == "updates"' >&2
+    fi
+    tart stop "$vm" >&2
+    tart delete "$vm" >&2
   fi
-  if [ -n "$server" ]; then kill "$server"; fi
-  # A mount point is there only while its image is attached.
-  if [ -d "$mount" ]; then hdiutil detach "$mount" >&2; fi
-  rm -rf "$scratch"
+  rm -rf "$scratch" "$key"
   exit $status
 }
 trap finish EXIT
 fail() { echo "update-check: $*" >&2; exit 1; }
-installed_version() { /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"; }
-press() { swift scripts/update-press.swift "$@"; }
+guest() { tart exec "$vm" "$@"; }
+installed_version() { guest /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"; }
+pids() { guest pgrep -f "^$app/Contents/MacOS/OrangeDrink( |\$)" || true; }
 # [LAW:no-ambient-temporal-coupling] Each wait is on the fact it needs, polled to a deadline.
 wait_for() {
   local what=$1 tries=$2; shift 2
   for _ in $(seq 1 "$tries"); do
-    if "$@"; then return 0; fi
+    if "$@" >/dev/null 2>&1; then return 0; fi
     sleep 1
   done
   fail "$what"
 }
-launched() { launched_pid=$(pids); [ -n "$launched_pid" ] && [ "$launched_pid" != "${1:-}" ]; }
-logged() {
-  /usr/bin/log show --last 10m --style compact \
-    --predicate "subsystem == \"$subsystem\" AND category == \"updates\" AND processID == $1" | grep -F "$2"
+stopped() { [ -z "$(pids)" ]; }
+uitest() {
+  guest env TEST_RUNNER_UPDATE_CHECK_APP="$app" TEST_RUNNER_UPDATE_CHECK_FEED="${url}appcast.xml" \
+    TEST_RUNNER_UPDATE_CHECK_VERSION="$newer_version" \
+    xcodebuild test-without-building -xctestrun "$tests/$(basename "$xctestrun")" -destination 'platform=macOS,arch=arm64' \
+    -resultBundlePath "/tmp/$1.xcresult" "-only-testing:OrangeDrinkUITests/UpdateInPlaceUITests/$1" >&2 ||
+    fail "$1 failed in the VM"
 }
 
-# The port is chosen first, because a feed names where its image is served.
-port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
-url=http://127.0.0.1:$port/
+tart get "$image" >/dev/null || fail "no VM named $image: tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 $image"
 
-# Both feeds are signed before anything is served, so no key file exists once the server starts. The feeds are made
-# in directories of their own, because scripts/appcast writes the feed beside its image.
+newer_version=$(basename "$newer" .dmg)
+newer_version=${newer_version#OrangeDrink-}
+
+# Both feeds are signed, and the key removed, before the VM can see anything. The feeds are made in directories of their
+# own, because scripts/appcast writes the feed beside its image.
 tools=$(make --no-print-directory sparkle-tools | tee /dev/stderr | tail -n 1)
-mkdir "$scratch/key" "$scratch/served" "$scratch/older" "$scratch/newer"
-chmod 700 "$scratch/key"
-"$tools/generate_keys" --account orange-drink -x "$scratch/key/ed25519" >&2
+"$tools/generate_keys" --account orange-drink -x "$key/ed25519" >&2
+mkdir "$scratch/older" "$scratch/newer"
 cp "$older" "$scratch/older/"
 cp "$newer" "$scratch/newer/"
-scripts/appcast "$scratch/older/$(basename "$older")" "$url" <"$scratch/key/ed25519" >/dev/null
-scripts/appcast "$scratch/newer/$(basename "$newer")" "$url" <"$scratch/key/ed25519" >/dev/null
-rm -rf "$scratch/key"
+scripts/appcast "$scratch/older/$(basename "$older")" "$url" <"$key/ed25519" >/dev/null
+scripts/appcast "$scratch/newer/$(basename "$newer")" "$url" <"$key/ed25519" >/dev/null
+rm -rf "$key"
 
-cp "$older" "$newer" "$scratch/served/"
-cp "$scratch/older/appcast.xml" "$scratch/served/appcast.xml"
-python3 -m http.server "$port" --bind 127.0.0.1 --directory "$scratch/served" >&2 &
-server=$!
+# One file, because the VM's shared directory does not carry a framework's symbolic links.
+tar -C "$(dirname "$xctestrun")" -cf "$scratch/tests.tar" .
 
-hdiutil attach "$older" -nobrowse -readonly -mountpoint "$mount" >&2
-mkdir "$scratch/installed"
-ditto "$mount/OrangeDrink.app" "$app"
-hdiutil detach "$mount" >&2
+tart clone "$image" "$vm"
+cloned=yes
+tart run --no-graphics --dir="run:$scratch:ro" "$vm" >&2 &
+wait_for "the VM did not come up" 120 guest true
+guest sudo -n automationmodetool enable-automationmode-without-authentication >&2
+guest sh -c "mkdir $tests && tar -C $tests -xf '$shared/tests.tar'"
+# Served from the VM's own disk, because it can go on reading a shared file as it was: publishing a feed is copying it here.
+guest sh -c "mkdir $served && cp '$shared/older/$(basename "$older")' '$shared/newer/$(basename "$newer")' '$shared/older/appcast.xml' $served/"
+guest sh -c "nohup /usr/bin/python3 -m http.server 8000 --bind 127.0.0.1 --directory $served >/tmp/server.log 2>&1 &"
+wait_for "the feed is not being served" 30 guest curl -fsS -o /dev/null "${url}appcast.xml"
+
+guest sh -c "mkdir -p '$(dirname "$app")' /tmp/image && hdiutil attach '$served/$(basename "$older")' -nobrowse -readonly -mountpoint /tmp/image >/dev/null && ditto /tmp/image/OrangeDrink.app '$app' && hdiutil detach /tmp/image >/dev/null"
 older_version=$(installed_version)
+echo "update-check: installed $older_version in $vm" >&2
 
-# The argument domain, so this launch reads the local feed and the defaults other copies read stay as they were.
-open -n "$app" --args -SUFeedURL "${url}appcast.xml"
-wait_for "the installed app did not start" 30 launched
-older_pid=$launched_pid
-echo "update-check: installed $older_version, pid $older_pid at $app" >&2
+guest open "$app"
+uitest testBluetoothIsAllowed
+guest pkill -x OrangeDrink
+wait_for "the app did not quit after its first launch" 30 stopped
 
-# Nothing newer. The cycle ends, and its line is logged, only once the alert is acknowledged.
-press "$older_pid" "Check for Updates…" OrangeDrink
-press "$older_pid" OK
-wait_for "no up-to-date result naming the local feed in the log" 30 logged "$older_pid" "feed ${url}appcast.xml: up to date"
+uitest testNothingNewerIsReported
 [ "$(installed_version)" = "$older_version" ] || fail "the installed version moved to $(installed_version) with nothing newer on the feed"
-[ "$(pids)" = "$older_pid" ] || fail "the app is no longer pid $older_pid after finding nothing newer"
 echo "update-check: nothing newer: Sparkle said up to date, $older_version still installed" >&2
 
-# The newer build.
-cp "$scratch/newer/appcast.xml" "$scratch/served/appcast.xml"
-press "$older_pid" "Check for Updates…" OrangeDrink
-press "$older_pid" "Install Update"
-press "$older_pid" "Install and Relaunch"
-wait_for "no new process at $app after the install" 120 launched "$older_pid"
-# A new process is not yet an app that came up: that is its menu bar item answering, from that same process.
-press "$launched_pid" OrangeDrink
-[ "$(pids)" = "$launched_pid" ] || fail "pid $launched_pid did not stay up after the update"
-newer_version=$(installed_version)
-[ "$newer_version" != "$older_version" ] || fail "pid $launched_pid runs from $app, but it is still $older_version"
-wanted=$(basename "$newer" .dmg)
-[ "$newer_version" = "${wanted#OrangeDrink-}" ] || fail "the installed version is $newer_version, not the newer build's ${wanted#OrangeDrink-}"
-echo "update-check: updated: $older_version (pid $older_pid) to $newer_version (pid $launched_pid) at the same path" >&2
+guest cp "$shared/newer/appcast.xml" "$served/appcast.xml"
+uitest testANewerBuildIsInstalled
+[ "$(installed_version)" = "$newer_version" ] || fail "the installed version is $(installed_version), not the newer build's $newer_version"
+[ -n "$(pids)" ] || fail "no process runs from $app after the update"
+echo "update-check: updated: $older_version to $newer_version at the same path, running as pid $(pids)" >&2

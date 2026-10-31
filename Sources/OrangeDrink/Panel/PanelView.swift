@@ -159,6 +159,7 @@ struct ActionsCard: View {
     let lowPowerMode: LowPowerMode
     let updates: AppUpdater
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
@@ -192,7 +193,8 @@ struct ActionsCard: View {
                     .padding(.leading, 30).padding(.bottom, 6)
             }
         case .checkForUpdates:
-            ActionRow(action: action, run: updates.canCheck ? { updates.check() } : nil) { EmptyView() }
+            // Sparkle's window does not take the panel down, and the panel would stay over its buttons.
+            ActionRow(action: action, run: updates.canCheck ? { dismiss(); updates.check() } : nil) { EmptyView() }
         case .quit:
             ActionRow(action: action, tint: .red) { NSApplication.shared.terminate(nil) } trailing: {
                 Text(PanelAction.versionText(of: .main)).font(.caption.monospaced()).foregroundStyle(.secondary)

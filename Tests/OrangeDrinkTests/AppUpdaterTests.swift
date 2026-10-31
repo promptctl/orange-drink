@@ -39,7 +39,7 @@ import ViewInspector
         #expect(AppUpdater.Outcome(error: error) == .failed("elsewhere"))
     }
 
-    /// The log says which feed answered and how the cycle ended: scripts/update-check reads these lines.
+    /// The log says which feed answered and how the cycle ended: scripts/update-check prints these lines when it fails.
     @Test func theLogNamesTheVersionsAndTheFeed() {
         #expect(AppUpdater.Event.found(version: "1.2.0").line == "update 1.2.0 found")
         #expect(AppUpdater.Event.installing(version: "1.2.0").line == "installing update 1.2.0")
