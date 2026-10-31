@@ -6183,6 +6183,50 @@
           }
         }
       }
+    },
+    "Answer the Bluetooth prompt to see your devices.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answer the Bluetooth prompt to see your devices."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responde a la solicitud de Bluetooth para ver tus dispositivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondez à la demande d’accès au Bluetooth pour voir vos appareils."
+          }
+        }
+      }
+    },
+    "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta app no tiene permiso para usar Bluetooth. Permítelo en Ajustes del Sistema → Privacidad y seguridad → Bluetooth y, después, sal de la app y vuelve a abrirla."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette app n’est pas autorisée à utiliser le Bluetooth. Autorisez-la dans Réglages Système → Confidentialité et sécurité → Bluetooth, puis quittez et rouvrez l’app."
+          }
+        }
+      }
     }
   }
 }

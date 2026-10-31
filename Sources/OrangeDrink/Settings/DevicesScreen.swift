@@ -88,7 +88,7 @@ struct DevicesScreen: View {
         if devices.failure != nil {
             Text("Device readings stopped. Quit and reopen the app.").foregroundStyle(.secondary)
         } else if detected.entries.isEmpty {
-            Text("No connected Bluetooth devices report a battery.").foregroundStyle(.secondary)
+            PhraseText(detected.emptyNote).foregroundStyle(.secondary)
         } else {
             SettingCard {
                 ForEach(detected.entries) { entry in

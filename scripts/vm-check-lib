@@ -1,6 +1,6 @@
 # The throwaway Tart VM the checks that must not touch this Mac's screen run in: scripts/update-check,
-# scripts/login-item-check, scripts/battery-notification-check, and scripts/vm-test source this under `set -euo pipefail`, so nothing shows on the Mac running
-# them. A check may set:
+# scripts/login-item-check, scripts/first-launch-check, scripts/battery-notification-check, and scripts/vm-test source
+# this under `set -euo pipefail`, so nothing shows on the Mac running them. A check may set:
 #   image        before sourcing: the Tart image to clone, for a check on another macOS
 #   vm_cleanup   directories to remove however the run ends, beside the scratch directory
 #   uitest_env   NAME=value words for its XCUITests; xcodebuild passes each TEST_RUNNER_ variable without that prefix
@@ -88,8 +88,8 @@ uitest() {
     fail "$1 failed in the VM"
 }
 
-# macOS asks for Bluetooth at a new install's first launch, and the app waits on the answer (orange-distribution-kg2.73n),
-# so this opens it itself and FirstLaunchUITests answers. Every launch after this one reaches the menu bar.
+# macOS asks for Bluetooth at a new install's first launch, and its prompt floats over the windows a check presses, so
+# this opens the app itself and FirstLaunchUITests answers. No launch after this one asks.
 first_launch() {
   guest open "$app"
   uitest FirstLaunchUITests/testBluetoothIsAllowed

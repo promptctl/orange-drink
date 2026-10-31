@@ -24,6 +24,7 @@ binary=$app/Contents/MacOS/OrangeDrink
 
 log_lines() { guest /usr/bin/log show --last 30m --style compact --predicate 'category == "batteryNotifications"'; }
 logged() { grep -q "$1" <<<"$(log_lines)"; }
+logged_devices() { grep -q "$1" <<<"$(guest /usr/bin/log show --last 30m --style compact --predicate 'category == "devices"')"; }
 list() { guest "$tree" list; }
 # A here-string drops its command's status, so a read that failed would be a tree showing nothing. Whatever says something
 # is gone reads through this, and a failed read says it is not.
@@ -92,10 +93,13 @@ banner_shows() {
 }
 wait_for "Script Editor's banner never showed" 30 banner_shows
 
-# The first launch waits on the Bluetooth prompt (orange-distribution-kg2.73n), and these images have no Xcode for
-# FirstLaunchUITests to answer it. The launch also posts the system's login items alert, which stays up.
+# The first launch raises the Bluetooth prompt, and these images have no Xcode for FirstLaunchUITests to answer it. This
+# is the one run of that answer on macOS 14 and 15, so it is read here too. The launch also posts the system's login items
+# alert, which stays up.
 start_app
 wait_for "the Bluetooth prompt never showed" 30 guest "$tree" allow
+wait_for "the app never logged the Bluetooth answer" 30 logged_devices 'bluetooth permission answered: allowed'
+wait_for "the device watcher never started after the answer" 30 logged_devices 'device watcher started'
 wait_for "the app's first pass never logged" 30 logged 'pass: '
 wait_for "the login items alert never showed" 30 has_alert
 installed=$(grep '^AXNotificationCenterAlert' <<<"$(list)")

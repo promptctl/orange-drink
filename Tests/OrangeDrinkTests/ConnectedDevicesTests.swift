@@ -21,6 +21,20 @@ struct ConnectedDevicesTests {
          device("3", "iPhone", kind: .phone, single(37)), device("4", "AirPods", single(50, approximate: true))]
     }
 
+    @Test func anEmptyCardSaysWhy() {
+        var list = DeviceList()
+        let note = { ConnectedDevices(list, settings: DeviceSettings()).emptyNote }
+        #expect(note() == "No connected Bluetooth devices to show.")
+        list.apply(.permission(.notDetermined))
+        #expect(note() == BluetoothPermission.notDetermined.explanation)
+        list.apply(.permission(.denied))
+        #expect(note() == BluetoothPermission.denied.explanation)
+        list.apply(.swept(fleet))
+        var hidden = DeviceSettings()
+        hidden.hidden = Set(fleet.map(\.id))
+        #expect(ConnectedDevices(list, settings: hidden).emptyNote == "Every device is hidden. Show them again in Settings → Devices.")
+    }
+
     @Test func rowsRunLowestFirstWithApproximateLevelsMarked() {
         #expect(rows(fleet).map(\.percent) == ["37%", "~50%", "54%", "95%"])
     }

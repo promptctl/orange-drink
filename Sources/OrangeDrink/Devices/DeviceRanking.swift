@@ -47,14 +47,18 @@ enum DeviceRanking {
 struct ConnectedDevices: Equatable {
     let isShown: Bool
     let rows: [DeviceRow]
-    /// Ranked devices hidden from this card, so an empty card can say why.
+    /// Ranked devices hidden from this card.
     let hiddenCount: Int
+    /// [LAW:one-source-of-truth] Why the card has no rows.
+    let emptyNote: Phrase
 
     init(_ list: DeviceList, settings: DeviceSettings) {
         isShown = settings.showConnectedDevices
         let ranked = DeviceRanking.rows(list)
         rows = ranked.filter { !settings.hidden.contains($0.id) }
         hiddenCount = ranked.count - rows.count
+        emptyNote = hiddenCount > 0 ? "Every device is hidden. Show them again in Settings → Devices."
+            : list.permission.explanation ?? "No connected Bluetooth devices to show."
     }
 }
 
@@ -74,8 +78,11 @@ struct DetectedDevices: Equatable {
     }
 
     let entries: [Entry]
+    /// [LAW:one-source-of-truth] Why the card has no entries.
+    let emptyNote: Phrase
 
     init(_ list: DeviceList, settings: DeviceSettings) {
+        emptyNote = list.permission.explanation ?? "No connected Bluetooth devices report a battery."
         entries = DeviceRanking.rows(list).map { Entry(row: $0, isHidden: settings.hidden.contains($0.id), isAlerting: settings.alerting.contains($0.id),
                       isPinned: settings.pinned.contains($0.id)) }
     }

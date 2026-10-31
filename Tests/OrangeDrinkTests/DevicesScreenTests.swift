@@ -40,6 +40,16 @@ import Testing
         #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent) == ["37%", "49%", "54%", "95%"])
     }
 
+    @Test func anEmptyDetectedCardSaysWhy() throws {
+        var list = DeviceList()
+        let note = { DetectedDevices(list, settings: DeviceSettings()).emptyNote }
+        #expect(note() == "No connected Bluetooth devices report a battery.")
+        list.apply(.permission(.notDetermined))
+        #expect(note() == BluetoothPermission.notDetermined.explanation)
+        list.apply(.permission(.denied))
+        #expect(note() == BluetoothPermission.denied.explanation)
+    }
+
     @Test func theSwitchRemovesAndRestoresThePanelSection() throws {
         let settings = try model()
         #expect(ConnectedDevices(list, settings: settings.value).isShown)

@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check battery-notification-check
+.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check
 
 generate:
 	xcodegen generate --use-cache
@@ -143,6 +143,15 @@ login-item-check: generate
 	dmg=$$(scripts/dmg "$$out/dmg"); \
 	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
 	scripts/login-item-check "$$dmg" "$$out"/ui/Build/Products/*.xctestrun
+
+# A new install's first launch on real macOS, in a VM with no window, because only a new install meets the Bluetooth
+# prompt: scripts/first-launch-check presses the status item with the prompt open and reads what each answer did. The
+# Release build is signed and needs no notarizing, because nothing in the VM quarantines it. It needs Tart and the VM
+# image scripts/vm-check-lib names.
+first-launch-check: release
+	@set -e; out='$(CURDIR)/build/first-launch-check'; rm -rf "$$out"; mkdir -p "$$out"; \
+	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
+	scripts/first-launch-check "$(RELEASE_APP)" "$$out"/ui/Build/Products/*.xctestrun
 
 # Closing macOS's low battery notification on real macOS, in a VM of each macOS the finding proved, with no window, because
 # only a real discharge raises the notification on a Mac with a battery. scripts/battery-notification-check reads each
