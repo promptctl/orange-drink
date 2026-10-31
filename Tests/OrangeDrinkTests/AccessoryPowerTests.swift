@@ -67,6 +67,15 @@ struct AccessoryPowerTests {
         #expect(levels.byName == ["c-pods": .earbuds(left: nil, right: nil, case: Self.level(0))])
     }
 
+    // The join meets on `Device.name`'s text, so a source's name is cleaned as a device's is.
+    @Test func aPaddedNameMeetsTheDeviceItNames() {
+        let device = Device.name(alias: "pods ", broadcast: nil, address: "AA")
+        let earbuds = AccessoryPower.levels(from: [Self.source("pods ", "Left", 40, group: "G"), Self.source("pods  Case", "Case", 90, group: "G")])
+        #expect(earbuds.byName == [device: .earbuds(left: Self.level(40), right: nil, case: Self.level(90))])
+        let caseAlone = AccessoryPower.levels(from: [Self.source("pods  Case", "Case", 90, group: "G")])
+        #expect(caseAlone.byName == [device: .earbuds(left: nil, right: nil, case: Self.level(90))])
+    }
+
     @Test func twoSetsWithOneNameHaveNoLevels() {
         let levels = AccessoryPower.levels(from: [Self.source("Magic Mouse", "Single", 100), Self.source("Magic Mouse", "Single", 40)])
         #expect(levels.byName.isEmpty)

@@ -115,8 +115,10 @@ private extension DeviceLevels {
     /// One set's parts as the device's levels: a lone Single is the device's one battery; earbuds and a
     /// case are the parts of a set. A set holding both kinds, or one part twice, says two things at once.
     static func parse(_ parts: [AccessoryPower.Part]) -> Result<(String, DeviceLevels), AccessoryPower.Unattributed> {
-        let name = parts.first { $0.role != .case }?.name
-            ?? parts[0].name.replacing(#/ Case$/#, with: "")
+        // [LAW:single-enforcer] The key a device's name meets in the join, so `Device.name` cleans it too.
+        let name = Device.name(
+            alias: parts.first { $0.role != .case }?.name ?? parts[0].name.replacing(#/ Case$/#, with: ""),
+            broadcast: nil, address: "unnamed source")
         let roles = Dictionary(grouping: parts, by: \.role)
         guard roles.values.allSatisfy({ $0.count == 1 }) else {
             return .failure(.init("\(name): \(parts.map(\.role.rawValue).sorted()) repeats a part"))
