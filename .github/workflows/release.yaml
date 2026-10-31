@@ -1,0 +1,91 @@
+# Pushing the tag for project.yml's MARKETING_VERSION (v<version>) publishes that version's notarized DMG as
+# a GitHub release. scripts/dmg builds, signs and notarizes it exactly as it does on a Mac that holds the
+# certificate; this workflow gives it a keychain that holds it. docs/releasing.md says how to cut a release
+# and how to set the secrets.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+# The release is written with the workflow's own token.
+permissions:
+  contents: write
+
+# One run per tag at a time: a second push of a tag waits behind the running one, then finds the release
+# the first made and fails at `gh release create` rather than replacing it.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+# The macos-26 image's default Xcode, 17F113: the one the project builds with on a developer's Mac.
+# [LAW:one-source-of-truth] The XcodeGen the release is generated with is written here once, pinned by its
+# release artifact's SHA-256, not whatever Homebrew ships on the day.
+env:
+  TAG: ${{ github.ref_name }}
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+  XCODEGEN_VERSION: 2.46.0
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  # [LAW:single-enforcer] scripts/release-preflight judges the tag. This job has no environment, so a tag
+  # naming the wrong version or sitting off master fails here at once, in a run nobody is asked to approve.
+  preflight:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: scripts/release-preflight "$TAG"
+
+  # The secrets are the release environment's, and it waits for a maintainer's approval before the job gets
+  # them: a tag pushed from a branch runs that branch's copy of this file, so no check in it can be what
+  # protects the Developer ID key.
+  release:
+    needs: preflight
+    runs-on: macos-26
+    environment: release
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      # runner.temp is not available to a job's env, and a GITHUB_ENV write is not visible to the step that makes it.
+      - name: Name the job's keychain
+        run: echo "NOTARY_KEYCHAIN=$RUNNER_TEMP/release.keychain-db" >> "$GITHUB_ENV"
+      # The keychain ends with this hosted VM, which GitHub destroys when the job ends; nothing deletes it, and
+      # scripts/release-keychain refuses to run anywhere else.
+      - name: Make the job's keychain
+        env:
+          DEVELOPER_ID_APPLICATION_P12: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: scripts/release-keychain
+      # Assigned before it is written out, so a failed build fails this step: an echo of a failed command
+      # substitution exits 0. The summary is written here, before publishing, so a run that fails to publish
+      # still says which image it built.
+      - name: Build, sign and notarize the DMG
+        id: dmg
+        run: |
+          dmg=$(scripts/dmg "$RUNNER_TEMP/dist")
+          echo "path=$dmg" >> "$GITHUB_OUTPUT"
+          {
+            echo "- tag: $TAG"
+            echo "- commit: $GITHUB_SHA"
+            echo "- dmg: $(basename "$dmg")"
+            echo "- sha256: $(shasum -a 256 "$dmg" | cut -d' ' -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DMG: ${{ steps.dmg.outputs.path }}
+        run: |
+          version=$(scripts/version)
+          gh release create "$TAG" "$DMG" --verify-tag --title "Orange Drink $version" --generate-notes

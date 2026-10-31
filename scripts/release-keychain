@@ -1,0 +1,59 @@
+#!/bin/bash
+# The release workflow's keychain: made at NOTARY_KEYCHAIN with the Developer ID Application identity
+# and the notary profile in it, on a GitHub-hosted runner.
+#
+#   scripts/release-keychain
+#
+# It reads the secrets from the environment - DEVELOPER_ID_APPLICATION_P12 (a base64 .p12),
+# DEVELOPER_ID_P12_PASSWORD, NOTARY_APPLE_ID, NOTARY_PASSWORD - and names any that is empty before
+# touching a keychain. docs/releasing.md says how to make them.
+#
+# [LAW:no-ambient-temporal-coupling] The keychain's life has one owner, the hosted VM, which GitHub
+# destroys with everything on it when the job ends (GitHub's "Signing Xcode applications" guide: clean-up
+# is for self-hosted runners). So it never locks on a timer, its password is made here and never kept,
+# and nothing deletes it. That is safe only on a VM that ends, so anywhere else this refuses.
+#
+# The private key is opened to codesign when imported, so no build stops at a dialog nobody can click.
+# The keychain goes first on the search list, ahead of what was there, because xcodebuild finds the
+# signing identity there; notarytool does not search that list, so scripts/developer-id names the
+# keychain to it from NOTARY_KEYCHAIN.
+set -euo pipefail
+source "$(dirname "$0")/developer-id"
+
+fail() { echo "release-keychain: $*" >&2; exit 1; }
+[ "${RUNNER_ENVIRONMENT:-}" = github-hosted ] \
+  || fail "refusing to run outside a GitHub-hosted runner (RUNNER_ENVIRONMENT is '${RUNNER_ENVIRONMENT:-}'): it makes a keychain holding the Developer ID key that never locks and that only the end of a hosted VM removes"
+missing=
+for name in NOTARY_KEYCHAIN DEVELOPER_ID_APPLICATION_P12 DEVELOPER_ID_P12_PASSWORD NOTARY_APPLE_ID NOTARY_PASSWORD; do
+  [ -n "$(printenv "$name" || true)" ] || missing="$missing $name"
+done
+[ -z "$missing" ] || fail "these are not set:$missing (docs/releasing.md says how to make the secrets)"
+
+keychain=$NOTARY_KEYCHAIN
+decoded=$(mktemp "${TMPDIR:-/tmp}/developer-id.XXXXXX")
+trap 'rm -f "$decoded"' EXIT
+
+password=$(uuidgen)
+security create-keychain -p "$password" "$keychain"
+security set-keychain-settings "$keychain"
+security unlock-keychain -p "$password" "$keychain"
+printenv DEVELOPER_ID_APPLICATION_P12 | base64 --decode >"$decoded" || fail "DEVELOPER_ID_APPLICATION_P12 is not base64"
+security import "$decoded" -k "$keychain" -f pkcs12 -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign >&2 \
+  || fail "DEVELOPER_ID_APPLICATION_P12 would not import with DEVELOPER_ID_P12_PASSWORD"
+rm -f "$decoded"
+security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" >/dev/null
+
+# Added, never substituted: `list-keychains -s` replaces the whole list. Read into a variable first so a
+# failing `security` stops here instead of arriving as an empty list, and line by line so a path with
+# spaces stays one path.
+listing=$(security list-keychains -d user)
+searched=()
+while IFS= read -r line; do
+  [ -n "$line" ] && searched+=("$line")
+done <<<"$(sed 's/^[[:space:]]*"//;s/"$//' <<<"$listing")"
+[ ${#searched[@]} -gt 0 ] || fail "the keychain search list read as empty; not rewriting it"
+security list-keychains -d user -s "$keychain" "${searched[@]}"
+
+xcrun notarytool store-credentials "$notary_profile" --keychain "$keychain" \
+  --apple-id "$NOTARY_APPLE_ID" --team-id "$developer_team" --password "$NOTARY_PASSWORD" >&2
+echo "release-keychain: $keychain holds the Developer ID identity and notary profile $notary_profile"

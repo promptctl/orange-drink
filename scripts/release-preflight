@@ -1,0 +1,17 @@
+#!/bin/bash
+# The checks a release tag passes before anything is built, run in a checkout that holds the tag and
+# origin/master:
+#
+#   scripts/release-preflight <tag>
+#
+# [LAW:single-enforcer] The one place a tag is judged. The tag names project.yml's version, so the
+# release it makes says the version its app was built as; and its commit is master's, so what is
+# published is what was reviewed and merged. Each refusal says which check failed.
+set -euo pipefail
+
+tag=${1:?usage: scripts/release-preflight <tag>}
+version=$("$(dirname "$0")/version")
+[ "$tag" = "v$version" ] || { echo "release-preflight: tag $tag is not v$version, project.yml's MARKETING_VERSION" >&2; exit 1; }
+commit=$(git rev-parse --verify --quiet "$tag^{commit}") || { echo "release-preflight: no commit for tag $tag" >&2; exit 1; }
+git merge-base --is-ancestor "$commit" origin/master || { echo "release-preflight: $tag is not on master" >&2; exit 1; }
+echo "release-preflight: $tag is v$version at $commit, on master"

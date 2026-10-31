@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release test hardware-check-test app-energy-check cpu-check ax-check helper-check
+.PHONY: generate build release test hardware-check-test release-test app-energy-check cpu-check ax-check helper-check
 
 generate:
 	xcodegen generate --use-cache
@@ -27,10 +27,15 @@ test: generate
 	$(call gated,test)
 	$(MAKE) ax-check
 	$(MAKE) hardware-check-test
+	$(MAKE) release-test
 
 # The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
 hardware-check-test:
 	scripts/hardware-check-test.sh
+
+# The release workflow's scripts, run against stand-ins for security, xcrun, base64 and spctl: no keychain or notary call.
+release-test:
+	scripts/release-test.sh
 
 # [LAW:one-type-per-behavior] The checks that need a real Mac are one recipe, and each is only data declared beside its
 # target: its test (Suite/function()) and the source paths that test covers. scripts/hardware-check.swift runs the test

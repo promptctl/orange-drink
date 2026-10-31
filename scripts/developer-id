@@ -9,3 +9,10 @@ developer_id="Brandon Fryslie ($developer_team)"
 # The notarytool keychain profile a releasing Mac stores the notary credentials under, once:
 # `xcrun notarytool store-credentials orange-drink-notary`.
 notary_profile=orange-drink-notary
+# Where notarytool finds that profile, as the arguments that say so. Empty is notarytool's own default
+# store, which has no file path and is where store-credentials with no --keychain puts it on a releasing
+# Mac. The release workflow's keychain is its own, which notarytool does not search, so there
+# NOTARY_KEYCHAIN names it. Expand as ${notary_keychain[@]+"${notary_keychain[@]}"}: bash 3.2 calls an
+# empty array unbound under set -u.
+notary_keychain=()
+if [ -n "${NOTARY_KEYCHAIN:-}" ]; then notary_keychain=(--keychain "$NOTARY_KEYCHAIN"); fi

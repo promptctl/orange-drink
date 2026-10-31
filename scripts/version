@@ -1,0 +1,19 @@
+#!/bin/bash
+# Prints the app's version, project.yml's MARKETING_VERSION, which every build stamps into the app's
+# Info.plist (CFBundleShortVersionString).
+#
+#   scripts/version
+#
+# [LAW:parse-dont-validate] YAML may quote the value, and the quotes are not part of it; a value that
+# is not a version of three numbers, or a key that is missing or written twice, is refused here, by
+# name, rather than becoming a tag that matches nothing.
+set -euo pipefail
+
+project=$(dirname "$0")/../project.yml
+values=$(awk '$1 == "MARKETING_VERSION:" { print $2 }' "$project")
+count=$(grep -c . <<<"$values" || true)
+[ "$count" -eq 1 ] || { echo "version: project.yml has $count MARKETING_VERSION lines, not one" >&2; exit 1; }
+version=${values#\"}
+version=${version%\"}
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version: project.yml's MARKETING_VERSION is not a version: $values" >&2; exit 1; }
+echo "$version"

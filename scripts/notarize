@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Notarizes a signed app or disk image, staples the ticket to it, and asks Gatekeeper about it
 # the way a Mac that downloaded it would. Prints the target's path when Gatekeeper accepts it as
 # notarized.
@@ -40,7 +40,8 @@ esac
 # reached the service, and only the first has a log to fetch; the status field decides. Output
 # that is not JSON leaves the status empty, which fails below with the output printed.
 set +e
-result=$(xcrun notarytool submit "$submission" --keychain-profile "$notary_profile" --wait --output-format json)
+result=$(xcrun notarytool submit "$submission" --keychain-profile "$notary_profile" \
+  ${notary_keychain[@]+"${notary_keychain[@]}"} --wait --output-format json)
 submitted=$?
 set -e
 status=$(plutil -extract status raw -o - - <<<"$result" || true)
@@ -48,7 +49,7 @@ if [ "$status" != Accepted ]; then
   echo "notarize: notarytool exited $submitted with status '${status:-none}': $result" >&2
   id=$(plutil -extract id raw -o - - <<<"$result" || true)
   if [ -n "$id" ]; then
-    xcrun notarytool log "$id" --keychain-profile "$notary_profile" >&2
+    xcrun notarytool log "$id" --keychain-profile "$notary_profile" ${notary_keychain[@]+"${notary_keychain[@]}"} >&2
   fi
   exit 1
 fi

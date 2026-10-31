@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Builds the disk image to hand to someone else and prints its path: the Release app signed with
 # the Developer ID certificate, notarized and stapled, beside a link to /Applications to drag it
 # onto, in a disk image that is itself signed, notarized and stapled.
