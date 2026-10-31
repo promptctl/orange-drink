@@ -19,6 +19,9 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         var handshakeAfterClearing = HelperRegistration.Handshake.own
         var holders: [Int32] = []
         var elapsed = Duration.zero
+        /// How many noted calls the helper file outlasts.
+        var fileOutlasts = Int.max
+        var fileGone: Bool { calls.count >= fileOutlasts }
     }
     let state = OSAllocatedUnfairLock(initialState: State())
     let gate = DispatchSemaphore(value: 0)
@@ -43,13 +46,14 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         },
         unregister: { [self] in state.withLock { $0.calls.append("unregister"); $0.status = .notRegistered; $0.handshake = $0.handshakeAfterClearing; return nil } },
         status: { [self] in state.withLock { $0.status } },
+        embedded: { [self] in state.withLock { $0.fileGone ? .failure(HelperFailure("gone")) : .success(Data([1])) } },
         handshake: { [self] in
             state.withLock { $0.calls.append("handshake") }
             if usesGate {
                 entered.signal()
                 gate.wait()
             }
-            return state.withLock { $0.handshake }
+            return state.withLock { $0.fileGone ? .embeddedUnreadable("gone") : $0.handshake }
         },
         holders: { [self] () throws(ProcessTableUnreadable) in state.withLock { $0.calls.append("holders"); return $0.holders } },
         now: { [self] in state.withLock { start + $0.elapsed } },
@@ -131,17 +135,62 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         typealias Handshake = HelperRegistration.Handshake
         let path = "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper"
         let answer = Result<HelperIdentity, HelperCallError>.success(HelperIdentity(executable: path, euid: 0, cdhash: Data([1])))
-        #expect(Handshake(reply: answer, embedded: .success(Data([1]))) == .own)
-        #expect(Handshake(reply: answer, embedded: .success(Data([2]))) == .otherCode(executable: path, cdhash: Data([1])))
-        #expect(Handshake(reply: .failure(Self.noReply), embedded: .success(Data([1]))) == .failed(Self.noReply))
+        #expect(Handshake(reply: answer, embedded: Data([1])) == .own)
+        #expect(Handshake(reply: answer, embedded: Data([2])) == .otherCode(executable: path, cdhash: Data([1])))
+        #expect(Handshake(reply: .failure(Self.noReply), embedded: Data([1])) == .failed(Self.noReply))
     }
 
-    /// With no file to run, a new job could not answer, whatever the helper said.
-    @Test(arguments: [Result<HelperIdentity, HelperCallError>.failure(noReply), .success(HelperIdentity(executable: "/x", euid: 0, cdhash: Data([1])))])
-    func aHandshakeWithNoEmbeddedFileReplacesNothing(reply: Result<HelperIdentity, HelperCallError>) {
-        let handshake = HelperRegistration.Handshake(reply: reply, embedded: .failure(HelperFailure("gone")))
-        #expect(handshake == .embeddedUnreadable("gone"))
+    /// With no file to run, a new job could not answer, so nothing waits on what the helper would say.
+    @Test func aLookWithNoEmbeddedFileAsksNothingAndReplacesNothing() {
+        let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        let handshake = HelperRegistration.Handshake.look(at: missing) { () throws(HelperCallError) in
+            Issue.record("the helper was asked")
+            throw Self.noReply
+        }
         #expect(!handshake.replacesJob)
+    }
+
+    @Test func theEmbeddedReadOfAMissingFileFails() {
+        let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        #expect(throws: HelperFailure.self) { try HelperRegistration.Handshake.embedded(at: missing).get() }
+    }
+
+    /// `register` on a copy whose bundle has gone would end the process, so with no file it is never asked.
+    @Test func aLaunchWithNoHelperFileAsksNothingAndWaitsForNothing() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.fileOutlasts = 0; $0.status = .notFound }
+        system.registration.launch()
+        system.registration.waitForSteps()
+        #expect(system.calls == ["handshake"])
+        #expect(system.events == [.launched(.init(refusal: "gone", status: "notFound", attempts: 0, elapsed: .zero)), .leftAlone(.embeddedUnreadable("gone"))])
+    }
+
+    @Test func aFailedCallWithNoHelperFileAsksNothingAndWaitsForNothing() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.fileOutlasts = 0; $0.status = .notFound }
+        system.registration.reconcile(after: Self.noJob)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["handshake"])
+        #expect(system.events == [.reregistered(.init(refusal: "gone", status: "notFound", attempts: 0, elapsed: .zero)), .leftAlone(.embeddedUnreadable("gone"))])
+    }
+
+    /// The window's pause is not a gap the file can go in unseen: the next ask reads it again.
+    @Test func aHelperFileGoneDuringTheRefusalWindowEndsTheAsks() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.refusals = 3; $0.fileOutlasts = 1 }
+        system.registration.launch()
+        system.registration.waitForSteps()
+        #expect(system.calls == ["register", "handshake"])
+        #expect(system.events.first == .launched(.init(refusal: "gone", status: "notRegistered", attempts: 1, elapsed: HelperRegistration.attemptGap)))
+    }
+
+    /// A repair's own handshake read the file, and `register` comes after that and after `unregister`.
+    @Test func aHelperFileGoneDuringARepairEndsTheAsks() {
+        let system = wedged { $0.fileOutlasts = 3 }
+        system.registration.reconcile(after: Self.notAnswering)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["handshake", "holders", "unregister", "handshake"])
+        #expect(system.events == [.repaired(found: .failed(Self.noReply), .unregistered(error: nil), .init(refusal: "gone", status: "notRegistered", attempts: 0, elapsed: .zero), handshake: .embeddedUnreadable("gone"))])
     }
 
     @Test(arguments: [
