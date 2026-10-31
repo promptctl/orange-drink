@@ -79,15 +79,18 @@ sleep 2
 sleep 2
 
 step "the early warning: a notification on macOS 14 and 15, none on 26"
+early=$(( $(sw_vers -productVersion | cut -d. -f1) < 26 ))
 sudo -n "$battery" warn 1
 sleep 1
 sudo -n "$battery" warn 2
 sleep 2
+"$banners" wait "$early" 1
 "$banners" list
 
 step "the final warning over the early one left showing, the order a discharge reaches them"
 sudo -n "$battery" warn 3
 sleep 2
+"$banners" wait 1 1
 "$banners" list
 "$banners" close
 "$banners" wait 0 3
@@ -102,6 +105,7 @@ sleep 2
 "$banners" wait 0 3
 sudo -n "$battery" warn 3
 sleep 2
+"$banners" wait "$((1 - early))" 1
 "$banners" list
 "$banners" close
 "$banners" wait 0 3
@@ -136,12 +140,9 @@ for language in fr-FR ja zh-Hans ar pt-BR pl; do
   sleep 10
   sudo -n "$battery" warn 3
   "$banners" wait 1 10
-  other "$("$banners" words | sed -n 1p)" "$("$banners" words | sed -n 2p)"
-  "$banners" wait 2 5
-  "$banners" list
-  "$banners" close
-  "$banners" wait 1 3
-  "$banners" list
+  shown=$("$banners" words)
+  other "$(echo "$shown" | sed -n 1p)" "$(echo "$shown" | sed -n 2p)"
+  "$banners" closer 2 5
 done
 
 step "com.apple.battery-monitor, the other bundle with these words: its helper is the only thing that could post from it"

@@ -3,8 +3,8 @@
 //   banners dump           the notification window's tree, attributes and actions
 //   banners list           each notification with its verdict
 //   banners close          closes the low battery notifications, and nothing else, and prints what it did
-//   banners closer <n> <secs> watches that long and, once n notifications show and one is low battery, closes that one and
-//                          prints what was showing at that moment and just after
+//   banners closer <n> <secs> watches that long and, once n notifications show and one is low battery, closes that one,
+//                          prints what was showing at that moment and just after, and fails unless the others stayed
 //   banners observe <secs> prints each accessibility notification NotificationCenter sends, to show what could wake a closer
 //   banners wait <n> <secs> returns when exactly n notifications are showing, and fails if that never comes
 //   banners panel          presses the clock in the menu bar, which opens the Notification Center panel
@@ -14,7 +14,10 @@ import ApplicationServices
 
 func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
     var value: CFTypeRef?
-    return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
+    let read = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+    // A failed read is not an empty tree: every "gone" and "nothing posted" in output.txt stands on this.
+    guard read != .cannotComplete else { fatalError("reading \(name): the app did not answer") }
+    return read == .success ? value : nil
 }
 func string(_ element: AXUIElement, _ name: String) -> String? { attribute(element, name) as? String }
 func children(_ element: AXUIElement) -> [AXUIElement] { attribute(element, kAXChildrenAttribute) as? [AXUIElement] ?? [] }
@@ -27,7 +30,7 @@ func walk(_ element: AXUIElement, depth: Int = 0, visit: (AXUIElement, Int) -> V
     children(element).forEach { walk($0, depth: depth + 1, visit: visit) }
 }
 
-nonisolated(unsafe) var start = Date()
+let start = Date()
 
 func notificationCenterApp() -> NSRunningApplication {
     guard AXIsProcessTrusted() else { fatalError("this process is not trusted for Accessibility") }
@@ -37,11 +40,8 @@ func notificationCenterApp() -> NSRunningApplication {
 }
 // Only this window: the desktop widgets' windows are NotificationCenter's too, and their trees loop.
 func notificationWindows() -> [AXUIElement] {
-    var windows: CFTypeRef?
-    let read = AXUIElementCopyAttributeValue(AXUIElementCreateApplication(notificationCenterApp().processIdentifier), kAXWindowsAttribute as CFString, &windows)
-    // A failed read is not an empty tree: every "gone" and "nothing posted" in output.txt stands on this.
-    guard read == .success else { fatalError("reading NotificationCenter's windows: \(read.rawValue)") }
-    return (windows as! [AXUIElement]).filter { string($0, kAXSubroleAttribute) == "AXSystemDialog" }
+    (attribute(AXUIElementCreateApplication(notificationCenterApp().processIdentifier), kAXWindowsAttribute) as! [AXUIElement])
+        .filter { string($0, kAXSubroleAttribute) == "AXSystemDialog" }
 }
 
 struct Notification {
@@ -143,7 +143,9 @@ case "closer":
             let after = notifications()
             after.forEach { print("after: " + describe($0)) }
             print("\(after.count) notifications after")
-            guard after.count == shown.count - 1, after.allSatisfy({ $0.description.hasPrefix("Script Editor") }) else {
+            guard after.count == shown.count - 1, after.allSatisfy({
+                $0.subrole == "AXNotificationCenterBanner" && $0.title == battery.title && $0.body == battery.body
+            }) else {
                 print("another app's notification did not stay")
                 exit(1)
             }
