@@ -47,7 +47,7 @@ struct AccessoryPowerTests {
         let answered = AccessoryPower.Reading.answered(AccessoryPower.levels(from: [Self.source("FluffPods", "Single", 47)]))
         #expect(answered.levels(of: "FluffPods") == .single(Self.level(47)))
         #expect(answered.levels(of: "Speaker") == .none)
-        #expect(AccessoryPower.Reading.unanswered(.unanswered(call: "IOPSCopyPowerSourcesList")).levels(of: "FluffPods") == .unread)
+        #expect(AccessoryPower.Reading.unanswered.levels(of: "FluffPods") == .unread)
     }
 
     @Test func onlyAccessorySourcesAreRead() {

@@ -165,6 +165,7 @@ struct DeviceListTests {
             list.apply(event)
             break
         }
+        try #require(!list.levelsUnread, "powerd did not answer the sweep; the devices log names the call")
         // system_profiler names its devices and nothing more, so the name is the only key the two lists share.
         let swept = try Dictionary(list.devices.map { ($0.name, $0) }) { _, _ in
             throw DevicesLiveError.sharedName(list.devices.map(\.name))

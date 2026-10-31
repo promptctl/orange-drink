@@ -50,9 +50,9 @@ struct AccessoryPower {
     }
 
     /// One read of the sources: what they say, or that powerd did not answer.
-    enum Reading: Equatable {
+    enum Reading {
         case answered(Levels)
-        case unanswered(PowerSourcesError)
+        case unanswered
 
         /// [LAW:types-are-the-program] A device a read that answered does not list has no battery; with no
         /// answer, every device's levels are unknown, which readers must not take for no battery.

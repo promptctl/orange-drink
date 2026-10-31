@@ -50,13 +50,22 @@ import ViewInspector
         #expect(ConnectedDevices(list, settings: settings.value).isShown)
     }
 
-    @Test func anEmptyDetectedDevicesCardSaysLevelsAreUnreadNotThatNoDeviceReports() async throws {
+    private func unreadDevices() async -> DevicesModel {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let devices = DevicesModel(events: events)
         send.yield(.swept([Device(id: DeviceID(address: "a"), name: "Device a", kind: .accessory, levels: .unread)]))
         _ = await DevicesModelTests().list(of: devices) { $0.levelsUnread }
-        let screen = DevicesScreen(devices: devices, settings: try model(), select: { _ in })
+        return devices
+    }
+
+    @Test func anEmptyDetectedDevicesCardSaysLevelsAreUnreadNotThatNoDeviceReports() async throws {
+        let screen = DevicesScreen(devices: await unreadDevices(), settings: try model(), select: { _ in })
         #expect(throws: Never.self) { try screen.inspect().find(text: "Device batteries can't be read right now.") }
+    }
+
+    @Test func anEmptyPinnedDevicesCardSaysLevelsAreUnreadNotToPinADevice() async throws {
+        let card = PinnedDevicesCard(devices: await unreadDevices(), settings: try model())
+        #expect(throws: Never.self) { try card.inspect().find(text: "Device batteries can't be read right now.") }
     }
 
     @Test func settingsSurviveARelaunch() throws {

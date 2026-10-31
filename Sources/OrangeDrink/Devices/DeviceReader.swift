@@ -11,7 +11,7 @@ struct BluetoothPeer: Equatable, Sendable {
 ///
 /// [LAW:single-enforcer] A sweep and a connect both read here, so a read powerd does not answer is logged
 /// once, in `reading`, whichever asked. Neither can end the subscription: the next read may answer, and
-/// until then every device reads `.unread`.
+/// until then a device it could not read is `.unread`.
 struct DeviceReader {
     let sources: () throws(PowerSourcesError) -> [[String: Any]]
 
@@ -47,7 +47,7 @@ struct DeviceReader {
             return .answered(AccessoryPower.levels(from: try sources()))
         } catch {
             BluetoothDevices.log.error("device levels unread: \(String(describing: error), privacy: .public)")
-            return .unanswered(error)
+            return .unanswered
         }
     }
 }
