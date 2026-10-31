@@ -34,15 +34,7 @@ enum IOKitBattery {
         // On success IOKit always fills `properties`, and registry keys are always strings.
         let registry = properties!.takeRetainedValue() as! [String: Any]
 
-        // Both calls answer nil, not an error, when powerd is unreachable.
-        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue() else {
-            throw BatteryReadError.powerSources(call: "IOPSCopyPowerSourcesInfo")
-        }
-        guard let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() else {
-            throw BatteryReadError.powerSources(call: "IOPSCopyPowerSourcesList")
-        }
-        let sources = (list as [CFTypeRef])
-            .compactMap { IOPSGetPowerSourceDescription(info, $0)?.takeUnretainedValue() as? [String: Any] }
+        let sources = try PowerSources.descriptions(IOPSCopyPowerSourcesInfo(), copiedBy: "IOPSCopyPowerSourcesInfo")
         guard let powerSource = sources.first(where: { $0[kIOPSTypeKey] as? String == kIOPSInternalBatteryType }) else {
             throw BatteryReadError.noInternalBatterySource
         }
