@@ -61,18 +61,22 @@ enum DeviceEvent: Equatable, Sendable {
     case reported(Device)
     case gone(DeviceID)
     case swept([Device])
+    case permission(BluetoothPermission)
 }
 
 /// Every connected device the app knows of. [LAW:one-source-of-truth] The one reduction from
 /// events to the list; nothing else holds a device.
 struct DeviceList: Equatable, Sendable {
     private var byID: [DeviceID: Device] = [:]
+    /// Allowed until the stream says otherwise, so a list with no stream behind it reads as one with nothing connected.
+    private(set) var permission = BluetoothPermission.allowed
 
     mutating func apply(_ event: DeviceEvent) {
         switch event {
         case .reported(let device): byID[device.id] = device
         case .gone(let id): byID[id] = nil
         case .swept(let devices): byID = Dictionary(devices.map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
+        case .permission(let permission): self.permission = permission
         }
     }
 

@@ -17,11 +17,10 @@ cd "$(dirname "$0")/.."
 
 . scripts/vm-check-lib
 
-log_lines() { guest /usr/bin/log show --last 30m --style compact --predicate 'category == "launchAtLogin"'; }
-on_failure() { log_lines >&2; }
+on_failure() { log_lines launchAtLogin >&2; }
 # [LAW:no-ambient-temporal-coupling] The switch moves when the status has landed, so the line is written by then, but the
 # log store can lag a moment behind its writer.
-said() { log_lines | grep -F "launch at login $1: status $2"; }
+said() { log_lines launchAtLogin | grep -F "launch at login $1: status $2"; }
 
 cp "$dmg" "$scratch/app.dmg"
 vm_start "$xctestrun"

@@ -40,6 +40,16 @@ import Testing
         #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent) == ["37%", "49%", "54%", "95%"])
     }
 
+    @Test func anEmptyDetectedCardSaysWhy() throws {
+        var list = DeviceList()
+        let note = { DetectedDevices(list, settings: DeviceSettings()).emptyNote }
+        #expect(note() == "No connected Bluetooth devices report a battery.")
+        list.apply(.permission(.notDetermined))
+        #expect(note() == BluetoothPermission.notDetermined.explanation)
+        list.apply(.permission(.denied))
+        #expect(note() == BluetoothPermission.denied.explanation)
+    }
+
     @Test func theSwitchRemovesAndRestoresThePanelSection() throws {
         let settings = try model()
         #expect(ConnectedDevices(list, settings: settings.value).isShown)
@@ -84,15 +94,14 @@ import Testing
         let settings = try model()
         try settings.update { $0.toggleHidden(DeviceID(address: "gone")) }
         #expect(ConnectedDevices(list, settings: settings.value).rows.count == 4)
-        #expect(ConnectedDevices(list, settings: settings.value).hiddenCount == 0)
     }
 
-    @Test func hidingEveryDeviceIsCountedSoTheCardCanSaySo() throws {
+    @Test func hidingEveryDeviceSaysSo() throws {
         let settings = try model()
         try settings.update { for id in ["a", "b", "c", "d"] { $0.toggleHidden(DeviceID(address: id)) } }
         let card = ConnectedDevices(list, settings: settings.value)
         #expect(card.rows.isEmpty)
-        #expect(card.hiddenCount == 4)
+        #expect(card.emptyNote == "Every device is hidden. Show them again in Settings → Devices.")
     }
 
     @Test func everyHelpLineHasItsOwnIdentity() {

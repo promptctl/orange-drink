@@ -27,7 +27,7 @@ served=/tmp/served
 installed_version() { guest /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"; }
 on_failure() {
   guest cat /tmp/server.log >&2
-  guest /usr/bin/log show --last 15m --style compact --predicate 'category == "updates"' >&2
+  log_lines updates >&2
 }
 
 newer_version=$(basename "$newer" .dmg)

@@ -1,3 +1,4 @@
+import CoreBluetooth
 import Foundation
 @preconcurrency import IOBluetooth
 import os
@@ -33,23 +34,26 @@ enum BluetoothDevices {
     /// measured a sweep of every connected device at under a millisecond of CPU, and reading the accessory
     /// sources adds 0.1 ms (1e6), so a sweep a minute is far inside PROJECT.md's 0.1% budget.
     ///
-    /// [LAW:no-ambient-temporal-coupling] The registration, every sweep, and the unregistering are
-    /// one task's business. IOBluetooth refuses a registration from a pool thread, which has no run
-    /// loop for it, so that one call runs on the main thread; its notifications then post on a queue
-    /// of its own, which is why the watcher is not main-actor isolated.
+    /// [LAW:no-ambient-temporal-coupling] The wait on the Bluetooth prompt, the registration, every
+    /// sweep, and the unregistering are one task's business. IOBluetooth's first call holds its thread
+    /// until the prompt is answered, so nothing touches it before `BluetoothPermission.answer` returns.
+    /// The registration runs on the main thread because that is the path shown to hear later connects:
+    /// spike orange-distribution-kg2.73n registered from other threads too, but no device moved. Its
+    /// notifications then post on a queue of its own, which is why the watcher is not main-actor isolated.
     static func events(
         timekeeper: any Timekeeper = SystemTimekeeper(),
+        authorizations: @escaping @Sendable () -> AsyncStream<CBManagerAuthorization> = BluetoothPermission.updates,
         power: @escaping @Sendable () throws(BluetoothDevicesError) -> AccessoryPower = AccessoryPower.init
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                let accessories: AccessoryPower
-                do { accessories = try power() } catch { return Watcher.fail(continuation, error) }
-                let reader = DeviceReader(sources: accessories.read)
-                let watcher = Watcher(continuation: continuation, timekeeper: timekeeper, reader: reader)
-                defer { watcher.stop() }
                 do {
+                    try await BluetoothPermission.answer(from: authorizations()) { continuation.yield(.permission($0)) }
+                    let reader = DeviceReader(sources: try power().read)
+                    let watcher = Watcher(continuation: continuation, timekeeper: timekeeper, reader: reader)
+                    defer { watcher.stop() }
                     try await MainActor.run { try watcher.start() }
+                    log.notice("device watcher started")
                     while true {
                         try await timekeeper.sleep(for: pollInterval)
                         watcher.sweep()

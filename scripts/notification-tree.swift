@@ -1,7 +1,8 @@
 // What scripts/battery-notification-check reads and presses in a VM, through the accessibility API. It needs Accessibility
 // trust, which a process `tart exec` starts has.
 //   notification-tree list    one line per notification: subrole, title, body, and description, tab-separated
-//   notification-tree allow   presses Allow in the Bluetooth prompt, and fails if none is showing
+//   notification-tree answer <button>
+//                             presses that button in the Bluetooth prompt, and fails if none is showing
 //   notification-tree closes <line> <seconds>
 //                             watches until `line` from `list` has shown and gone, with another notification showing that
 //                             has its title and body. Prints that one, and fails if that never comes
@@ -89,12 +90,13 @@ case "goes":
         Thread.sleep(forTimeInterval: 0.05)
     }
     fail(shown == nil ? "it never showed" : "it was still showing after \(limit) s")
-case "allow":
+case "answer":
+    let title = CommandLine.arguments[2]
     guard let prompt = application("com.apple.UserNotificationCenter").flatMap({ windows($0).first }),
-          let allow = children(prompt).first(where: { string($0, kAXTitleAttribute) == "Allow" })
-    else { fail("no prompt with an Allow button is showing") }
-    let pressed = AXUIElementPerformAction(allow, kAXPressAction as CFString)
-    guard pressed == .success else { fail("pressing Allow failed with AXError \(pressed.rawValue)") }
+          let button = children(prompt).first(where: { string($0, kAXTitleAttribute) == title })
+    else { fail("no prompt with a \(title) button is showing") }
+    let pressed = AXUIElementPerformAction(button, kAXPressAction as CFString)
+    guard pressed == .success else { fail("pressing \(title) failed with AXError \(pressed.rawValue)") }
 default:
-    fail("usage: notification-tree list | allow | closes <line> <seconds> | goes <line> <seconds>")
+    fail("usage: notification-tree list | answer <button> | closes <line> <seconds> | goes <line> <seconds>")
 }

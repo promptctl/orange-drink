@@ -1,0 +1,71 @@
+# Allow, every variant
+=== main, prompt unanswered
+0.0 main launched, authorization 0
+0.1 main registering
+=== main, answering Allow
+0.0 main launched, authorization 0
+0.1 main registering
+40.6 main registered: a notification
+40.6 main paired: 0
+=== pool, prompt unanswered
+0.0 main launched, authorization 0
+0.1 off  registering
+1.1 main beat 1
+=== pool, answering Allow
+0.0 main launched, authorization 0
+0.1 off  registering
+22.2 off  registered: a notification
+22.2 off  paired: 0
+=== thread, prompt unanswered
+0.0 main launched, authorization 0
+0.0 off  registering
+1.0 main beat 1
+=== thread, answering Allow
+0.0 main launched, authorization 0
+0.0 off  registering
+18.0 off  registered: a notification
+18.0 off  paired: 0
+18.0 off  running the thread's run loop
+=== central, prompt unanswered
+0.0 main launched, authorization 0
+1.0 main beat 1
+=== central, answering Allow
+0.0 main launched, authorization 0
+13.1 off  central state 2 authorization 3
+13.1 main registering
+13.2 main registered: a notification
+13.2 main paired: 0
+
+# Don't Allow
+=== main, prompt unanswered
+0.0 main launched, authorization 0
+0.1 main registering
+=== main, answering Don’t Allow
+0.0 main launched, authorization 0
+0.1 main registering
+28.9 main registered: a notification
+28.9 main paired: 0
+=== thread, prompt unanswered
+0.0 main launched, authorization 0
+0.0 off  registering
+1.0 main beat 1
+=== thread, answering Don’t Allow
+0.0 main launched, authorization 0
+0.0 off  registering
+14.6 off  registered: a notification
+14.6 off  paired: 0
+14.6 off  running the thread's run loop
+=== central, prompt unanswered
+0.0 main launched, authorization 0
+1.0 main beat 1
+=== central, answering Don’t Allow
+0.0 main launched, authorization 0
+13.0 off  central state 3 authorization 2
+13.0 main registering
+13.1 main registered: a notification
+13.1 main paired: 0
+
+# A rebuild: same bundle id, new ad-hoc signature, after Allow
+=== central, rebuilt, prompt unanswered
+0.0 main launched, authorization 0
+1.0 main beat 1

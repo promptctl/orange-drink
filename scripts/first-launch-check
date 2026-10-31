@@ -1,0 +1,45 @@
+#!/bin/bash
+# A new install's first launch on real macOS, inside a throwaway VM with no window: only a new install meets the Bluetooth
+# permission prompt, and it would show on the Mac running this. Opens the app's Developer ID build, and the XCUITests press
+# its status item with the prompt open, then answer it each way. Run by `make first-launch-check`.
+#
+#   scripts/first-launch-check <app> <xctestrun of the OrangeDrinkUITests scheme>
+#
+# Exits 0 when every reading holds and 1 naming the first that does not.
+set -euo pipefail
+
+usage='usage: scripts/first-launch-check <app> <xctestrun>'
+built=$(realpath "${1:?$usage}")
+xctestrun=$(realpath "${2:?$usage}")
+cd "$(dirname "$0")/.."
+
+. scripts/vm-check-lib
+
+on_failure() { log_lines devices >&2; }
+started='device watcher started'
+
+tar -C "$(dirname "$built")" -cf "$scratch/app.tar" "$(basename "$built")"
+vm_start "$xctestrun"
+guest sh -c "mkdir -p '$(dirname "$app")' && tar -C '$(dirname "$app")' -xf '$shared/app.tar'"
+identifier=$(guest /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
+
+guest open "$app"
+uitest FirstLaunchUITests/testThePanelOpensWhileThePromptWaits
+# At the top level, because errexit stops at a log that cannot be read only here: in a function's $() it would read as no line.
+unanswered=$(log_lines devices)
+grep -qF 'bluetooth permission: read authorization 0' <<<"$unanswered" || fail "the app never logged an unanswered authorization"
+! grep -qF "$started" <<<"$unanswered" || fail "the device watcher started with the prompt unanswered"
+echo "first-launch-check: unanswered: the panel opened, says it is waiting, and the device watcher has not started" >&2
+
+uitest FirstLaunchUITests/testBluetoothIsAllowed
+wait_for "the app never logged the answer" 30 logged devices 'bluetooth permission answered: allowed'
+wait_for "the device watcher never started after the answer" 30 logged devices "$started"
+echo "first-launch-check: allowed: the app logged the answer, then started the device watcher" >&2
+
+guest pkill -x OrangeDrink
+wait_for "the app did not quit" 30 stopped
+guest tccutil reset BluetoothAlways "$identifier"
+guest open "$app"
+uitest FirstLaunchUITests/testThePanelSaysBluetoothIsNotAllowed
+wait_for "the app never logged the refusal" 30 logged devices 'bluetooth permission answered: denied'
+echo "first-launch-check: denied: the panel says Bluetooth is not allowed" >&2
