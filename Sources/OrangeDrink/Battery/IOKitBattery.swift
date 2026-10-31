@@ -23,6 +23,9 @@ enum IOKitBattery {
         }
     }
 
+    /// The level powerd warns at, which it writes before it posts kIOPSNotifyLowBattery.
+    static func warningLevel() -> IOPSLowBatteryWarningLevel { IOPSGetBatteryWarningLevel() }
+
     private static func fetch() throws -> BatteryReading? {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
         guard service != 0 else { return nil }

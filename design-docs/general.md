@@ -46,8 +46,9 @@ One card with one row:
 - Red tile with a crossed-out bell.
 - Title "Dismiss macOS Battery Notifications", description "Automatically closes system battery notification on the top right so you don't have to click it away."
 - Switch, off.
+- While the switch is on and macOS has not allowed the app under Accessibility, a line under the row says so, with the way to that setting.
 
-When on, the app closes the battery notifications macOS posts in the top-right corner, so users who rely on this app's alerts don't get both.
+When on, the app closes the battery notifications macOS posts in the top-right corner, so users who rely on this app's alerts don't get both. Turning it on prompts for Accessibility.
 
 ## Notification Appearance
 

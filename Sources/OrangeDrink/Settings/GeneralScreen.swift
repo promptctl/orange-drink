@@ -1,17 +1,19 @@
 import SwiftUI
 
-/// design-docs/general.md. System Notifications arrives with its feature.
+/// design-docs/general.md.
 struct GeneralScreen: View {
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
     let language: AppLanguageModel
     let launchAtLogin: LaunchAtLogin
+    let batteryNotifications: BatteryNotificationDismissal
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             LanguageSection(language: language)
             AppAppearanceSection(look: look)
             SystemIntegrationSection(login: launchAtLogin)
+            SystemNotificationsSection(dismissal: batteryNotifications)
             NotificationAppearanceSection(appearance: appearance)
         }
         .padding(24)
@@ -68,9 +70,34 @@ private struct SystemIntegrationSection: View {
                         .disabled(login.asking != nil)
                 }
                 if let refusal = login.refusal {
-                    LoginItemFailureLine(explanation: refusal.explanation(appName: appName),
-                                         openLoginItems: refusal == .needsApproval ? { login.openLoginItems() } : nil)
+                    SystemSettingFailureLine(explanation: refusal.explanation(appName: appName),
+                                             fix: refusal == .needsApproval ? .loginItems { login.openLoginItems() } : nil)
                         .padding(.horizontal, 16).padding(.bottom, 10)
+                }
+            }
+        }
+    }
+}
+
+/// Dismiss macOS Battery Notifications. The switch is the user's choice, kept whether or not macOS has allowed what it needs,
+/// so the line under it says when it cannot act.
+private struct SystemNotificationsSection: View {
+    let dismissal: BatteryNotificationDismissal
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(symbol: "app.badge", color: .orange, title: "System Notifications")
+            SettingEditor(dismissal.settings) { edits in
+                SettingCard {
+                    SettingRow(icon: ("bell.slash", .red), title: "Dismiss macOS Battery Notifications",
+                               description: "Automatically closes system battery notification on the top right so you don't have to click it away.") {
+                        AccentSwitch(isOn: edits.binding(\.dismissBatteryNotifications), tint: .green, label: "Dismiss macOS Battery Notifications")
+                    }
+                    if dismissal.needsAccessibility {
+                        SystemSettingFailureLine(explanation: BatteryNotificationDismissal.accessibilityExplanation(appName: appName),
+                                                 fix: .accessibility { dismissal.openAccessibility() })
+                            .padding(.horizontal, 16).padding(.bottom, 10)
+                    }
                 }
             }
         }

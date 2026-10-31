@@ -21,6 +21,7 @@ struct OrangeDrinkApp: App {
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
     @State private var launchAtLogin = LaunchAtLogin(effects: .live, center: .default)
+    @State private var batteryNotifications: BatteryNotificationDismissal
     @State private var chargeLimit: ChargeLimitModel
     @State private var chargeHold: AppChargeHold
     @State private var sections: PanelSections
@@ -40,6 +41,7 @@ struct OrangeDrinkApp: App {
         let language: AppLanguageModel
         let shortcutsModel: ShortcutsModel
         let chargeLimit: ChargeLimitModel
+        let systemNotifications: SystemNotificationSettingsModel
         let pills: PillController
         let sounds = AlertSounds()
         do {
@@ -50,6 +52,7 @@ struct OrangeDrinkApp: App {
             language = try AppLanguageModel(defaults: .standard)
             shortcutsModel = try ShortcutsModel(defaults: .standard)
             chargeLimit = try ChargeLimitModel(defaults: .standard)
+            systemNotifications = try SystemNotificationSettingsModel(defaults: .standard)
             pills = PillController(appearance: appearance, language: language, orderFront: { $0.orderFrontRegardless() })
             pills.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
             alerts = try AlertCenter(defaults: .standard, deliver: {
@@ -60,7 +63,7 @@ struct OrangeDrinkApp: App {
                 sounds.deliver($0)
             })
         } catch {
-            fatalError("stored alert, appearance, device, menu bar, app appearance, app language, shortcut, or charge limit settings do not decode: \(error)")
+            fatalError("stored alert, appearance, device, menu bar, app appearance, app language, shortcut, charge limit, or system notification settings do not decode: \(error)")
         }
         // [LAW:one-source-of-truth] project.yml signs every build into the app group, so a missing
         // container is a broken build, not a case to run past.
@@ -106,6 +109,7 @@ struct OrangeDrinkApp: App {
         keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
         _chargeLimit = State(initialValue: chargeLimit)
+        _batteryNotifications = State(initialValue: BatteryNotificationDismissal(settings: systemNotifications, effects: .live, warningChanges: BatteryMonitor.warningChanges(), center: .default))
         // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
         let store = Result { try HistoryStore(url: HistoryStore.defaultURL()) }
@@ -161,7 +165,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy) }
     }
 }
 

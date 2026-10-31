@@ -86,7 +86,7 @@ import Testing
         let direct = try #require(try IOKitBattery.read())
         #expect(first.capacity.design == direct.capacity.design)
         #expect(first.cycles == direct.cycles)
-        #expect(try log.messages().contains { $0.hasPrefix("battery notifications: registered token ") })
+        #expect(try log.messages().contains { $0.hasPrefix("\(kIOPSNotifyAnyPowerSource): registered token ") })
     }
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.

@@ -1,0 +1,169 @@
+#!/bin/bash
+# Closing macOS's low battery notification on real macOS, in a throwaway VM with no window. A stand-in battery raises the
+# real notification from ControlCenter's own code, which only a real discharge does on a Mac with a battery. Everything it
+# asserts is read from NotificationCenter's accessibility tree: the app's Developer ID build is started as `tart exec`
+# starts it, which is what gives it Accessibility here, and nothing in the check presses the notification. That the switch
+# prompts is a stand-in test's job, in `make test`. Run by `make battery-notification-check`, once per image.
+#
+#   scripts/battery-notification-check <app> <tart image>
+#
+# Exits 0 when every reading holds and 1 naming the first that does not.
+set -euo pipefail
+
+usage='usage: scripts/battery-notification-check <app> <tart image>'
+built=$(realpath "${1:?$usage}")
+image=${2:?$usage}
+cd "$(dirname "$0")/.."
+
+. scripts/vm-check-lib
+
+tools=/tmp/tools
+tree="$tools/notification-tree"
+battery="$tools/fake-battery"
+binary=$app/Contents/MacOS/OrangeDrink
+
+log_lines() { guest /usr/bin/log show --last 30m --style compact --predicate 'category == "batteryNotifications"'; }
+logged() { grep -q "$1" <<<"$(log_lines)"; }
+list() { guest "$tree" list; }
+# A here-string drops its command's status, so a read that failed would be a tree showing nothing. Whatever says something
+# is gone reads through this, and a failed read says it is not.
+read_tree() { showing=$(list); }
+on_failure() {
+  log_lines >&2
+  guest sh -c 'cat /tmp/app.out /tmp/battery.out' >&2
+  list >&2
+}
+say() { echo "battery-notification-check: $image: $*" >&2; }
+
+# The level powerd would publish: 1 none, 2 early, 3 final.
+warn() { guest sudo -n "$battery" warn "$1" >&2; }
+post() { guest osascript -e "display notification \"$2\" with title \"$1\""; }
+start_app() { guest sh -c "nohup '$binary' >/tmp/app.out 2>&1 &"; }
+
+has_battery() { grep -q InternalBattery <<<"$(guest pmset -g batt)"; }
+has_alert() { grep -q '^AXNotificationCenterAlert' <<<"$(list)"; }
+# The alerts in $1 beyond those the app's own launch left.
+new_alerts() { grep '^AXNotificationCenterAlert' <<<"$1" | grep -vxF "$installed" || [ "${PIPESTATUS[1]}" -eq 1 ]; }
+shows() { read_tree && grep -qxF "$1" <<<"$showing"; }
+nothing_new() { read_tree && [ -z "$(new_alerts "$showing")" ]; }
+closes() { log_lines | awk '/, closed$/ { n++ } END { print n + 0 }'; }
+closed_after() { [ "$(closes)" -gt "$1" ]; }
+
+swiftc -O -target arm64-apple-macos14 -o "$scratch/notification-tree" scripts/notification-tree.swift
+swiftc -O -target arm64-apple-macos14 -o "$scratch/fake-battery" scripts/fake-battery.swift
+tar -C "$(dirname "$built")" -cf "$scratch/app.tar" "$(basename "$built")"
+
+vm_boot
+guest sh -c "mkdir -p '$tools' '$(dirname "$app")' && cp '$shared/notification-tree' '$shared/fake-battery' '$tools' && tar -C '$(dirname "$app")' -xf '$shared/app.tar'"
+# The early warning is a notification on macOS 14 and 15. On 26 it is a banner that fades, and the final warning is first.
+major=$(guest sw_vers -productVersion | cut -d. -f1)
+first=$([ "$major" -lt 26 ] && echo 2 || echo 3)
+identifier=$(guest /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
+
+# A stand-in battery, which ControlCenter builds its Battery module for when it starts.
+guest sudo -n sh -c "nohup '$battery' 4 6 1800 >/tmp/battery.out 2>&1 &"
+wait_for "the stand-in battery never reached powerd" 30 has_battery
+warn 1
+guest killall ControlCenter
+
+# Script Editor allowed banners, the Allow a person gives, which macOS 15 asks for before a new app's first. Its entry is
+# not there on every macOS, and a banner showing is what says this worked. It goes through `defaults export`, because the
+# plist on disk lags cfprefsd.
+post First 'Registers Script Editor with Notification Center'
+guest sh -c 'prefs=/tmp/ncprefs.plist
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  defaults export com.apple.ncprefs "$prefs"; app=0
+  while bundle=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:bundle-id" "$prefs"); do
+    if [ "$bundle" = com.apple.ScriptEditor2 ]; then
+      flags=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:flags" "$prefs")
+      /usr/libexec/PlistBuddy -c "Set :apps:$app:flags $((flags | 1 << 25))" "$prefs"
+      defaults import com.apple.ncprefs "$prefs"
+      exit 0
+    fi
+    app=$((app + 1))
+  done
+  sleep 1
+done' 2>&1 | grep -v 'Does Not Exist' >&2 || [ "${PIPESTATUS[0]}" -eq 0 ]
+guest killall usernoted NotificationCenter
+banner_shows() {
+  post First 'A banner'
+  sleep 1
+  grep -q "$(printf '^AXNotificationCenterBanner\tFirst')" <<<"$(list)"
+}
+wait_for "Script Editor's banner never showed" 30 banner_shows
+
+# The first launch waits on the Bluetooth prompt (orange-distribution-kg2.73n), and these images have no Xcode for
+# FirstLaunchUITests to answer it. The launch also posts the system's login items alert, which stays up.
+start_app
+wait_for "the Bluetooth prompt never showed" 30 guest "$tree" allow
+wait_for "the app's first pass never logged" 30 logged 'pass: '
+wait_for "the login items alert never showed" 30 has_alert
+installed=$(grep '^AXNotificationCenterAlert' <<<"$(list)")
+
+# ControlCenter's restart ends when it has built its module, so the warning is raised until the notification shows.
+raise() {
+  warn 1
+  warn "$first"
+  sleep 2
+  [ -n "$(new_alerts "$(list)")" ]
+}
+wait_for "the low battery notification never showed" 30 raise
+read_tree
+alert=$(new_alerts "$showing")
+sleep 5
+shows "$alert" || fail "with the switch off, the low battery alert did not stay"
+say "off: the low battery alert stayed for 5 seconds: $alert"
+
+gone() { read_tree && ! grep -qxF "$alert" <<<"$showing"; }
+warn 1
+wait_for "macOS did not withdraw the alert when the warning ended" 10 gone
+
+guest pkill -x OrangeDrink
+wait_for "the app did not quit" 30 stopped
+guest defaults write "$identifier" systemNotifications -data "$(printf '%s' '{"dismissBatteryNotifications":true}' | xxd -p | tr -d '\n')"
+start_app
+wait_for "the app never read the switch on and itself trusted" 30 logged 'switch on, trusted'
+
+# Times the alert from the guest, at 50 ms: reading the log takes seconds of its own, and the app logs `closed` only after
+# its deadline. The watcher starts first, so an alert that goes fast cannot pass it unseen.
+gone_within_5_seconds() {
+  guest "$tree" goes "$alert" 5 >&2 &
+  local watcher=$!
+  sleep 2
+  warn "$1"
+  wait "$watcher"
+}
+
+before=$(closes)
+# Before anything else moves in NotificationCenter: another event would wake the app and hide a first look that came early.
+gone_within_5_seconds "$first"
+wait_for "with the switch on, the log never said closed" 8 closed_after "$before"
+while IFS= read -r line; do shows "$line" || fail "this did not stay: $line"; done <<<"$installed"
+say "on: the alert closed with no press from the check, and the login items alert stayed"
+
+if [ "$first" -eq 2 ]; then
+  warn 3
+  sleep 3
+  nothing_new || fail "the final warning showed something after the early warning's alert was closed"
+  say "the final warning brought nothing new"
+else
+  warn 1
+  warn 2
+  sleep 3
+  nothing_new || fail "the early warning showed an alert on macOS 26"
+  before=$(closes)
+  gone_within_5_seconds 3
+  wait_for "the log never said the final warning's alert was closed" 8 closed_after "$before"
+  say "the early warning left nothing to close, and the final warning's alert closed"
+fi
+
+# Another app's with the same words, in the same moment. A banner fades, and the close is confirmed only after its deadline,
+# so the watcher in the guest is what sees the alert go with the other still showing. On macOS 26 the alert has to be first.
+warn 1
+before=$(closes)
+IFS=$'\t' read -r _ title body _ <<<"$alert"
+{ warn "$first"; post "$title" "$body"; } &
+other=$(guest "$tree" closes "$alert" 20)
+wait $!
+wait_for "the log never said the alert beside Script Editor's was closed" 8 closed_after "$before"
+say "the alert closed and Script Editor's notification with the same words stayed: $other"
