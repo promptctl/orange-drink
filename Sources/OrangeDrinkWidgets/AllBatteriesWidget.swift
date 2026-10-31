@@ -25,8 +25,7 @@ struct AllBatteriesProvider: TimelineProvider {
     }
 
     private func entry() -> AllBatteriesEntry {
-        let directory = Result { try WidgetShelf.groupContainer() }
-        return AllBatteriesEntry(date: .now, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log))
+        AllBatteriesEntry(date: .now, directory: Result { try WidgetShelf.groupContainer() }, log: log)
     }
 }
 

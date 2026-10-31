@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import os
 
 // Compiled into the app and its widget extension: what the widgets draw. The app compiles them so a test
 // renders the real views with no window.
@@ -26,7 +27,7 @@ struct BatteryRing: View {
                         // The bolt sits in a gap cut from the ring: drawn over the green arc it would not read.
                         // Opaque, because destinationOut removes only as much as the cut's own alpha.
                         Circle()
-                            .fill(.black)
+                            .fill(.white)
                             .frame(width: side * 0.26, height: side * 0.26)
                             .offset(y: -side / 2)
                             .blendMode(.destinationOut)
@@ -65,6 +66,11 @@ struct Message: View {
     }
 }
 
+private extension View {
+    /// Every widget's background.
+    func widgetBackground() -> some View { containerBackground(.fill.tertiary, for: .widget) }
+}
+
 /// The sizes a widget declares, one list per widget so a test reads what the widget offers.
 enum WidgetFamilies {
     static let macBattery: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge]
@@ -83,7 +89,7 @@ struct MacBatteryView: View {
     let appName: String
 
     var body: some View {
-        content.containerBackground(.fill.tertiary, for: .widget)
+        content.widgetBackground()
     }
 
     @ViewBuilder private var content: some View {
@@ -117,7 +123,7 @@ struct DeviceBatteryView: View {
     let family: WidgetFamily
 
     var body: some View {
-        content.containerBackground(.fill.tertiary, for: .widget)
+        content.widgetBackground()
     }
 
     @ViewBuilder private var content: some View {
@@ -161,6 +167,13 @@ struct AllBatteriesEntry: TimelineEntry {
     /// What the app put on the shelf, or why there is nothing to read.
     let mac: Result<Shelved<MacBattery>, any Error>
     let devices: Result<Shelved<[WidgetDevice]>, any Error>
+}
+
+extension AllBatteriesEntry {
+    /// What the widget reads: both of the shelf's files, each logged.
+    init(date: Date, directory: Result<URL, any Error>, log: Logger) {
+        self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log))
+    }
 }
 
 /// How many rings a widget of one family holds: the bigger the size, the more batteries fit.
@@ -215,7 +228,7 @@ struct AllBatteriesView: View {
     let family: WidgetFamily
 
     var body: some View {
-        content.containerBackground(.fill.tertiary, for: .widget)
+        content.widgetBackground()
     }
 
     @ViewBuilder private var content: some View {

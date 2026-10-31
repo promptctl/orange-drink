@@ -154,12 +154,6 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         DeviceBatteryEntry(date: .now, shelf: shelf, chosen: chosen)
     }
 
-    static func render(_ widget: DeviceBatteryView, size: CGSize) throws -> RingPixels {
-        let renderer = ImageRenderer(content: widget.environment(\.colorScheme, .light).frame(width: size.width, height: size.height))
-        renderer.scale = 1
-        return try RingPixels(#require(renderer.cgImage))
-    }
-
     @Test func theWidgetDeclaresSmallMediumAndLarge() {
         #expect(WidgetFamilies.deviceBattery == [.systemSmall, .systemMedium, .systemLarge])
     }
@@ -168,7 +162,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         let devices = WidgetDevice.list({ var list = DeviceList(); list.apply(.swept([Self.iPhone, Self.earbuds(54)])); return list }())
         func filled(_ address: String) throws -> Double {
             let view = DeviceBatteryView(entry: Self.entry(.success(.running(devices)), chosen: address), appName: "Orange Drink", family: family)
-            return try Self.render(view, size: size).filledFraction
+            return try RingPixels(widgetImage(view, size: size, scheme: .light, scale: 1)).filledFraction
         }
         let (phone, buds) = (try filled("AA"), try filled("BB"))
         #expect(abs(phone - 0.95) < 0.03, "the iPhone filled \(phone)")
@@ -188,6 +182,12 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         let estimate = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 40, approximate: true))
         #expect(try texts(.success(.running([estimate])), chosen: "AA") == ["~40%"])
     }
+}
+
+@MainActor func widgetImage(_ widget: some View, size: CGSize, scheme: ColorScheme, scale: CGFloat) throws -> CGImage {
+    let renderer = ImageRenderer(content: widget.environment(\.colorScheme, scheme).frame(width: size.width, height: size.height))
+    renderer.scale = scale
+    return try #require(renderer.cgImage)
 }
 
 /// A rendered ring, read back: where it is, and how far round from the top its arc runs.
@@ -253,7 +253,7 @@ struct RingPixels {
         return Double(first + run.count) / Double(steps)
     }
 
-    /// Whether any pixel near the given point, within a share of the ring's radius, is of a colour.
+    /// Whether any pixel within `reach` pixels of the given point is of a colour.
     private func anyPixel(aroundX x: Double, y: Double, within reach: Double, _ matches: (NSColor) -> Bool) -> Bool {
         let (xs, ys) = (max(0, Int(x - reach))...min(rep.pixelsWide - 1, Int(x + reach)), max(0, Int(y - reach))...min(rep.pixelsHigh - 1, Int(y + reach)))
         return ys.contains { y in xs.contains { x in colour(x, y).map(matches) ?? false } }

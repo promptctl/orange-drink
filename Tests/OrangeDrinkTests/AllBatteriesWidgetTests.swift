@@ -91,10 +91,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
     // MARK: the drawing
 
     static func image(_ entry: AllBatteriesEntry, _ family: WidgetFamily, content size: CGSize) throws -> CGImage {
-        let widget = view(entry, family).environment(\.colorScheme, .dark).frame(width: size.width, height: size.height)
-        let renderer = ImageRenderer(content: widget)
-        renderer.scale = 2
-        return try #require(renderer.cgImage)
+        try widgetImage(view(entry, family), size: size, scheme: .dark, scale: 2)
     }
 
     /// The four rings of a rendering at Small, in reading order.
@@ -205,13 +202,12 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         #expect(reloads { mac.publish(Self.charging) } == [])
         #expect(reloads { devices.publish(Self.three) } == [])
 
-        let shelved = AllBatteriesEntry(date: .now, mac: WidgetShelf.read(.macBattery, from: shelf), devices: WidgetShelf.read(.devices, from: shelf))
-        #expect(try Self.texts(shelved) == ["80%", "95%", "54%", "40%"])
+        func shelved() -> AllBatteriesEntry { AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log) }
+        #expect(try Self.texts(shelved()) == ["80%", "95%", "54%", "40%"])
 
         #expect(reloads { mac.publish(Self.onBattery) } == [.macBattery, .allBatteries])
         #expect(reloads { mac.publishQuit() } == [.macBattery, .allBatteries])
         #expect(reloads { devices.publishQuit() } == [.deviceBattery, .allBatteries])
-        let quit = AllBatteriesEntry(date: .now, mac: WidgetShelf.read(.macBattery, from: shelf), devices: WidgetShelf.read(.devices, from: shelf))
-        #expect(try Self.texts(quit) == ["Open Orange Drink"])
+        #expect(try Self.texts(shelved()) == ["Open Orange Drink"])
     }
 }
