@@ -49,15 +49,3 @@ struct DeviceRowView: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-extension DeviceKind {
-    /// An outline icon per kind: a phone, a tablet, or concentric arcs around a dot for audio and
-    /// every other wireless accessory.
-    var symbol: String {
-        switch self {
-        case .phone: "iphone"
-        case .tablet: "ipad"
-        case .accessory: "dot.radiowaves.left.and.right"
-        }
-    }
-}

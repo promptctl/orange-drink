@@ -7,10 +7,13 @@ struct DeviceRow: Equatable, Identifiable {
     let id: DeviceID
     let name: String
     let kind: DeviceKind
+    /// nil when the device's levels are unknown this read.
+    let level: BatteryLevel?
+
     /// "37%", "~50%" when the level is only approximate, or "–" when it is unknown.
-    let percent: String
-    let fraction: Double
-    let tone: Tone
+    var percent: String { level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–" }
+    var fraction: Double { Double(level?.percent ?? 0) / 100 }
+    var tone: Tone { level?.percent ?? 0 >= DeviceRanking.nearlyFull ? .nearlyFull : .normal }
 }
 
 /// [LAW:one-source-of-truth] The one ranking of the live device list: every device that reports a
@@ -34,10 +37,7 @@ enum DeviceRanking {
             }
             .sorted { ($0.1?.percent ?? .max, $0.0.name, $0.0.id.address) < ($1.1?.percent ?? .max, $1.0.name, $1.0.id.address) }
             .map { device, level in
-                DeviceRow(id: device.id, name: device.name, kind: device.kind,
-                          percent: level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–",
-                          fraction: Double(level?.percent ?? 0) / 100,
-                          tone: level?.percent ?? 0 >= nearlyFull ? .nearlyFull : .normal)
+                DeviceRow(id: device.id, name: device.name, kind: device.kind, level: level)
             }
     }
 }

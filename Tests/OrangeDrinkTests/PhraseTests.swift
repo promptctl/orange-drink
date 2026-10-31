@@ -125,7 +125,7 @@ import Testing
         phrases += ["Close", "Plugged In", "On Battery", "Show Glow"]
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
         phrases += [true, false].flatMap { on in
-            let entry = DetectedDevices.Entry(row: DeviceRow(id: DeviceID(address: "d"), name: "D", kind: .accessory, percent: "50%", fraction: 0.5, tone: .normal), isHidden: on, isAlerting: on, isPinned: on)
+            let entry = DetectedDevices.Entry(row: DeviceRow(id: DeviceID(address: "d"), name: "D", kind: .accessory, level: BatteryLevel(percent: 50, approximate: false)), isHidden: on, isAlerting: on, isPinned: on)
             return [entry.alertingLabel, entry.pinnedLabel, entry.hiddenLabel]
         }
         phrases += ["Move \("D") up, toward the left of the menu bar", "Move \("D") down, toward the right of the menu bar"]

@@ -3,29 +3,6 @@ import Foundation
 /// A paired Bluetooth device, identified by its address: the one thing a rename cannot change.
 struct DeviceID: Hashable, Codable, Sendable { let address: String }
 
-enum DeviceKind: Equatable, Sendable {
-    case phone, tablet
-    /// Audio and every other wireless accessory.
-    case accessory
-
-    /// [LAW:parse-dont-validate] The one place a device's kind is decided. The Bluetooth class
-    /// says "phone" for classic pairings only; a BLE-only pairing reads class 0 (spike
-    /// orange-devices-bue.355), so the name is the only thing left to tell an iPad from an iPhone.
-    static func classify(majorClass: UInt32, name: String) -> DeviceKind {
-        if name.contains(/\biPad\b/.ignoresCase()) { return .tablet }
-        if majorClass == Self.phoneMajorClass || name.contains(/\biPhone\b/.ignoresCase()) { return .phone }
-        return .accessory
-    }
-
-    private static let phoneMajorClass: UInt32 = 0x02
-}
-
-struct BatteryLevel: Equatable, Sendable {
-    let percent: Int
-    /// Shown as "~50%": the source only knows the level roughly.
-    let approximate: Bool
-}
-
 /// [LAW:types-are-the-program] What a device reports, and no more: a device with one battery, one
 /// with earbuds and a case (each part may be missing, e.g. a bud out of its case), none at all, or
 /// not known this read. An unreported level is absent; 0% is a reading, a drained battery.
