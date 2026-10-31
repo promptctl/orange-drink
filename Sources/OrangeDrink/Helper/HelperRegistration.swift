@@ -198,7 +198,7 @@ struct HelperRegistration: Sendable {
             let refusal = effects.register()
             let status = effects.status()
             let elapsed = start.duration(to: effects.now())
-            guard refusal != nil, status == .notRegistered || status == .notFound, elapsed < window else {
+            guard refusal != nil, status.hasNoRecord, elapsed < window else {
                 return Outcome(refusal: refusal.map(Self.describe), status: status.name, attempts: attempts, elapsed: elapsed)
             }
             effects.pause(Self.attemptGap)
@@ -250,6 +250,9 @@ extension HelperRegistration.Clearing {
 }
 
 extension SMAppService.Status {
+    /// [LAW:one-source-of-truth] Background task management holds no record, so launchd has no job for the helper.
+    var hasNoRecord: Bool { self == .notRegistered || self == .notFound }
+
     var name: String {
         switch self {
         case .notRegistered: "notRegistered"

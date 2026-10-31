@@ -24,10 +24,10 @@ struct HelperUseFailure: Error, Equatable, CustomStringConvertible {
 
     var cause: Cause {
         switch (call, status) {
-        case (_, .requiresApproval): .needsApproval
         // It answered, so whatever the status says now, it is there.
         case (.failed, _), (.unsupported, _): .other
-        case (_, .notRegistered), (_, .notFound): .notRegistered
+        case (_, .requiresApproval): .needsApproval
+        case (_, let status) where status.hasNoRecord: .notRegistered
         case (.noReply, .enabled): .notAnswering
         default: .other
         }

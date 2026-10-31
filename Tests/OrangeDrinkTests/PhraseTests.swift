@@ -74,7 +74,7 @@ import Testing
         phrases += [ChargeCard.Status.charging, .onBattery, .notCharging, .charged].map(\.title)
         phrases += SettingsScreen.allCases.map(\.comingSoon)
         phrases += PanelAction.allCases.map { $0.title(appName: "App") }
-        let helperFailures = [HelperUseFailure(call: .failed("x"), status: .requiresApproval), HelperUseFailure(call: .failed("x"), status: .enabled),
+        let helperFailures = [HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .requiresApproval), HelperUseFailure(call: .failed("x"), status: .enabled),
                               HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .enabled)]
         phrases += helperFailures.map { LowPowerMode.explanation(of: $0, appName: "App") } + [HelperFailureLine.openLoginItemsTitle]
         phrases += helperFailures.map { ChargingScreen.explanation(of: $0, appName: "App") }

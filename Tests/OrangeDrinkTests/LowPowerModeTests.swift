@@ -313,7 +313,8 @@ import Testing
     @Test(arguments: [
         (noReply, SMAppService.Status.requiresApproval, HelperUseFailure.Cause.needsApproval),
         (connection, .requiresApproval, .needsApproval),
-        (HelperCallError.failed("x"), .requiresApproval, .needsApproval),
+        (HelperCallError.failed("x"), .requiresApproval, .other),
+        (HelperCallError.unsupported("x"), .requiresApproval, .other),
         (connection, .notRegistered, .notRegistered),
         (connection, .notFound, .notRegistered),
         (noReply, .notRegistered, .notRegistered),
