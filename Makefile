@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release test hardware-check-test release-test app-energy-check cpu-check ax-check helper-check
+.PHONY: generate build release test hardware-check-test release-test app-energy-check cpu-check ax-check helper-check release-helper-check
 
 generate:
 	xcodegen generate --use-cache
@@ -44,7 +44,7 @@ release-test:
 # [LAW:verifiable-goals] A check is here only for what a real device or macOS service replies, and it observes every fact
 # it asserts or records itself; a person only moves a cable or gives an approval macOS keeps for the user. Everything
 # else is tested in `make test`. docs/testing.md says which layer tests what.
-HARDWARE_CHECKS := unplug-check iphone-check devices-check position-check
+HARDWARE_CHECKS := unplug-check iphone-check devices-check position-check helper-repair-check
 .PHONY: $(HARDWARE_CHECKS) hardware-status
 
 $(HARDWARE_CHECKS): generate
@@ -92,6 +92,19 @@ position-check.covers := Sources/OrangeDrink/MenuBar/PinnedItems.swift Sources/O
 # the app and refuses other code, including a copy re-signed with the app's identifier. Same TEST_RUNNER_ shape.
 helper-check: export TEST_RUNNER_HELPER_CHECK = 1
 helper-check: test
+
+# The helper's repair on a real Mac, approved as above: wedges this build's job by re-signing its helper for a moment,
+# then holds the app's own reconcile to a helper that answers as root, through background task management's refusal of
+# a register straight after an unregister. Alone, because it changes the helper file HelperBuildTests reads.
+helper-repair-check: export TEST_RUNNER_HELPER_REPAIR_CHECK = 1
+helper-repair-check.test := HelperRepairLive/aJobLaunchdWillNotRunIsRepaired()
+helper-repair-check.covers := Sources/OrangeDrink/Helper Sources/HelperInterface Sources/OrangeDrinkHelper project.yml \
+  Tests/OrangeDrinkTests/HelperLive.swift Tests/OrangeDrinkTests/BatteryLog.swift
+
+# The signed Release build's helper on a real Mac, approved as above: answers a charge-limit call at launch, and again
+# at the launch after a crash, and leaves no job once the app quits.
+release-helper-check: release
+	swift scripts/release-helper-check.swift "$(RELEASE_APP)"
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

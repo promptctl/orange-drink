@@ -257,12 +257,13 @@ enum ChargeHoldEvent: Equatable {
         }
     }
 
-    /// Where a failed ask leaves the hold. A Mac that cannot pause charging stops asking. A helper launchd has no job
-    /// for (not allowed yet, or not registered) is running nothing that could hold a pause, so charging is as the
-    /// system left it. Any other failure leaves CHTE unknown, so the next input asks again.
+    /// Where a failed ask leaves the hold. A Mac that cannot pause charging stops asking. A helper not yet allowed has
+    /// never run here, so charging is as the system left it. Any other failure leaves CHTE unknown, so the next input
+    /// asks again: only a helper that runs ends a pause one that died left behind, and a helper the registration has
+    /// to register again starts at that ask.
     static func settled(after failure: HelperUseFailure) -> State {
         if case .unsupported = failure.call { return .unavailable(failure) }
-        return failure.status == .enabled ? .unknown(failure) : .allowed(failure)
+        return failure.cause == .needsApproval ? .allowed(failure) : .unknown(failure)
     }
 
     private func lost(_ ended: Lease) {
@@ -280,7 +281,7 @@ extension ChargeHold where Lease == ChargeLease {
             pause: { lost throws(HelperUseFailure) in try helper.pauseCharging(lost: lost) },
             release: { lease throws(HelperUseFailure) in try helper.release(lease) },
             resume: { () throws(HelperUseFailure) in try helper.resumeCharging() },
-            registered: { HelperRegistration.launching.wait() }))
+            registered: { HelperRegistration.app.waitForSteps() }))
     }
 }
 

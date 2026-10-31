@@ -35,7 +35,11 @@ import ServiceManagement
     /// [LAW:one-source-of-truth] What the row says under the switch about a failure, as the panel shows it and the
     /// catalog test reads it: how to fix one the user can fix, what went wrong otherwise.
     static func explanation(of failure: HelperUseFailure, appName: String) -> Phrase {
-        failure.needsApproval ? "Allow \(appName) in the background to change Low Power Mode." : "Couldn't change Low Power Mode: \(failure.call.description)"
+        switch failure.cause {
+        case .needsApproval: "Allow \(appName) in the background to change Low Power Mode."
+        case .notRegistered, .notAnswering: "\(appName)'s helper isn't answering, so Low Power Mode didn't change."
+        case .other: "Couldn't change Low Power Mode: \(failure.call.description)"
+        }
     }
 
     private(set) var isOn: Bool

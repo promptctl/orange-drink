@@ -62,18 +62,22 @@ struct HelperBuildTests {
     }
 
     @Test func recordLinesSayWhatHappened() {
+        typealias Registration = HelperRegistration
         let refusal = "SMAppServiceErrorDomain 1 Operation not permitted"
-        #expect(HelperRegistration.Event.launched(.unregistered(error: nil), .registered(status: "enabled")).line
-                == "helper registration: cleared ok; registered; status enabled")
-        #expect(HelperRegistration.Event.launched(.unregistered(error: refusal), .refused(error: refusal, status: "requiresApproval")).line
-                == "helper registration: cleared \(refusal); refused (\(refusal)); status requiresApproval")
-        #expect(HelperRegistration.Event.launched(.heldBy(pids: [41, 42]), .registered(status: "enabled")).line
-                == "helper registration: kept for pid 41, 42; registered; status enabled")
-        #expect(HelperRegistration.Event.exited(.unregistered(error: nil), status: "notRegistered").line
+        let registered = Registration.Outcome(refusal: nil, status: "enabled", attempts: 3, elapsed: .milliseconds(1042))
+        let refused = Registration.Outcome(refusal: refusal, status: "requiresApproval", attempts: 1, elapsed: .milliseconds(9))
+        #expect(Registration.Event.launched(registered).line == "helper registration: registered; status enabled; attempt 3 after 1042 ms")
+        #expect(Registration.Event.launched(refused).line == "helper registration: refused (\(refusal)); status requiresApproval; attempt 1 after 9 ms")
+        #expect(Registration.Event.reregistered(registered).line == "helper registration, a call found no job: registered; status enabled; attempt 3 after 1042 ms")
+        #expect(Registration.Event.leftAlone(handshake: nil).line == "helper repair: left the job alone; the helper answered")
+        #expect(Registration.Event.leftAlone(handshake: "the helper failed: x").line == "helper repair: left the job alone; handshake the helper failed: x")
+        #expect(Registration.Event.repaired(.unregistered(error: nil), registered).line == "helper repair: cleared ok; registered; status enabled; attempt 3 after 1042 ms")
+        #expect(Registration.Event.repaired(.heldBy(pids: [41, 42]), registered).line == "helper repair: kept for pid 41, 42; registered; status enabled; attempt 3 after 1042 ms")
+        #expect(Registration.Event.exited(.unregistered(error: nil), status: "notRegistered").line
                 == "helper at exit: cleared ok; status notRegistered")
-        #expect(HelperRegistration.Event.exited(.heldBy(pids: [41]), status: "enabled").line
+        #expect(Registration.Event.exited(.heldBy(pids: [41]), status: "enabled").line
                 == "helper at exit: kept for pid 41; status enabled")
-        #expect(HelperRegistration.Event.exited(.holdersUnread(errno: 5), status: "enabled").line
+        #expect(Registration.Event.exited(.holdersUnread(errno: 5), status: "enabled").line
                 == "helper at exit: kept, process table unreadable (errno 5); status enabled")
     }
 

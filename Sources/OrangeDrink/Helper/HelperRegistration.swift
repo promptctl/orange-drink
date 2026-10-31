@@ -3,15 +3,19 @@ import Foundation
 import OSLog
 import ServiceManagement
 
-/// What the app does with the privileged helper's system record, at launch and at exit.
+/// What the app does with the privileged helper's system record and launchd's job for it, at launch, at exit, and
+/// when a call finds the helper gone.
 ///
 /// [LAW:no-ambient-temporal-coupling] The record belongs to the helper's label (project.yml HELPER_LABEL) and
-/// lives exactly as long as some process runs a copy of the app that embeds that label: a launch takes it
-/// unless another such process already holds it, and an exit releases it unless one still runs. A build's
-/// label is that build's alone; the shipped label is shared by every installed copy, the one in the mounted
-/// image and the one in /Applications alike. So a copy that has exited, been deleted, or been replaced
-/// leaves no record behind, and no process removes the record from under another (orange-admin-helper-b2q.qm0).
-enum HelperRegistration {
+/// lives exactly as long as some process runs a copy of the app that embeds that label: a launch takes it,
+/// and an exit releases it unless one still runs. A build's label is that build's alone; the shipped label
+/// is shared by every installed copy, the one in the mounted image and the one in /Applications alike. So a
+/// copy that has exited, been deleted, or been replaced leaves no record behind, and no process removes the
+/// record from under another (orange-admin-helper-b2q.qm0).
+///
+/// [LAW:single-enforcer] Every step runs on one serial queue, so no two interleave, an ask waits for the steps
+/// ahead of it, and the exit is the last.
+struct HelperRegistration: Sendable {
     /// What happened to a record already there.
     enum Clearing: Equatable {
         /// Unregistered: `nil`, or the error it gave. Nothing to unregister fails with
@@ -23,24 +27,62 @@ enum HelperRegistration {
         case holdersUnread(errno: Int32)
     }
 
-    enum Outcome: Equatable {
-        case registered(status: String)
-        case refused(error: String, status: String)
+    /// What `register` answered, the last time it was asked, and how long that took.
+    struct Outcome: Equatable {
+        /// The last refusal, or nil once it was accepted.
+        let refusal: String?
+        let status: String
+        let attempts: Int
+        let elapsed: Duration
+
+        var text: String {
+            "\(refusal.map { "refused (\($0))" } ?? "registered"); status \(status); attempt \(attempts) after \(Int(elapsed / .milliseconds(1))) ms"
+        }
     }
 
     enum Event: Equatable {
-        case launched(Clearing, Outcome)
+        case launched(Outcome)
+        /// A failed call found no job, so this registers one.
+        case reregistered(Outcome)
+        /// A call got no reply but the job was not repaired: `handshake` is nil once the helper answered, so it is
+        /// slow and not wedged, or the error that was not a missing reply.
+        case leftAlone(handshake: String?)
+        /// Neither a call nor the handshake got a reply, so launchd holds a job it will not run.
+        case repaired(Clearing, Outcome)
         case exited(Clearing, status: String)
 
         /// [LAW:effects-at-boundaries] The log line, a pure function of what SMAppService answered.
         var line: String {
             switch self {
-            case .launched(let clearing, .registered(let status)): "helper registration: \(clearing.text); registered; status \(status)"
-            case .launched(let clearing, .refused(let error, let status)): "helper registration: \(clearing.text); refused (\(error)); status \(status)"
+            case .launched(let outcome): "helper registration: \(outcome.text)"
+            case .reregistered(let outcome): "helper registration, a call found no job: \(outcome.text)"
+            case .leftAlone(nil): "helper repair: left the job alone; the helper answered"
+            case .leftAlone(let handshake?): "helper repair: left the job alone; handshake \(handshake)"
+            case .repaired(let clearing, let outcome): "helper repair: \(clearing.text); \(outcome.text)"
             case .exited(let clearing, let status): "helper at exit: \(clearing.text); status \(status)"
             }
         }
     }
+
+    /// The system calls a step makes, as one seam.
+    struct Effects: Sendable {
+        /// SMAppService's register and unregister: the error each gave, or nil.
+        let register: @Sendable () -> NSError?
+        let unregister: @Sendable () -> NSError?
+        let status: @Sendable () -> SMAppService.Status
+        /// The helper's handshake, which never touches its write queue: the error it ended in, or nil once it answered.
+        let handshake: @Sendable () -> HelperCallError?
+        let holders: @Sendable () throws(ProcessTableUnreadable) -> [Int32]
+        let now: @Sendable () -> ContinuousClock.Instant
+        let pause: @Sendable (Duration) -> Void
+    }
+
+    /// How long `register` is asked again after refusing with no record there. For under about a second after
+    /// `unregister`, background task management refuses it: refused at 487 ms, accepted at 1096 ms and 1.3 s
+    /// (orange-admin-helper-b2q.8ew). This bound decides only how soon the helper is back, since the next failed
+    /// call registers again; the event's attempts are what shows how the refusal behaves in the field.
+    static let refusalWindow = Duration.seconds(3)
+    static let attemptGap = Duration.milliseconds(250)
 
     static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "helper")
 
@@ -50,38 +92,106 @@ enum HelperRegistration {
         do { return try LaunchDaemon(in: .main) } catch { fatalError("no helper launchd plist: \(error)") }
     }()
 
-    /// The launch's steps, which the exit handler waits for.
-    static let launching = DispatchGroup()
+    /// The app's registration, on the plist this build embeds.
+    static let app: HelperRegistration = {
+        let plistName = daemon.plistName, label = daemon.label
+        // Made at each step, since it is not Sendable.
+        let service: @Sendable () -> SMAppService = { SMAppService.daemon(plistName: plistName) }
+        return HelperRegistration(effects: Effects(
+            register: { attempt(service().register) },
+            unregister: { attempt(service().unregister) },
+            status: { service().status },
+            handshake: {
+                do throws(HelperCallError) { _ = try HelperClient(service: label).identity(); return nil } catch { return error }
+            },
+            holders: { () throws(ProcessTableUnreadable) in try otherHolders() },
+            now: { .now },
+            pause: { Thread.sleep(forTimeInterval: $0 / .seconds(1)) }
+        ), record: { event in log.notice("\(event.line, privacy: .public)") })
+    }()
 
-    /// The launch path's one call. It installs the one handler that releases the record at exit, then, off
-    /// the main thread since each step is a round trip to the system's background-task daemons, clears
-    /// (which also repairs a job a crashed copy left wedged) and registers, so this copy's helper is the
-    /// job's program; approval survives both steps. A refusal, such as an approval not yet given, is logged,
-    /// and the app runs without the helper.
+    let effects: Effects
+    let record: @Sendable (Event) -> Void
+    private let queue = DispatchQueue(label: "dev.orangedrink.helper-registration")
+
+    init(effects: Effects, record: @escaping @Sendable (Event) -> Void) {
+        self.effects = effects
+        self.record = record
+    }
+
+    /// The launch path's one call: it installs the one handler that releases the record at exit, then registers,
+    /// off the main thread since each step is a round trip to the system's background-task daemons. A refusal,
+    /// such as an approval not yet given, is logged, and the app runs without the helper.
     static func holdUntilExit() {
-        let plistName = daemon.plistName
-        // A C function pointer captures nothing, so the handler reads the plist name launch already read.
-        atexit {
-            // [LAW:no-ambient-temporal-coupling] An exit soon after launch releases what the launch registered.
-            HelperRegistration.launching.wait()
-            let service = SMAppService.daemon(plistName: HelperRegistration.daemon.plistName)
-            let clearing = HelperRegistration.clear(service)
-            HelperRegistration.log.notice("\(HelperRegistration.Event.exited(clearing, status: service.status.name).line, privacy: .public)")
-        }
-        DispatchQueue.global(qos: .utility).async(group: launching) {
-            let service = SMAppService.daemon(plistName: plistName)
-            let clearing = clear(service)
-            let refusal = attempt(service.register)
-            let status = service.status.name
-            log.notice("\(Event.launched(clearing, refusal.map { .refused(error: describe($0), status: status) } ?? .registered(status: status)).line, privacy: .public)")
+        atexit { HelperRegistration.app.exit() }
+        app.launch()
+    }
+
+    /// Registers, which alone makes this copy's helper the job's program and leaves a job a crash left running. An
+    /// `unregister` first would be refused the `register` after it, and can't reach a job whose record has gone.
+    func launch() {
+        queue.async { record(.launched(register())) }
+    }
+
+    /// Returns once the steps ahead of this call have run, so no ask meets a service not registered yet.
+    func waitForSteps() {
+        queue.sync {}
+    }
+
+    /// The queue's last step: an exit releases what the steps ahead of it registered, and a call the exit cuts short
+    /// has its reconcile never run, so it cannot register again behind the release.
+    func exit() {
+        queue.sync {
+            let clearing = clear()
+            record(.exited(clearing, status: effects.status().name))
+            queue.suspend()
         }
     }
 
-    /// Unregisters the record unless another process holds it.
-    static func clear(_ service: SMAppService) -> Clearing {
+    /// What a failed call asks of the registration. [LAW:no-silent-failure] The call stays failed: nothing is retried
+    /// here, and its caller's next ask finds what this left.
+    func reconcile(after failure: HelperUseFailure) {
+        queue.async {
+            switch failure.cause {
+            case .needsApproval, .other:
+                break
+            case .notRegistered:
+                record(.reregistered(register()))
+            case .notAnswering:
+                // A reply proves launchd runs the job. An unregister would stop that helper, and its pause with it.
+                let handshake = effects.handshake()
+                guard case .noReply = handshake else {
+                    record(.leftAlone(handshake: handshake?.description))
+                    return
+                }
+                let clearing = clear()
+                record(.repaired(clearing, register()))
+            }
+        }
+    }
+
+    /// Asks `register` until it accepts, or it refuses for a reason other than the refusal window, or the window ends.
+    private func register() -> Outcome {
+        let start = effects.now()
+        var attempts = 0
+        while true {
+            attempts += 1
+            let refusal = effects.register()
+            let status = effects.status()
+            let elapsed = start.duration(to: effects.now())
+            guard refusal != nil, status == .notRegistered || status == .notFound, elapsed < Self.refusalWindow else {
+                return Outcome(refusal: refusal.map(Self.describe), status: status.name, attempts: attempts, elapsed: elapsed)
+            }
+            effects.pause(Self.attemptGap)
+        }
+    }
+
+    /// Unregisters the record unless another process holds it. This also ends a job launchd will not run, which
+    /// `register` leaves as it is, so long as there is a record for `unregister` to find.
+    private func clear() -> Clearing {
         do {
-            let holders = try otherHolders()
-            return holders.isEmpty ? .unregistered(error: attempt(service.unregister).map(describe)) : .heldBy(pids: holders)
+            let holders = try effects.holders()
+            return holders.isEmpty ? .unregistered(error: effects.unregister().map(Self.describe)) : .heldBy(pids: holders)
         } catch {
             return .holdersUnread(errno: error.errno)
         }
