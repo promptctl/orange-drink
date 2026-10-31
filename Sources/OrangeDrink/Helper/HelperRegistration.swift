@@ -73,8 +73,8 @@ struct HelperRegistration: Sendable {
 
         /// A job nothing runs, that runs other code, or whose helper ends the connection unanswered is replaced: a helper
         /// that refuses this copy looks like that last one (`HelperCallError.connection`). NSXPCConnectionInvalid, or any
-        /// other failure, is not one a new job answers: it is how a helper with no job yet fails, unapproved for one. This
-        /// copy's own helper keeps its job and any pause it holds, however slow it was.
+        /// other failure, is not one a new job answers: it is how a call fails with no job there, as after a refused
+        /// `register`. This copy's own helper keeps its job and any pause it holds, however slow it was.
         var replacesJob: Bool {
             switch self {
             case .otherCode, .failed(.noReply): true
@@ -97,6 +97,8 @@ struct HelperRegistration: Sendable {
         case launched(Outcome)
         /// A failed call found no job, so this registers one.
         case reregistered(Outcome)
+        /// The record waits for the user's approval, so nothing looked at the job.
+        case awaitingApproval
         /// The handshake found nothing to replace.
         case leftAlone(Handshake)
         /// The handshake called for a new job, and `unregister` was not asked, so the job stays as it was.
@@ -112,6 +114,7 @@ struct HelperRegistration: Sendable {
             switch self {
             case .launched(let outcome): "helper registration: \(outcome.text)"
             case .reregistered(let outcome): "helper registration, a call found no job: \(outcome.text)"
+            case .awaitingApproval: "helper check: left the job alone; the record waits for the user's approval"
             case .leftAlone(let handshake): "helper check: left the job alone; \(handshake.text)"
             case .kept(let clearing, let handshake): "helper check: \(clearing.text); \(handshake.text)"
             case .repaired(let found, let clearing, let outcome, let handshake): "helper repair: \(found.text); \(clearing.text); \(outcome.text); \(handshake.text)"
@@ -233,7 +236,10 @@ struct HelperRegistration: Sendable {
     /// record waiting for the user's approval is theirs to allow, on any route: `unregister` would take it out of Login
     /// Items, and no new job answers before they allow it.
     private func settleJob() {
-        guard effects.status() != .requiresApproval else { return }
+        guard effects.status() != .requiresApproval else {
+            record(.awaitingApproval)
+            return
+        }
         let handshake = effects.handshake()
         guard handshake.replacesJob else {
             record(.leftAlone(handshake))

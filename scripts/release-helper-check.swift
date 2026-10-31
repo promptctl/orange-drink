@@ -195,8 +195,9 @@ func check() throws {
     let replacing = try launch(copy, executable: copyExecutable)
     let replaced = Result { try expectReplaced(pid: replacing) }
     // Either way, ahead of what the check throws: the scratch copy goes with this scope, and its exit unregisters.
-    try end(pid: replacing, signal: SIGTERM, executable: copyExecutable)
+    let ended = Result { try end(pid: replacing, signal: SIGTERM, executable: copyExecutable) }
     try replaced.get()
+    try ended.get()
     try expectNoJob(label: label)
 }
 

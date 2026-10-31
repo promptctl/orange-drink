@@ -175,7 +175,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.launch()
         system.registration.waitForSteps()
         #expect(system.calls == ["register"])
-        #expect(system.events == [.launched(.init(refusal: Self.refusal, status: "requiresApproval", attempts: 1, elapsed: .zero))])
+        #expect(system.events == [.launched(.init(refusal: Self.refusal, status: "requiresApproval", attempts: 1, elapsed: .zero)), .awaitingApproval])
     }
 
     @Test func aCallThatFindsNoJobAndEndsAwaitingApprovalLooksAtNothing() {
@@ -184,6 +184,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.reconcile(after: Self.noJob)
         system.registration.waitForSteps()
         #expect(system.calls == ["register"])
+        #expect(system.events.last == .awaitingApproval)
     }
 
     @Test func theWindowEndsInTheRefusal() {
@@ -199,7 +200,8 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.state.withLock { $0.status = .requiresApproval }
         system.registration.reconcile(after: HelperUseFailure(call: Self.noReply, status: .requiresApproval))
         system.registration.waitForSteps()
-        #expect(system.calls.isEmpty && system.events.isEmpty)
+        #expect(system.calls.isEmpty)
+        #expect(system.events == [.awaitingApproval])
     }
 
     /// An older helper can answer that it cannot do what a newer copy asks, so an answer does not end the look.

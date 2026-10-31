@@ -184,8 +184,3 @@ final class Confined<Value>: @unchecked Sendable {
 
     func sync<Result>(_ body: (Value) -> Result) -> Result { queue.sync { body(value) } }
 }
-
-extension Sequence<UInt8> {
-    /// Bytes as a log line gives them.
-    var hex: String { map { String(format: "%02x", $0) }.joined() }
-}

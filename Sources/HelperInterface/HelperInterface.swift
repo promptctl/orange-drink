@@ -152,6 +152,11 @@ struct LaunchDaemon {
     }
 }
 
+extension Sequence<UInt8> {
+    /// Bytes as a log line gives them.
+    var hex: String { map { String(format: "%02x", $0) }.joined() }
+}
+
 /// A signature's signing information: where the helper's identity and its rule for callers are read from.
 enum SigningInformation {
     static func of(_ code: SecStaticCode, flags: UInt32 = kSecCSSigningInformation) throws(HelperFailure) -> [String: Any] {
@@ -162,7 +167,7 @@ enum SigningInformation {
     }
 
     /// A file's own, such as the helper an app embeds.
-    static func of(file: URL, flags: UInt32 = kSecCSSigningInformation) throws(HelperFailure) -> [String: Any] {
+    static func of(file: URL, flags: UInt32) throws(HelperFailure) -> [String: Any] {
         var code: SecStaticCode?
         let status = SecStaticCodeCreateWithPath(file as CFURL, [], &code)
         guard status == errSecSuccess, let code else { throw HelperFailure("no static code at \(file.path): OSStatus \(status)") }

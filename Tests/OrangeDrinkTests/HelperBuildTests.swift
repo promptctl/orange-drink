@@ -76,6 +76,7 @@ struct HelperBuildTests {
         #expect(Registration.Event.repaired(found: older, .unregistered(error: nil), registered, handshake: older).line == "helper repair: other code answered (cdhash ab01, started from /Old/Helper); cleared ok; registered; status enabled; attempt 3 after 1042 ms; other code answered (cdhash ab01, started from /Old/Helper)")
         #expect(Registration.Event.kept(.heldBy(pids: [41, 42]), older).line == "helper check: kept for pid 41, 42; other code answered (cdhash ab01, started from /Old/Helper)")
         #expect(Registration.Event.leftAlone(.embeddedUnreadable("x")).line == "helper check: left the job alone; embedded helper unreadable: x")
+        #expect(Registration.Event.awaitingApproval.line == "helper check: left the job alone; the record waits for the user's approval")
         #expect(Registration.Event.exited(.unregistered(error: nil), status: "notRegistered").line
                 == "helper at exit: cleared ok; status notRegistered")
         #expect(Registration.Event.exited(.heldBy(pids: [41]), status: "enabled").line

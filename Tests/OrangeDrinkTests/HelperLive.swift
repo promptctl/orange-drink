@@ -256,9 +256,11 @@ struct HelperRepairLive {
         let identity = try client.identity()
         #expect(identity.euid == 0)
         #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath() == helper)
-        #expect(try await log.logged("helper repair: "))
-        // [LAW:verifiable-goals] Cleared, or a running copy with this label kept the job and nothing here ran. A second
-        // attempt or later, or `register` was never refused and the refusal window this exists to cross was not met.
+        // [LAW:verifiable-goals] Cleared, or a running copy with this label kept the job, which only a `helper check:` line says.
+        let repaired = try await log.logged("helper repair: ")
+        let checks = try log.messages().filter { $0.hasPrefix("helper check: ") }
+        #expect(repaired, "\(checks)")
+        // A second attempt or later, or `register` was never refused and the refusal window this exists to cross was not met.
         let repair = try #require(try log.messages().first { $0.hasPrefix("helper repair: ") })
         let match = try #require(repair.firstMatch(of: #/^helper repair: handshake no reply .*; cleared ok; registered; status enabled; attempt (\d+) after \d+ ms; the helper answered$/#), "\(repair)")
         #expect(try #require(Int(match.1)) > 1, "\(repair)")
