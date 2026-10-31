@@ -82,7 +82,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.launch()
         system.registration.waitForSteps()
         #expect(system.calls == Array(repeating: "register", count: 4))
-        #expect(system.events == [.launched(.init(refusal: nil, status: "enabled", attempts: 4, elapsed: .milliseconds(750)))])
+        #expect(system.events == [.launched(.init(refusal: nil, status: "enabled", attempts: 4, elapsed: .seconds(3)))])
     }
 
     @Test func aRefusalForApprovalEndsAtOnce() {
@@ -98,7 +98,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.state.withLock { $0.refusals = .max }
         system.registration.launch()
         system.registration.waitForSteps()
-        #expect(system.events == [.launched(.init(refusal: Self.refusal, status: "notRegistered", attempts: 13, elapsed: .seconds(3)))])
+        #expect(system.events == [.launched(.init(refusal: Self.refusal, status: "notRegistered", attempts: 4, elapsed: .seconds(3)))])
     }
 
     @Test(arguments: [HelperUseFailure(call: noReply, status: .requiresApproval), HelperUseFailure(call: .failed("x"), status: .enabled)])
@@ -140,7 +140,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
         #expect(system.calls == ["handshake", "holders", "unregister", "register", "register", "register"])
-        #expect(system.events == [.repaired(.unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 3, elapsed: .milliseconds(500)))])
+        #expect(system.events == [.repaired(.unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 3, elapsed: .seconds(2)))])
     }
 
     @Test func aJobAnotherCopyHoldsIsNotCleared() {

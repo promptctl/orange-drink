@@ -77,12 +77,13 @@ struct HelperRegistration: Sendable {
         let pause: @Sendable (Duration) -> Void
     }
 
-    /// How long `register` is asked again after refusing with no record there. For under about a second after
-    /// `unregister`, background task management refuses it: refused at 487 ms, accepted at 1096 ms and 1.3 s
-    /// (orange-admin-helper-b2q.8ew). This bound decides only how soon the helper is back, since the next failed
-    /// call registers again; the event's attempts are what shows how the refusal behaves in the field.
+    /// How long `register` is asked again after refusing with no record there. For a moment after `unregister`,
+    /// background task management refuses it, and a refused attempt seems to start that moment again: 12 attempts
+    /// 280 ms apart were all refused, while one 609 ms after the last was accepted (orange-admin-helper-b2q.8ew).
+    /// So the gap is what lets it through. The cause is unknown, so this bound decides only how soon the helper is
+    /// back: the next failed call registers again, and the event's attempts show how the refusal behaves in the field.
     static let refusalWindow = Duration.seconds(3)
-    static let attemptGap = Duration.milliseconds(250)
+    static let attemptGap = Duration.seconds(1)
 
     static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "helper")
 
