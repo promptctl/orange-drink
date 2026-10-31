@@ -35,7 +35,7 @@ A person does only what no process can: move a cable or an adapter when the chec
 
 ## Tests that show UI
 
-A test that puts anything on the screen never runs on a Mac someone is using. It appears in front of them, they close it, and its failure then says nothing about the app. A test that has to drive the real UI is an XCUITest, the framework Apple built for it, and it runs in a [Tart](https://tart.run) VM with no window, as `make update-check` does. Its clicks land where a person's would, so it also finds what a press through the accessibility API misses, such as a button another window covers. `make test`'s `ax-check` and `make position-check` still break this rule; orange-tests-xu4.mzr moves them.
+A test that puts anything on the screen never runs on a Mac someone is using. It appears in front of them, they close it, and its failure then says nothing about the app. A test that has to drive the real UI is an XCUITest, the framework Apple built for it, and it runs in a [Tart](https://tart.run) VM with no window, as `make update-check` does. Its clicks land where a person's would, so it also finds what a press through the accessibility API misses, such as a button another window covers. `make test`'s `ax-check` and `make position-check` still break this rule, and so does its test host, which is the app and puts a status item in the menu bar; orange-tests-xu4.mzr moves them. Until then, `make vm-test` runs the hosted tests in a VM.
 
 ## Writing a ticket's "Done when"
 

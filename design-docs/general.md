@@ -35,6 +35,8 @@ One card with one row:
 - Title "Launch at Login", description "Start {App} automatically when you log in".
 - Switch, off.
 
+macOS holds a login item until the app is allowed in the background, so a press on a new install leaves the switch off, and the row says so with a link to Login Items & Extensions. Coming back once it is allowed shows the switch on.
+
 ## System Notifications
 
 Section icon: red-orange square with a dot on its top-right corner (a notification badge).

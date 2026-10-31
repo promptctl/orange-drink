@@ -84,16 +84,13 @@ import ServiceManagement
 
     /// Asks for the other of the state the switch shows, unless an ask is still unanswered. The switch is what the
     /// user is looking at when they press, even when the system has not yet posted the last write's change. The
-    /// call blocks until the helper replies, so it runs on a dispatch thread, never one of the concurrency pool's;
-    /// the returned task ends at the reply.
+    /// returned task ends at the helper's reply.
     @discardableResult func toggle() -> Task<Void, Never> {
         guard !isAsking else { return Task {} }
         let wanted = !isOn, write = write
         isAsking = true
         return Task {
-            let outcome = await withCheckedContinuation { asked in
-                DispatchQueue.global().async { asked.resume(returning: Result { () throws(HelperUseFailure) in try write(wanted) }) }
-            }
+            let outcome = await blocking { Result { () throws(HelperUseFailure) in try write(wanted) } }
             let failure = outcome.failure
             // [LAW:no-silent-failure] The panel shows why under the switch, which stays where the system is.
             self.failure = failure

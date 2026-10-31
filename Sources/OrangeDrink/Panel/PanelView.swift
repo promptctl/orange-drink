@@ -188,8 +188,8 @@ struct ActionsCard: View {
                 Toggle("Low Power Mode", isOn: .constant(lowPowerMode.isOn)).labelsHidden().toggleStyle(.switch).allowsHitTesting(false)
             }
             if let failure = lowPowerMode.failure {
-                HelperFailureLine(failure: failure, explanation: LowPowerMode.explanation(of: failure, appName: appName),
-                                  openLoginItems: { lowPowerMode.openLoginItems() })
+                LoginItemFailureLine(explanation: LowPowerMode.explanation(of: failure, appName: appName),
+                                     openLoginItems: failure.cause == .needsApproval ? { lowPowerMode.openLoginItems() } : nil)
                     .padding(.leading, 30).padding(.bottom, 6)
             }
         case .checkForUpdates:

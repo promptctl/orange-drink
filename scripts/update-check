@@ -17,61 +17,22 @@ newer=$(realpath "${2:?$usage}")
 xctestrun=$(realpath "${3:?$usage}")
 cd "$(dirname "$0")/.."
 
-image=orange-drink-xcode
-vm=orange-drink-update-check-$$
-scratch=$(realpath "$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-update-check.XXXXXX")")
+. scripts/vm-check-lib
+
 key=$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-update-key.XXXXXX")
-cloned=
-# The VM's view of $scratch, and of itself: it is new each run, so its port and paths are fixed.
-shared='/Volumes/My Shared Files/run'
+vm_cleanup=("$key")
+# The VM's port and paths are fixed: it is new each run.
 url=http://127.0.0.1:8000/
-app=/Users/admin/Applications/OrangeDrink.app
-tests=/tmp/tests
 served=/tmp/served
-
-# Stops and deletes the VM, with everything that happened in it, and takes the key file with the scratch directories.
-# Every step runs whatever the last one did, and the run keeps its own status, so errexit ends here.
-finish() {
-  status=$?
-  set +e
-  if [ -n "$cloned" ]; then
-    if [ "$status" -ne 0 ]; then
-      guest cat /tmp/server.log >&2
-      guest /usr/bin/log show --last 15m --style compact --predicate 'category == "updates"' >&2
-    fi
-    tart stop "$vm" >&2
-    tart delete "$vm" >&2
-  fi
-  rm -rf "$scratch" "$key"
-  exit $status
-}
-trap finish EXIT
-fail() { echo "update-check: $*" >&2; exit 1; }
-guest() { tart exec "$vm" "$@"; }
 installed_version() { guest /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"; }
-pids() { guest pgrep -f "^$app/Contents/MacOS/OrangeDrink( |\$)" || true; }
-# [LAW:no-ambient-temporal-coupling] Each wait is on the fact it needs, polled to a deadline.
-wait_for() {
-  local what=$1 tries=$2; shift 2
-  for _ in $(seq 1 "$tries"); do
-    if "$@" >/dev/null 2>&1; then return 0; fi
-    sleep 1
-  done
-  fail "$what"
+on_failure() {
+  guest cat /tmp/server.log >&2
+  guest /usr/bin/log show --last 15m --style compact --predicate 'category == "updates"' >&2
 }
-stopped() { [ -z "$(pids)" ]; }
-uitest() {
-  guest env TEST_RUNNER_UPDATE_CHECK_APP="$app" TEST_RUNNER_UPDATE_CHECK_FEED="${url}appcast.xml" \
-    TEST_RUNNER_UPDATE_CHECK_VERSION="$newer_version" \
-    xcodebuild test-without-building -xctestrun "$tests/$(basename "$xctestrun")" -destination 'platform=macOS,arch=arm64' \
-    -resultBundlePath "/tmp/$1.xcresult" "-only-testing:OrangeDrinkUITests/UpdateInPlaceUITests/$1" >&2 ||
-    fail "$1 failed in the VM"
-}
-
-tart get "$image" >/dev/null || fail "no VM named $image: tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 $image"
 
 newer_version=$(basename "$newer" .dmg)
 newer_version=${newer_version#OrangeDrink-}
+uitest_env=(TEST_RUNNER_UPDATE_CHECK_FEED="${url}appcast.xml" TEST_RUNNER_UPDATE_CHECK_VERSION="$newer_version")
 
 # Both feeds are signed, and the key removed, before the VM can see anything. The feeds are made in directories of their
 # own, because scripts/appcast writes the feed beside its image.
@@ -84,35 +45,24 @@ scripts/appcast "$scratch/older/$(basename "$older")" "$url" <"$key/ed25519" >/d
 scripts/appcast "$scratch/newer/$(basename "$newer")" "$url" <"$key/ed25519" >/dev/null
 rm -rf "$key"
 
-# One file, because the VM's shared directory does not carry a framework's symbolic links.
-tar -C "$(dirname "$xctestrun")" -cf "$scratch/tests.tar" .
-
-tart clone "$image" "$vm"
-cloned=yes
-tart run --no-graphics --dir="run:$scratch:ro" "$vm" >&2 &
-wait_for "the VM did not come up" 120 guest true
-guest sudo -n automationmodetool enable-automationmode-without-authentication >&2
-guest sh -c "mkdir $tests && tar -C $tests -xf '$shared/tests.tar'"
+vm_start "$xctestrun"
 # Served from the VM's own disk, because it can go on reading a shared file as it was: publishing a feed is copying it here.
 guest sh -c "mkdir $served && cp '$shared/older/$(basename "$older")' '$shared/newer/$(basename "$newer")' '$shared/older/appcast.xml' $served/"
 guest sh -c "nohup /usr/bin/python3 -m http.server 8000 --bind 127.0.0.1 --directory $served >/tmp/server.log 2>&1 &"
 wait_for "the feed is not being served" 30 guest curl -fsS -o /dev/null "${url}appcast.xml"
 
-guest sh -c "mkdir -p '$(dirname "$app")' /tmp/image && hdiutil attach '$served/$(basename "$older")' -nobrowse -readonly -mountpoint /tmp/image >/dev/null && ditto /tmp/image/OrangeDrink.app '$app' && hdiutil detach /tmp/image >/dev/null"
+install_dmg "$served/$(basename "$older")"
 older_version=$(installed_version)
 echo "update-check: installed $older_version in $vm" >&2
 
-guest open "$app"
-uitest testBluetoothIsAllowed
-guest pkill -x OrangeDrink
-wait_for "the app did not quit after its first launch" 30 stopped
+first_launch
 
-uitest testNothingNewerIsReported
+uitest UpdateInPlaceUITests/testNothingNewerIsReported
 [ "$(installed_version)" = "$older_version" ] || fail "the installed version moved to $(installed_version) with nothing newer on the feed"
 echo "update-check: nothing newer: Sparkle said up to date, $older_version still installed" >&2
 
 guest cp "$shared/newer/appcast.xml" "$served/appcast.xml"
-uitest testANewerBuildIsInstalled
+uitest UpdateInPlaceUITests/testANewerBuildIsInstalled
 [ "$(installed_version)" = "$newer_version" ] || fail "the installed version is $(installed_version), not the newer build's $newer_version"
 [ -n "$(pids)" ] || fail "no process runs from $app after the update"
 echo "update-check: updated: $older_version to $newer_version at the same path, running as pid $(pids)" >&2
