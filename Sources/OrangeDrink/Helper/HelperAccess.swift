@@ -10,10 +10,30 @@ struct HelperUseFailure: Error, Equatable, CustomStringConvertible {
     let call: HelperCallError
     let status: SMAppService.Status
 
-    /// Whether the user can fix it by allowing the helper under Login Items.
-    var needsApproval: Bool { status == .requiresApproval }
+    /// [LAW:one-source-of-truth] What the failure comes down to: what the screen says, how the hold settles, and what
+    /// the registration does about it all read this.
+    enum Cause: Equatable {
+        /// The user can fix it by allowing the helper under Login Items.
+        case needsApproval
+        /// Background task management holds no record, so launchd has no job for the helper.
+        case notRegistered
+        /// The record says enabled, and the helper gave no reply: launchd may hold a job it will not run.
+        case notAnswering
+        case other
+    }
 
-    var description: String { "\(call.description) (helper status \(status.name))" }
+    var cause: Cause {
+        switch (call, status) {
+        // It answered, so whatever the status says now, it is there.
+        case (.failed, _), (.unsupported, _): .other
+        case (_, .requiresApproval): .needsApproval
+        case (_, let status) where status.hasNoRecord: .notRegistered
+        case (.noReply, .enabled): .notAnswering
+        default: .other
+        }
+    }
+
+    var description: String { "\(call.description) (cause \(cause), helper status \(status.name))" }
 }
 
 /// [LAW:single-enforcer] The app's one way to the privileged helper: every helper-backed control calls through
@@ -23,35 +43,52 @@ struct HelperAccess {
     /// The daemon's plist, which names its SMAppService. The service is made at each read, since it is not
     /// Sendable and a control's write runs off the main actor.
     private let plistName: String
+    private let registration: HelperRegistration
 
-    init(daemon: LaunchDaemon) { self.init(service: daemon.label, plistName: daemon.plistName) }
+    init(daemon: LaunchDaemon) {
+        self.init(service: daemon.label, plistName: daemon.plistName, registration: .app)
+    }
 
-    init(service: String, plistName: String) {
+    init(service: String, plistName: String, registration: HelperRegistration) {
         client = HelperClient(service: service)
         self.plistName = plistName
+        self.registration = registration
     }
 
     func setLowPowerMode(_ on: Bool) throws(HelperUseFailure) {
-        try Self.explained({ () throws(HelperCallError) in try client.setLowPowerMode(on) }, status: status)
+        try explained { () throws(HelperCallError) in try client.setLowPowerMode(on) }
     }
 
     func pauseCharging(lost: @escaping @Sendable (ChargeLease) -> Void) throws(HelperUseFailure) -> ChargeLease {
-        try Self.explained({ () throws(HelperCallError) in try client.pauseCharging(lost: lost) }, status: status)
+        try explained { () throws(HelperCallError) in try client.pauseCharging(lost: lost) }
     }
 
     func release(_ lease: ChargeLease) throws(HelperUseFailure) {
-        try Self.explained({ () throws(HelperCallError) in try lease.release() }, status: status)
+        try explained { () throws(HelperCallError) in try lease.release() }
     }
 
     func resumeCharging() throws(HelperUseFailure) {
-        try Self.explained({ () throws(HelperCallError) in try client.resumeCharging() }, status: status)
+        try explained { () throws(HelperCallError) in try client.resumeCharging() }
     }
 
     /// [LAW:one-source-of-truth] Read fresh: the user approves or revokes in System Settings at any time.
     func status() -> SMAppService.Status { SMAppService.daemon(plistName: plistName).status }
 
+    /// [LAW:single-enforcer] Every call comes after the registration's steps ahead of it, so none meets a service not
+    /// registered yet, or a job half repaired.
+    private func explained<Value>(_ call: () throws(HelperCallError) -> Value) throws(HelperUseFailure) -> Value {
+        registration.waitForSteps()
+        return try Self.explained(call, status: status, reconcile: registration.reconcile(after:))
+    }
+
     /// [LAW:effects-at-boundaries] Runs `call`; only a failed call reads `status`, once, and the failure carries both.
-    static func explained<Value>(_ call: () throws(HelperCallError) -> Value, status: () -> SMAppService.Status) throws(HelperUseFailure) -> Value {
-        do { return try call() } catch { throw HelperUseFailure(call: error, status: status()) }
+    /// `reconcile` hears the failure before the caller does, and returns at once.
+    static func explained<Value>(_ call: () throws(HelperCallError) -> Value, status: () -> SMAppService.Status,
+                                 reconcile: (HelperUseFailure) -> Void) throws(HelperUseFailure) -> Value {
+        do { return try call() } catch {
+            let failure = HelperUseFailure(call: error, status: status())
+            reconcile(failure)
+            throw failure
+        }
     }
 }

@@ -84,7 +84,18 @@ struct HelperLive {
             if lines.contains(where: { $0.hasPrefix("helper registration: ") }) { break }
             Thread.sleep(forTimeInterval: 0.2)
         }
-        #expect(lines.contains { $0.hasPrefix("helper registration: ") && $0.hasSuffix("; registered; status enabled") }, "\(lines)")
+        #expect(lines.contains { $0.hasPrefix("helper registration: registered; status enabled;") }, "\(lines)")
+    }
+
+    /// What a launch does after a crash: the record and job are already there. An `unregister` first would have the
+    /// `register` after it refused (orange-admin-helper-b2q.8ew).
+    @Test func theLaunchsStepOverARunningJobLeavesItAnswering() throws {
+        let status = SMAppService.daemon(plistName: "\(label).plist").status
+        try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
+        try expectAppAccepted()
+        HelperRegistration.app.launch()
+        HelperRegistration.app.waitForSteps()
+        try expectAppAccepted()
     }
 
     /// Low Power Mode through the helper, read back from pmset on the source the Mac is on, from the system as the
@@ -177,5 +188,82 @@ struct HelperLive {
         let certificates = try #require(try SigningInformation.ofSelf()[kSecCodeInfoCertificates as String] as? [SecCertificate])
         let leaf = try #require(certificates.first)
         return try #require(SecCertificateCopySubjectSummary(leaf) as String?)
+    }
+}
+
+/// A job launchd will not run, repaired by what the app does when a call finds it, on the real background task
+/// management and launchd. Run alone by `make helper-repair-check`: it re-signs this build's helper for a moment, which
+/// HelperBuildTests, reading the same file, could otherwise meet.
+///
+/// [LAW:verifiable-goals] launchd refuses a helper re-signed ad hoc, and goes on refusing once the good helper is back
+/// (orange-admin-helper-b2q.qm0, cmt-4bc4dac4 §5). The status still reads enabled, so only the reply tells.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["HELPER_REPAIR_CHECK"] != nil, "run by make helper-repair-check once OrangeDrink is approved"))
+struct HelperRepairLive {
+    @Test(.timeLimit(.minutes(2))) func aJobLaunchdWillNotRunIsRepaired() async throws {
+        let daemon = try LaunchDaemon(in: .main)
+        let helper = Bundle.main.bundleURL.appending(path: daemon.program).resolvingSymlinksInPath()
+        let client = HelperClient(service: daemon.label)
+        let status = SMAppService.daemon(plistName: daemon.plistName).status
+        try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
+        try #require(Self.reply(client) == nil, "the helper does not answer before the check starts")
+
+        let log = try BatteryLog(category: "helper")
+        let scratch = FileManager.default.temporaryDirectory.appending(path: "helper-repair-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        let good = scratch.appending(path: helper.lastPathComponent)
+        try FileManager.default.copyItem(at: helper, to: good)
+        // A new file in its place, so the kernel holds no verdict on the re-signed one.
+        func restore() throws {
+            let incoming = helper.appendingPathExtension("good")
+            try FileManager.default.copyItem(at: good, to: incoming)
+            guard rename(incoming.path, helper.path) == 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
+        }
+        var restored = false
+        defer {
+            do {
+                if !restored { try restore() }
+                try FileManager.default.removeItem(at: scratch)
+            } catch { Issue.record("the good helper was not put back: \(error)") }
+        }
+
+        let signed = try ChildProcess.run("/usr/bin/codesign", ["-f", "-s", "-", helper.path])
+        try #require(signed.status == 0, "codesign: \(signed.transcript)")
+        // The running helper ends on its file changing, so the replies stop once it has gone.
+        let end = ContinuousClock.now + .seconds(30)
+        var refusal = Self.reply(client)
+        // A call in flight as the helper ends fails as a connection error, which is not launchd refusing it yet.
+        while ContinuousClock.now < end {
+            if case .noReply = refusal { break }
+            refusal = Self.reply(client)
+        }
+        guard case .noReply = refusal else {
+            Issue.record("launchd ran or refused the re-signed helper unexpectedly: \(String(describing: refusal))")
+            return
+        }
+        // A second refused spawn: after only one, launchd simply ran the good helper once it was back.
+        try #require(Self.reply(client) != nil, "launchd ran the re-signed helper")
+        try restore()
+        restored = true
+
+        // The good helper is back and launchd still will not run it: this is the wedge, with the status as it was.
+        #expect(SMAppService.daemon(plistName: daemon.plistName).status == .enabled)
+        var failure: HelperUseFailure?
+        do throws(HelperUseFailure) { try HelperAccess(daemon: daemon).resumeCharging() } catch { failure = error }
+        try #require(failure?.cause == .notAnswering, "the call ended in \(String(describing: failure))")
+
+        HelperRegistration.app.waitForSteps()
+        let identity = try client.identity()
+        #expect(identity.euid == 0)
+        #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath() == helper)
+        #expect(try await log.logged("helper repair: "))
+        // [LAW:verifiable-goals] Cleared, or a running copy with this label kept the job and nothing here ran. A second
+        // attempt or later, or `register` was never refused and the refusal window this exists to cross was not met.
+        let repair = try #require(try log.messages().first { $0.hasPrefix("helper repair: ") })
+        let match = try #require(repair.firstMatch(of: #/^helper repair: cleared ok; registered; status enabled; attempt (\d+) after \d+ ms; the helper answered$/#), "\(repair)")
+        #expect(try #require(Int(match.1)) > 1, "\(repair)")
+    }
+
+    private static func reply(_ client: HelperClient) -> HelperCallError? {
+        do throws(HelperCallError) { _ = try client.identity(); return nil } catch { return error }
     }
 }

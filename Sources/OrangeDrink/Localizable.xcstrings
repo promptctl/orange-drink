@@ -5897,6 +5897,50 @@
           }
         }
       }
+    },
+    "%@'s helper isn't answering, so the charge limit isn't held.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'s helper isn't answering, so the charge limit isn't held."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’assistant de %@ ne répond pas : la limite de charge n’est pas maintenue."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El asistente de %@ no responde, así que el límite de carga no se mantiene."
+          }
+        }
+      }
+    },
+    "%@'s helper isn't answering, so Low Power Mode didn't change.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'s helper isn't answering, so Low Power Mode didn't change."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’assistant de %@ ne répond pas : le mode économie d’énergie n’a pas changé."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El asistente de %@ no responde, así que el modo de bajo consumo no ha cambiado."
+          }
+        }
+      }
     }
   }
 }

@@ -130,8 +130,8 @@ struct OrangeDrinkApp: App {
         appEnergy = Result { try AppEnergyHistory(store: store.get(), changes: changes, source: RusageEnergySource()) }
         if case .failure(let error) = appEnergy { log.error("no app energy history: \(error)") }
         // [LAW:no-ambient-temporal-coupling] Before the battery model: its init hands the hold the first state at
-        // once, and the hold's first ask waits on `launching`, which passes at once while it is empty, so the
-        // registration's work must be in it before any ask can exist.
+        // once, and the hold's first ask waits for the registration's steps, which passes at once while there are
+        // none, so the launch's step must be queued before any ask can exist.
         HelperRegistration.holdUntilExit()
         let chargeHold = AppChargeHold(limit: chargeLimit.value, helper: HelperAccess(daemon: HelperRegistration.daemon))
         chargeHold.follow(chargeLimit)

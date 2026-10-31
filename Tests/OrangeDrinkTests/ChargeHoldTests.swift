@@ -21,10 +21,8 @@ final class FakeChargeHelper: @unchecked Sendable {
     private var answer: HelperUseFailure?
     private var held: DispatchSemaphore?
 
-    /// The helper calls, in order, without the registration waits.
-    var calls: [String] { lock.withLock { log.filter { $0 != "wait" } } }
-    /// Every call and every registration wait, in order.
-    var trace: [String] { lock.withLock { log } }
+    /// The helper calls, in order.
+    var calls: [String] { lock.withLock { log } }
 
     var failure: HelperUseFailure? {
         get { lock.withLock { answer } }
@@ -53,8 +51,6 @@ final class FakeChargeHelper: @unchecked Sendable {
             try self.called("release")
         }, resume: { () throws(HelperUseFailure) in
             try self.called("resume")
-        }, registered: {
-            self.lock.withLock { self.log.append("wait") }
         })
     }
 
@@ -146,11 +142,11 @@ final class FakeChargeHelper: @unchecked Sendable {
 
     // MARK: Launch
 
-    @Test func aLaunchWithTheLimitOffAsksOnceToResumeAfterRegistration() async throws {
+    @Test func aLaunchWithTheLimitOffAsksOnceToResume() async throws {
         let helper = FakeChargeHelper()
         let hold = Self.hold(Self.off, helper)
         await Self.feed(hold, [.unknown] + (try [85, 85, 70].map(Self.adapter)))
-        #expect(helper.trace == ["wait", "resume"])
+        #expect(helper.calls == ["resume"])
         #expect(Self.name(hold.state) == "allowed")
     }
 
@@ -188,7 +184,23 @@ final class FakeChargeHelper: @unchecked Sendable {
         await Self.feed(hold, try [70, 71, 72].map(Self.adapter))
         #expect(helper.calls == ["resume"])
         #expect(Self.name(hold.state) == "allowed(failure)")
-        #expect(hold.failure?.needsApproval == true)
+        #expect(hold.failure?.cause == .needsApproval)
+    }
+
+    /// Only a helper that runs ends a pause one that died left behind, so a hold that finds no job keeps asking, once an
+    /// input, and the ask that follows the registration's `register` starts that helper.
+    @Test(arguments: [SMAppService.Status.notRegistered, .notFound])
+    func aHelperWithNoJobLeavesCHTEUnknownSoTheNextInputAsksAgain(status: SMAppService.Status) async throws {
+        let helper = FakeChargeHelper()
+        helper.failure = HelperUseFailure(call: LowPowerModeTests.unapproved, status: status)
+        let hold = Self.hold(Self.on80, helper)
+        await Self.feed(hold, try [70, 71].map(Self.adapter))
+        #expect(helper.calls == ["resume", "resume"])
+        #expect(Self.name(hold.state) == "unknown(failure)")
+        helper.failure = nil
+        await Self.feed(hold, [try Self.adapter(72)])
+        #expect(helper.calls == ["resume", "resume", "resume"])
+        #expect(Self.name(hold.state) == "allowed")
     }
 
     @Test func aMacThatCannotPauseIsAskedOnceForTheWholeRun() async throws {
@@ -213,7 +225,7 @@ final class FakeChargeHelper: @unchecked Sendable {
         await Self.feed(hold, [.unknown])
         hold.set(limit: Self.on80)
         await Self.feed(hold, [try Self.adapter(50)])
-        #expect(hold.failure?.needsApproval == true)
+        #expect(hold.failure?.cause == .needsApproval)
         helper.failure = nil
         hold.recheck()
         await Self.idle(hold)
@@ -312,7 +324,7 @@ final class FakeChargeHelper: @unchecked Sendable {
         #expect(ChargeHoldEvent.asked(.release(.belowTarget), limit: Self.on80, percent: 79, failure: nil).line
             == "release (below target) with limit on, target 80%, battery 79%: done")
         #expect(ChargeHoldEvent.asked(.resume(.noReadingYet), limit: Self.off, percent: nil, failure: Self.refused).line
-            == "resume (no reading yet) with limit off, target 80%, battery unread: failed: the helper failed: SMC said no (helper status enabled)")
+            == "resume (no reading yet) with limit off, target 80%, battery unread: failed: the helper failed: SMC said no (cause other, helper status enabled)")
     }
 
     @Test func theScreenSaysHowToFixAFailureTheUserCanAndWhatWentWrongOtherwise() {

@@ -12,7 +12,11 @@ struct ChargingScreen: View {
     /// [LAW:one-source-of-truth] What the screen says under the switch about a failure, as it shows it and the catalog
     /// test reads it: how to fix one the user can fix, what went wrong otherwise.
     static func explanation(of failure: HelperUseFailure, appName: String) -> Phrase {
-        failure.needsApproval ? "Allow \(appName) in the background to hold the charge limit." : "Couldn't hold the charge limit: \(failure.call.description)"
+        switch failure.cause {
+        case .needsApproval: "Allow \(appName) in the background to hold the charge limit."
+        case .notRegistered, .notAnswering: "\(appName)'s helper isn't answering, so the charge limit isn't held."
+        case .other: "Couldn't hold the charge limit: \(failure.call.description)"
+        }
     }
 
     var body: some View {

@@ -14,7 +14,7 @@ struct HelperFailureLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             let text = PhraseText(explanation)
-            if failure.needsApproval {
+            if failure.cause == .needsApproval {
                 text.fixedSize(horizontal: false, vertical: true)
                 Button { openLoginItems() } label: { PhraseText(Self.openLoginItemsTitle) }
                     .buttonStyle(.link)
