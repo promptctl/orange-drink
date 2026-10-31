@@ -135,8 +135,9 @@ update-check: generate
 	scripts/update-check "$$older_dmg" "$$newer_dmg" "$$out"/ui/Build/Products/*.xctestrun
 
 # Launch at login on real macOS, in a VM with no window, because registering posts a notification on the Mac it happens
-# on: installs a build from its disk image there, presses the General screen's switch on and off, and reads what
-# SMAppService.mainApp.status said after each off the app's log. It needs what update-check needs.
+# on: installs a build from its disk image there, allows it in System Settings as a person does, presses the General
+# screen's switch off and on, and reads what SMAppService.mainApp.status said after each off the app's log. It needs what
+# update-check needs.
 login-item-check: generate
 	@set -e; out='$(CURDIR)/build/login-item-check'; rm -rf "$$out"; mkdir -p "$$out"; \
 	dmg=$$(scripts/dmg "$$out/dmg"); \

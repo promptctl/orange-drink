@@ -1,12 +1,13 @@
 #!/bin/bash
 # Launch at login on real macOS, inside a throwaway VM with no window, because registering a login item posts a
-# notification on the Mac it happens on. Installs the app from its disk image, has the XCUITests press the General
-# screen's switch on and then off, and reads what SMAppService.mainApp.status said after each from the app's own log. Run
-# by `make login-item-check`.
+# notification on the Mac it happens on. Installs the app from its disk image and has the XCUITests go the way a person
+# does: press the General screen's switch, follow it to Login Items & Extensions, allow the app, and come back; then press
+# it off and on. After each, reads what SMAppService.mainApp.status said from the app's own log. Run by
+# `make login-item-check`.
 #
 #   scripts/login-item-check <dmg> <xctestrun of the OrangeDrinkUITests scheme>
 #
-# Exits 0 when both readings hold and 1 naming the first that does not.
+# Exits 0 when every reading holds and 1 naming the first that does not.
 set -euo pipefail
 
 usage='usage: scripts/login-item-check <dmg> <xctestrun>'
@@ -29,10 +30,15 @@ guest cp "$shared/app.dmg" /tmp/app.dmg
 install_dmg /tmp/app.dmg
 first_launch
 
-uitest LaunchAtLoginUITests/testTurningOn
-wait_for "the app never logged status enabled after the switch went on" 30 said on enabled
-echo "login-item-check: on: SMAppService.mainApp.status is enabled" >&2
+uitest LaunchAtLoginUITests/testAllowing
+wait_for "the app never logged status requiresApproval after the first press" 30 said on requiresApproval
+wait_for "the app never logged status enabled once it was allowed" 30 said read enabled
+echo "login-item-check: allowed: SMAppService.mainApp.status went from requiresApproval to enabled" >&2
 
 uitest LaunchAtLoginUITests/testTurningOff
 wait_for "the app never logged status notRegistered after the switch went off" 30 said off notRegistered
 echo "login-item-check: off: SMAppService.mainApp.status is notRegistered" >&2
+
+uitest LaunchAtLoginUITests/testTurningOn
+wait_for "the app never logged status enabled after the switch went on" 30 said on enabled
+echo "login-item-check: on: SMAppService.mainApp.status is enabled" >&2

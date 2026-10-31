@@ -6008,28 +6008,6 @@
         }
       }
     },
-    "Allow %@ in Login Items to start it at login.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow %@ in Login Items to start it at login."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Autorisez %@ dans « Ouverture et extensions » pour le démarrer à l’ouverture de session."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permite %@ en Ítems de inicio y extensiones para que se abra al iniciar sesión."
-          }
-        }
-      }
-    },
     "Couldn't change Launch at Login: %@": {
       "localizations": {
         "en": {
@@ -6048,6 +6026,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo cambiar Abrir al iniciar sesión: %@"
+          }
+        }
+      }
+    },
+    "Allow %@ in the background to start it at login.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow %@ in the background to start it at login."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez %@ en arrière-plan pour le démarrer à l’ouverture de session."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que %@ funcione en segundo plano para que se abra al iniciar sesión."
           }
         }
       }

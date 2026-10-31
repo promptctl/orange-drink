@@ -16,7 +16,8 @@ import ServiceManagement
 
     /// Why a press did not reach what it asked for.
     enum Refusal: Equatable {
-        /// The user allows the login item in System Settings, and nothing here can.
+        /// macOS holds a login item while the app's Allow in the Background is off, as it is on a new install, since the
+        /// helper's record shares that switch. The user turns it on in System Settings, and nothing here can.
         case needsApproval
         case failed(String)
 
@@ -30,7 +31,7 @@ import ServiceManagement
         /// What the row says under the switch, as the screen shows it and the catalog test reads it.
         func explanation(appName: String) -> Phrase {
             switch self {
-            case .needsApproval: "Allow \(appName) in Login Items to start it at login."
+            case .needsApproval: "Allow \(appName) in the background to start it at login."
             case .failed(let reason): "Couldn't change Launch at Login: \(reason)"
             }
         }
