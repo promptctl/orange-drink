@@ -84,6 +84,18 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         #expect(model.failure != nil)
     }
 
+    @Test func aDevicesModelTornDownIsNotAnEndedStreamAndLeavesTheShelfAlone() async throws {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let ended = Ended()
+        var model: DevicesModel? = DevicesModel(events: events, onEnded: { ended.count += 1 })
+        send.yield(.reported(Self.iPhone))
+        model = nil
+        send.finish()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(ended.count == 0)
+        _ = model
+    }
+
     @Test func theShelfLogsNeitherADevicesNameNorItsAddress() {
         let device = WidgetDevice(address: "AA-BB", name: "Brandon's iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
         let line = String(describing: Shelved.running([device]))
@@ -173,6 +185,8 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         #expect(try texts(.failure(ShelfError.noGroupEntitlement), chosen: "AA") == ["Open Orange Drink"])
         #expect(try texts(.success(.running([unread])), chosen: nil) == ["Choose a device: right-click → Edit Widget"])
         #expect(try texts(.success(.running([unread])), chosen: "AA") == ["–"])
+        let estimate = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 40, approximate: true))
+        #expect(try texts(.success(.running([estimate])), chosen: "AA") == ["~40%"])
     }
 }
 
@@ -231,3 +245,5 @@ struct RingPixels {
         return Double(run.count) / Double(steps)
     }
 }
+
+@MainActor private final class Ended { var count = 0 }

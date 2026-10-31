@@ -10,6 +10,8 @@ struct BatteryRing: View {
     /// nil while there is no reading yet: the empty track.
     let level: Int?
     let charging: Bool
+    /// The level is an estimate (a device that reports only a coarse step): shown "~40%", as the panel shows it.
+    var approximate = false
     /// The SF Symbol in the centre: the laptop for the Mac, the device's kind for a device.
     let glyph: String
 
@@ -44,7 +46,7 @@ struct BatteryRing: View {
                         .opacity(charging ? 1 : 0)
                 }
                 .frame(width: side, height: side)
-                Text(level.map { "\($0)%" } ?? "–")
+                Text(level.map { "\(approximate ? "~" : "")\($0)%" } ?? "–")
                     .font(.system(size: side * 0.2, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(tint)
@@ -112,7 +114,7 @@ struct DeviceBatteryView: View {
     }
 
     @ViewBuilder private func ring(_ device: WidgetDevice) -> some View {
-        let ring = BatteryRing(level: device.level?.percent, charging: false, glyph: device.kind.symbol)
+        let ring = BatteryRing(level: device.level?.percent, charging: false, approximate: device.level?.approximate ?? false, glyph: device.kind.symbol)
         switch family {
         case .systemMedium:
             HStack { ring; name(device) }
