@@ -13,7 +13,7 @@ import ServiceManagement
 /// is shared by every installed copy, the one in the mounted image and the one in /Applications alike. So a
 /// copy that has exited leaves no record behind, and no process removes the record from under another
 /// (orange-admin-helper-b2q.qm0). The exception is a copy moved or deleted while it runs: `unregister` needs the
-/// bundle, so its record and launchd's job stay until a copy with this label next exits.
+/// bundle, so its record and launchd's job stay until a copy still in place is the last with this label to exit.
 ///
 /// [LAW:single-enforcer] Every step runs on one serial queue, so no two interleave, an ask waits for the steps
 /// ahead of it, and the exit is the last.
@@ -31,8 +31,8 @@ struct HelperRegistration: Sendable {
 
     /// What `register` answered, the last time it was asked, and how long that took.
     struct Outcome: Equatable {
-        /// The last refusal, or nil once it was accepted. With no helper file to run, it says why and `attempts` counts
-        /// the asks made before that was found, none if it was found first.
+        /// The last refusal, or nil once it was accepted. With no helper file it can read, it says why and `attempts`
+        /// counts the asks made before that was found, none if it was found first.
         let refusal: String?
         let status: String
         let attempts: Int
@@ -58,11 +58,10 @@ struct HelperRegistration: Sendable {
         case embeddedUnreadable(String)
 
         /// [LAW:parse-dont-validate] The handshake's reply, read against the cdhash of the helper this copy embeds.
-        init(reply: Result<HelperIdentity, HelperCallError>, embedded: Result<Data, HelperFailure>) {
-            switch (embedded, reply) {
-            case (.failure(let failure), _): self = .embeddedUnreadable(failure.description)
-            case (_, .failure(let error)): self = .failed(error)
-            case (.success(let cdhash), .success(let identity)):
+        init(reply: Result<HelperIdentity, HelperCallError>, embedded cdhash: Data) {
+            switch reply {
+            case .failure(let error): self = .failed(error)
+            case .success(let identity):
                 self = identity.cdhash == cdhash ? .own : .otherCode(executable: identity.executable, cdhash: identity.cdhash)
             }
         }
@@ -72,9 +71,14 @@ struct HelperRegistration: Sendable {
             Result { () throws(HelperFailure) in try SigningInformation.cdhash(of: helper) }
         }
 
-        /// [LAW:effects-at-boundaries] One look: what answers, and what the file at `helper` holds, read now.
+        /// [LAW:effects-at-boundaries] One look: what the file at `helper` holds, read now, then what answers. With no
+        /// file nothing is asked: no reply would change the answer, and a job with no file may spend the call's whole
+        /// deadline giving one, on the queue every ask and the exit wait for.
         static func look(at helper: URL, asking identity: () throws(HelperCallError) -> HelperIdentity) -> Handshake {
-            Handshake(reply: Result { () throws(HelperCallError) in try identity() }, embedded: embedded(at: helper))
+            switch embedded(at: helper) {
+            case .failure(let failure): .embeddedUnreadable(failure.description)
+            case .success(let cdhash): Handshake(reply: Result { () throws(HelperCallError) in try identity() }, embedded: cdhash)
+            }
         }
 
         /// A job nothing runs, that runs other code, or whose helper ends the connection unanswered is replaced: a helper
@@ -264,8 +268,9 @@ struct HelperRegistration: Sendable {
     }
 
     /// Asks `register` until it accepts, or it refuses for a reason other than the refusal window, or `window` ends, or
-    /// the helper file is gone. [LAW:single-enforcer] Each ask has its own read, because `register` on a copy whose
-    /// bundle was moved or deleted while it runs segfaults inside ServiceManagement (orange-distribution-kg2.45x).
+    /// the helper file can't be read. [LAW:single-enforcer] Each ask has its own read, because `register` on a copy
+    /// whose bundle was moved or deleted while it runs segfaults inside ServiceManagement (orange-distribution-kg2.45x).
+    /// The file stands for the bundle, since a move or a trash takes both at once.
     private func register(within window: Duration) -> Outcome {
         let start = effects.now()
         var attempts = 0

@@ -19,9 +19,9 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         var handshakeAfterClearing = HelperRegistration.Handshake.own
         var holders: [Int32] = []
         var elapsed = Duration.zero
-        /// How many `register` calls the helper file outlasts.
+        /// How many noted calls the helper file outlasts.
         var fileOutlasts = Int.max
-        var fileGone: Bool { calls.filter { $0 == "register" }.count >= fileOutlasts }
+        var fileGone: Bool { calls.count >= fileOutlasts }
     }
     let state = OSAllocatedUnfairLock(initialState: State())
     let gate = DispatchSemaphore(value: 0)
@@ -135,16 +135,18 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         typealias Handshake = HelperRegistration.Handshake
         let path = "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper"
         let answer = Result<HelperIdentity, HelperCallError>.success(HelperIdentity(executable: path, euid: 0, cdhash: Data([1])))
-        #expect(Handshake(reply: answer, embedded: .success(Data([1]))) == .own)
-        #expect(Handshake(reply: answer, embedded: .success(Data([2]))) == .otherCode(executable: path, cdhash: Data([1])))
-        #expect(Handshake(reply: .failure(Self.noReply), embedded: .success(Data([1]))) == .failed(Self.noReply))
+        #expect(Handshake(reply: answer, embedded: Data([1])) == .own)
+        #expect(Handshake(reply: answer, embedded: Data([2])) == .otherCode(executable: path, cdhash: Data([1])))
+        #expect(Handshake(reply: .failure(Self.noReply), embedded: Data([1])) == .failed(Self.noReply))
     }
 
-    /// With no file to run, a new job could not answer, whatever the helper said.
-    @Test(arguments: [Result<HelperIdentity, HelperCallError>.failure(noReply), .success(HelperIdentity(executable: "/x", euid: 0, cdhash: Data([1])))])
-    func aHandshakeWithNoEmbeddedFileReplacesNothing(reply: Result<HelperIdentity, HelperCallError>) {
-        let handshake = HelperRegistration.Handshake(reply: reply, embedded: .failure(HelperFailure("gone")))
-        #expect(handshake == .embeddedUnreadable("gone"))
+    /// With no file to run, a new job could not answer, so nothing waits on what the helper would say.
+    @Test func aLookWithNoEmbeddedFileAsksNothingAndReplacesNothing() {
+        let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        let handshake = HelperRegistration.Handshake.look(at: missing) { () throws(HelperCallError) in
+            Issue.record("the helper was asked")
+            throw Self.noReply
+        }
         #expect(!handshake.replacesJob)
     }
 
@@ -180,6 +182,15 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.waitForSteps()
         #expect(system.calls == ["register", "handshake"])
         #expect(system.events.first == .launched(.init(refusal: "gone", status: "notRegistered", attempts: 1, elapsed: HelperRegistration.attemptGap)))
+    }
+
+    /// A repair's own handshake read the file, and `register` comes after that and after `unregister`.
+    @Test func aHelperFileGoneDuringARepairEndsTheAsks() {
+        let system = wedged { $0.fileOutlasts = 3 }
+        system.registration.reconcile(after: Self.notAnswering)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["handshake", "holders", "unregister", "handshake"])
+        #expect(system.events == [.repaired(found: .failed(Self.noReply), .unregistered(error: nil), .init(refusal: "gone", status: "notRegistered", attempts: 0, elapsed: .zero), handshake: .embeddedUnreadable("gone"))])
     }
 
     @Test(arguments: [
