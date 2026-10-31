@@ -71,8 +71,9 @@ struct HelperBuildTests {
         #expect(Registration.Event.reregistered(registered).line == "helper registration, a call found no job: registered; status enabled; attempt 3 after 1042 ms")
         #expect(Registration.Event.leftAlone(handshake: nil).line == "helper repair: left the job alone; the helper answered")
         #expect(Registration.Event.leftAlone(handshake: "the helper failed: x").line == "helper repair: left the job alone; handshake the helper failed: x")
-        #expect(Registration.Event.repaired(.unregistered(error: nil), registered).line == "helper repair: cleared ok; registered; status enabled; attempt 3 after 1042 ms")
-        #expect(Registration.Event.repaired(.heldBy(pids: [41, 42]), registered).line == "helper repair: kept for pid 41, 42; registered; status enabled; attempt 3 after 1042 ms")
+        #expect(Registration.Event.repaired(.unregistered(error: nil), registered, handshake: nil).line == "helper repair: cleared ok; registered; status enabled; attempt 3 after 1042 ms; the helper answered")
+        #expect(Registration.Event.repaired(.unregistered(error: nil), registered, handshake: "no reply").line == "helper repair: cleared ok; registered; status enabled; attempt 3 after 1042 ms; handshake no reply")
+        #expect(Registration.Event.kept(.heldBy(pids: [41, 42])).line == "helper repair: kept for pid 41, 42; the job still will not run")
         #expect(Registration.Event.exited(.unregistered(error: nil), status: "notRegistered").line
                 == "helper at exit: cleared ok; status notRegistered")
         #expect(Registration.Event.exited(.heldBy(pids: [41]), status: "enabled").line

@@ -281,7 +281,7 @@ import Testing
     /// The app's path end to end, short of a helper: a real call to a service launchd has no job for fails at once
     /// as 4099, and the failure carries the status SMAppService reads for that plist, which this bundle lacks.
     @Test func theAppsCallCarriesTheStatusReadAfterItFails() {
-        let access = HelperAccess(service: "dev.orangedrink.no-such-helper", plistName: "dev.orangedrink.no-such-helper.plist", reconcile: { _ in })
+        let access = HelperAccess(service: "dev.orangedrink.no-such-helper", plistName: "dev.orangedrink.no-such-helper.plist", registration: FakeRegistrationSystem().registration)
         #expect { try access.setLowPowerMode(true) } throws: { error in
             guard let failure = error as? HelperUseFailure, case .connection(_, 4099, _) = failure.call else { return false }
             return failure.status == .notFound && failure.cause == .notRegistered

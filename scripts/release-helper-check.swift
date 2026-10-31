@@ -129,8 +129,11 @@ func check() throws {
     }
     try end(pid: second, signal: SIGTERM, executable: executable)
     // 113 is launchctl's "Could not find service"; any other failure says nothing about the job.
-    let printed = try run("/bin/launchctl", ["print", "system/\(label)"])
-    guard printed.status != 0 else { throw CheckError.jobLeft(label: label) }
+    let printed = try poll(seconds: 15) {
+        let result = try run("/bin/launchctl", ["print", "system/\(label)"])
+        return result.status == 0 ? nil : result
+    }
+    guard let printed else { throw CheckError.jobLeft(label: label) }
     guard printed.status == 113 else { throw CheckError.tool("launchctl print", status: printed.status, output: printed.output) }
     print("quit: launchd holds no job for \(label)")
 }

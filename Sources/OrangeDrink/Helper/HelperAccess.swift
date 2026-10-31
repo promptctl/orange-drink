@@ -43,36 +43,43 @@ struct HelperAccess {
     /// The daemon's plist, which names its SMAppService. The service is made at each read, since it is not
     /// Sendable and a control's write runs off the main actor.
     private let plistName: String
-    private let reconcile: @Sendable (HelperUseFailure) -> Void
+    private let registration: HelperRegistration
 
     init(daemon: LaunchDaemon) {
-        self.init(service: daemon.label, plistName: daemon.plistName, reconcile: HelperRegistration.app.reconcile(after:))
+        self.init(service: daemon.label, plistName: daemon.plistName, registration: .app)
     }
 
-    init(service: String, plistName: String, reconcile: @escaping @Sendable (HelperUseFailure) -> Void) {
+    init(service: String, plistName: String, registration: HelperRegistration) {
         client = HelperClient(service: service)
         self.plistName = plistName
-        self.reconcile = reconcile
+        self.registration = registration
     }
 
     func setLowPowerMode(_ on: Bool) throws(HelperUseFailure) {
-        try Self.explained({ () throws(HelperCallError) in try client.setLowPowerMode(on) }, status: status, reconcile: reconcile)
+        try explained { () throws(HelperCallError) in try client.setLowPowerMode(on) }
     }
 
     func pauseCharging(lost: @escaping @Sendable (ChargeLease) -> Void) throws(HelperUseFailure) -> ChargeLease {
-        try Self.explained({ () throws(HelperCallError) in try client.pauseCharging(lost: lost) }, status: status, reconcile: reconcile)
+        try explained { () throws(HelperCallError) in try client.pauseCharging(lost: lost) }
     }
 
     func release(_ lease: ChargeLease) throws(HelperUseFailure) {
-        try Self.explained({ () throws(HelperCallError) in try lease.release() }, status: status, reconcile: reconcile)
+        try explained { () throws(HelperCallError) in try lease.release() }
     }
 
     func resumeCharging() throws(HelperUseFailure) {
-        try Self.explained({ () throws(HelperCallError) in try client.resumeCharging() }, status: status, reconcile: reconcile)
+        try explained { () throws(HelperCallError) in try client.resumeCharging() }
     }
 
     /// [LAW:one-source-of-truth] Read fresh: the user approves or revokes in System Settings at any time.
     func status() -> SMAppService.Status { SMAppService.daemon(plistName: plistName).status }
+
+    /// [LAW:single-enforcer] Every call comes after the registration's steps ahead of it, so none meets a service not
+    /// registered yet, or a job half repaired.
+    private func explained<Value>(_ call: () throws(HelperCallError) -> Value) throws(HelperUseFailure) -> Value {
+        registration.waitForSteps()
+        return try Self.explained(call, status: status, reconcile: registration.reconcile(after:))
+    }
 
     /// [LAW:effects-at-boundaries] Runs `call`; only a failed call reads `status`, once, and the failure carries both.
     /// `reconcile` hears the failure before the caller does, and returns at once.

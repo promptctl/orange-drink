@@ -21,10 +21,8 @@ final class FakeChargeHelper: @unchecked Sendable {
     private var answer: HelperUseFailure?
     private var held: DispatchSemaphore?
 
-    /// The helper calls, in order, without the registration waits.
-    var calls: [String] { lock.withLock { log.filter { $0 != "wait" } } }
-    /// Every call and every registration wait, in order.
-    var trace: [String] { lock.withLock { log } }
+    /// The helper calls, in order.
+    var calls: [String] { lock.withLock { log } }
 
     var failure: HelperUseFailure? {
         get { lock.withLock { answer } }
@@ -53,8 +51,6 @@ final class FakeChargeHelper: @unchecked Sendable {
             try self.called("release")
         }, resume: { () throws(HelperUseFailure) in
             try self.called("resume")
-        }, registered: {
-            self.lock.withLock { self.log.append("wait") }
         })
     }
 
@@ -146,11 +142,11 @@ final class FakeChargeHelper: @unchecked Sendable {
 
     // MARK: Launch
 
-    @Test func aLaunchWithTheLimitOffAsksOnceToResumeAfterRegistration() async throws {
+    @Test func aLaunchWithTheLimitOffAsksOnceToResume() async throws {
         let helper = FakeChargeHelper()
         let hold = Self.hold(Self.off, helper)
         await Self.feed(hold, [.unknown] + (try [85, 85, 70].map(Self.adapter)))
-        #expect(helper.trace == ["wait", "resume"])
+        #expect(helper.calls == ["resume"])
         #expect(Self.name(hold.state) == "allowed")
     }
 

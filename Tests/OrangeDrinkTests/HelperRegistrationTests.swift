@@ -4,8 +4,8 @@ import ServiceManagement
 import Testing
 @testable import OrangeDrink
 
-/// The system a registration talks to, scripted. Each call is noted; a closed `gate` holds the handshake, so a test can
-/// see what waits for a step in progress.
+/// The system a registration talks to, scripted. Each call is noted; a closed `gate` holds each handshake, and `entered`
+/// says one has reached it, so a test can see what waits for a step in progress.
 final class FakeRegistrationSystem: @unchecked Sendable {
     struct State {
         var calls: [String] = []
@@ -15,11 +15,14 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         var refusals = 0
         var refusedStatus = SMAppService.Status.notRegistered
         var handshake: HelperCallError?
+        /// What the handshake ends in once the job has been cleared.
+        var handshakeAfterClearing: HelperCallError?
         var holders: [Int32] = []
         var elapsed = Duration.zero
     }
     let state = OSAllocatedUnfairLock(initialState: State())
     let gate = DispatchSemaphore(value: 0)
+    let entered = DispatchSemaphore(value: 0)
     var usesGate = false
     let start = ContinuousClock.now
 
@@ -38,11 +41,14 @@ final class FakeRegistrationSystem: @unchecked Sendable {
                 return Self.refusal
             }
         },
-        unregister: { [self] in state.withLock { $0.calls.append("unregister"); $0.status = .notRegistered; return nil } },
+        unregister: { [self] in state.withLock { $0.calls.append("unregister"); $0.status = .notRegistered; $0.handshake = $0.handshakeAfterClearing; return nil } },
         status: { [self] in state.withLock { $0.status } },
         handshake: { [self] in
             state.withLock { $0.calls.append("handshake") }
-            if usesGate { gate.wait() }
+            if usesGate {
+                entered.signal()
+                gate.wait()
+            }
             return state.withLock { $0.handshake }
         },
         holders: { [self] () throws(ProcessTableUnreadable) in state.withLock { $0.calls.append("holders"); return $0.holders } },
@@ -57,9 +63,6 @@ final class FakeRegistrationSystem: @unchecked Sendable {
     static let noJob = HelperUseFailure(call: .connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x"), status: .notRegistered)
     /// A refused `register`, as the outcome reads it.
     static let refusal = HelperRegistration.describe(FakeRegistrationSystem.refusal)
-
-    /// A registration that has run past its exit, which libdispatch traps on releasing, so it is never released.
-    static let ended = FakeRegistrationSystem()
 
     func wedged(_ configure: @Sendable (inout FakeRegistrationSystem.State) -> Void = { _ in }) -> FakeRegistrationSystem {
         let system = FakeRegistrationSystem()
@@ -117,6 +120,18 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         #expect(system.events == [.reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero))])
     }
 
+    /// No `unregister` here opens the refusal window, so a copy refused for good holds up no other control's call.
+    @Test func aCallThatFindsNoJobAsksOnceAndTheNextInputAsksAgain() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.refusals = 1 }
+        system.registration.reconcile(after: Self.noJob)
+        system.registration.reconcile(after: Self.noJob)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["register", "register"])
+        #expect(system.events == [.reregistered(.init(refusal: Self.refusal, status: "notRegistered", attempts: 1, elapsed: .zero)),
+                                  .reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero))])
+    }
+
     /// An unregister would stop the helper, and with it any pause it holds, so a helper that answers keeps its job.
     @Test func aSlowHelperThatAnswersTheHandshakeKeepsItsJob() {
         let system = wedged { $0.handshake = nil }
@@ -139,16 +154,25 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         let system = wedged { $0.refusals = 2 }
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
-        #expect(system.calls == ["handshake", "holders", "unregister", "register", "register", "register"])
-        #expect(system.events == [.repaired(.unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 3, elapsed: .seconds(2)))])
+        #expect(system.calls == ["handshake", "holders", "unregister", "register", "register", "register", "handshake"])
+        #expect(system.events == [.repaired(.unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 3, elapsed: .seconds(2)), handshake: nil)])
     }
 
-    @Test func aJobAnotherCopyHoldsIsNotCleared() {
+    /// The status reads enabled through a wedge, so only the handshake can say the repair did not take.
+    @Test func aRepairThatLeavesTheHelperSilentSaysSo() {
+        let system = wedged { $0.handshakeAfterClearing = Self.noReply }
+        system.registration.reconcile(after: Self.notAnswering)
+        system.registration.waitForSteps()
+        #expect(system.events == [.repaired(.unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero), handshake: Self.noReply.description)])
+    }
+
+    /// `register` leaves a job launchd will not run as it is, so nothing is asked of it and the line claims no repair.
+    @Test func aJobAnotherCopyHoldsIsKept() {
         let system = wedged { $0.holders = [41] }
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
-        #expect(system.calls == ["handshake", "holders", "register"])
-        #expect(system.events == [.repaired(.heldBy(pids: [41]), .init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero))])
+        #expect(system.calls == ["handshake", "holders"])
+        #expect(system.events == [.kept(.heldBy(pids: [41]))])
     }
 
     @Test func aFailedCallReturnsBeforeItsReconcileEnds() {
@@ -160,71 +184,87 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         }
         #expect(system.events.isEmpty)
         system.gate.signal()
+        system.gate.signal()
         registration.waitForSteps()
         #expect(system.events.count == 1)
     }
 
-    /// An ask comes after what is ahead of it, so it does not meet a job half repaired.
-    @Test func anAskWaitsForAReconcileAhead() {
+    /// Every control reaches the helper through HelperAccess, so none meets a job half repaired.
+    @Test func aCallWaitsForAReconcileAhead() {
         let system = wedged()
         system.usesGate = true
         let registration = system.registration
         registration.reconcile(after: Self.notAnswering)
-        let passed = DispatchSemaphore(value: 0)
+        #expect(system.entered.wait(timeout: .now() + .seconds(5)) == .success)
+        let access = HelperAccess(service: "dev.orangedrink.no-such-helper", plistName: "dev.orangedrink.no-such-helper.plist", registration: registration)
+        let returned = DispatchSemaphore(value: 0)
         DispatchQueue.global().async {
-            registration.waitForSteps()
-            passed.signal()
+            #expect(throws: HelperUseFailure.self) { try access.setLowPowerMode(true) }
+            returned.signal()
         }
-        #expect(passed.wait(timeout: .now() + .milliseconds(100)) == .timedOut)
+        #expect(returned.wait(timeout: .now() + .milliseconds(100)) == .timedOut)
         system.gate.signal()
-        #expect(passed.wait(timeout: .now() + .seconds(5)) == .success)
+        system.gate.signal()
+        #expect(returned.wait(timeout: .now() + .seconds(5)) == .success)
     }
 
     @Test func twoReconcilesDoNotInterleave() {
-        let system = wedged()
+        let system = wedged { $0.handshakeAfterClearing = Self.noReply }
         system.usesGate = true
         let registration = system.registration
         registration.reconcile(after: Self.notAnswering)
         registration.reconcile(after: Self.notAnswering)
-        system.gate.signal()
-        system.gate.signal()
+        for _ in 0..<4 { system.gate.signal() }
         registration.waitForSteps()
-        let one = ["handshake", "holders", "unregister", "register"]
+        let one = ["handshake", "holders", "unregister", "register", "handshake"]
         #expect(system.calls == one + one)
     }
 
     @Test func theExitReleasesWhatTheStepsAheadOfItRegistered() {
         let system = wedged()
         system.usesGate = true
-        let ended = FakeRegistrationSystem.keep(system)
-        ended.reconcile(after: Self.notAnswering)
+        let registration = system.registration
+        registration.reconcile(after: Self.notAnswering)
+        #expect(system.entered.wait(timeout: .now() + .seconds(5)) == .success)
         let exited = DispatchSemaphore(value: 0)
         DispatchQueue.global().async {
-            ended.exit()
+            registration.exit()
             exited.signal()
         }
         #expect(exited.wait(timeout: .now() + .milliseconds(100)) == .timedOut)
         system.gate.signal()
+        system.gate.signal()
         #expect(exited.wait(timeout: .now() + .seconds(5)) == .success)
-        #expect(system.calls == ["handshake", "holders", "unregister", "register", "holders", "unregister"])
+        #expect(system.calls == ["handshake", "holders", "unregister", "register", "handshake", "holders", "unregister"])
         #expect(system.events.last == .exited(.unregistered(error: nil), status: "notRegistered"))
     }
 
-    @Test func aCallTheExitCutShortRegistersNothingBehindIt() {
-        let registration = Self.ended.registration
-        registration.exit()
-        registration.reconcile(after: Self.noJob)
-        Thread.sleep(forTimeInterval: 0.1)
-        #expect(Self.ended.calls == ["holders", "unregister"])
+    /// A second repair would only be undone by the exit, so the exit waits for the one step already running. Past the
+    /// gate, a second reconcile would hold the exit at the handshake and this would time out.
+    @Test func theExitRunsNoReconcileStillWaiting() {
+        let system = wedged { $0.handshakeAfterClearing = Self.noReply }
+        system.usesGate = true
+        let registration = system.registration
+        registration.reconcile(after: Self.notAnswering)
+        #expect(system.entered.wait(timeout: .now() + .seconds(5)) == .success)
+        registration.reconcile(after: Self.notAnswering)
+        let exited = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            registration.exit()
+            exited.signal()
+        }
+        #expect(exited.wait(timeout: .now() + .milliseconds(100)) == .timedOut)
+        system.gate.signal()
+        system.gate.signal()
+        #expect(exited.wait(timeout: .now() + .seconds(5)) == .success)
+        #expect(system.calls == ["handshake", "holders", "unregister", "register", "handshake", "holders", "unregister"])
     }
-}
 
-extension FakeRegistrationSystem {
-    private static let kept = OSAllocatedUnfairLock<[FakeRegistrationSystem]>(initialState: [])
-
-    /// Its registration, kept for the run: one past its exit traps on release.
-    static func keep(_ system: FakeRegistrationSystem) -> HelperRegistration {
-        kept.withLock { $0.append(system) }
-        return system.registration
+    @Test func aCallTheExitCutShortRegistersNothingBehindIt() {
+        let system = FakeRegistrationSystem()
+        system.registration.exit()
+        system.registration.reconcile(after: Self.noJob)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["holders", "unregister"])
     }
 }

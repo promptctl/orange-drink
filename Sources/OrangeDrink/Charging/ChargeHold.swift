@@ -106,8 +106,6 @@ enum ChargeHoldEvent: Equatable {
         let pause: @Sendable (@escaping @Sendable (Lease) -> Void) throws(HelperUseFailure) -> Lease
         let release: @Sendable (Lease) throws(HelperUseFailure) -> Void
         let resume: @Sendable () throws(HelperUseFailure) -> Void
-        /// Returns once the helper's registration has run, so no ask meets a service not registered yet.
-        let registered: @Sendable () -> Void
     }
 
     private(set) var state = State.unknown(nil)
@@ -230,7 +228,6 @@ enum ChargeHoldEvent: Equatable {
             }
         }
         return {
-            effects.registered()
             switch step {
             case .pause: return .paused(try effects.pause(lost))
             case .release(let lease, _):
@@ -275,13 +272,12 @@ enum ChargeHoldEvent: Equatable {
 }
 
 extension ChargeHold where Lease == ChargeLease {
-    /// The app's hold: the helper's charging calls, each after the helper's registration has run.
+    /// The app's hold: the helper's charging calls.
     convenience init(limit: ChargeLimit, helper: HelperAccess) {
         self.init(limit: limit, effects: Effects(
             pause: { lost throws(HelperUseFailure) in try helper.pauseCharging(lost: lost) },
             release: { lease throws(HelperUseFailure) in try helper.release(lease) },
-            resume: { () throws(HelperUseFailure) in try helper.resumeCharging() },
-            registered: { HelperRegistration.app.waitForSteps() }))
+            resume: { () throws(HelperUseFailure) in try helper.resumeCharging() }))
     }
 }
 

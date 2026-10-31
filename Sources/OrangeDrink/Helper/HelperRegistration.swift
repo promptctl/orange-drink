@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import os
 import OSLog
 import ServiceManagement
 
@@ -18,8 +19,8 @@ import ServiceManagement
 struct HelperRegistration: Sendable {
     /// What happened to a record already there.
     enum Clearing: Equatable {
-        /// Unregistered: `nil`, or the error it gave. Nothing to unregister fails with
-        /// SMAppServiceErrorDomain 1, the usual case at a launch after a clean exit.
+        /// Unregistered: `nil`, or the error it gave. Nothing to unregister fails with SMAppServiceErrorDomain 1,
+        /// which in a repair means launchd holds a job with no record (orange-admin-helper-b2q.8ew).
         case unregistered(error: String?)
         /// Left alone, because these other processes run a copy with this label and hold it.
         case heldBy(pids: [Int32])
@@ -47,8 +48,12 @@ struct HelperRegistration: Sendable {
         /// A call got no reply but the job was not repaired: `handshake` is nil once the helper answered, so it is
         /// slow and not wedged, or the error that was not a missing reply.
         case leftAlone(handshake: String?)
-        /// Neither a call nor the handshake got a reply, so launchd holds a job it will not run.
-        case repaired(Clearing, Outcome)
+        /// Neither a call nor the handshake got a reply, and the job could not be cleared, so it stays as it was.
+        case kept(Clearing)
+        /// Neither a call nor the handshake got a reply, so the job was cleared and registered again. `handshake` is
+        /// the proof a status cannot give, since it read enabled through the wedge: nil once the helper answered, or
+        /// the error it ended in. The answer also starts the helper, which ends a pause one that died left behind.
+        case repaired(Clearing, Outcome, handshake: String?)
         case exited(Clearing, status: String)
 
         /// [LAW:effects-at-boundaries] The log line, a pure function of what SMAppService answered.
@@ -56,12 +61,14 @@ struct HelperRegistration: Sendable {
             switch self {
             case .launched(let outcome): "helper registration: \(outcome.text)"
             case .reregistered(let outcome): "helper registration, a call found no job: \(outcome.text)"
-            case .leftAlone(nil): "helper repair: left the job alone; the helper answered"
-            case .leftAlone(let handshake?): "helper repair: left the job alone; handshake \(handshake)"
-            case .repaired(let clearing, let outcome): "helper repair: \(clearing.text); \(outcome.text)"
+            case .leftAlone(let handshake): "helper repair: left the job alone; \(Self.answer(handshake))"
+            case .kept(let clearing): "helper repair: \(clearing.text); the job still will not run"
+            case .repaired(let clearing, let outcome, let handshake): "helper repair: \(clearing.text); \(outcome.text); \(Self.answer(handshake))"
             case .exited(let clearing, let status): "helper at exit: \(clearing.text); status \(status)"
             }
         }
+
+        private static func answer(_ handshake: String?) -> String { handshake.map { "handshake \($0)" } ?? "the helper answered" }
     }
 
     /// The system calls a step makes, as one seam.
@@ -114,6 +121,8 @@ struct HelperRegistration: Sendable {
     let effects: Effects
     let record: @Sendable (Event) -> Void
     private let queue = DispatchQueue(label: "dev.orangedrink.helper-registration")
+    /// Set as the exit starts, and read by each reconcile as it runs.
+    private let exiting = OSAllocatedUnfairLock(initialState: false)
 
     init(effects: Effects, record: @escaping @Sendable (Event) -> Void) {
         self.effects = effects
@@ -131,7 +140,7 @@ struct HelperRegistration: Sendable {
     /// Registers, which alone makes this copy's helper the job's program and leaves a job a crash left running. An
     /// `unregister` first would be refused the `register` after it, and can't reach a job whose record has gone.
     func launch() {
-        queue.async { record(.launched(register())) }
+        queue.async { record(.launched(register(within: Self.refusalWindow))) }
     }
 
     /// Returns once the steps ahead of this call have run, so no ask meets a service not registered yet.
@@ -139,13 +148,14 @@ struct HelperRegistration: Sendable {
         queue.sync {}
     }
 
-    /// The queue's last step: an exit releases what the steps ahead of it registered, and a call the exit cuts short
-    /// has its reconcile never run, so it cannot register again behind the release.
+    /// The registration's last step: it releases what the steps ahead of it registered. A reconcile that has not
+    /// started by now runs nothing, whether it was waiting or comes from a call the exit cut short, so it neither
+    /// delays the exit with work the exit would undo nor registers again behind the release.
     func exit() {
+        exiting.withLock { $0 = true }
         queue.sync {
             let clearing = clear()
             record(.exited(clearing, status: effects.status().name))
-            queue.suspend()
         }
     }
 
@@ -153,11 +163,14 @@ struct HelperRegistration: Sendable {
     /// here, and its caller's next ask finds what this left.
     func reconcile(after failure: HelperUseFailure) {
         queue.async {
+            guard !exiting.withLock({ $0 }) else { return }
             switch failure.cause {
             case .needsApproval, .other:
                 break
             case .notRegistered:
-                record(.reregistered(register()))
+                // One attempt, since no `unregister` here opens the refusal window: a copy refused for good pays one
+                // round trip per input rather than the window, and the next input asks again.
+                record(.reregistered(register(within: .zero)))
             case .notAnswering:
                 // A reply proves launchd runs the job. An unregister would stop that helper, and its pause with it.
                 let handshake = effects.handshake()
@@ -166,13 +179,18 @@ struct HelperRegistration: Sendable {
                     return
                 }
                 let clearing = clear()
-                record(.repaired(clearing, register()))
+                guard case .unregistered = clearing else {
+                    record(.kept(clearing))
+                    return
+                }
+                let outcome = register(within: Self.refusalWindow)
+                record(.repaired(clearing, outcome, handshake: effects.handshake()?.description))
             }
         }
     }
 
-    /// Asks `register` until it accepts, or it refuses for a reason other than the refusal window, or the window ends.
-    private func register() -> Outcome {
+    /// Asks `register` until it accepts, or it refuses for a reason other than the refusal window, or `window` ends.
+    private func register(within window: Duration) -> Outcome {
         let start = effects.now()
         var attempts = 0
         while true {
@@ -180,7 +198,7 @@ struct HelperRegistration: Sendable {
             let refusal = effects.register()
             let status = effects.status()
             let elapsed = start.duration(to: effects.now())
-            guard refusal != nil, status == .notRegistered || status == .notFound, elapsed < Self.refusalWindow else {
+            guard refusal != nil, status == .notRegistered || status == .notFound, elapsed < window else {
                 return Outcome(refusal: refusal.map(Self.describe), status: status.name, attempts: attempts, elapsed: elapsed)
             }
             effects.pause(Self.attemptGap)
