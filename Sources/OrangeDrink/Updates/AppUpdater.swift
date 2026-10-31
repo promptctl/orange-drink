@@ -43,7 +43,7 @@ import Sparkle
     }
 
     /// What happened, as the log and the tests read it.
-    enum Event: Equatable {
+    enum Event {
         case found(version: String)
         case installing(version: String)
         /// One per cycle, naming the feed that answered, since a launch's defaults can replace the built-in one.
@@ -60,25 +60,21 @@ import Sparkle
     }
 
     private(set) var canCheck: Bool
+    let check: () -> Void
 
-    @ObservationIgnored private let startCheck: () -> Void
     /// Sparkle's controller, the delegate it holds weakly, and the observation: each ends with its last reference.
     @ObservationIgnored private var sparkle: [AnyObject] = []
-
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "updates")
 
     /// [LAW:composability] `canCheck` is whether a check may start now, and `check` starts one. `live()` passes Sparkle's.
     init(canCheck: Bool, check: @escaping () -> Void) {
         self.canCheck = canCheck
-        startCheck = check
+        self.check = check
     }
-
-    func check() { startCheck() }
 
     /// The updater the app runs: Sparkle, started, with no check until the row asks for one
     /// (project.yml's SUEnableAutomaticChecks).
-    static func live(record: @escaping @MainActor (Event) -> Void = { event in AppUpdater.log.notice("\(event.line, privacy: .public)") }) -> AppUpdater {
-        let delegate = UpdaterEvents(record: record)
+    static func live() -> AppUpdater {
+        let delegate = UpdaterEvents()
         let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: delegate, userDriverDelegate: nil)
         let updates = AppUpdater(canCheck: controller.updater.canCheckForUpdates) { controller.checkForUpdates(nil) }
         let observation = controller.updater.observe(\.canCheckForUpdates) { [weak updates] updater, _ in
@@ -95,19 +91,19 @@ import Sparkle
 /// [LAW:nothing-unseen] `updater:didFinishUpdateCycleForUpdateCheck:error:` is the one callback per cycle, however it
 /// ended; `updater:didAbortWithError:` also fires for no update and for a cancel, so it is no sign of a failure.
 private final class UpdaterEvents: NSObject, SPUUpdaterDelegate {
-    private let record: @MainActor (AppUpdater.Event) -> Void
+    private let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "updates")
 
-    init(record: @escaping @MainActor (AppUpdater.Event) -> Void) { self.record = record }
+    private func record(_ event: AppUpdater.Event) { log.notice("\(event.line, privacy: .public)") }
 
-    @MainActor func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         record(.found(version: item.displayVersionString))
     }
 
-    @MainActor func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
         record(.installing(version: item.displayVersionString))
     }
 
-    @MainActor func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
         record(.cycleEnded(feed: updater.feedURL, AppUpdater.Outcome(error: error)))
     }
 }

@@ -44,8 +44,9 @@ Set each with `gh secret set <NAME> --env release -R promptctl/orange-drink`.
 
 An installed copy accepts only an update signed by the private half of `SUPublicEDKey` in `project.yml`. It is in
 the login keychain of the Mac it was made on, under Sparkle's account `orange-drink`, and in the `SPARKLE_ED_KEY`
-secret, which GitHub never shows again. Losing the keychain copy costs nothing until a new secret is needed, but
-losing both means no installed copy can be updated: a new key reaches only copies installed after it ships.
+secret, which GitHub never shows again. `make update-check` signs its feeds with the keychain copy, and a new secret
+is made from it, so losing it costs those two; losing both means no installed copy can be updated: a new key reaches
+only copies installed after it ships.
 
 Sparkle's tools are in the directory `make --no-print-directory sparkle-tools | tail -n 1` prints. To set the
 secret again, or to copy the key to another Mac with `generate_keys --account orange-drink -f <file>`:

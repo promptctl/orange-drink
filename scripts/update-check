@@ -19,13 +19,16 @@ cd "$(dirname "$0")/.."
 scratch=$(realpath "$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-update-check.XXXXXX")")
 server=
 app=$scratch/installed/OrangeDrink.app
+mount=$scratch/mount
 executable=$app/Contents/MacOS/OrangeDrink
 subsystem=dev.orangedrink.OrangeDrink
 
 pids() { pgrep -f "^$executable( |\$)" || true; }
-# Quits what it launched, stops the server, and takes the key file with the rest of the scratch directory.
+# Quits what it launched, stops the server, and takes the key file with the rest of the scratch directory. Every step
+# runs whatever the last one did, and the run keeps its own status, so errexit ends here.
 finish() {
   status=$?
+  set +e
   pid=$(pids)
   if [ -n "$pid" ]; then
     kill $pid
@@ -37,6 +40,8 @@ finish() {
     if [ -n "$(pids)" ]; then echo "update-check: pid $(pids) did not quit" >&2; fi
   fi
   if [ -n "$server" ]; then kill "$server"; fi
+  # A mount point is there only while its image is attached.
+  if [ -d "$mount" ]; then hdiutil detach "$mount" >&2; fi
   rm -rf "$scratch"
   exit $status
 }
@@ -80,7 +85,6 @@ cp "$scratch/older/appcast.xml" "$scratch/served/appcast.xml"
 python3 -m http.server "$port" --bind 127.0.0.1 --directory "$scratch/served" >&2 &
 server=$!
 
-mount=$scratch/mount
 hdiutil attach "$older" -nobrowse -readonly -mountpoint "$mount" >&2
 mkdir "$scratch/installed"
 ditto "$mount/OrangeDrink.app" "$app"
@@ -107,6 +111,9 @@ press "$older_pid" "Check for Updates…" OrangeDrink
 press "$older_pid" "Install Update"
 press "$older_pid" "Install and Relaunch"
 wait_for "no new process at $app after the install" 120 launched "$older_pid"
+# A new process is not yet an app that came up: that is its menu bar item answering, from that same process.
+press "$launched_pid" OrangeDrink
+[ "$(pids)" = "$launched_pid" ] || fail "pid $launched_pid did not stay up after the update"
 newer_version=$(installed_version)
 [ "$newer_version" != "$older_version" ] || fail "pid $launched_pid runs from $app, but it is still $older_version"
 wanted=$(basename "$newer" .dmg)

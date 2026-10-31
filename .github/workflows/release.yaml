@@ -94,8 +94,10 @@ jobs:
         env:
           SPARKLE_ED_KEY: ${{ secrets.SPARKLE_ED_KEY }}
           DMG: ${{ steps.dmg.outputs.path }}
+        # The key goes on stdin alone: scripts/appcast resolves packages, which runs their manifests, and they inherit
+        # its environment.
         run: |
-          appcast=$(printenv SPARKLE_ED_KEY | scripts/appcast "$DMG" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/")
+          appcast=$(printenv SPARKLE_ED_KEY | env -u SPARKLE_ED_KEY scripts/appcast "$DMG" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/")
           echo "path=$appcast" >> "$GITHUB_OUTPUT"
       - name: Publish the release
         env:

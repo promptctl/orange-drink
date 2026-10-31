@@ -2,7 +2,7 @@
 # Writes the update feed offering one disk image, signed with the EdDSA private key it reads on stdin, beside the
 # image, and prints the feed's path:
 #
-#   printenv SPARKLE_ED_KEY | scripts/appcast <dmg> <URL the image is served under, ending in a slash>
+#   printenv SPARKLE_ED_KEY | env -u SPARKLE_ED_KEY scripts/appcast <dmg> <URL the image is served under, ending in a slash>
 #
 # The feed holds this release alone, which is all an older copy needs to find it. generate_appcast rewrites a feed
 # already in its directory and makes deltas against any older image there, so it is given a directory holding this

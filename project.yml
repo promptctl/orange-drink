@@ -1,5 +1,6 @@
 # [LAW:one-source-of-truth] The Xcode project is generated from this file; nothing in
-# *.xcodeproj is hand-edited, and Info.plist keys live here as INFOPLIST_KEY_* settings.
+# *.xcodeproj is hand-edited, and Info.plist keys live here, as INFOPLIST_KEY_* settings or a
+# target's info: properties.
 name: OrangeDrink
 options:
   deploymentTarget:
