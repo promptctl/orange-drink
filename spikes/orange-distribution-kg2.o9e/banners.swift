@@ -1,6 +1,6 @@
 // Finds the notifications on screen through NotificationCenter's accessibility tree and says which are the system's
 // low battery notification. It needs Accessibility trust.
-//   banners dump           every window's tree, attributes and actions
+//   banners dump           the notification window's tree, attributes and actions
 //   banners list           each notification with its verdict
 //   banners close          closes the low battery notifications, and nothing else, and prints what it did
 //   banners closer <n> <secs> watches that long and, once n notifications show and one is low battery, closes that one and
@@ -34,8 +34,13 @@ func notificationCenterApp() -> NSRunningApplication {
     else { fatalError("NotificationCenter is not running") }
     return app
 }
-func windows() -> [AXUIElement] {
-    attribute(AXUIElementCreateApplication(notificationCenterApp().processIdentifier), kAXWindowsAttribute) as? [AXUIElement] ?? []
+// Only this window: the desktop widgets' windows are NotificationCenter's too, and their trees loop.
+func notificationWindows() -> [AXUIElement] {
+    var windows: CFTypeRef?
+    let read = AXUIElementCopyAttributeValue(AXUIElementCreateApplication(notificationCenterApp().processIdentifier), kAXWindowsAttribute as CFString, &windows)
+    // A failed read is not an empty tree: every "gone" and "nothing posted" in output.txt stands on this.
+    guard read == .success else { fatalError("reading NotificationCenter's windows: \(read.rawValue)") }
+    return (windows as! [AXUIElement]).filter { string($0, kAXSubroleAttribute) == "AXSystemDialog" }
 }
 
 struct Notification {
@@ -44,8 +49,7 @@ struct Notification {
 
 func notifications() -> [Notification] {
     var found: [Notification] = []
-    // Only this window: the desktop widgets' windows are NotificationCenter's too, and their trees loop.
-    for window in windows() where string(window, kAXSubroleAttribute) == "AXSystemDialog" {
+    for window in notificationWindows() {
         walk(window) { element, _ in
             guard let subrole = string(element, kAXSubroleAttribute), subrole.hasPrefix("AXNotificationCenter") else { return }
             func text(_ identifier: String) -> String {
@@ -69,19 +73,26 @@ let lowBatteryWords = Set(NSDictionary(contentsOf: lowBatteryTable)!.allValues.f
     return ["LOW_BATTERY_BODY", "LOW_BATTERY_LOCKDOWN_BODY"].compactMap { key in (words[key] as? String).map { Words(title: title, body: $0) } }
 })
 
-// Words alone would also catch another app that posts the same ones, so the description has to agree. macOS 14 makes it
-// the poster's display name, which for this bundle is the title. macOS 26 makes it "poster, title, body", leaving the
-// poster out when it is the title. An app's notification with these words reads "Script Editor" or "Script Editor, Low
-// Battery, ...". macOS 26 gives a notification no attribute that names its poster, so an app displayed as "Low Battery"
-// posting these exact words is the one thing that still passes.
+// Words alone would also catch another app that posts the same ones, so the subrole and the description have to agree.
+// This notification is always an alert, and an app's is a banner unless its user chose Alerts. macOS 14 makes the
+// description the poster's display name, which for this bundle is the title. macOS 15 and 26 make it "poster, title,
+// body", leaving the poster out when it is the title, and join the parts in the Mac's language: "、" in Japanese, a space
+// in Chinese, "،" and bidi marks in Arabic. So with the words taken out, nothing that could be a name may be left. An
+// app's notification with these words reads "Script Editor" or "Script Editor, Low Battery, ...". macOS 26 gives a
+// notification no attribute that names its poster, so an app displayed as "Low Battery", set to Alerts, posting these
+// exact words should still pass. No run posted as one.
 func isSystemLowBattery(_ notification: Notification) -> Bool {
-    lowBatteryWords.contains(Words(title: notification.title, body: notification.body))
-        && [notification.title, "\(notification.title), \(notification.body)"].contains(notification.description)
+    let rest = notification.description.replacingOccurrences(of: notification.title, with: "").replacingOccurrences(of: notification.body, with: "")
+    return notification.subrole == "AXNotificationCenterAlert"
+        && lowBatteryWords.contains(Words(title: notification.title, body: notification.body))
+        && notification.description.contains(notification.title)
+        && !rest.contains { $0.isLetter || $0.isNumber || $0.isSymbol }
 }
 
 func close(_ notification: Notification) -> AXError {
-    // The action's name is in the Mac's language ("Name:Fermer"), so its position is what's read: Close is the last.
-    guard let action = notification.actions.last else { return .actionUnsupported }
+    // The action's name is in the Mac's language ("Name:Fermer"), so its position is what's read: Close is the last. An
+    // alert with no custom action would leave AXPress last, which opens the poster instead.
+    guard let action = notification.actions.last, action.hasPrefix("Name:") else { return .actionUnsupported }
     return AXUIElementPerformAction(notification.element, action as CFString)
 }
 
@@ -93,7 +104,7 @@ func describe(_ notification: Notification) -> String {
 
 switch CommandLine.arguments.dropFirst().first {
 case "dump":
-    windows().forEach { walk($0) { element, depth in
+    notificationWindows().forEach { walk($0) { element, depth in
         var list: CFArray?
         AXUIElementCopyAttributeNames(element, &list)
         let values = (list as? [String] ?? []).filter { !["AXPath", "AXChildren", "AXParent"].contains($0) }.compactMap { name -> String? in
@@ -118,7 +129,10 @@ case "closer":
             shown.forEach { print("showing: " + describe($0)) }
             print("closing \(battery.subrole): \(close(battery).rawValue) (0 is success)")
             let closed = Date()
-            while notifications().contains(where: isSystemLowBattery), -closed.timeIntervalSinceNow < 3 { Thread.sleep(forTimeInterval: 0.05) }
+            while notifications().contains(where: isSystemLowBattery) {
+                guard -closed.timeIntervalSinceNow < 3 else { print("still in the tree after 3s"); exit(1) }
+                Thread.sleep(forTimeInterval: 0.05)
+            }
             print(String(format: "gone from the tree after %.2fs", -closed.timeIntervalSinceNow))
             let after = notifications()
             after.forEach { print("after: " + describe($0)) }
