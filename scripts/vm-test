@@ -1,0 +1,22 @@
+#!/bin/bash
+# The hosted tests inside a throwaway VM with no window, so nothing shows on the Mac running them. The test that reads the
+# string catalog through #filePath compiled to this Mac's path, so a copy of the tree sits at the same path in the VM.
+# Run by `make vm-test`.
+#
+#   scripts/vm-test <xctestrun of the OrangeDrink scheme>
+#
+# Prints the result bundle's summary, and exits as xcodebuild did.
+set -euo pipefail
+
+xctestrun=$(realpath "${1:?usage: scripts/vm-test <xctestrun>}")
+cd "$(dirname "$0")/.."
+. scripts/vm-check-lib
+
+tar --exclude ./.git --exclude ./.claude --exclude ./build -cf "$scratch/tree.tar" .
+vm_start "$xctestrun"
+guest sudo -n sh -c "mkdir -p '$PWD' && tar -C '$PWD' -xf '$shared/tree.tar'"
+
+status=0
+xctest vm-test OrangeDrinkTests || status=$?
+guest xcrun xcresulttool get test-results summary --path /tmp/vm-test.xcresult --compact
+exit "$status"

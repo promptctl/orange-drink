@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release sparkle-tools test hardware-check-test release-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check
+.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check
 
 generate:
 	xcodegen generate --use-cache
@@ -28,6 +28,7 @@ test: generate
 	$(MAKE) ax-check
 	$(MAKE) hardware-check-test
 	$(MAKE) release-test
+	$(MAKE) vm-check-test
 
 # The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
 hardware-check-test:
@@ -36,6 +37,16 @@ hardware-check-test:
 # The release workflow's scripts, run against stand-ins for security, xcrun, base64 and spctl: no keychain or notary call.
 release-test:
 	scripts/release-test.sh
+
+# The VM checks' common steps, run against a stand-in for tart: no VM boots.
+vm-check-test:
+	scripts/vm-check-test.sh
+
+# The hosted tests in a VM with no window, because the test host is the app, which puts its status item in the menu bar.
+# The warning gate runs here, and the VM only runs what was built. Prints the result bundle's counts and failures.
+vm-test: generate
+	$(call gated,build-for-testing)
+	scripts/vm-test "$$(ls -t $(PRODUCTS)/*.xctestrun | head -n 1)"
 
 # [LAW:one-type-per-behavior] The checks that need a real Mac are one recipe, and each is only data declared beside its
 # target: its test (Suite/function()) and the source paths that test covers. scripts/hardware-check.swift runs the test
