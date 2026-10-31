@@ -231,6 +231,12 @@ struct DeviceNameTests {
         #expect(Device.name(alias: "  ", broadcast: "SpaceGoggles2", address: "AA") == "SpaceGoggles2")
     }
 
+    @Test func aNameIsTrimmed() {
+        #expect(Device.name(alias: " Beats\n", broadcast: nil, address: "AA") == "Beats")
+        #expect(Device.name(alias: nil, broadcast: "  ", address: "AA") == "AA")
+        #expect(Device.name(alias: nil, broadcast: "X", address: "AA") == "X")
+    }
+
     @Test func noNameAtAllFallsToTheAddress() {
         #expect(Device.name(alias: "", broadcast: "", address: "2C-57-CE-D3-A7-F2") == "2C-57-CE-D3-A7-F2")
         #expect(Device.name(alias: nil, broadcast: nil, address: "AA") == "AA")

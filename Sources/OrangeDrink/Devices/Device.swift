@@ -65,7 +65,9 @@ struct Device: Equatable, Sendable, Identifiable {
     /// name the device broadcasts, else its address. IOBluetooth answers "" for a name it does not
     /// have yet (orange-devices-bue.suy), so a blank is no name, never a name.
     static func name(alias: String?, broadcast: String?, address: String) -> String {
-        [alias, broadcast].lazy.compactMap { $0 }.first { !$0.allSatisfy(\.isWhitespace) } ?? address
+        [alias, broadcast].lazy
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? address
     }
 }
 
