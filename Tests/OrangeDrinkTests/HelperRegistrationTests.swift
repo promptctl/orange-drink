@@ -63,7 +63,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
     static let noJob = HelperUseFailure(call: .connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x"), status: .notRegistered)
     /// A refused `register`, as the outcome reads it.
     static let refusal = HelperRegistration.describe(FakeRegistrationSystem.refusal)
-    static let older = HelperRegistration.Handshake.otherCode(executable: "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper")
+    static let older = HelperRegistration.Handshake.otherCode(executable: "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper", cdhash: Data([2]))
     static let registered = HelperRegistration.Outcome(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero)
 
     func wedged(_ configure: @Sendable (inout FakeRegistrationSystem.State) -> Void = { _ in }) -> FakeRegistrationSystem {
@@ -130,10 +130,18 @@ final class FakeRegistrationSystem: @unchecked Sendable {
     @Test func aHandshakeReadsTheCDHashNotThePath() {
         typealias Handshake = HelperRegistration.Handshake
         let path = "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper"
-        func read(_ cdhash: Data) -> Handshake { Handshake(reply: .success(HelperIdentity(executable: path, euid: 0, cdhash: cdhash)), embedded: Data([1])) }
-        #expect(read(Data([1])) == .own)
-        #expect(read(Data([2])) == .otherCode(executable: path))
-        #expect(Handshake(reply: .failure(Self.noReply), embedded: Data([1])) == .failed(Self.noReply))
+        let answer = Result<HelperIdentity, HelperCallError>.success(HelperIdentity(executable: path, euid: 0, cdhash: Data([1])))
+        #expect(Handshake(reply: answer, embedded: .success(Data([1]))) == .own)
+        #expect(Handshake(reply: answer, embedded: .success(Data([2]))) == .otherCode(executable: path, cdhash: Data([1])))
+        #expect(Handshake(reply: .failure(Self.noReply), embedded: .success(Data([1]))) == .failed(Self.noReply))
+    }
+
+    /// With no file to run, a new job could not answer, whatever the helper said.
+    @Test(arguments: [Result<HelperIdentity, HelperCallError>.failure(noReply), .success(HelperIdentity(executable: "/x", euid: 0, cdhash: Data([1])))])
+    func aHandshakeWithNoEmbeddedFileReplacesNothing(reply: Result<HelperIdentity, HelperCallError>) {
+        let handshake = HelperRegistration.Handshake(reply: reply, embedded: .failure(HelperFailure("gone")))
+        #expect(handshake == .embeddedUnreadable("gone"))
+        #expect(!handshake.replacesJob)
     }
 
     @Test(arguments: [
@@ -143,7 +151,8 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         (.failed(.connection(domain: NSCocoaErrorDomain, code: NSXPCConnectionInterrupted, description: "x")), true),
         (.failed(.connection(domain: NSCocoaErrorDomain, code: NSXPCConnectionInvalid, description: "x")), false),
         (.failed(.failed("x")), false),
-        (.failed(.unsupported("x")), false)
+        (.failed(.unsupported("x")), false),
+        (.embeddedUnreadable("x"), false)
     ])
     func oneAnswerSaysWhetherTheJobIsReplaced(handshake: HelperRegistration.Handshake, replaces: Bool) {
         #expect(handshake.replacesJob == replaces)
@@ -159,12 +168,22 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         #expect(system.events == [.launched(.init(refusal: nil, status: "enabled", attempts: 4, elapsed: .seconds(3))), .leftAlone(.own)])
     }
 
+    /// `unregister` would take the record out of Login Items, where the user allows it, so other code stays until they do.
     @Test func aRefusalForApprovalEndsAtOnce() {
         let system = FakeRegistrationSystem()
-        system.state.withLock { $0.refusals = 5; $0.refusedStatus = .requiresApproval }
+        system.state.withLock { $0.refusals = 5; $0.refusedStatus = .requiresApproval; $0.handshake = Self.older }
         system.registration.launch()
         system.registration.waitForSteps()
-        #expect(system.events.first == .launched(.init(refusal: Self.refusal, status: "requiresApproval", attempts: 1, elapsed: .zero)))
+        #expect(system.calls == ["register"])
+        #expect(system.events == [.launched(.init(refusal: Self.refusal, status: "requiresApproval", attempts: 1, elapsed: .zero))])
+    }
+
+    @Test func aCallThatFindsNoJobAndEndsAwaitingApprovalLooksAtNothing() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.refusals = 1; $0.refusedStatus = .requiresApproval; $0.handshake = Self.older }
+        system.registration.reconcile(after: Self.noJob)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["register"])
     }
 
     @Test func theWindowEndsInTheRefusal() {
@@ -177,6 +196,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
 
     @Test func aFailureOfApprovalAsksNothing() {
         let system = FakeRegistrationSystem()
+        system.state.withLock { $0.status = .requiresApproval }
         system.registration.reconcile(after: HelperUseFailure(call: Self.noReply, status: .requiresApproval))
         system.registration.waitForSteps()
         #expect(system.calls.isEmpty && system.events.isEmpty)

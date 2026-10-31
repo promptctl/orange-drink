@@ -155,7 +155,7 @@ struct HelperLive {
         let identity = try HelperClient(service: label).identity()
         #expect(identity.euid == 0)
         #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath().path == helperPath, "the helper that answered is \(identity.executable)")
-        #expect(identity.cdhash == HelperRegistration.embeddedCDHash, "the helper that answered is not this build's code")
+        #expect(try identity.cdhash == SigningInformation.cdhash(of: HelperRegistration.embeddedHelper), "the helper that answered is not this build's code")
     }
 
     func copy(_ executable: URL, to directory: URL, as name: String) throws -> URL {

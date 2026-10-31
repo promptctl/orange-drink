@@ -43,20 +43,32 @@ struct HelperRegistration: Sendable {
 
     /// What the helper's handshake says about the job. [LAW:one-source-of-truth] The cdhash decides, since it names the
     /// code that serves: a copy of this code at another path is this helper, and older code moved aside from this path
-    /// is not, though it still gives the path it started at.
+    /// is not, though it still gives the path it started at. It is compared with the file in this bundle as it is now,
+    /// the code `register` would run: a hash kept from launch would call a bundle replaced under this copy other code
+    /// that no repair can remove, and every failed call would stop a helper that is already the right one.
     enum Handshake: Equatable {
         /// This copy's helper answered, which proves launchd runs the job.
         case own
         /// Other code answered: a helper another copy started, which `register` leaves running.
-        case otherCode(executable: String)
+        case otherCode(executable: String, cdhash: Data)
         case failed(HelperCallError)
+        /// The file in this bundle has no readable cdhash, so a new job would have nothing to run.
+        case embeddedUnreadable(String)
 
         /// [LAW:parse-dont-validate] The handshake's reply, read against the cdhash of the helper this copy embeds.
-        init(reply: Result<HelperIdentity, HelperCallError>, embedded cdhash: Data) {
-            switch reply {
-            case .success(let identity): self = identity.cdhash == cdhash ? .own : .otherCode(executable: identity.executable)
-            case .failure(let error): self = .failed(error)
+        init(reply: Result<HelperIdentity, HelperCallError>, embedded: Result<Data, HelperFailure>) {
+            switch (embedded, reply) {
+            case (.failure(let failure), _): self = .embeddedUnreadable(failure.description)
+            case (_, .failure(let error)): self = .failed(error)
+            case (.success(let cdhash), .success(let identity)):
+                self = identity.cdhash == cdhash ? .own : .otherCode(executable: identity.executable, cdhash: identity.cdhash)
             }
+        }
+
+        /// [LAW:effects-at-boundaries] One look: what answers, and what the file at `helper` holds, read now.
+        static func look(at helper: URL, asking identity: () throws(HelperCallError) -> HelperIdentity) -> Handshake {
+            Handshake(reply: Result { () throws(HelperCallError) in try identity() },
+                      embedded: Result { () throws(HelperFailure) in try SigningInformation.cdhash(of: helper) })
         }
 
         /// A job nothing runs, that runs other code, or whose helper ends the connection unanswered is replaced: a helper
@@ -67,15 +79,16 @@ struct HelperRegistration: Sendable {
             switch self {
             case .otherCode, .failed(.noReply): true
             case .failed(.connection(let domain, let code, _)): domain == NSCocoaErrorDomain && code == NSXPCConnectionInterrupted
-            case .own, .failed: false
+            case .own, .failed, .embeddedUnreadable: false
             }
         }
 
         var text: String {
             switch self {
             case .own: "the helper answered"
-            case .otherCode(let executable): "other code answered (started from \(executable))"
+            case .otherCode(let executable, let cdhash): "other code answered (cdhash \(cdhash.hex), started from \(executable))"
             case .failed(let error): "handshake \(error.description)"
+            case .embeddedUnreadable(let reason): "embedded helper unreadable: \(reason)"
             }
         }
     }
@@ -136,23 +149,19 @@ struct HelperRegistration: Sendable {
         do { return try LaunchDaemon(in: .main) } catch { fatalError("no helper launchd plist: \(error)") }
     }()
 
-    /// The cdhash of the helper this build embeds, read once at launch, so a bundle replaced later cannot change it. A
-    /// build whose helper has no signature is broken.
-    static let embeddedCDHash: Data = {
-        let helper = Bundle.main.bundleURL.appending(path: daemon.program)
-        do { return try SigningInformation.cdhash(in: SigningInformation.of(file: helper)) } catch { fatalError("no helper cdhash: \(error)") }
-    }()
+    /// The helper file in this bundle, which `register` makes the job's program.
+    static var embeddedHelper: URL { Bundle.main.bundleURL.appending(path: daemon.program) }
 
     /// The app's registration, on the plist this build embeds.
     static let app: HelperRegistration = {
-        let plistName = daemon.plistName, label = daemon.label, cdhash = embeddedCDHash
+        let plistName = daemon.plistName, label = daemon.label, helper = embeddedHelper
         // Made at each step, since it is not Sendable.
         let service: @Sendable () -> SMAppService = { SMAppService.daemon(plistName: plistName) }
         return HelperRegistration(effects: Effects(
             register: { attempt(service().register) },
             unregister: { attempt(service().unregister) },
             status: { service().status },
-            handshake: { Handshake(reply: Result { () throws(HelperCallError) in try HelperClient(service: label).identity() }, embedded: cdhash) },
+            handshake: { Handshake.look(at: helper) { () throws(HelperCallError) in try HelperClient(service: label).identity() } },
             holders: { () throws(ProcessTableUnreadable) in try otherHolders() },
             now: { .now },
             pause: { Thread.sleep(forTimeInterval: $0 / .seconds(1)) }
@@ -210,23 +219,21 @@ struct HelperRegistration: Sendable {
     func reconcile(after failure: HelperUseFailure) {
         queue.async {
             guard !exiting.withLock({ $0 }) else { return }
-            switch failure.cause {
-            case .needsApproval:
-                break
-            case .notRegistered:
-                // One attempt, since no `unregister` here opens the refusal window: a copy refused for good pays one
-                // round trip per input rather than the window, and the next input asks again.
+            if failure.cause == .notRegistered {
+                // One attempt, since `register` alone opens no refusal window: a copy refused for good pays one attempt
+                // per input rather than the window, and the next input asks again.
                 record(.reregistered(register(within: .zero)))
-                settleJob()
-            case .notAnswering, .other:
-                settleJob()
             }
+            settleJob()
         }
     }
 
     /// [LAW:single-enforcer] The one place the helper's answer decides the job, wherever the look comes from. A lease
-    /// this copy holds on a helper this replaces ends with it, and the hold's ask for a new one waits for this step.
+    /// this copy holds on a helper this replaces ends with it, and the hold's ask for a new one waits for this step. A
+    /// record waiting for the user's approval is theirs to allow, on any route: `unregister` would take it out of Login
+    /// Items, and no new job answers before they allow it.
     private func settleJob() {
+        guard effects.status() != .requiresApproval else { return }
         let handshake = effects.handshake()
         guard handshake.replacesJob else {
             record(.leftAlone(handshake))

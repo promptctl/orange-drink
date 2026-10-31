@@ -162,11 +162,16 @@ enum SigningInformation {
     }
 
     /// A file's own, such as the helper an app embeds.
-    static func of(file: URL) throws(HelperFailure) -> [String: Any] {
+    static func of(file: URL, flags: UInt32 = kSecCSSigningInformation) throws(HelperFailure) -> [String: Any] {
         var code: SecStaticCode?
         let status = SecStaticCodeCreateWithPath(file as CFURL, [], &code)
         guard status == errSecSuccess, let code else { throw HelperFailure("no static code at \(file.path): OSStatus \(status)") }
-        return try of(code)
+        return try of(code, flags: flags)
+    }
+
+    /// The cdhash of a file's code as it is now. It needs no signing information, so no signature is parsed.
+    static func cdhash(of file: URL) throws(HelperFailure) -> Data {
+        try cdhash(in: of(file: file, flags: 0))
     }
 
     /// The code's cdhash, which names exactly this code wherever its file sits.
