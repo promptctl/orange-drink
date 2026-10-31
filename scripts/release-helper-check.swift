@@ -1,5 +1,6 @@
 // Launches the Release app, reads that its helper answers a charge-limit call, kills the app the way a crash would,
-// and reads the same at the next launch; then quits it and reads that launchd holds no job. Run by
+// and reads the same at the next launch; then quits it and reads that launchd holds no job. Then it crashes the app
+// again and launches a copy running other code, and reads that the copy replaced the helper left running. Run by
 // `make release-helper-check`; usage: release-helper-check <path to the app>.
 // Exits 0 when every reading holds, 1 when one does not, and 2 when no reading could be made.
 import Foundation
@@ -14,6 +15,8 @@ enum CheckError: Error, CustomStringConvertible {
     case didNotStart(String)
     case didNotExit(pid: Int32)
     case noAnswer(pid: Int32, log: String)
+    case notReplaced(pid: Int32, log: String)
+    case noSigner(String)
     case jobLeft(label: String)
 
     var description: String {
@@ -25,13 +28,15 @@ enum CheckError: Error, CustomStringConvertible {
         case .didNotStart(let executable): "\(executable) did not start"
         case .didNotExit(let pid): "pid \(pid) did not exit"
         case .noAnswer(let pid, let log): "pid \(pid): no registration and answered ask within \(Int(answerSeconds)) s. Its log:\n\(log)"
+        case .notReplaced(let pid, let log): "pid \(pid): the helper left running was not replaced within \(Int(answerSeconds)) s. Its log:\n\(log)"
+        case .noSigner(let app): "\(app) names no signing authority"
         case .jobLeft(let label): "launchd still holds \(label) after the app quit"
         }
     }
 
     var exitCode: Int32 {
         switch self {
-        case .noAnswer, .jobLeft, .didNotExit: 1
+        case .noAnswer, .notReplaced, .jobLeft, .didNotExit: 1
         default: 2
         }
     }
@@ -101,6 +106,46 @@ func end(pid: Int32, signal: Int32, executable: String) throws {
     guard try poll(seconds: 15, { try pids(of: executable).contains(pid) ? nil : true }) != nil else { throw CheckError.didNotExit(pid: pid) }
 }
 
+/// Requires the line of a repair that replaced the job and ended in this copy's own helper answering.
+func expectReplaced(pid: Int32) throws {
+    let replaced = try poll(seconds: answerSeconds) { () -> Bool? in
+        try log(of: pid).split(separator: "\n").contains { $0.contains("helper repair: other code answered") && $0.contains("; cleared ok; registered;") && $0.hasSuffix("; the helper answered") } ? true : nil
+    }
+    guard replaced != nil else { throw CheckError.notReplaced(pid: pid, log: try log(of: pid)) }
+    print("pid \(pid): replaced the helper a crash left running, and its own answered")
+}
+
+/// A copy of the app under the same label and team that runs other code: the helper's cdhash covers its code page size,
+/// so re-signing with another one changes the cdhash and nothing else, and the app is signed again over its new helper.
+/// 4096, since the kernel kills a helper signed with 8192 or a page size of 0 at exec.
+func copyRunningOtherCode(of app: String, in scratch: URL) throws -> String {
+    let copy = scratch.appending(path: URL(fileURLWithPath: app).lastPathComponent).path
+    let copied = try run("/usr/bin/ditto", [app, copy])
+    guard copied.status == 0 else { throw CheckError.tool("ditto", status: copied.status, output: copied.output) }
+    let details = try run("/usr/bin/codesign", ["-dvv", app])
+    guard details.status == 0 else { throw CheckError.tool("codesign", status: details.status, output: details.output) }
+    guard let authority = details.output.split(separator: "\n").first(where: { $0.hasPrefix("Authority=") })?.dropFirst("Authority=".count) else {
+        throw CheckError.noSigner(app)
+    }
+    let shared = ["--force", "--sign", String(authority), "--timestamp=none", "--preserve-metadata=entitlements,requirements,flags"]
+    for arguments in [["--pagesize", "4096", copy + "/Contents/MacOS/OrangeDrinkHelper"], [copy]] {
+        let signed = try run("/usr/bin/codesign", shared + arguments)
+        guard signed.status == 0 else { throw CheckError.tool("codesign", status: signed.status, output: signed.output) }
+    }
+    return copy
+}
+
+/// launchd holds no job for the label. 113 is launchctl's "Could not find service"; any other failure says nothing about the job.
+func expectNoJob(label: String) throws {
+    let printed = try poll(seconds: 15) {
+        let result = try run("/bin/launchctl", ["print", "system/\(label)"])
+        return result.status == 0 ? nil : result
+    }
+    guard let printed else { throw CheckError.jobLeft(label: label) }
+    guard printed.status == 113 else { throw CheckError.tool("launchctl print", status: printed.status, output: printed.output) }
+    print("quit: launchd holds no job for \(label)")
+}
+
 func check() throws {
     guard CommandLine.arguments.count == 2 else { throw CheckError.usage }
     let app = URL(fileURLWithPath: CommandLine.arguments[1]).standardizedFileURL.path
@@ -128,14 +173,34 @@ func check() throws {
         throw error
     }
     try end(pid: second, signal: SIGTERM, executable: executable)
-    // 113 is launchctl's "Could not find service"; any other failure says nothing about the job.
-    let printed = try poll(seconds: 15) {
-        let result = try run("/bin/launchctl", ["print", "system/\(label)"])
-        return result.status == 0 ? nil : result
+    try expectNoJob(label: label)
+
+    // Beside the app, since a process's path is the real one and the temporary directory's is a symlink's.
+    let scratch = URL(fileURLWithPath: app).deletingLastPathComponent().appending(path: "release-helper-check-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+    defer {
+        do { try FileManager.default.removeItem(at: scratch) } catch { print("scratch copy left at \(scratch.path): \(error)") }
     }
-    guard let printed else { throw CheckError.jobLeft(label: label) }
-    guard printed.status == 113 else { throw CheckError.tool("launchctl print", status: printed.status, output: printed.output) }
-    print("quit: launchd holds no job for \(label)")
+    let copy = try copyRunningOtherCode(of: app, in: scratch)
+    let copyExecutable = copy + "/Contents/MacOS/OrangeDrink"
+    let third = try launch(app, executable: executable)
+    do {
+        try expectAnswer(pid: third)
+        try end(pid: third, signal: SIGKILL, executable: executable)
+        print("pid \(third): killed, as a crash would, leaving its helper running")
+    } catch {
+        kill(third, SIGTERM)
+        throw error
+    }
+    let replacing = try launch(copy, executable: copyExecutable)
+    do {
+        try expectReplaced(pid: replacing)
+    } catch {
+        kill(replacing, SIGTERM)
+        throw error
+    }
+    try end(pid: replacing, signal: SIGTERM, executable: copyExecutable)
+    try expectNoJob(label: label)
 }
 
 do {

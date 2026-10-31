@@ -41,35 +41,70 @@ struct HelperRegistration: Sendable {
         }
     }
 
+    /// What the helper's handshake says about the job. [LAW:one-source-of-truth] The cdhash decides, since it names the
+    /// code that serves: a copy of this code at another path is this helper, and older code moved aside from this path
+    /// is not, though it still gives the path it started at.
+    enum Handshake: Equatable {
+        /// This copy's helper answered, which proves launchd runs the job.
+        case own
+        /// Other code answered: a helper another copy started, which `register` leaves running.
+        case otherCode(executable: String)
+        case failed(HelperCallError)
+
+        /// [LAW:parse-dont-validate] The handshake's reply, read against the cdhash of the helper this copy embeds.
+        init(reply: Result<HelperIdentity, HelperCallError>, embedded cdhash: Data) {
+            switch reply {
+            case .success(let identity): self = identity.cdhash == cdhash ? .own : .otherCode(executable: identity.executable)
+            case .failure(let error): self = .failed(error)
+            }
+        }
+
+        /// A job nothing runs, that runs other code, or whose helper ends the connection unanswered is replaced: a helper
+        /// that refuses this copy looks like that last one (`HelperCallError.connection`). NSXPCConnectionInvalid, or any
+        /// other failure, is not one a new job answers: it is how a helper with no job yet fails, unapproved for one. This
+        /// copy's own helper keeps its job and any pause it holds, however slow it was.
+        var replacesJob: Bool {
+            switch self {
+            case .otherCode, .failed(.noReply): true
+            case .failed(.connection(let domain, let code, _)): domain == NSCocoaErrorDomain && code == NSXPCConnectionInterrupted
+            case .own, .failed: false
+            }
+        }
+
+        var text: String {
+            switch self {
+            case .own: "the helper answered"
+            case .otherCode(let executable): "other code answered (started from \(executable))"
+            case .failed(let error): "handshake \(error.description)"
+            }
+        }
+    }
+
     enum Event: Equatable {
         case launched(Outcome)
-        /// A failed call found no job, so this registers one. `handshake` is as in `repaired`.
-        case reregistered(Outcome, handshake: String?)
-        /// A call got no reply but the job was not repaired: `handshake` is nil once the helper answered, so it is
-        /// slow and not wedged, or the error that was not a missing reply.
-        case leftAlone(handshake: String?)
-        /// Neither a call nor the handshake got a reply, and `unregister` was not asked, so the job stays as it was.
-        case kept(Clearing)
-        /// Neither a call nor the handshake got a reply, so `unregister` was asked, and `register` after it even if
-        /// `unregister` failed, since a job with no record fails it. `handshake` is the proof a status cannot give,
-        /// since it read enabled through the wedge: nil once the helper answered, or the error it ended in. The
-        /// answer also starts the helper, which ends a pause one that died left behind.
-        case repaired(Clearing, Outcome, handshake: String?)
+        /// A failed call found no job, so this registers one.
+        case reregistered(Outcome)
+        /// The handshake found nothing to replace.
+        case leftAlone(Handshake)
+        /// The handshake called for a new job, and `unregister` was not asked, so the job stays as it was.
+        case kept(Clearing, Handshake)
+        /// `found` called for a new job, so `unregister` was asked, and `register` after it even if `unregister` failed,
+        /// since a job with no record fails it. `handshake` is the proof a status cannot give, since it read enabled
+        /// through the wedge. The answer also starts the helper, which ends a pause one that died left behind.
+        case repaired(found: Handshake, Clearing, Outcome, handshake: Handshake)
         case exited(Clearing, status: String)
 
         /// [LAW:effects-at-boundaries] The log line, a pure function of what SMAppService answered.
         var line: String {
             switch self {
             case .launched(let outcome): "helper registration: \(outcome.text)"
-            case .reregistered(let outcome, let handshake): "helper registration, a call found no job: \(outcome.text); \(Self.answer(handshake))"
-            case .leftAlone(let handshake): "helper repair: left the job alone; \(Self.answer(handshake))"
-            case .kept(let clearing): "helper repair: \(clearing.text); the job still will not run"
-            case .repaired(let clearing, let outcome, let handshake): "helper repair: \(clearing.text); \(outcome.text); \(Self.answer(handshake))"
+            case .reregistered(let outcome): "helper registration, a call found no job: \(outcome.text)"
+            case .leftAlone(let handshake): "helper check: left the job alone; \(handshake.text)"
+            case .kept(let clearing, let handshake): "helper check: \(clearing.text); \(handshake.text)"
+            case .repaired(let found, let clearing, let outcome, let handshake): "helper repair: \(found.text); \(clearing.text); \(outcome.text); \(handshake.text)"
             case .exited(let clearing, let status): "helper at exit: \(clearing.text); status \(status)"
             }
         }
-
-        private static func answer(_ handshake: String?) -> String { handshake.map { "handshake \($0)" } ?? "the helper answered" }
     }
 
     /// The system calls a step makes, as one seam.
@@ -78,8 +113,8 @@ struct HelperRegistration: Sendable {
         let register: @Sendable () -> NSError?
         let unregister: @Sendable () -> NSError?
         let status: @Sendable () -> SMAppService.Status
-        /// The helper's handshake, which never touches its write queue: the error it ended in, or nil once it answered.
-        let handshake: @Sendable () -> HelperCallError?
+        /// The helper's handshake, which never touches its write queue.
+        let handshake: @Sendable () -> Handshake
         let holders: @Sendable () throws(ProcessTableUnreadable) -> [Int32]
         let now: @Sendable () -> ContinuousClock.Instant
         let pause: @Sendable (Duration) -> Void
@@ -101,18 +136,23 @@ struct HelperRegistration: Sendable {
         do { return try LaunchDaemon(in: .main) } catch { fatalError("no helper launchd plist: \(error)") }
     }()
 
+    /// The cdhash of the helper this build embeds, read once at launch, so a bundle replaced later cannot change it. A
+    /// build whose helper has no signature is broken.
+    static let embeddedCDHash: Data = {
+        let helper = Bundle.main.bundleURL.appending(path: daemon.program)
+        do { return try SigningInformation.cdhash(in: SigningInformation.of(file: helper)) } catch { fatalError("no helper cdhash: \(error)") }
+    }()
+
     /// The app's registration, on the plist this build embeds.
     static let app: HelperRegistration = {
-        let plistName = daemon.plistName, label = daemon.label
+        let plistName = daemon.plistName, label = daemon.label, cdhash = embeddedCDHash
         // Made at each step, since it is not Sendable.
         let service: @Sendable () -> SMAppService = { SMAppService.daemon(plistName: plistName) }
         return HelperRegistration(effects: Effects(
             register: { attempt(service().register) },
             unregister: { attempt(service().unregister) },
             status: { service().status },
-            handshake: {
-                do throws(HelperCallError) { _ = try HelperClient(service: label).identity(); return nil } catch { return error }
-            },
+            handshake: { Handshake(reply: Result { () throws(HelperCallError) in try HelperClient(service: label).identity() }, embedded: cdhash) },
             holders: { () throws(ProcessTableUnreadable) in try otherHolders() },
             now: { .now },
             pause: { Thread.sleep(forTimeInterval: $0 / .seconds(1)) }
@@ -138,10 +178,15 @@ struct HelperRegistration: Sendable {
         app.launch()
     }
 
-    /// Registers, which alone makes this copy's helper the job's program and leaves a job a crash left running. An
-    /// `unregister` first would be refused the `register` after it, and can't reach a job whose record has gone.
+    /// Registers, which alone makes this copy's helper the job's program and leaves a job a crash left running, so the
+    /// handshake that follows replaces a helper that is not this copy's. An `unregister` first would be refused the
+    /// `register` after it, and can't reach a job whose record has gone. The step is queued ahead of every ask, so no
+    /// lease of this copy's can be on the helper it replaces.
     func launch() {
-        queue.async { record(.launched(register(within: Self.refusalWindow))) }
+        queue.async {
+            record(.launched(register(within: Self.refusalWindow)))
+            settleJob()
+        }
     }
 
     /// Returns once the steps ahead of this call have run, so no ask meets a service not registered yet.
@@ -166,29 +211,34 @@ struct HelperRegistration: Sendable {
         queue.async {
             guard !exiting.withLock({ $0 }) else { return }
             switch failure.cause {
-            case .needsApproval, .other:
+            case .needsApproval:
                 break
             case .notRegistered:
                 // One attempt, since no `unregister` here opens the refusal window: a copy refused for good pays one
                 // round trip per input rather than the window, and the next input asks again.
-                let outcome = register(within: .zero)
-                record(.reregistered(outcome, handshake: effects.handshake()?.description))
-            case .notAnswering:
-                // A reply proves launchd runs the job. An unregister would stop that helper, and its pause with it.
-                let handshake = effects.handshake()
-                guard case .noReply = handshake else {
-                    record(.leftAlone(handshake: handshake?.description))
-                    return
-                }
-                let clearing = clear()
-                guard case .unregistered = clearing else {
-                    record(.kept(clearing))
-                    return
-                }
-                let outcome = register(within: Self.refusalWindow)
-                record(.repaired(clearing, outcome, handshake: effects.handshake()?.description))
+                record(.reregistered(register(within: .zero)))
+                settleJob()
+            case .notAnswering, .other:
+                settleJob()
             }
         }
+    }
+
+    /// [LAW:single-enforcer] The one place the helper's answer decides the job, wherever the look comes from. A lease
+    /// this copy holds on a helper this replaces ends with it, and the hold's ask for a new one waits for this step.
+    private func settleJob() {
+        let handshake = effects.handshake()
+        guard handshake.replacesJob else {
+            record(.leftAlone(handshake))
+            return
+        }
+        let clearing = clear()
+        guard case .unregistered = clearing else {
+            record(.kept(clearing, handshake))
+            return
+        }
+        let outcome = register(within: Self.refusalWindow)
+        record(.repaired(found: handshake, clearing, outcome, handshake: effects.handshake()))
     }
 
     /// Asks `register` until it accepts, or it refuses for a reason other than the refusal window, or `window` ends.

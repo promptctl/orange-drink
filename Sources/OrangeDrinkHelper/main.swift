@@ -71,9 +71,9 @@ final class Session: NSObject, PrivilegedHelper {
     let peer: pid_t
     init(peer: pid_t) { self.peer = peer }
 
-    func identity(reply: @escaping @Sendable (String, UInt32) -> Void) {
+    func identity(reply: @escaping @Sendable (String, UInt32, Data) -> Void) {
         log.notice("identity for pid \(self.peer)")
-        reply(executable, geteuid())
+        reply(executable, geteuid(), signer.cdhash)
     }
 
     /// [LAW:single-enforcer] The helper bounds its own work: a caller's instant can shorten one call's budget, never

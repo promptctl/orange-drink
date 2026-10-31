@@ -14,9 +14,9 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         /// How many times `register` refuses, and the status it leaves when it does.
         var refusals = 0
         var refusedStatus = SMAppService.Status.notRegistered
-        var handshake: HelperCallError?
+        var handshake = HelperRegistration.Handshake.own
         /// What the handshake ends in once the job has been cleared.
-        var handshakeAfterClearing: HelperCallError?
+        var handshakeAfterClearing = HelperRegistration.Handshake.own
         var holders: [Int32] = []
         var elapsed = Duration.zero
     }
@@ -63,19 +63,90 @@ final class FakeRegistrationSystem: @unchecked Sendable {
     static let noJob = HelperUseFailure(call: .connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x"), status: .notRegistered)
     /// A refused `register`, as the outcome reads it.
     static let refusal = HelperRegistration.describe(FakeRegistrationSystem.refusal)
+    static let older = HelperRegistration.Handshake.otherCode(executable: "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper")
+    static let registered = HelperRegistration.Outcome(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero)
 
     func wedged(_ configure: @Sendable (inout FakeRegistrationSystem.State) -> Void = { _ in }) -> FakeRegistrationSystem {
         let system = FakeRegistrationSystem()
-        system.state.withLock { $0.handshake = Self.noReply; $0.status = .enabled; configure(&$0) }
+        system.state.withLock { $0.handshake = .failed(Self.noReply); $0.status = .enabled; configure(&$0) }
         return system
     }
 
-    @Test func aLaunchRegistersAndNothingElse() {
+    @Test func aLaunchThatFindsItsOwnHelperLeavesTheJob() {
         let system = FakeRegistrationSystem()
         system.registration.launch()
         system.registration.waitForSteps()
-        #expect(system.calls == ["register"])
-        #expect(system.events == [.launched(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero))])
+        #expect(system.calls == ["register", "handshake"])
+        #expect(system.events == [.launched(Self.registered), .leftAlone(.own)])
+    }
+
+    /// A crash left the older copy's helper running: `register` leaves it, so this copy's would never serve.
+    @Test func aLaunchThatFindsAnotherCopysHelperReplacesIt() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.handshake = Self.older }
+        system.registration.launch()
+        system.registration.waitForSteps()
+        #expect(system.calls == ["register", "handshake", "holders", "unregister", "register", "handshake"])
+        #expect(system.events == [.launched(Self.registered), .repaired(found: Self.older, .unregistered(error: nil), Self.registered, handshake: .own)])
+    }
+
+    @Test func aLaunchLeavesAHelperAnotherRunningCopyHolds() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.handshake = Self.older; $0.holders = [41] }
+        system.registration.launch()
+        system.registration.waitForSteps()
+        #expect(system.calls == ["register", "handshake", "holders"])
+        #expect(system.events == [.launched(Self.registered), .kept(.heldBy(pids: [41]), Self.older)])
+    }
+
+    /// The holder's end tells nobody, so the first failed call after it is what replaces the job.
+    @Test func aCallReplacesAHelperOnceTheCopyThatHeldItHasGone() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.handshake = Self.older; $0.holders = [41] }
+        system.registration.launch()
+        system.registration.waitForSteps()
+        system.state.withLock { $0.holders = []; $0.status = .enabled }
+        system.registration.reconcile(after: HelperUseFailure(call: .connection(domain: "NSCocoaErrorDomain", code: 4097, description: "x"), status: .enabled))
+        system.registration.waitForSteps()
+        #expect(system.events.last == .repaired(found: Self.older, .unregistered(error: nil), Self.registered, handshake: .own))
+    }
+
+    @Test func aRepairThatStillFindsAnotherCopysHelperSaysSo() {
+        let system = wedged { $0.handshake = Self.older; $0.handshakeAfterClearing = Self.older }
+        system.registration.reconcile(after: Self.notAnswering)
+        system.registration.waitForSteps()
+        #expect(system.events == [.repaired(found: Self.older, .unregistered(error: nil), Self.registered, handshake: Self.older)])
+    }
+
+    @Test func aCallThatFindsNoJobReplacesOneLaunchdStillWillNotRun() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.handshake = .failed(Self.noReply) }
+        system.registration.reconcile(after: Self.noJob)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["register", "handshake", "holders", "unregister", "register", "handshake"])
+        #expect(system.events == [.reregistered(Self.registered), .repaired(found: .failed(Self.noReply), .unregistered(error: nil), Self.registered, handshake: .own)])
+    }
+
+    @Test func aHandshakeReadsTheCDHashNotThePath() {
+        typealias Handshake = HelperRegistration.Handshake
+        let path = "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper"
+        func read(_ cdhash: Data) -> Handshake { Handshake(reply: .success(HelperIdentity(executable: path, euid: 0, cdhash: cdhash)), embedded: Data([1])) }
+        #expect(read(Data([1])) == .own)
+        #expect(read(Data([2])) == .otherCode(executable: path))
+        #expect(Handshake(reply: .failure(Self.noReply), embedded: Data([1])) == .failed(Self.noReply))
+    }
+
+    @Test(arguments: [
+        (HelperRegistration.Handshake.own, false),
+        (older, true),
+        (.failed(noReply), true),
+        (.failed(.connection(domain: NSCocoaErrorDomain, code: NSXPCConnectionInterrupted, description: "x")), true),
+        (.failed(.connection(domain: NSCocoaErrorDomain, code: NSXPCConnectionInvalid, description: "x")), false),
+        (.failed(.failed("x")), false),
+        (.failed(.unsupported("x")), false)
+    ])
+    func oneAnswerSaysWhetherTheJobIsReplaced(handshake: HelperRegistration.Handshake, replaces: Bool) {
+        #expect(handshake.replacesJob == replaces)
     }
 
     @Test(arguments: [SMAppService.Status.notRegistered, .notFound])
@@ -84,8 +155,8 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.state.withLock { $0.refusals = 3; $0.refusedStatus = status }
         system.registration.launch()
         system.registration.waitForSteps()
-        #expect(system.calls == Array(repeating: "register", count: 4))
-        #expect(system.events == [.launched(.init(refusal: nil, status: "enabled", attempts: 4, elapsed: .seconds(3)))])
+        #expect(system.calls == Array(repeating: "register", count: 4) + ["handshake"])
+        #expect(system.events == [.launched(.init(refusal: nil, status: "enabled", attempts: 4, elapsed: .seconds(3))), .leftAlone(.own)])
     }
 
     @Test func aRefusalForApprovalEndsAtOnce() {
@@ -93,7 +164,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.state.withLock { $0.refusals = 5; $0.refusedStatus = .requiresApproval }
         system.registration.launch()
         system.registration.waitForSteps()
-        #expect(system.events == [.launched(.init(refusal: Self.refusal, status: "requiresApproval", attempts: 1, elapsed: .zero))])
+        #expect(system.events.first == .launched(.init(refusal: Self.refusal, status: "requiresApproval", attempts: 1, elapsed: .zero)))
     }
 
     @Test func theWindowEndsInTheRefusal() {
@@ -101,15 +172,24 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.state.withLock { $0.refusals = .max }
         system.registration.launch()
         system.registration.waitForSteps()
-        #expect(system.events == [.launched(.init(refusal: Self.refusal, status: "notRegistered", attempts: 4, elapsed: .seconds(3)))])
+        #expect(system.events.first == .launched(.init(refusal: Self.refusal, status: "notRegistered", attempts: 4, elapsed: .seconds(3))))
     }
 
-    @Test(arguments: [HelperUseFailure(call: noReply, status: .requiresApproval), HelperUseFailure(call: .failed("x"), status: .enabled)])
-    func aFailureNoRegistrationCanHelpDoesNothing(failure: HelperUseFailure) {
+    @Test func aFailureOfApprovalAsksNothing() {
         let system = FakeRegistrationSystem()
-        system.registration.reconcile(after: failure)
+        system.registration.reconcile(after: HelperUseFailure(call: Self.noReply, status: .requiresApproval))
         system.registration.waitForSteps()
         #expect(system.calls.isEmpty && system.events.isEmpty)
+    }
+
+    /// An older helper can answer that it cannot do what a newer copy asks, so an answer does not end the look.
+    @Test(arguments: [HelperCallError.failed("x"), .unsupported("x")])
+    func aFailureTheHelperAnsweredStillLooksAtTheJob(call: HelperCallError) {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.handshake = Self.older; $0.status = .enabled }
+        system.registration.reconcile(after: HelperUseFailure(call: call, status: .enabled))
+        system.registration.waitForSteps()
+        #expect(system.events == [.repaired(found: Self.older, .unregistered(error: nil), Self.registered, handshake: .own)])
     }
 
     @Test func aCallThatFindsNoJobRegistersAndUnregistersNothing() {
@@ -117,7 +197,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.reconcile(after: Self.noJob)
         system.registration.waitForSteps()
         #expect(system.calls == ["register", "handshake"])
-        #expect(system.events == [.reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero), handshake: nil)])
+        #expect(system.events == [.reregistered(Self.registered), .leftAlone(.own)])
     }
 
     /// No `unregister` here opens the refusal window, so a copy refused for good holds up no other control's call.
@@ -128,26 +208,26 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.reconcile(after: Self.noJob)
         system.registration.waitForSteps()
         #expect(system.calls == ["register", "handshake", "register", "handshake"])
-        #expect(system.events == [.reregistered(.init(refusal: Self.refusal, status: "notRegistered", attempts: 1, elapsed: .zero), handshake: nil),
-                                  .reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero), handshake: nil)])
+        #expect(system.events == [.reregistered(.init(refusal: Self.refusal, status: "notRegistered", attempts: 1, elapsed: .zero)), .leftAlone(.own),
+                                  .reregistered(Self.registered), .leftAlone(.own)])
     }
 
     /// An unregister would stop the helper, and with it any pause it holds, so a helper that answers keeps its job.
     @Test func aSlowHelperThatAnswersTheHandshakeKeepsItsJob() {
-        let system = wedged { $0.handshake = nil }
+        let system = wedged { $0.handshake = .own }
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
         #expect(system.calls == ["handshake"])
-        #expect(system.events == [.leftAlone(handshake: nil)])
+        #expect(system.events == [.leftAlone(.own)])
     }
 
     @Test func aHandshakeThatFailsAnyOtherWayLeavesTheJobAndSaysHow() {
         let failed = HelperCallError.failed("x")
-        let system = wedged { $0.handshake = failed }
+        let system = wedged { $0.handshake = .failed(failed) }
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
         #expect(system.calls == ["handshake"])
-        #expect(system.events == [.leftAlone(handshake: failed.description)])
+        #expect(system.events == [.leftAlone(.failed(failed))])
     }
 
     @Test func aJobThatAnswersNothingIsClearedThenRegisteredAcrossTheRefusal() {
@@ -155,15 +235,15 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
         #expect(system.calls == ["handshake", "holders", "unregister", "register", "register", "register", "handshake"])
-        #expect(system.events == [.repaired(.unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 3, elapsed: .seconds(2)), handshake: nil)])
+        #expect(system.events == [.repaired(found: .failed(Self.noReply), .unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 3, elapsed: .seconds(2)), handshake: .own)])
     }
 
     /// The status reads enabled through a wedge, so only the handshake can say the repair did not take.
     @Test func aRepairThatLeavesTheHelperSilentSaysSo() {
-        let system = wedged { $0.handshakeAfterClearing = Self.noReply }
+        let system = wedged { $0.handshakeAfterClearing = .failed(Self.noReply) }
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
-        #expect(system.events == [.repaired(.unregistered(error: nil), .init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero), handshake: Self.noReply.description)])
+        #expect(system.events == [.repaired(found: .failed(Self.noReply), .unregistered(error: nil), Self.registered, handshake: .failed(Self.noReply))])
     }
 
     /// `register` leaves a job launchd will not run as it is, so nothing is asked of it and the line claims no repair.
@@ -172,7 +252,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.reconcile(after: Self.notAnswering)
         system.registration.waitForSteps()
         #expect(system.calls == ["handshake", "holders"])
-        #expect(system.events == [.kept(.heldBy(pids: [41]))])
+        #expect(system.events == [.kept(.heldBy(pids: [41]), .failed(Self.noReply))])
     }
 
     @Test func aFailedCallReturnsBeforeItsReconcileEnds() {
@@ -210,7 +290,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
     }
 
     @Test func twoReconcilesDoNotInterleave() {
-        let system = wedged { $0.handshakeAfterClearing = Self.noReply }
+        let system = wedged { $0.handshakeAfterClearing = .failed(Self.noReply) }
         system.usesGate = true
         let registration = system.registration
         registration.reconcile(after: Self.notAnswering)
@@ -243,7 +323,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
     /// A second repair would only be undone by the exit, so the exit waits for the one step already running. The gate
     /// opens for four handshakes, so a second repair shows in the calls instead of hanging.
     @Test func theExitRunsNoReconcileStillWaiting() {
-        let system = wedged { $0.handshakeAfterClearing = Self.noReply }
+        let system = wedged { $0.handshakeAfterClearing = .failed(Self.noReply) }
         system.usesGate = true
         let registration = system.registration
         registration.reconcile(after: Self.notAnswering)
