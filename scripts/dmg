@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Builds the disk image to hand to someone else and prints its path: the Release app signed with
 # the Developer ID certificate, notarized and stapled, beside a link to /Applications to drag it
 # onto, in a disk image that is itself signed, notarized and stapled.
@@ -14,7 +14,6 @@
 set -euo pipefail
 
 source "$(dirname "$0")/developer-id"
-identity="Developer ID Application: $developer_id"
 
 out=${1:?usage: scripts/dmg <output directory>}
 # Made and resolved before the move to the repo root, which make needs, so a relative directory
@@ -40,7 +39,15 @@ ln -s /Applications "$stage/Applications"
 # Made in scratch and moved out only once notarized, so the output directory never holds an image
 # Gatekeeper would refuse, and a failed run leaves the last good one in place.
 dmg="$scratch/$name-$version.dmg"
-hdiutil create -volname "$name" -srcfolder "$stage" -format UDZO "$dmg" >&2
+# hdiutil fails now and then with "Resource busy" on GitHub-hosted runners (actions/runner-images#7522), and by
+# here the app's notarization is spent. So it gets a bounded retry, which says each failure.
+attempt=1
+until hdiutil create -ov -volname "$name" -srcfolder "$stage" -format UDZO "$dmg" >&2; do
+  [ "$attempt" -lt 5 ] || { echo "dmg: hdiutil create failed $attempt times" >&2; exit 1; }
+  echo "dmg: hdiutil create failed on attempt $attempt; trying again in 15 seconds" >&2
+  attempt=$((attempt + 1))
+  sleep 15
+done
 codesign --sign "$identity" --timestamp "$dmg" >&2
 notarized=$(scripts/notarize "$dmg")
 mv -f "$notarized" "$out/"

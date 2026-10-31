@@ -6,6 +6,13 @@ developer_team=$(awk '$1 == "DEVELOPMENT_TEAM:" { print $2 }' "$(dirname "${BASH
 # value is refused here rather than at the codesign that follows a full build.
 [[ $developer_team =~ ^[A-Z0-9]{10}$ ]] || { echo "project.yml's DEVELOPMENT_TEAM is not one team id: '$developer_team'" >&2; return 1; }
 developer_id="Brandon Fryslie ($developer_team)"
+identity="Developer ID Application: $developer_id"
 # The notarytool keychain profile a releasing Mac stores the notary credentials under, once:
 # `xcrun notarytool store-credentials orange-drink-notary`.
 notary_profile=orange-drink-notary
+# The arguments that name that profile to notarytool. Alone they mean notarytool's own default store,
+# which has no file path and is where store-credentials with no --keychain puts it on a releasing Mac.
+# The release workflow's keychain is its own, which notarytool does not search, so there NOTARY_KEYCHAIN
+# names it.
+notary_auth=(--keychain-profile "$notary_profile")
+if [ -n "${NOTARY_KEYCHAIN:-}" ]; then notary_auth+=(--keychain "$NOTARY_KEYCHAIN"); fi

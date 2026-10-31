@@ -1,0 +1,17 @@
+#!/bin/bash
+# Publishes the disk image a release run built as its tag's GitHub release:
+#
+#   scripts/release-publish <tag> <dmg>
+#
+# A release attaches to wherever its tag points when it is made, and the approval wait lets a tag move
+# after its run began. So this run publishes only while the tag still names the commit it built, or one
+# commit's disk image would sit under another's tag, source archives and notes.
+set -euo pipefail
+
+fail() { echo "release-publish: $*" >&2; exit 1; }
+tag=${1:?usage: scripts/release-publish <tag> <dmg>}
+dmg=${2:?usage: scripts/release-publish <tag> <dmg>}
+tagged=$(gh api "repos/$GITHUB_REPOSITORY/commits/tags/$tag" --jq .sha)
+[ "$tagged" = "$GITHUB_SHA" ] || fail "tag $tag now names $tagged, and this run built $GITHUB_SHA"
+# release-preflight proved the tag is v<MARKETING_VERSION>, so the tag carries the version.
+gh release create "$tag" "$dmg" --verify-tag --title "Orange Drink ${tag#v}" --generate-notes

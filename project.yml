@@ -10,7 +10,9 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     ARCHS: arm64
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: 1
+    # [LAW:one-source-of-truth] The build number is the version, so a release raises both at once and the
+    # CFBundleVersion Sparkle compares always grows.
+    CURRENT_PROJECT_VERSION: $(MARKETING_VERSION)
     # [LAW:one-source-of-truth] Every build is signed with the Developer ID identity and the Hardened
     # Runtime, so the app developed on runs under the rules the shipped one does. An ad-hoc build
     # cannot back the team-prefixed app group, and macOS 26.5 stops its first write to the group
@@ -43,13 +45,14 @@ settings:
 packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift
-    # [LAW:one-source-of-truth] Exact, so the source tree decides what a fresh build directory
-    # resolves. GRDB has no dependencies of its own.
-    exactVersion: 7.11.1
+    # [LAW:one-source-of-truth] By commit, so the source tree decides what a fresh build directory
+    # resolves: the generated project and its Package.resolved are not committed, and a release signs what
+    # resolves here. GRDB has no dependencies of its own.
+    revision: b83108d10f42680d78f23fe4d4d80fc88dab3212 # 7.11.1
   ViewInspector:
     # Unit tests press SwiftUI controls with it, with no window (docs/testing.md). Tests only, never the app.
     url: https://github.com/nalexn/ViewInspector
-    exactVersion: 0.10.5
+    revision: 2dacb6e514be19379c605a5a11564d0f3fea89d9 # 0.10.5
 targets:
   OrangeDrink:
     type: application
