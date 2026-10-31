@@ -116,8 +116,8 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         let system = FakeRegistrationSystem()
         system.registration.reconcile(after: Self.noJob)
         system.registration.waitForSteps()
-        #expect(system.calls == ["register"])
-        #expect(system.events == [.reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero))])
+        #expect(system.calls == ["register", "handshake"])
+        #expect(system.events == [.reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero), handshake: nil)])
     }
 
     /// No `unregister` here opens the refusal window, so a copy refused for good holds up no other control's call.
@@ -127,9 +127,9 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.reconcile(after: Self.noJob)
         system.registration.reconcile(after: Self.noJob)
         system.registration.waitForSteps()
-        #expect(system.calls == ["register", "register"])
-        #expect(system.events == [.reregistered(.init(refusal: Self.refusal, status: "notRegistered", attempts: 1, elapsed: .zero)),
-                                  .reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero))])
+        #expect(system.calls == ["register", "handshake", "register", "handshake"])
+        #expect(system.events == [.reregistered(.init(refusal: Self.refusal, status: "notRegistered", attempts: 1, elapsed: .zero), handshake: nil),
+                                  .reregistered(.init(refusal: nil, status: "enabled", attempts: 1, elapsed: .zero), handshake: nil)])
     }
 
     /// An unregister would stop the helper, and with it any pause it holds, so a helper that answers keeps its job.
@@ -203,9 +203,10 @@ final class FakeRegistrationSystem: @unchecked Sendable {
             returned.signal()
         }
         #expect(returned.wait(timeout: .now() + .milliseconds(100)) == .timedOut)
-        system.gate.signal()
-        system.gate.signal()
+        // The repair's two handshakes, and the one after the reconcile the call's own failure asks for.
+        for _ in 0..<3 { system.gate.signal() }
         #expect(returned.wait(timeout: .now() + .seconds(5)) == .success)
+        registration.waitForSteps()
     }
 
     @Test func twoReconcilesDoNotInterleave() {
@@ -239,8 +240,8 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         #expect(system.events.last == .exited(.unregistered(error: nil), status: "notRegistered"))
     }
 
-    /// A second repair would only be undone by the exit, so the exit waits for the one step already running. Past the
-    /// gate, a second reconcile would hold the exit at the handshake and this would time out.
+    /// A second repair would only be undone by the exit, so the exit waits for the one step already running. The gate
+    /// opens for four handshakes, so a second repair shows in the calls instead of hanging.
     @Test func theExitRunsNoReconcileStillWaiting() {
         let system = wedged { $0.handshakeAfterClearing = Self.noReply }
         system.usesGate = true
@@ -248,15 +249,10 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         registration.reconcile(after: Self.notAnswering)
         #expect(system.entered.wait(timeout: .now() + .seconds(5)) == .success)
         registration.reconcile(after: Self.notAnswering)
-        let exited = DispatchSemaphore(value: 0)
-        DispatchQueue.global().async {
-            registration.exit()
-            exited.signal()
+        DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(100)) {
+            for _ in 0..<4 { system.gate.signal() }
         }
-        #expect(exited.wait(timeout: .now() + .milliseconds(100)) == .timedOut)
-        system.gate.signal()
-        system.gate.signal()
-        #expect(exited.wait(timeout: .now() + .seconds(5)) == .success)
+        registration.exit()
         #expect(system.calls == ["handshake", "holders", "unregister", "register", "handshake", "holders", "unregister"])
     }
 

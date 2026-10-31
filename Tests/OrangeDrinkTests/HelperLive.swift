@@ -231,7 +231,11 @@ struct HelperRepairLive {
         // The running helper ends on its file changing, so the replies stop once it has gone.
         let end = ContinuousClock.now + .seconds(30)
         var refusal = Self.reply(client)
-        while refusal == nil, ContinuousClock.now < end { refusal = Self.reply(client) }
+        // A call in flight as the helper ends fails as a connection error, which is not launchd refusing it yet.
+        while ContinuousClock.now < end {
+            if case .noReply = refusal { break }
+            refusal = Self.reply(client)
+        }
         guard case .noReply = refusal else {
             Issue.record("launchd ran or refused the re-signed helper unexpectedly: \(String(describing: refusal))")
             return

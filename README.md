@@ -35,7 +35,7 @@ Run `scripts/dmg build/dmg` to build the downloadable disk image in `build/dmg`.
 
 To publish a release on GitHub instead, push its version tag: [docs/releasing.md](docs/releasing.md) says how, and lists the secrets the release workflow needs.
 
-Some checks need a real Mac, for what a real device or macOS service replies, and some need a person to move a cable or an adapter when the check says to. A check never asks the person what a device or macOS shows: it reads it itself. [docs/testing.md](docs/testing.md) says what is tested where. Each one has a make target: `make unplug-check`, `make iphone-check`, `make devices-check`, and `make position-check`. Run one on a branch named after its lit ticket, and it posts its result on that ticket. `make hardware-status` shows which results still hold for the current code. `make ax-check` also needs your terminal trusted for Accessibility.
+Some checks need a real Mac, for what a real device or macOS service replies, and some need a person to move a cable or an adapter when the check says to. A check never asks the person what a device or macOS shows: it reads it itself. [docs/testing.md](docs/testing.md) says what is tested where. Each one has a make target: `make unplug-check`, `make iphone-check`, `make devices-check`, `make position-check`, and `make helper-repair-check`. Run one on a branch named after its lit ticket, and it posts its result on that ticket. `make hardware-status` shows which results still hold for the current code. `make ax-check` also needs your terminal trusted for Accessibility.
 
 [PROJECT.md](PROJECT.md) describes every feature and the quality bar the app must meet. [design-docs/](design-docs/README.md) describes each settings screen.
 

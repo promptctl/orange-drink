@@ -140,7 +140,7 @@ func check() throws {
 
 do {
     try check()
-} catch let error as CheckError {
-    FileHandle.standardError.write(Data("release-helper-check: \(error.description)\n".utf8))
-    exit(error.exitCode)
+} catch {
+    FileHandle.standardError.write(Data("release-helper-check: \(error)\n".utf8))
+    exit((error as? CheckError)?.exitCode ?? 2)
 }

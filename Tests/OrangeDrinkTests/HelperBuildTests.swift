@@ -68,7 +68,7 @@ struct HelperBuildTests {
         let refused = Registration.Outcome(refusal: refusal, status: "requiresApproval", attempts: 1, elapsed: .milliseconds(9))
         #expect(Registration.Event.launched(registered).line == "helper registration: registered; status enabled; attempt 3 after 1042 ms")
         #expect(Registration.Event.launched(refused).line == "helper registration: refused (\(refusal)); status requiresApproval; attempt 1 after 9 ms")
-        #expect(Registration.Event.reregistered(registered).line == "helper registration, a call found no job: registered; status enabled; attempt 3 after 1042 ms")
+        #expect(Registration.Event.reregistered(registered, handshake: nil).line == "helper registration, a call found no job: registered; status enabled; attempt 3 after 1042 ms; the helper answered")
         #expect(Registration.Event.leftAlone(handshake: nil).line == "helper repair: left the job alone; the helper answered")
         #expect(Registration.Event.leftAlone(handshake: "the helper failed: x").line == "helper repair: left the job alone; handshake the helper failed: x")
         #expect(Registration.Event.repaired(.unregistered(error: nil), registered, handshake: nil).line == "helper repair: cleared ok; registered; status enabled; attempt 3 after 1042 ms; the helper answered")

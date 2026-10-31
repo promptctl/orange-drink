@@ -43,16 +43,17 @@ struct HelperRegistration: Sendable {
 
     enum Event: Equatable {
         case launched(Outcome)
-        /// A failed call found no job, so this registers one.
-        case reregistered(Outcome)
+        /// A failed call found no job, so this registers one. `handshake` is as in `repaired`.
+        case reregistered(Outcome, handshake: String?)
         /// A call got no reply but the job was not repaired: `handshake` is nil once the helper answered, so it is
         /// slow and not wedged, or the error that was not a missing reply.
         case leftAlone(handshake: String?)
-        /// Neither a call nor the handshake got a reply, and the job could not be cleared, so it stays as it was.
+        /// Neither a call nor the handshake got a reply, and `unregister` was not asked, so the job stays as it was.
         case kept(Clearing)
-        /// Neither a call nor the handshake got a reply, so the job was cleared and registered again. `handshake` is
-        /// the proof a status cannot give, since it read enabled through the wedge: nil once the helper answered, or
-        /// the error it ended in. The answer also starts the helper, which ends a pause one that died left behind.
+        /// Neither a call nor the handshake got a reply, so `unregister` was asked, and `register` after it even if
+        /// `unregister` failed, since a job with no record fails it. `handshake` is the proof a status cannot give,
+        /// since it read enabled through the wedge: nil once the helper answered, or the error it ended in. The
+        /// answer also starts the helper, which ends a pause one that died left behind.
         case repaired(Clearing, Outcome, handshake: String?)
         case exited(Clearing, status: String)
 
@@ -60,7 +61,7 @@ struct HelperRegistration: Sendable {
         var line: String {
             switch self {
             case .launched(let outcome): "helper registration: \(outcome.text)"
-            case .reregistered(let outcome): "helper registration, a call found no job: \(outcome.text)"
+            case .reregistered(let outcome, let handshake): "helper registration, a call found no job: \(outcome.text); \(Self.answer(handshake))"
             case .leftAlone(let handshake): "helper repair: left the job alone; \(Self.answer(handshake))"
             case .kept(let clearing): "helper repair: \(clearing.text); the job still will not run"
             case .repaired(let clearing, let outcome, let handshake): "helper repair: \(clearing.text); \(outcome.text); \(Self.answer(handshake))"
@@ -170,7 +171,8 @@ struct HelperRegistration: Sendable {
             case .notRegistered:
                 // One attempt, since no `unregister` here opens the refusal window: a copy refused for good pays one
                 // round trip per input rather than the window, and the next input asks again.
-                record(.reregistered(register(within: .zero)))
+                let outcome = register(within: .zero)
+                record(.reregistered(outcome, handshake: effects.handshake()?.description))
             case .notAnswering:
                 // A reply proves launchd runs the job. An unregister would stop that helper, and its pause with it.
                 let handshake = effects.handshake()
