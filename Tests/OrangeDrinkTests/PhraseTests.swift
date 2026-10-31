@@ -76,8 +76,9 @@ import Testing
         phrases += PanelAction.allCases.map { $0.title(appName: "App") }
         let helperFailures = [HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .requiresApproval), HelperUseFailure(call: .failed("x"), status: .enabled),
                               HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .enabled)]
-        phrases += helperFailures.map { LowPowerMode.explanation(of: $0, appName: "App") } + [HelperFailureLine.openLoginItemsTitle]
+        phrases += helperFailures.map { LowPowerMode.explanation(of: $0, appName: "App") } + [LoginItemFailureLine.openLoginItemsTitle]
         phrases += helperFailures.map { ChargingScreen.explanation(of: $0, appName: "App") }
+        phrases += [LaunchAtLogin.Refusal.needsApproval, .failed("x"), .failed(nil)].map { $0.explanation(appName: "App") }
         phrases += SettingsScreen.allCases.flatMap { [$0.title] + ($0.subtitle(appName: "App").map { [$0] } ?? []) }
         phrases += [3, 15, 40, 80].map { PowerFlow.workload(watts: Double($0)) }
         phrases += ["Not charging", "Charging at \(5) W", "UNTIL EMPTY", "UNTIL FULL", "\(1)h \(2)m"]

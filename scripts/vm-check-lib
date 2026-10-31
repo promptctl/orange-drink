@@ -1,0 +1,91 @@
+# The throwaway Tart VM the checks that must not touch this Mac's screen run in: scripts/update-check,
+# scripts/login-item-check, and scripts/vm-test source this under `set -euo pipefail`, so nothing shows on the Mac running
+# them. A check may set:
+#   vm_cleanup   directories to remove however the run ends, beside the scratch directory
+#   uitest_env   NAME=value words for its XCUITests; xcodebuild passes each TEST_RUNNER_ variable without that prefix
+#   on_failure   a function printing the guest's logs it wants when a run fails with the VM up
+
+image=orange-drink-xcode
+vm=orange-drink-check-$$
+scratch=$(realpath "$(mktemp -d "${TMPDIR:-/tmp}/orangedrink-vm-check.XXXXXX")")
+# The VM's view of $scratch, and of itself: it is new each run, so its paths are fixed.
+shared='/Volumes/My Shared Files/run'
+app=/Users/admin/Applications/OrangeDrink.app
+tests=/tmp/tests
+cloned=
+vm_cleanup=()
+uitest_env=()
+on_failure() { :; }
+
+# Stops and deletes the VM, with everything that happened in it, and removes what the run left on this Mac, whether or
+# not a VM came up: a check's secrets are in those directories before the clone. Every step runs whatever the last one
+# did, and the run keeps its own status, so errexit ends here.
+vm_finish() {
+  status=$?
+  set +e
+  if [ -n "$cloned" ]; then
+    [ "$status" -eq 0 ] || on_failure
+    tart stop "$vm" >&2
+    tart delete "$vm" >&2
+  fi
+  # The guarded expansion, because macOS's bash 3.2 calls an empty array unbound under `set -u`.
+  rm -rf "$scratch" ${vm_cleanup[@]+"${vm_cleanup[@]}"}
+  exit "$status"
+}
+trap vm_finish EXIT
+
+fail() { echo "$(basename "$0"): $*" >&2; exit 1; }
+guest() { tart exec "$vm" "$@"; }
+pids() { guest pgrep -f "^$app/Contents/MacOS/OrangeDrink( |\$)" || true; }
+# [LAW:no-ambient-temporal-coupling] Each wait is on the fact it needs, polled to a deadline.
+wait_for() {
+  local what=$1 tries=$2; shift 2
+  for _ in $(seq 1 "$tries"); do
+    if "$@" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  fail "$what"
+}
+stopped() { [ -z "$(pids)" ]; }
+
+tart get "$image" >/dev/null || fail "no VM named $image: tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 $image"
+
+# Clones and boots the VM with no window, with the built tests beside <xctestrun> unpacked in it.
+vm_start() {
+  xctestrun=$1
+  # One file, because the VM's shared directory does not carry a framework's symbolic links.
+  tar -C "$(dirname "$xctestrun")" -cf "$scratch/tests.tar" .
+  tart clone "$image" "$vm"
+  cloned=yes
+  tart run --no-graphics --dir="run:$scratch:ro" "$vm" >&2 &
+  wait_for "the VM did not come up" 120 guest true
+  guest sudo -n automationmodetool enable-automationmode-without-authentication >&2
+  guest sh -c "mkdir $tests && tar -C $tests -xf '$shared/tests.tar'"
+}
+
+# Installs the app from the disk image at <path in the guest>, as a user does.
+install_dmg() {
+  guest sh -c "mkdir -p '$(dirname "$app")' /tmp/image && hdiutil attach '$1' -nobrowse -readonly -mountpoint /tmp/image >/dev/null && ditto /tmp/image/OrangeDrink.app '$app' && hdiutil detach /tmp/image >/dev/null"
+}
+
+# Runs <only-testing> of the built tests in the guest, with [NAME=value...] set and the result bundle at /tmp/<result>.xcresult.
+xctest() {
+  local result=$1 only_testing=$2; shift 2
+  guest env "$@" xcodebuild test-without-building -xctestrun "$tests/$(basename "$xctestrun")" \
+    -destination 'platform=macOS,arch=arm64' -resultBundlePath "/tmp/$result.xcresult" "-only-testing:$only_testing" >&2
+}
+
+# Runs one XCUITest, <Class>/<method>, against the installed app.
+uitest() {
+  xctest "${1##*/}" "OrangeDrinkUITests/$1" TEST_RUNNER_INSTALLED_APP="$app" ${uitest_env[@]+"${uitest_env[@]}"} ||
+    fail "$1 failed in the VM"
+}
+
+# macOS asks for Bluetooth at a new install's first launch, and the app waits on the answer (orange-distribution-kg2.73n),
+# so this opens it itself and FirstLaunchUITests answers. Every launch after this one reaches the menu bar.
+first_launch() {
+  guest open "$app"
+  uitest FirstLaunchUITests/testBluetoothIsAllowed
+  guest pkill -x OrangeDrink
+  wait_for "the app did not quit after its first launch" 30 stopped
+}

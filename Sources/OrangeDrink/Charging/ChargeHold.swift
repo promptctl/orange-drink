@@ -209,9 +209,7 @@ enum ChargeHoldEvent: Equatable {
         guard let step = Self.step(state, ChargeWant.of(limit: limit, battery: battery)) else { return }
         let call = call(for: step), limit = limit, percent = battery.percent
         asking = Task {
-            let outcome = await withCheckedContinuation { done in
-                DispatchQueue.global().async { done.resume(returning: Result { () throws(HelperUseFailure) in try call() }) }
-            }
+            let outcome = await blocking { Result { () throws(HelperUseFailure) in try call() } }
             self.land(step.ask, outcome, limit: limit, percent: percent)
         }
     }

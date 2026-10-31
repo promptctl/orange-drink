@@ -20,6 +20,7 @@ struct OrangeDrinkApp: App {
     @State private var menuBarIcon: MenuBarIconModel
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
+    @State private var launchAtLogin = LaunchAtLogin(effects: .live, center: .default)
     @State private var chargeLimit: ChargeLimitModel
     @State private var chargeHold: AppChargeHold
     @State private var sections: PanelSections
@@ -160,7 +161,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy) }
     }
 }
 

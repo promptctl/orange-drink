@@ -1,15 +1,17 @@
 import SwiftUI
 
-/// design-docs/general.md. App Language, App Appearance, and Notification Appearance so far; the screen's other sections arrive with their features.
+/// design-docs/general.md. System Notifications arrives with its feature.
 struct GeneralScreen: View {
     let appearance: NotificationAppearanceModel
     let look: AppAppearanceModel
     let language: AppLanguageModel
+    let launchAtLogin: LaunchAtLogin
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             LanguageSection(language: language)
             AppAppearanceSection(look: look)
+            SystemIntegrationSection(login: launchAtLogin)
             NotificationAppearanceSection(appearance: appearance)
         }
         .padding(24)
@@ -46,6 +48,29 @@ private struct AppAppearanceSection: View {
                     SettingRow(icon: ("circle.lefthalf.filled", .purple), title: "App Appearance", description: "Auto follows your Mac's system appearance") {
                         PopUpButton(selection: edits.binding(\.self), options: AppAppearance.allCases, title: { Text($0.label) })
                     }
+                }
+            }
+        }
+    }
+}
+
+/// Launch at Login. The switch shows the system's state and asks it for the other, is busy while any call is unanswered,
+/// which covers the first, and a press that did not take says why under the row.
+private struct SystemIntegrationSection: View {
+    let login: LaunchAtLogin
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(symbol: "power", color: .green, title: "System Integration")
+            SettingCard {
+                SettingRow(icon: ("power", .green), title: "Launch at Login", description: "Start \(appName) automatically when you log in") {
+                    AccentSwitch(isOn: Binding(get: { login.isOn }, set: { login.set($0) }), tint: .green, label: "Launch at Login")
+                        .disabled(login.asking != nil)
+                }
+                if let refusal = login.refusal {
+                    LoginItemFailureLine(explanation: refusal.explanation(appName: appName),
+                                         openLoginItems: refusal == .needsApproval ? { login.openLoginItems() } : nil)
+                        .padding(.horizontal, 16).padding(.bottom, 10)
                 }
             }
         }
