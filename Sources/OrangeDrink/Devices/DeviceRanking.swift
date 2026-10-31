@@ -7,7 +7,7 @@ struct DeviceRow: Equatable, Identifiable {
     let id: DeviceID
     let name: String
     let kind: DeviceKind
-    /// "37%", or "~50%" when the level is only approximate.
+    /// "37%", "~50%" when the level is only approximate, or "–" when it is unknown.
     let percent: String
     let fraction: Double
     let tone: Tone
@@ -20,23 +20,25 @@ enum DeviceRanking {
     /// From this level up a device is nearly full and its bar turns green.
     static let nearlyFull = 90
 
-    /// Equal levels fall in name then address order, so a row never reshuffles between renders.
+    /// Equal levels fall in name then address order, so a row never reshuffles between renders. An
+    /// unknown level keeps its row, below them: the device is still connected, and a pinned item keeps
+    /// its place in the bar through an outage instead of showing a stale percent or leaving.
     static func rows(_ list: DeviceList) -> [DeviceRow] {
-        let levelled = list.devices
-            .compactMap { device in device.levels.lowest.map { (device, $0) } }
-            .sorted { ($0.1.percent, $0.0.name, $0.0.id.address) < ($1.1.percent, $1.0.name, $1.0.id.address) }
+        list.devices
+            .compactMap { device -> (Device, BatteryLevel?)? in
+                switch device.levels {
+                case .none: nil
+                case .unread: (device, nil)
+                case .single, .earbuds: device.levels.lowest.map { (device, $0) }
+                }
+            }
+            .sorted { ($0.1?.percent ?? .max, $0.0.name, $0.0.id.address) < ($1.1?.percent ?? .max, $1.0.name, $1.0.id.address) }
             .map { device, level in
                 DeviceRow(id: device.id, name: device.name, kind: device.kind,
-                          percent: "\(level.approximate ? "~" : "")\(level.percent)%",
-                          fraction: Double(level.percent) / 100,
-                          tone: level.percent >= nearlyFull ? .nearlyFull : .normal)
+                          percent: level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–",
+                          fraction: Double(level?.percent ?? 0) / 100,
+                          tone: level?.percent ?? 0 >= nearlyFull ? .nearlyFull : .normal)
             }
-        // An unknown level keeps its row: the device is still connected, and a pinned item keeps its
-        // place in the bar through an outage instead of showing a stale percent or leaving.
-        let unread = list.devices.filter { $0.levels == .unread }.map {
-            DeviceRow(id: $0.id, name: $0.name, kind: $0.kind, percent: "–", fraction: 0, tone: .normal)
-        }
-        return levelled + unread
     }
 }
 

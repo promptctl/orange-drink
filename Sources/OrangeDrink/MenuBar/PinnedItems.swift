@@ -2,7 +2,7 @@ import AppKit
 import Observation
 
 /// One pinned device's menu bar item: the same row the panel and the Devices screen show, so its
-/// name, type glyph, and level text ("37%", "~50%" when approximate) are written once.
+/// name, type glyph, and level text ("37%", "~50%" when approximate, "–" when unknown) are written once.
 struct PinnedItem: Equatable, Identifiable {
     let row: DeviceRow
     var id: DeviceID { row.id }
