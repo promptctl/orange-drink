@@ -66,6 +66,10 @@ import Testing
         #expect(name == ProcessInfo.processInfo.processName)
     }
 
+    @Test func theAppKeepsItsQuitsWhereAPersonIsToldToReadThem() {
+        #expect(QuitRecords.standard.url.path == NSHomeDirectory() + "/Library/Logs/dev.orangedrink.OrangeDrink/quits.log")
+    }
+
     // The ticket's own failure: a quit noticed later, after the unified log has dropped it.
     @Test func aQuitsRecordOriginAndSenderIncludedIsStillInTheStoreAfterALaterQuit() throws {
         let log = TerminationLog(records: quits, signal: SIGUSR2, terminate: {})

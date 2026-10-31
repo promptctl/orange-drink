@@ -66,17 +66,14 @@ enum TerminationRequest: Equatable {
 
 /// The quits on disk. The unified log drops `.notice` lines in about half a day, so a quit noticed the next
 /// morning has left no evidence there; this file is for that reader, by `cat` or `grep`.
-///
-/// One record is about 2.5 KB and a run writes at most one, so nothing here expires or rotates.
 struct QuitRecords {
     let url: URL
     /// Which copy quit: a Debug build, the installed app, and the test host all write this one file.
     let build: String
 
     static var standard: QuitRecords {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String
-        return QuitRecords(url: URL.libraryDirectory.appending(components: "Logs", IOKitBattery.logSubsystem, "quits.log"),
-                           build: "\(version) \(Bundle.main.bundlePath)")
+        QuitRecords(url: URL.libraryDirectory.appending(components: "Logs", IOKitBattery.logSubsystem, "quits.log"),
+                    build: "\(PanelAction.versionText(of: .main)) \(Bundle.main.bundlePath)")
     }
 
     /// One `write` on an `O_APPEND` file, so two copies quitting together cannot interleave their records.
