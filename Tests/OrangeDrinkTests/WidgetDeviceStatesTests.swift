@@ -91,7 +91,7 @@ private let unreadStates = [
         let model = try await publish(read, mac: .noBattery)
         #expect(try allBatteriesSays() == ["No device batteries"])
         #expect(try deviceBatterySays(chosen: "AA") == ["Not connected"])
-        #expect(try deviceBatterySays(chosen: nil) == ["Choose a device: right-click → Edit Widget"])
+        #expect(try deviceBatterySays(chosen: nil) == ["No device batteries"])
         _ = model
     }
 

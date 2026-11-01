@@ -6249,6 +6249,446 @@
           }
         }
       }
+    },
+    "Widget Types": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widget Types"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Types de widgets"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipos de widget"
+          }
+        }
+      }
+    },
+    "Live preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live preview"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperçu en direct"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa en directo"
+          }
+        }
+      }
+    },
+    "Widget preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widget preview"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperçu du widget"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa del widget"
+          }
+        }
+      }
+    },
+    "All Batteries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Batteries"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les batteries"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las baterías"
+          }
+        }
+      }
+    },
+    "Mac Battery": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac Battery"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batterie du Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batería del Mac"
+          }
+        }
+      }
+    },
+    "Device Battery": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device Battery"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batterie de l’appareil"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batería del dispositivo"
+          }
+        }
+      }
+    },
+    "Medium": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moyenne"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mediana"
+          }
+        }
+      }
+    },
+    "Your Mac and all your devices in one widget. Small, medium, large and extra large: the bigger the size, the more devices fit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac and all your devices in one widget. Small, medium, large and extra large: the bigger the size, the more devices fit."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre Mac et tous vos appareils dans un seul widget. Petite, moyenne, grande et très grande : plus la taille est grande, plus il y a d’appareils."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac y todos tus dispositivos en un solo widget. Pequeña, mediana, grande y extragrande: cuanto mayor es el tamaño, más dispositivos caben."
+          }
+        }
+      }
+    },
+    "What you can modify (right-click the widget → Edit Widget):": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you can modify (right-click the widget → Edit Widget):"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que vous pouvez modifier (clic droit sur le widget → Modifier le widget) :"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo que puedes cambiar (clic derecho en el widget → Editar widget):"
+          }
+        }
+      }
+    },
+    "**Devices:** Automatic (as many as fit), Custom (your order), or Same as menu bar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Devices:** Automatic (as many as fit), Custom (your order), or Same as menu bar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Appareils :** Automatique (autant que possible), Personnalisé (dans votre ordre) ou Comme la barre des menus"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Dispositivos:** Automático (todos los que quepan), Personalizado (en tu orden) o Igual que la barra de menús"
+          }
+        }
+      }
+    },
+    "**Style:** Rings, List or Bars": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Style:** Rings, List or Bars"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Style :** Anneaux, Liste ou Barres"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Estilo:** Anillos, Lista o Barras"
+          }
+        }
+      }
+    },
+    "Show device names · Include this Mac": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show device names · Include this Mac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le nom des appareils · Inclure ce Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar nombres de dispositivos · Incluir este Mac"
+          }
+        }
+      }
+    },
+    "**Appearance:** Color or Monochrome": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Appearance:** Color or Monochrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Apparence :** Couleur ou Monochrome"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Apariencia:** Color o Monocromo"
+          }
+        }
+      }
+    },
+    "Add a Widget": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a Widget"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un widget"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir un widget"
+          }
+        }
+      }
+    },
+    "Right-click your desktop and choose **Edit Widgets…**, or open Notification Center (click the clock) and scroll to the bottom.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right-click your desktop and choose **Edit Widgets…**, or open Notification Center (click the clock) and scroll to the bottom."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites un clic droit sur le bureau et choisissez **Modifier les widgets…**, ou ouvrez le centre de notifications (cliquez sur l’horloge) et faites défiler jusqu’en bas."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic derecho en el escritorio y elige **Editar widgets…**, o abre el Centro de notificaciones (haz clic en el reloj) y desplázate hasta el final."
+          }
+        }
+      }
+    },
+    "Search for **%@** and drag a widget wherever you like. Each size is its own entry in the gallery.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search for **%@** and drag a widget wherever you like. Each size is its own entry in the gallery."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherchez **%@** et faites glisser un widget où vous voulez. Chaque taille a sa propre entrée dans la galerie."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca **%@** y arrastra un widget adonde quieras. Cada tamaño es una entrada propia en la galería."
+          }
+        }
+      }
+    },
+    "Right-click a placed widget → **Edit Widget** to choose devices, style and names. Click a widget to open %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right-click a placed widget → **Edit Widget** to choose devices, style and names. Click a widget to open %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites un clic droit sur un widget placé → **Modifier le widget** pour choisir les appareils, le style et les noms. Cliquez sur un widget pour ouvrir %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic derecho en un widget colocado → **Editar widget** para elegir dispositivos, estilo y nombres. Haz clic en un widget para abrir %@."
+          }
+        }
+      }
+    },
+    "Good to Know": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good to Know"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bon à savoir"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conviene saber"
+          }
+        }
+      }
+    },
+    "Every widget has its own settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every widget has its own settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque widget a ses propres réglages"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada widget tiene sus propios ajustes"
+          }
+        }
+      }
+    },
+    "Right-click a placed widget → Edit Widget. That's where you choose the devices, the style, names, and which device a Device Battery widget shows. Add the same widget twice with different settings if you like.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right-click a placed widget → Edit Widget. That's where you choose the devices, the style, names, and which device a Device Battery widget shows. Add the same widget twice with different settings if you like."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites un clic droit sur un widget placé → Modifier le widget. C’est là que vous choisissez les appareils, le style, les noms et l’appareil qu’affiche un widget Batterie de l’appareil. Ajoutez le même widget deux fois avec des réglages différents si vous le souhaitez."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic derecho en un widget colocado → Editar widget. Ahí eliges los dispositivos, el estilo, los nombres y qué dispositivo muestra un widget Batería del dispositivo. Si quieres, añade el mismo widget dos veces con ajustes distintos."
+          }
+        }
+      }
     }
   }
 }

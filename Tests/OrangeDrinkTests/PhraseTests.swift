@@ -144,6 +144,17 @@ import Testing
         phrases += UnreadDevices.allCases.map(\.explanation)
         phrases += ["Charge Limit", "Pause charging at your target so the battery sits in a healthier range.", "Target", "Charging pauses at this level",
                     ChargingScreen.limitHelp]
+        phrases += WidgetPreviewSize.allCases.map(\.title)
+        phrases += ["Widget Types", "Live preview", "Widget preview", "All Batteries", "Mac Battery", "Device Battery",
+                    "Your Mac and all your devices in one widget. Small, medium, large and extra large: the bigger the size, the more devices fit.",
+                    "What you can modify (right-click the widget → Edit Widget):",
+                    "**Devices:** Automatic (as many as fit), Custom (your order), or Same as menu bar", "**Style:** Rings, List or Bars",
+                    "Show device names · Include this Mac", "**Appearance:** Color or Monochrome", "Add a Widget",
+                    "Right-click your desktop and choose **Edit Widgets…**, or open Notification Center (click the clock) and scroll to the bottom.",
+                    "Search for **\("App")** and drag a widget wherever you like. Each size is its own entry in the gallery.",
+                    "Right-click a placed widget → **Edit Widget** to choose devices, style and names. Click a widget to open \("App").",
+                    "Good to Know", "Every widget has its own settings",
+                    "Right-click a placed widget → Edit Widget. That's where you choose the devices, the style, names, and which device a Device Battery widget shows. Add the same widget twice with different settings if you like."]
         for edit: (inout [String: Any]) -> Void in [{ _ in }, { $0["AppleRawMaxCapacity"] = 4000 }, { $0["Temperature"] = 3700 },
                                                      { $0["Temperature"] = 4300 }, { $0["Voltage"] = 8000 }] {
             let info = try Words.reference(edit)

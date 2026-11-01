@@ -117,9 +117,10 @@ private struct ScreenView: View {
                 case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold)
                 case .shortcuts: ShortcutsScreen(controller: shortcuts)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
+                case .widgets: WidgetsScreen(battery: battery, devices: devices, settings: deviceSettings)
                 case .appUsage: AppUsageScreen(appEnergy: appEnergy)
                 case .battery: BatteryScreen(battery: battery, history: history)
-                default: EmptyState(screen: screen).padding(.top, 60)
+                case .iphoneIpad: EmptyState(screen: screen).padding(.top, 60)
                 }
             }
         }
