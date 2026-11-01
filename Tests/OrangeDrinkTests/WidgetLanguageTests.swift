@@ -10,23 +10,24 @@ import WidgetKit
 // words are read from the extension's own bundle, because the app's would answer the same with the extension holding no catalog.
 @MainActor @Suite struct WidgetLanguageTests {
     static let app = Bundle(for: BatteryModel.self)
-    static let widgets = Bundle(url: WidgetIntentMetadataTests.widgets)!
+    /// Asked for, not stored, so a build with no extension fails these tests and leaves the rest of the run standing.
+    static func widgets() throws -> Bundle { try #require(Bundle(url: WidgetIntentMetadataTests.widgets)) }
     static let shipped = AppLanguage.choices(in: app).filter { $0 != .matchSystem }
     static let translated = shipped.filter { $0.code != app.developmentLocalization }
 
-    static func translation(_ phrase: Phrase, _ language: AppLanguage) -> String { phrase.resolve(in: language, bundle: widgets) }
+    static func translation(_ phrase: Phrase, _ language: AppLanguage) throws -> String { phrase.resolve(in: language, bundle: try widgets()) }
 
     /// `key`'s entry in the extension's catalog, or nil when it has none. English is no sign of one being absent: French's
     /// "Monochrome" and Spanish's "Color" are also the English words.
     static func entry(_ key: String, _ language: AppLanguage) throws -> String? {
-        let lproj = try #require(widgets.path(forResource: language.code, ofType: "lproj").flatMap(Bundle.init(path:)))
+        let lproj = try #require(try widgets().path(forResource: language.code, ofType: "lproj").flatMap(Bundle.init(path:)))
         let absent = "\u{0}absent"
         let entry = lproj.localizedString(forKey: key, value: absent, table: nil)
         return entry == absent ? nil : entry
     }
 
-    @Test func theExtensionCarriesEveryLanguageTheAppShips() {
-        #expect(Self.widgets.localizations.sorted() == Self.app.localizations.sorted())
+    @Test func theExtensionCarriesEveryLanguageTheAppShips() throws {
+        #expect(try Self.widgets().localizations.sorted() == Self.app.localizations.sorted())
         #expect(Self.shipped.count == 3)
     }
 
@@ -48,37 +49,37 @@ import WidgetKit
     @Test func everyMessageAWidgetDrawsIsTranslatedInTheExtension() throws {
         for language in Self.translated {
             for message in try Self.messages() {
-                #expect(Self.translation(message, language) != message.english, "\(message.key) in \(language.code ?? "?")")
+                #expect(try Self.translation(message, language) != message.english, "\(message.key) in \(language.code ?? "?")")
             }
         }
     }
 
-    @Test func theGalleryNamesAndDescribesEachWidgetInTheExtensionsLanguages() {
+    @Test func theGalleryNamesAndDescribesEachWidgetInTheExtensionsLanguages() throws {
         for kind in WidgetKind.allCases {
             for language in Self.translated {
-                #expect(Self.translation(kind.title, language) != kind.title.english, "\(kind)")
-                #expect(Self.translation(kind.galleryDescription, language) != kind.galleryDescription.english, "\(kind)")
+                #expect(try Self.translation(kind.title, language) != kind.title.english, "\(kind)")
+                #expect(try Self.translation(kind.galleryDescription, language) != kind.galleryDescription.english, "\(kind)")
             }
         }
-        #expect(Self.translation(WidgetKind.allBatteries.title, AppLanguage(code: "fr")) == "Toutes les batteries")
-        #expect(Self.translation(WidgetKind.macBattery.galleryDescription, AppLanguage(code: "es")) == "La batería de tu Mac de un vistazo.")
+        #expect(try Self.translation(WidgetKind.allBatteries.title, AppLanguage(code: "fr")) == "Toutes les batteries")
+        #expect(try Self.translation(WidgetKind.macBattery.galleryDescription, AppLanguage(code: "es")) == "La batería de tu Mac de un vistazo.")
     }
 
-    @Test func theMacIsNamedInEachLanguageAndADeviceKeepsItsOwnName() {
-        #expect(Self.translation(MacBattery.name, AppLanguage(code: "fr")) == "Ce Mac")
-        #expect(Self.translation(MacBattery.name, AppLanguage(code: "es")) == "Este Mac")
+    @Test func theMacIsNamedInEachLanguageAndADeviceKeepsItsOwnName() throws {
+        #expect(try Self.translation(MacBattery.name, AppLanguage(code: "fr")) == "Ce Mac")
+        #expect(try Self.translation(MacBattery.name, AppLanguage(code: "es")) == "Este Mac")
         let device = WidgetDevice(address: "AA", name: "Rings", kind: .phone, level: nil)
         let drawn = AllBatteries(mac: .noBattery, devices: .connected([device], pinned: []), settings: AllBatteriesWidgetTests.settings { $0.showNames = true })
         guard case .listed(let batteries) = drawn, let name = batteries.first?.name else {
             Issue.record("a named device")
             return
         }
-        #expect(Self.translation(name, AppLanguage(code: "fr")) == "Rings")
+        #expect(try Self.translation(name, AppLanguage(code: "fr")) == "Rings")
     }
 
-    @Test func aDeviceOffTheListHasATranslatedNameInEditWidget() {
-        #expect(Self.translation(DeviceQuery.unavailable, AppLanguage(code: "fr")) == "Appareil indisponible")
-        #expect(Self.translation(DeviceQuery.unavailable, AppLanguage(code: "es")) == "Dispositivo no disponible")
+    @Test func aDeviceOffTheListHasATranslatedNameInEditWidget() throws {
+        #expect(try Self.translation(DeviceQuery.unavailable, AppLanguage(code: "fr")) == "Appareil indisponible")
+        #expect(try Self.translation(DeviceQuery.unavailable, AppLanguage(code: "es")) == "Dispositivo no disponible")
     }
 
     // MARK: Edit Widget
@@ -93,7 +94,7 @@ import WidgetKit
     }
 
     @Test func everyTitleEditWidgetCanShowIsInTheExtensionsCatalog() throws {
-        let file = WidgetIntentMetadataTests.widgets.appending(path: "Contents/Resources/Metadata.appintents/extract.actionsdata")
+        let file = WidgetIntentMetadataTests.metadataFile(of: WidgetIntentMetadataTests.widgets)
         let keys = Set(Self.localizedKeys(in: try JSONSerialization.jsonObject(with: Data(contentsOf: file))))
         #expect(keys.isSuperset(of: ["Show device names", "Include this Mac", "Rings", "Same as menu bar", "Monochrome", "Device"]))
         for language in Self.shipped {
@@ -119,11 +120,12 @@ import WidgetKit
     }
 
     @Test func editWidgetUsesTheWordsTheWidgetsScreenSays() throws {
+        let widgets = try Self.widgets()
         for language in Self.shipped {
             for (sentence, names) in try Self.sentences() {
                 let said = language.resolve(sentence, in: Self.app)
                 for name in names {
-                    #expect(said.contains(language.resolve(name.key, in: Self.widgets)), "\(name.key) in \(said)")
+                    #expect(said.contains(language.resolve(name.key, in: widgets)), "\(name.key) in \(said)")
                 }
             }
         }

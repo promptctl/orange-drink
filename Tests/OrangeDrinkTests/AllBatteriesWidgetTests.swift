@@ -649,9 +649,10 @@ struct WidgetIntentMetadataTests {
         let enums: [Enum]
     }
 
+    static func metadataFile(of bundle: URL) -> URL { bundle.appending(path: "Contents/Resources/Metadata.appintents/extract.actionsdata") }
+
     static func metadata(of bundle: URL) throws -> Metadata {
-        let file = bundle.appending(path: "Contents/Resources/Metadata.appintents/extract.actionsdata")
-        return try JSONDecoder().decode(Metadata.self, from: Data(contentsOf: file))
+        try JSONDecoder().decode(Metadata.self, from: Data(contentsOf: metadataFile(of: bundle)))
     }
 
     static let app = Bundle.main.bundleURL

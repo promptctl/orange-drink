@@ -135,6 +135,8 @@ targets:
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "Reads the battery levels of your paired Bluetooth devices."
     scheme:
       testTargets: [OrangeDrinkTests]
+      # Text a test reads follows the host's language, so the run says which, whatever Mac it runs on.
+      language: en
   # Its own scheme, so `make test` never runs it: scripts/vm-check-lib runs it in a VM, because a UI test takes the screen.
   OrangeDrinkUITests:
     type: bundle.ui-testing
