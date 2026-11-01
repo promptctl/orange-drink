@@ -154,7 +154,7 @@ extension NoDevicesListed {
         case .unread(let reason): reason.text
         case .noneChosen: "Choose devices: right-click → Edit Widget"
         case .nonePinned: "Pin a device on the Devices screen"
-        case .noneReporting: "Your chosen devices aren't reporting a battery"
+        case .noneReporting: "This widget's devices aren't reporting a battery"
         }
     }
 }
@@ -288,14 +288,14 @@ extension WidgetDevices {
         switch (self, selection) {
         case (.unread(let reason), _): .failure(.unread(reason))
         case (.connected(let devices, _), .automatic): .success(devices)
-        case (.connected, .custom(let addresses)): picked(addresses, unset: .noneChosen)
-        case (.connected(_, let pinned), .sameAsMenuBar): picked(pinned.addresses, unset: .nonePinned)
+        case (.connected(let devices, _), .custom(let addresses)): Self.picked(addresses, from: devices, unset: .noneChosen)
+        case (.connected(let devices, let pinned), .sameAsMenuBar): Self.picked(pinned.addresses, from: devices, unset: .nonePinned)
         }
     }
 
     /// As the pinned menu bar items do, an address not on the list is left out and the rest keep their order.
-    private func picked(_ addresses: [String], unset: NoDevicesListed) -> Result<[WidgetDevice], NoDevicesListed> {
-        let devices = Self.resolve(addresses, in: .running(self)).compactMap(\.device)
+    private static func picked(_ addresses: [String], from list: [WidgetDevice], unset: NoDevicesListed) -> Result<[WidgetDevice], NoDevicesListed> {
+        let devices = addresses.compactMap { address in list.first { $0.address == address } }
         return devices.isEmpty ? .failure(addresses.isEmpty ? unset : .noneReporting) : .success(devices)
     }
 }

@@ -56,6 +56,11 @@ import WidgetKit
         #expect(Self.names(Self.listed(Self.settings(.custom, chosen: ["C", "A"]))) == ["Device C", "Device A"])
     }
 
+    /// A battery drawn twice would spend a place on nothing, and nothing says Edit Widget refuses a repeat.
+    @Test func customDrawsADeviceChosenTwiceOnceInItsFirstPlace() {
+        #expect(Self.names(Self.listed(Self.settings(.custom, chosen: ["C", "A", "C"]))) == ["Device C", "Device A"])
+    }
+
     @Test func automaticAtSmallFillsAllFourPlaces() throws {
         let withoutMac = AllBatteriesEntry(date: .now, mac: .success(.running(.noBattery)), devices: .success(.running(.connected(Self.five, pinned: ["B", "D"]))), settings: Self.settings(.automatic))
         #expect(try AllBatteriesWidgetTests.texts(withoutMac).filter { $0.hasSuffix("%") } == ["30%", "40%", "50%", "60%"])

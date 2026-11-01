@@ -54,7 +54,7 @@ struct AllBatteriesIntent: WidgetConfigurationIntent {
 enum WidgetDeviceSelection: Equatable, Sendable, CustomStringConvertible {
     /// As many as fit, in the panel's ranking.
     case automatic
-    /// These addresses, in the user's order.
+    /// These addresses, in the user's order, each once.
     case custom([String])
     /// The devices pinned to the menu bar, in the bar's order.
     case sameAsMenuBar
@@ -80,9 +80,10 @@ struct AllBatteriesSettings: Equatable, Sendable {
 
     init(_ intent: AllBatteriesIntent) {
         (style, showNames, includeMac, appearance) = (intent.style, intent.showNames, intent.includeMac, intent.appearance)
+        var seen = Set<String>()
         devices = switch intent.devices {
         case .automatic: .automatic
-        case .custom: .custom((intent.chosen ?? []).map(\.id))
+        case .custom: .custom((intent.chosen ?? []).map(\.id).filter { seen.insert($0).inserted })
         case .sameAsMenuBar: .sameAsMenuBar
         }
     }

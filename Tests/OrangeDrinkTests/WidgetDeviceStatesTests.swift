@@ -114,8 +114,7 @@ private let unreadStates = [
         _ = model
     }
 
-    @Test func aFileInTheOldShapeDrawsOpenTheAppAndIsWrittenOver() throws {
-        let old = #"{"running":{"_0":[]}}"#
+    @Test(arguments: [#"{"running":{"_0":[]}}"#, #"{"running":{"_0":{"connected":{"_0":[]}}}}"#]) func aFileInTheOldShapeDrawsOpenTheAppAndIsWrittenOver(old: String) throws {
         try Data(old.utf8).write(to: shelf.appending(path: WidgetShelf.Item<WidgetDevices>.devices.file))
         #expect(try deviceBatterySays(chosen: "AA") == ["Open Orange Drink"])
 
