@@ -26,14 +26,12 @@ import Observation
                     onChange(self.list)
                 }
                 ending = DevicesModelError.streamFinished
-            } catch where Task.isCancelled {
-                // deinit cancelled the task: the model is gone, nobody is left to report an ended stream to.
-                return
             } catch {
                 ending = error
             }
-            BluetoothDevices.log.error("device subscription ended: \(String(describing: ending), privacy: .public)")
+            // deinit cancelled the task: the model is gone, nobody is left to report an ended stream to.
             guard let self else { return }
+            BluetoothDevices.log.error("device subscription ended: \(String(describing: ending), privacy: .public)")
             self.list.end()
             onChange(self.list)
         }

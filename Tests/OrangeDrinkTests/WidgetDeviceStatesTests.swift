@@ -20,16 +20,13 @@ struct DeviceState: Sendable, CustomTestStringConvertible {
     var testDescription: String { name }
 }
 
-private let mouse = Device(id: DeviceID(address: "AA"), name: "Mouse", kind: .accessory,
-                           levels: .single(BatteryLevel(percent: 54, approximate: false)))
-
 private let unreadStates = [
     DeviceState(name: "launch, before any event", events: [], reason: "Reading devices…"),
     DeviceState(name: "the prompt is open", events: [.permission(.notDetermined)], reason: "Answer the Bluetooth prompt"),
     DeviceState(name: "refused", events: [.permission(.denied)], reason: "Allow Bluetooth in System Settings, then reopen the app"),
     DeviceState(name: "allowed, before the first sweep", events: [.permission(.allowed)], reason: "Reading devices…"),
-    DeviceState(name: "a device reported before the first sweep", events: [.permission(.allowed), .reported(mouse)], reason: "Reading devices…"),
-    DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([mouse])], ends: true, reason: "Devices unavailable"),
+    DeviceState(name: "a device reported before the first sweep", events: [.permission(.allowed), .reported(DeviceListTests.mouse)], reason: "Reading devices…"),
+    DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([DeviceListTests.mouse])], ends: true, reason: "Devices unavailable"),
 ]
 
 /// The content area of each size: WidgetKit keeps its margin inside a widget.
@@ -67,9 +64,8 @@ private let contents = allBatteriesSizes.map { family, size in
         return model
     }
 
-    func allBatteriesSays(_ family: WidgetFamily = .systemSmall) throws -> [String] {
-        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log)
-        return try AllBatteriesView(entry: entry, appName: "Orange Drink", family: family).inspect().findAll(ViewType.Text.self).map { try $0.string() }
+    func allBatteriesSays() throws -> [String] {
+        try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log))
     }
 
     func deviceBatterySays(chosen: String?) throws -> [String] {
@@ -131,14 +127,12 @@ private let contents = allBatteriesSizes.map { family, size in
         AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.unread(reason))))
     }
 
-    static let reasons: [UnreadDevices] = [.waiting, .unanswered, .denied, .ended]
-
     @Test(arguments: contents) func theMacsRingIsTheSizeItIsBesideItsDevices(family: WidgetFamily, content: CGSize) throws {
         func across(_ entry: AllBatteriesEntry) throws -> Double {
             try RingPixels(widgetImage(AllBatteriesWidgetTests.view(entry, family), size: content, scheme: .dark, scale: 2)).across
         }
         let beside = try across(AllBatteriesWidgetTests.entry(AllBatteriesWidgetTests.onBattery, AllBatteriesWidgetTests.three))
-        for reason in Self.reasons {
+        for reason in UnreadDevices.allCases {
             let alone = try across(Self.entry(reason, mac: AllBatteriesWidgetTests.onBattery))
             #expect(abs(alone - beside) < 2, "\(alone) px beside \(reason), \(beside) px beside devices")
         }
@@ -148,7 +142,7 @@ private let contents = allBatteriesSizes.map { family, size in
     /// takes the height it needs, and that has to be no more than the row it gets.
     @Test(arguments: contents) func everyReasonFitsTheRowBeneathTheRing(family: WidgetFamily, content: CGSize) throws {
         let height = RingGrid(family).cell(in: content).height
-        for reason in Self.reasons {
+        for reason in UnreadDevices.allCases {
             let needed = ImageRenderer(content: Caption(text: reason.text).frame(width: content.width).fixedSize(horizontal: false, vertical: true))
             let image = try #require(needed.nsImage)
             #expect(image.size.height <= height, "\(reason) needs \(image.size.height) pt of \(height) pt")

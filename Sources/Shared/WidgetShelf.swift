@@ -68,7 +68,7 @@ extension WidgetBattery {
 
 /// Why the app has no list of what is connected. [LAW:types-are-the-program] Each is a list the app could not
 /// give, so none of them can reach a widget as a list with nothing on it.
-enum UnreadDevices: String, Codable, Equatable, Sendable {
+enum UnreadDevices: String, CaseIterable, Codable, Equatable, Sendable {
     /// Nothing has read the list yet.
     case waiting
     /// The Bluetooth prompt is open.
@@ -99,8 +99,8 @@ extension UnreadDevices {
     }
 }
 
-/// What the app knows of its devices, as the widgets draw them. A list is one a sweep read, so an empty one says
-/// nothing is connected, as far as the app has been told (orange-devices-bue.4gw). The app derives it from `DeviceList`.
+/// What the app knows of its devices, as the widgets draw them. A list is the devices a sweep read that report a battery, so
+/// an empty one says none does, as far as the app has been told (orange-devices-bue.4gw). The app derives it from `DeviceList`.
 enum WidgetDevices: Codable, Equatable, Sendable {
     case connected([WidgetDevice])
     case unread(UnreadDevices)
@@ -110,7 +110,7 @@ enum WidgetDevices: Codable, Equatable, Sendable {
 /// shelf's two values.
 enum AllBatteries: Equatable, Sendable {
     /// The Mac first, so a full widget never pushes it out, then the devices in the panel's ranking, so the
-    /// lowest are the ones that fit. Empty on a Mac with no battery and nothing connected.
+    /// lowest are the ones that fit. Empty on a Mac with no battery and no device reporting one.
     case listed([WidgetBattery])
     /// The Mac, nil when it has no battery, and why no device is listed. It keeps its place beside the reason:
     /// it is the one thing the widget can show a person who keeps Bluetooth refused.
