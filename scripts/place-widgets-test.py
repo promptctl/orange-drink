@@ -45,14 +45,10 @@ def main():
         sys.exit(f"FAILED: the source declares {sorted(expected)} but place-widgets places {sorted(actual)}")
     print("ok: every widget the extension declares is placed")
     for kind, intent in expected.items():
-        idata = actual[kind]
-        named = idata is None if intent is None else idata is not None and bytes([0x40 + len(intent)]) + intent.encode() in idata
-        if not named:
-            sys.exit(f"FAILED: {kind} declares {intent} but is placed with {idata!r}")
-    print("ok: each widget is placed with the AppIntent its source declares")
-    if actual["DeviceBattery"] != RECORDED_DEVICE_INTENT:
-        sys.exit(f"FAILED: DeviceBattery's idata is not what macOS writes: {actual['DeviceBattery']!r}")
-    print("ok: an intent is placed in the bytes macOS writes")
+        written = intent and RECORDED_DEVICE_INTENT.replace(b"RSelectDeviceIntent", bytes([0x40 + len(intent)]) + intent.encode())
+        if actual[kind] != written:
+            sys.exit(f"FAILED: {kind} declares {intent}, which macOS writes as {written!r}, but is placed with {actual[kind]!r}")
+    print("ok: each widget is placed with the AppIntent its source declares, in the bytes macOS writes")
     waited = re.search(r"^kinds='(.+)'$", (REPO / "scripts/widget-click-check").read_text(), re.MULTILINE).group(1).split()
     if set(waited) != set(actual):
         sys.exit(f"FAILED: scripts/widget-click-check waits on {sorted(waited)} but place-widgets places {sorted(actual)}")
