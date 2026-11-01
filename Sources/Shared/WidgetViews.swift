@@ -49,6 +49,7 @@ struct BatteryRing: View {
             let full = min(space.size.width, space.size.height) * 0.62
             let side = battery.name == nil ? full : full - 10
             let line = side * 0.1
+            let gap = battery.charging ? side * 0.26 : 0
             VStack(spacing: side * 0.1) {
                 ZStack {
                     ZStack {
@@ -57,16 +58,16 @@ struct BatteryRing: View {
                             .trim(from: 0, to: BatteryLevel.fraction(battery.level))
                             .stroke(battery.tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
                             .rotationEffect(.degrees(-90))
-                        // The bolt sits in a gap cut from the ring: drawn over the green arc it would not read.
-                        // Opaque, because destinationOut removes only as much as the cut's own alpha.
-                        Circle()
-                            .fill(.white)
-                            .frame(width: side * 0.26, height: side * 0.26)
-                            .offset(y: -side / 2)
-                            .blendMode(.destinationOut)
-                            .opacity(battery.charging ? 1 : 0)
                     }
-                    .compositingGroup()
+                    // The bolt sits in a gap cut from the ring: drawn over the green arc it would not read. An even-odd
+                    // mask can cut nothing but the ring, where destinationOut cut through what lay behind a hosted view.
+                    .mask {
+                        Path { shape in
+                            shape.addRect(CGRect(x: -line, y: -line, width: side + 2 * line, height: side + 2 * line))
+                            shape.addEllipse(in: CGRect(x: (side - gap) / 2, y: -gap / 2, width: gap, height: gap))
+                        }
+                        .fill(style: FillStyle(eoFill: true))
+                    }
                     Image(systemName: battery.glyph)
                         .font(.system(size: side * 0.32))
                     BatteryBolt(battery: battery)
@@ -171,6 +172,8 @@ struct Message: View {
 }
 
 extension Message {
+    static let noDeviceBatteries = Message(glyph: DeviceKind.accessory.symbol, text: "No device batteries")
+
     init(_ reason: NoDevicesListed) { self.init(glyph: reason.glyph, text: reason.text) }
 }
 
@@ -261,7 +264,7 @@ struct DeviceBatteryView: View {
                 Message(glyph: DeviceKind.accessory.symbol, text: "Not connected")
             }
         } else if devices.isEmpty {
-            Message(glyph: DeviceKind.accessory.symbol, text: "No device batteries")
+            Message.noDeviceBatteries
         } else {
             Message(glyph: DeviceKind.accessory.symbol, text: "Choose a device: right-click → Edit Widget")
         }
@@ -401,7 +404,7 @@ struct AllBatteriesView: View {
     @ViewBuilder private func batteries(_ all: AllBatteries) -> some View {
         let grid = BatteryGrid(family, entry.settings.style)
         switch all {
-        case .listed(let batteries) where batteries.isEmpty: Message(glyph: DeviceKind.accessory.symbol, text: "No device batteries")
+        case .listed(let batteries) where batteries.isEmpty: Message.noDeviceBatteries
         case .listed(let batteries): BatteryCells(batteries: batteries, grid: grid)
         case .unlisted(nil, let reason): Message(reason)
         case .unlisted(let mac?, let reason): BatteryAndReason(mac: mac, reason: reason, grid: grid)

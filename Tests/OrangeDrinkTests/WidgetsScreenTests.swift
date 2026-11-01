@@ -180,13 +180,22 @@ import WidgetKit
         #expect(await next.next() != nil)
     }
 
-    /// The bolt's gap is cut out of the ring, so it must stop at the widget. The inset leaves out the clipped corners.
+    /// The bolt's gap is cut out of the ring and must stop there. Read from both renderers, because they have disagreed
+    /// about it: `ImageRenderer`, and a hosted view's own drawing, as a window's is. The inset leaves out the clipped corners.
     @Test func theSurfaceIsUnbrokenBehindTheChargingBolt() async throws {
         let bed = try await Bed()
-        let rep = NSBitmapImageRep(cgImage: try widgetImage(bed.preview(), size: WidgetPreviewSize.small.points, scheme: .dark, scale: 2))
-        let inside = 12..<(rep.pixelsWide - 12)
-        let holes = inside.flatMap { y in inside.filter { x in (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) < 1 } }
-        #expect(holes.isEmpty)
+        let size = WidgetPreviewSize.small.points
+        let host = NSHostingView(rootView: try bed.preview().environment(\.colorScheme, .dark))
+        host.frame = CGRect(origin: .zero, size: size)
+        host.layoutSubtreeIfNeeded()
+        let hosted = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: hosted)
+        let rendered = NSBitmapImageRep(cgImage: try widgetImage(bed.preview(), size: size, scheme: .dark, scale: 2))
+        for (renderer, rep) in [("ImageRenderer", rendered), ("hosted", hosted)] {
+            let inside = (rep.pixelsWide / 24)..<(rep.pixelsWide * 23 / 24)
+            let holes = inside.flatMap { y in inside.filter { x in (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) < 1 } }
+            #expect(holes.isEmpty, "\(renderer) shows \(holes.count) pixels through the surface")
+        }
     }
 
     @Test func aReadingOnBatteryWithTheScreenOpenTakesTheGreenAndTheBoltOffTheMac() async throws {
