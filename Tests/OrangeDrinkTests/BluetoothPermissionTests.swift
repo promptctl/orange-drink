@@ -72,7 +72,7 @@ struct BluetoothPermissionTests {
         #expect(reached.isMarked)
     }
 
-    // Past a refusal is a sweep, so a stream that went on would throw here instead of reporting the allowance.
+    // Past a refusal is setup, so a stream that went on would throw at the first `next` after it instead of reporting the allowance.
     @Test func aRefusalSetsNothingUpAndStaysSubscribed() async throws {
         let (updates, feed) = AsyncStream<CBManagerAuthorization>.makeStream()
         let events = BluetoothDevices.events(authorizations: { updates }, power: { () throws(BluetoothDevicesError) in
@@ -83,6 +83,7 @@ struct BluetoothPermissionTests {
         #expect(try await iterator.next() == .permission(.denied))
         feed.yield(.allowedAlways)
         #expect(try await iterator.next() == .permission(.allowed))
+        await #expect(throws: BluetoothDevicesError.missingSymbol("stand-in")) { _ = try await iterator.next() }
     }
 }
 

@@ -132,7 +132,7 @@ struct DeviceBatteryView: View {
 
     @ViewBuilder private var content: some View {
         switch entry.shelf {
-        case .failure, .success(.appNotRunning): Message(glyph: "dot.radiowaves.left.and.right", text: "Open \(appName)")
+        case .failure, .success(.appNotRunning): Message(glyph: DeviceKind.accessory.symbol, text: "Open \(appName)")
         case .success(.running(.unread(let reason))): Message(reason)
         case .success(.running(.connected(let devices))): chosen(from: devices)
         }
@@ -143,10 +143,10 @@ struct DeviceBatteryView: View {
             if let device = devices.first(where: { $0.address == address }) {
                 ring(device)
             } else {
-                Message(glyph: "dot.radiowaves.left.and.right", text: "Not connected")
+                Message(glyph: DeviceKind.accessory.symbol, text: "Not connected")
             }
         } else {
-            Message(glyph: "dot.radiowaves.left.and.right", text: "Choose a device: right-click → Edit Widget")
+            Message(glyph: DeviceKind.accessory.symbol, text: "Choose a device: right-click → Edit Widget")
         }
     }
 

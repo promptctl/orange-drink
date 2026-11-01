@@ -144,7 +144,7 @@ private let contents = allBatteriesSizes.map { family, size in
         }
     }
 
-    /// Text clipped by its frame draws as if it fit, so the sentence is measured: laid out at the cell's width, it
+    /// Text clipped by its frame draws as if it fit, so the sentence is measured: laid out at the widget's width, it
     /// takes the height it needs, and that has to be no more than the row it gets.
     @Test(arguments: contents) func everyReasonFitsTheRowBeneathTheRing(family: WidgetFamily, content: CGSize) throws {
         let height = RingGrid(family).cell(in: content).height

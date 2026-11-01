@@ -170,13 +170,10 @@ wait $!
 wait_for "the log never said the alert beside Script Editor's was closed" 8 closed_after "$before"
 say "the alert closed and Script Editor's notification with the same words stayed: $other"
 
-# A refusal never reaches IOBluetooth, and macOS 14 and 15 are read nowhere else: a registration refused there would end the
-# subscription, and the panel would say readings stopped instead of why.
-watcher_starts() { log_lines devices | awk '/device watcher started/ { n++ } END { print n + 0 }'; }
-started_after() { [ "$(watcher_starts)" -gt "$1" ]; }
+# A refusal never reaches IOBluetooth: nothing past it sweeps, so a sweep means the list was read. macOS 14 and 15 are read
+# nowhere else.
 guest pkill -x OrangeDrink
 wait_for "the app did not quit" 30 stopped
-before=$(watcher_starts)
 # Every client's grant: one naming the app's bundle leaves this one standing, for an app `tart exec` started.
 guest tccutil reset BluetoothAlways
 start_app
@@ -184,5 +181,9 @@ wait_for "the Bluetooth prompt never came back after the reset" 30 guest "$tree"
 wait_for "the app never logged the refusal" 30 logged devices 'bluetooth permission answered: denied'
 # The line follows the answer within the second when it comes, so its absence is read after a few.
 sleep 5
-! started_after "$before" || fail "the device watcher started after the refusal"
+# At the top level, because errexit stops at a log that cannot be read only here: in a function's $() it would read as no line.
+lines=$(log_lines devices)
+refused=$(sed -n '/bluetooth permission answered: denied/,$p' <<<"$lines")
+[ -n "$refused" ] || fail "the log no longer holds the refusal"
+! grep -qF 'device watcher started' <<<"$refused" || fail "the device watcher started after the refusal"
 say "denied: the app logged the refusal and did not start the device watcher"

@@ -84,14 +84,13 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func aDevicesModelTornDownIsNotAnEndedStreamAndLeavesTheShelfAlone() async throws {
+        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let ended = Ended()
-        var model: DevicesModel? = DevicesModel(events: events, onChange: { _ in ended.count += 1 })
-        send.yield(.reported(Self.iPhone))
+        var model: DevicesModel? = DevicesModel(events: events, shelf: publisher)
         model = nil
         send.finish()
         try await Task.sleep(for: .milliseconds(100))
-        #expect(ended.count == 0)
+        #expect(try WidgetShelf.read(.devices, from: shelf).get() == .running(.unread(.waiting)))
         _ = model
     }
 
@@ -282,4 +281,3 @@ struct RingPixels {
     }
 }
 
-@MainActor private final class Ended { var count = 0 }

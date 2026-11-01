@@ -70,8 +70,8 @@ extension DevicesModel {
 
     /// [LAW:one-source-of-truth] The shelf is the memory of what was published: a value it already
     /// holds costs no write and no reload, and another copy of the app that wrote over it (a test
-    /// host quitting beside the installed app) is corrected by this one's next state. A shelf that
-    /// cannot be read does not hold the value, so it is written.
+    /// host quitting beside the installed app) is corrected by this one's next state, which a refused
+    /// app does not have: nothing sweeps it. A shelf that cannot be read does not hold the value, so it is written.
     private func put(_ shelved: Shelved<Value>) {
         let value = String(describing: shelved)
         let shelf = directory.path
