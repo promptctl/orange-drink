@@ -55,7 +55,7 @@ struct PillContent: Equatable, Sendable {
         let percent = firing.level.percent
         let level: Phrase = firing.level.approximate ? "~\(percent)%" : "\(percent)%"
         self.init(headline: "\(firing.name): \(level) Remaining", subline: nil, severity: firing.alert.severity,
-                  progress: Double(firing.level.percent) / 100, position: firing.alert.position, glow: firing.alert.glow)
+                  progress: BatteryLevel.fraction(firing.level), position: firing.alert.position, glow: firing.alert.glow)
     }
 
     /// The pill for a power source alert: it has no threshold or position of its own, so it sits at

@@ -11,7 +11,7 @@ struct DeviceRow: Equatable, Identifiable {
     let level: BatteryLevel?
 
     var percent: String { BatteryLevel.text(level) }
-    var fraction: Double { Double(level?.percent ?? 0) / 100 }
+    var fraction: Double { BatteryLevel.fraction(level) }
     var tone: Tone { level?.percent ?? 0 >= DeviceRanking.nearlyFull ? .nearlyFull : .normal }
 }
 

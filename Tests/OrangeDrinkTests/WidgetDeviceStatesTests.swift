@@ -29,11 +29,6 @@ private let unreadStates = [
     DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([DeviceListTests.mouse])], ends: true, reason: "Devices unavailable"),
 ]
 
-/// The content area of each size: WidgetKit keeps its margin inside a widget.
-private let contents = allBatteriesSizes.map { family, size in
-    (family, CGSize(width: size.width - 2 * AllBatteriesWidgetTests.margin, height: size.height - 2 * AllBatteriesWidgetTests.margin))
-}
-
 @MainActor @Suite(.timeLimit(.minutes(1))) final class WidgetDeviceStatesTests {
     let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")
 
@@ -65,7 +60,7 @@ private let contents = allBatteriesSizes.map { family, size in
     }
 
     func allBatteriesSays() throws -> [String] {
-        try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log))
+        try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: AllBatteriesIntent()))
     }
 
     func deviceBatterySays(chosen: String?) throws -> [String] {
@@ -123,11 +118,41 @@ private let contents = allBatteriesSizes.map { family, size in
 
     // MARK: the drawing
 
-    static func entry(_ reason: UnreadDevices, mac: MacBattery) -> AllBatteriesEntry {
-        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.unread(reason))))
+    static func entry(_ reason: UnreadDevices, mac: MacBattery, style: WidgetStyle = .rings) -> AllBatteriesEntry {
+        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.unread(reason))), style: style)
     }
 
-    @Test(arguments: contents) func theMacsRingIsTheSizeItIsBesideItsDevices(family: WidgetFamily, content: CGSize) throws {
+    @Test(arguments: WidgetStyle.allCases) func everyStyleSaysWhyAndKeepsTheMacBesideIt(style: WidgetStyle) throws {
+        for reason in UnreadDevices.allCases {
+            #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .noBattery, style: style)) == [reason.text])
+            #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .level(percent: 79, charging: false), style: style)) == ["79%", reason.text])
+        }
+    }
+
+    @Test func theMacsBarKeepsItsPlaceBesideTheReason() throws {
+        func start(_ entry: AllBatteriesEntry) throws -> Int {
+            try AllBatteriesWidgetTests.pixels(entry, .systemMedium).row(0, of: 4).longestRun.start
+        }
+        let mac = AllBatteriesWidgetTests.onBattery
+        let beside = try start(AllBatteriesWidgetTests.entry(mac, AllBatteriesWidgetTests.three, style: .bars))
+        #expect(beside > 0)
+        for reason in UnreadDevices.allCases {
+            #expect(try start(Self.entry(reason, mac: mac, style: .bars)) == beside, "\(reason)")
+        }
+    }
+
+    /// A reason takes the row a second row of rings would, so the Mac's ring sits where it does in a list two rows long.
+    @Test(arguments: WidgetFamilies.allBatteries) func theMacsRingKeepsItsRowBesideTheReason(family: WidgetFamily) throws {
+        func top(_ entry: AllBatteriesEntry) throws -> Int? { try AllBatteriesWidgetTests.pixels(entry, family).top }
+        let mac = AllBatteriesWidgetTests.onBattery
+        let twoRows = Array(AllBatteriesWidgetTests.twenty.prefix(2 * BatteryGrid(family, .rings).columns - 1))
+        let beside = try top(AllBatteriesWidgetTests.entry(mac, twoRows))
+        for reason in UnreadDevices.allCases {
+            #expect(try top(Self.entry(reason, mac: mac)) == beside, "\(reason)")
+        }
+    }
+
+    @Test(arguments: allBatteriesContents) func theMacsRingIsTheSizeItIsBesideItsDevices(family: WidgetFamily, content: CGSize) throws {
         func across(_ entry: AllBatteriesEntry) throws -> Double {
             try RingPixels(widgetImage(AllBatteriesWidgetTests.view(entry, family), size: content, scheme: .dark, scale: 2)).across
         }
@@ -138,14 +163,14 @@ private let contents = allBatteriesSizes.map { family, size in
         }
     }
 
-    /// Text clipped by its frame draws as if it fit, so the sentence is measured: laid out at the widget's width, it
-    /// takes the height it needs, and that has to be no more than the row it gets.
-    @Test(arguments: contents) func everyReasonFitsTheRowBeneathTheRing(family: WidgetFamily, content: CGSize) throws {
-        let height = RingGrid(family).cell(in: content).height
+    /// A sentence is measured because text clipped by its frame draws as if it fit: laid out at the widget's width, it
+    /// takes the height it needs, and that has to be no more than the Mac's cell leaves.
+    @Test(arguments: WidgetStyle.allCases, allBatteriesContents) func everyReasonFitsBeneathTheMac(style: WidgetStyle, size: (family: WidgetFamily, content: CGSize)) throws {
+        let room = size.content.height - BatteryGrid(size.family, style).cell(in: size.content).height
         for reason in UnreadDevices.allCases {
-            let needed = ImageRenderer(content: Caption(text: reason.text).frame(width: content.width).fixedSize(horizontal: false, vertical: true))
+            let needed = ImageRenderer(content: Caption(text: reason.text).frame(width: size.content.width).fixedSize(horizontal: false, vertical: true))
             let image = try #require(needed.nsImage)
-            #expect(image.size.height <= height, "\(reason) needs \(image.size.height) pt of \(height) pt")
+            #expect(image.size.height <= room, "\(reason) needs \(image.size.height) pt of \(room) pt")
         }
     }
 }

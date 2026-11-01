@@ -40,4 +40,7 @@ struct BatteryLevel: Codable, Equatable, Sendable {
     static func text(_ level: BatteryLevel?) -> String {
         level.map { "\($0.approximate ? "~" : "")\($0.percent)%" } ?? "–"
     }
+
+    /// How far a bar or ring fills, from 0 to 1, and empty when the level is unknown.
+    static func fraction(_ level: BatteryLevel?) -> Double { Double(level?.percent ?? 0) / 100 }
 }
