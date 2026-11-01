@@ -615,6 +615,11 @@ struct WidgetIntentMetadataTests {
     static let app = Bundle.main.bundleURL
     static let widgets = app.appending(path: "Contents/PlugIns/OrangeDrinkWidgets.appex")
 
+    @Test func theBuiltAppHoldsItsWidgetExtension() throws {
+        let plist = try #require(Bundle(url: Self.widgets)?.infoDictionary?["NSExtension"] as? [String: Any])
+        #expect(plist["NSExtensionPointIdentifier"] as? String == "com.apple.widgetkit-extension")
+    }
+
     @Test func editWidgetOffersEachOptionAndItsCases() throws {
         let metadata = try Self.metadata(of: Self.widgets)
         let parameters = try #require(metadata.actions["AllBatteriesIntent"]).parameters

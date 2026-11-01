@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+# The value of com.apple.notificationcenterui's `widgets` key that places the app's three widgets on a VM's desktop, printed
+# as a property list for `defaults write`. scripts/widget-click-check writes it, so a check needs no person at the gallery.
+#
+#   scripts/place-widgets <app's bundle identifier>
+#
+# A private format, read off a desktop macOS placed itself, and this is the one file that knows it. Each widget is an
+# NSKeyedArchiver archive of ChronoServices' CHSWidget, which is why this is Python: plistlib writes the archive's UIDs. A
+# widget it cannot place is a check that says the extension never ran.
+import plistlib
+import sys
+import uuid
+
+BINARY = plistlib.FMT_BINARY
+SMALL, MEDIUM = ("Small", 1), ("Medium", 2)
+# In display cells from the top left. scripts/widget-click-check clicks the middle of each.
+WIDGETS = [("MacBattery", SMALL, 0, 0), ("DeviceBattery", SMALL, 1, 0), ("AllBatteries", MEDIUM, 0, 1)]
+
+
+def archive(app, kind, family):
+    uid = plistlib.UID
+    return plistlib.dumps({
+        "$version": 100000,
+        "$archiver": "NSKeyedArchiver",
+        "$top": {"root": uid(1)},
+        "$objects": [
+            "$null",
+            {"$class": uid(7), "family": family, "kind": uid(6), "extensionIdentity": uid(2),
+             "personaIdentifier": uid(0), "activityIdentifier": uid(0), "intent2": uid(0)},
+            {"$class": uid(5), "extensionBundleIdentifier": uid(3), "containerBundleIdentifier": uid(4), "deviceIdentifier": uid(0)},
+            app + ".Widgets",
+            app,
+            {"$classname": "CHSExtensionIdentity", "$classes": ["CHSExtensionIdentity", "NSObject"]},
+            kind,
+            {"$classname": "CHSWidget", "$classes": ["CHSWidget", "NSObject"]},
+        ],
+    }, fmt=BINARY)
+
+
+def main(app):
+    instances, items = [], []
+    for order, (kind, (size, family), column, row) in enumerate(WIDGETS, start=1):
+        identifier = str(uuid.uuid4()).upper()
+        instances.append(plistlib.dumps({"uuid": identifier, "widget": archive(app, kind, family)}, fmt=BINARY))
+        items.append({"Identifier": identifier, "Column": column, "Row": row, "Size": {size: {}}, "ZOrder": order})
+    placement = {"CompatibilityVersion": 1, "NumberedDisplays": [{"Number": 0, "Resolutions": [
+        {"Size": [1024.0, 738.0], "Groups": [{"Origin": [8.0, 8.0], "Items": items}]},
+    ]}]}
+    sys.stdout.buffer.write(plistlib.dumps({
+        "DesktopWidgetPlacementStorage": plistlib.dumps(placement, fmt=BINARY),
+        "instances": instances,
+        "vers": 1,
+    }))
+
+
+main(sys.argv[1])

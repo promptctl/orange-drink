@@ -53,7 +53,7 @@ One card with three numbered steps separated by dividers. Each step starts with 
 2. "Search for **{App}** and drag a widget wherever you like. Each size is its own entry in the gallery."
 3. "Right-click a placed widget → **Edit Widget** to choose devices, style and names. Click a widget to open {App}."
 
-Clicking a placed widget opens the app.
+Clicking a placed widget shows the menu bar panel.
 
 ## Good to Know
 

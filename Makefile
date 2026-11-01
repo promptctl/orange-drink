@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check
+.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
 
 generate:
 	xcodegen generate --use-cache
@@ -159,6 +159,13 @@ first-launch-check: release
 BATTERY_NOTIFICATION_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest ghcr.io/cirruslabs/macos-sonoma-base:latest
 battery-notification-check: release
 	@set -e; for image in $(BATTERY_NOTIFICATION_IMAGES); do scripts/battery-notification-check "$(RELEASE_APP)" "$$image"; done
+
+# A click on a placed widget on real macOS, in a VM with no window, because only a real click makes macOS deliver what it
+# delivers: scripts/widget-click-check places all three widgets, clicks them, and reads the app's log and the window list.
+# It needs Tart and these images. macOS 14 is not among them: the widgets draw blank there (orange-widgets-5jo.0gq).
+WIDGET_CLICK_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest
+widget-click-check: release
+	@set -e; for image in $(WIDGET_CLICK_IMAGES); do scripts/widget-click-check "$(RELEASE_APP)" "$$image"; done
 
 # The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle

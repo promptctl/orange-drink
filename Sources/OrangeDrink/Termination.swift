@@ -92,7 +92,7 @@ struct QuitRecords {
 /// and its default action would end the process before anything ran. Routed to `terminate:` instead, the
 /// app's normal end runs, this record names the sender, and `exit()` releases the helper's record
 /// (HelperRegistration). A crash or SIGKILL still skips all of that.
-@MainActor final class TerminationLog: NSObject, NSApplicationDelegate {
+@MainActor final class TerminationLog {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "termination")
 
     private let records: QuitRecords
@@ -109,7 +109,7 @@ struct QuitRecords {
         self.terminate = terminate
     }
 
-    override convenience init() {
+    convenience init() {
         self.init(records: .standard, signal: SIGTERM, terminate: { NSApplication.shared.terminate(nil) })
     }
 
