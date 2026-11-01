@@ -11,6 +11,13 @@ import Foundation
     return true
 }
 
+extension WidgetDevices {
+    /// A read list for a test whose devices all rank. Only the test target has this: in the app every field is required.
+    static func connected(_ ranked: [WidgetDevice], pinned: WidgetPins) -> WidgetDevices {
+        .connected(WidgetDeviceList(ranked: ranked, pinned: pinned, unlevelled: []))
+    }
+}
+
 extension DevicesModel {
     /// The app's own wiring, for a test that cares about neither the pins nor the menu bar: nothing pinned, in a throwaway suite.
     convenience init<Events: AsyncSequence & Sendable>(

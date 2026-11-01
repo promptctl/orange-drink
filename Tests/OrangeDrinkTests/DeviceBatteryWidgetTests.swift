@@ -37,8 +37,8 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     /// What the widget reads for a device, through its own read path.
     func levelRead(_ address: String) throws -> Int? {
-        guard case .running(.connected(let devices, _)) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
-        return devices.first { $0.address == address }?.level?.percent
+        guard case .running(.connected(let list)) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
+        return list.device(at: address)?.level?.percent
     }
 
     // MARK: the shelf
@@ -88,8 +88,9 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     @Test func theShelfLogsNeitherADevicesNameNorItsAddress() {
         let device = WidgetDevice(address: "AA-BB", name: "Brandon's iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
-        let line = String(describing: Shelved.running(WidgetDevices.connected([device], pinned: [])))
-        #expect(!line.contains("Brandon") && !line.contains("AA-BB"))
+        let silent = WidgetDevice(address: "CC-DD", name: "Brandon's Keyboard", kind: .accessory, level: nil)
+        let line = String(describing: Shelved.running(WidgetDevices.connected(WidgetDeviceList(ranked: [device], pinned: [], unlevelled: [silent]))))
+        #expect(!line.contains("Brandon") && !line.contains("AA-BB") && !line.contains("CC-DD"))
         #expect(line.contains("80%"))
     }
 
@@ -115,13 +116,13 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
             Device(id: DeviceID(address: "EE"), name: "Mouse", kind: .accessory, levels: .none),
             Self.earbuds(54),
         ]))
-        // Ranked as the panel ranks them: lowest first, unread last, a device with no battery absent; the case is never the level.
-        #expect(WidgetDevices(list, pinned: []) == .connected([
+        // Ranked as the panel ranks them: lowest first, unread last, a device with no battery kept apart; the case is never the level.
+        #expect(WidgetDevices(list, pinned: []) == .connected(WidgetDeviceList(ranked: [
             WidgetDevice(address: "CC", name: "iPad", kind: .tablet, level: BatteryLevel(percent: 40, approximate: true)),
             WidgetDevice(address: "BB", name: "Earbuds", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
             WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 95, approximate: false)),
             WidgetDevice(address: "DD", name: "Speaker", kind: .accessory, level: nil),
-        ], pinned: []))
+        ], pinned: [], unlevelled: [WidgetDevice(address: "EE", name: "Mouse", kind: .accessory, level: nil)])))
     }
 
     // MARK: the settings
@@ -140,6 +141,13 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         #expect(resolved.map(\.device) == [phone, nil])
         // A list the app could not read keeps the widget's choice too.
         #expect(WidgetDevices.resolve(["AA"], in: .running(.unread(.denied))).map(\.address) == ["AA"])
+    }
+
+    @Test func aChosenDeviceWithNoLevelResolvesAndIsNotOffered() {
+        let keyboard = WidgetDevice(address: "EE", name: "Keyboard", kind: .accessory, level: nil)
+        let shelf = Shelved.running(WidgetDevices.connected(WidgetDeviceList(ranked: [], pinned: [], unlevelled: [keyboard])))
+        #expect(WidgetDevices.resolve(["EE"], in: shelf).map(\.device) == [keyboard])
+        #expect(WidgetDevices.choices(in: shelf).isEmpty)
     }
 
     // MARK: the drawing

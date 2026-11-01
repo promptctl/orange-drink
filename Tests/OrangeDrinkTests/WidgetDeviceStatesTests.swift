@@ -95,7 +95,19 @@ private let unreadStates = [
         _ = model
     }
 
-    /// The list drops a connected device that reports no battery, so these words have to hold beside one, on any Mac.
+    /// Right after a reconnect, or for as long as power management has no source under its name, a connected device has
+    /// no level. It is still there, so it keeps its ring.
+    @Test func aChosenDeviceWithNoLevelIsConnected() async throws {
+        let silent = Device(id: DeviceID(address: "EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
+        let model = try await publish(read, mac: .noBattery)
+        #expect(try deviceBatterySays(chosen: "EE") == ["–"])
+        #expect(try deviceBatterySays(chosen: "ZZ") == ["Not connected"])
+        #expect(try deviceBatterySays(chosen: nil) == ["No device batteries"])
+        _ = model
+    }
+
+    /// The ranking leaves out a connected device that reports no battery, so these words have to hold beside one, on any Mac.
     @Test(arguments: [MacBattery.noBattery, .level(percent: 79, charging: false)]) func withNothingToListTheWidgetSaysNoDeviceBatteries(mac: MacBattery) async throws {
         let silent = Device(id: DeviceID(address: "EE"), name: "Keyboard", kind: .accessory, levels: .none)
         let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
@@ -114,7 +126,8 @@ private let unreadStates = [
         _ = model
     }
 
-    @Test(arguments: [#"{"running":{"_0":[]}}"#, #"{"running":{"_0":{"connected":{"_0":[]}}}}"#]) func aFileInTheOldShapeDrawsOpenTheAppAndIsWrittenOver(old: String) throws {
+    @Test(arguments: [#"{"running":{"_0":[]}}"#, #"{"running":{"_0":{"connected":{"_0":[]}}}}"#, #"{"running":{"_0":{"connected":{"_0":[],"pinned":{"addresses":[]}}}}}"#])
+    func aFileInTheOldShapeDrawsOpenTheAppAndIsWrittenOver(old: String) throws {
         try Data(old.utf8).write(to: shelf.appending(path: WidgetShelf.Item<WidgetDevices>.devices.file))
         #expect(try deviceBatterySays(chosen: "AA") == ["Open Orange Drink"])
 

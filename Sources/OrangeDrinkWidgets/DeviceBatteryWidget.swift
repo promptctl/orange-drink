@@ -17,7 +17,7 @@ struct SelectDeviceIntent: WidgetConfigurationIntent {
 struct DeviceBatteryProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> DeviceBatteryEntry {
         let phone = WidgetDevice(address: "placeholder", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
-        return DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected([phone], pinned: []))), chosen: phone.address)
+        return DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected(WidgetDeviceList(ranked: [phone], pinned: [], unlevelled: [])))), chosen: phone.address)
     }
 
     func snapshot(for configuration: SelectDeviceIntent, in context: Context) async -> DeviceBatteryEntry {
