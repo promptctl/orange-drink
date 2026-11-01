@@ -3,7 +3,7 @@
 //   desktop click <x> <y>                    one left click at that point, in points from the top left of the display
 //   desktop double-click <x> <y> <gap ms>    two, in one process because two `tart exec` calls cannot hold a gap
 //   desktop windows <owner>                  one line per window of that owner on screen: layer, then x y width height
-//   desktop covering <x> <y>...              one line per owner of a window over any of those points
+//   desktop covering <x> <y>...              one line per process with a window in layers 0 to 19 over any of those points: pid, then owner
 import CoreGraphics
 import Foundation
 
@@ -33,18 +33,20 @@ func point(_ x: String, _ y: String) -> CGPoint {
 }
 
 struct Window {
+    let pid: Int
     let owner: String
     let layer: Int
     let bounds: CGRect
 }
 
-// The window list promises a layer and bounds, so one without is a list that cannot be read. An owner's name is optional.
+// The window list promises a pid, a layer, and bounds, so one without is a list that cannot be read. An owner's name is optional.
 func onScreenWindows() -> [Window] {
     guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] else { fail("no window list") }
     return list.map { window in
-        guard let layer = window[kCGWindowLayer as String] as? Int,
+        guard let pid = window[kCGWindowOwnerPID as String] as? Int,
+              let layer = window[kCGWindowLayer as String] as? Int,
               let bounds = (window[kCGWindowBounds as String] as? NSDictionary).flatMap({ CGRect(dictionaryRepresentation: $0) }) else { fail("unreadable window: \(window)") }
-        return Window(owner: window[kCGWindowOwnerName as String] as? String ?? "?", layer: layer, bounds: bounds)
+        return Window(pid: pid, owner: window[kCGWindowOwnerName as String] as? String ?? "?", layer: layer, bounds: bounds)
     }
 }
 
@@ -54,11 +56,11 @@ func windows(of owner: String) {
     }
 }
 
-// A widget sits at a negative layer, and from the Dock's layer, 20, up are overlays that cover the whole display and take no
-// click. So what can sit over a widget is layers 0 to 19: apps' windows and their alerts.
+// A widget sits at a negative layer. Layers 0 to 19 hold apps' windows and their alerts, which a login can leave over one. From
+// the Dock's layer, 20, up are overlays that cover the whole display and take no click, and the app's own panel and pill.
 func covering(_ points: [CGPoint]) {
     let over = onScreenWindows().filter { (0..<20).contains($0.layer) && points.contains(where: $0.bounds.contains) }
-    for owner in Set(over.map(\.owner)) { print(owner) }
+    for line in Set(over.map { "\($0.pid) \($0.owner)" }) { print(line) }
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())

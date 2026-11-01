@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 
 tools=/tmp/tools
 desktop="$tools/desktop"
-on_failure() { log_lines appDelegate >&2; log_lines hotkey >&2; guest "$desktop" windows OrangeDrink >&2; { echo 'over the widgets:'; covering; } >&2; guest ls -R "$timelines" >&2; refusals | tail -n 3 >&2; }
+on_failure() { log_lines appDelegate >&2; log_lines hotkey >&2; guest "$desktop" windows OrangeDrink >&2; { echo 'in layers 0 to 19, over the widgets:'; covering; } >&2; guest ls -R "$timelines" >&2; refusals | tail -n 3 >&2; }
 say() { echo "widget-click-check: $image: $*" >&2; }
 
 # The middle of each widget scripts/place-widgets places.
@@ -39,14 +39,13 @@ uncovered() { local read; read=$(covering) && [ -z "$read" ]; }
 descriptors_cached() { guest sh -c "grep -qrF '$identifier.Widgets' '$chronod_data'"; }
 timelines_written() { guest sh -c "for kind in $kinds; do ls '$timelines'/\$kind/*.chrono-timeline || exit 1; done"; }
 # chronod's refusals of a widget's intent, each of which puts off its next try by an hour.
-refusals() { guest /usr/bin/log show --last 30m --style compact --predicate 'process == "chronod" AND eventMessage CONTAINS "Code=1103"'; }
+refusals() { log_matching 'process == "chronod" AND eventMessage CONTAINS "Code=1103"'; }
 # Whether the NotificationCenter running now, if it is not <pid>, has loaded <kind>'s timeline. Its placeholder loads under
 # category "placeholder". The grep is on the process column because `log show` can print its predicate above the lines.
 timeline_loaded() {
   local running
   running=$(guest pgrep -x NotificationCenter) && [ "$running" != "$2" ] &&
-    grep -qF 'NotificationCenter[' <<<"$(guest /usr/bin/log show --last 30m --style compact \
-      --predicate "processID == $running AND category == \"timeline\" AND eventMessage CONTAINS \"Content load successful\" AND eventMessage CONTAINS \"Widgets:$1:\"")"
+    grep -qF 'NotificationCenter[' <<<"$(log_matching "processID == $running AND category == \"timeline\" AND eventMessage CONTAINS \"Content load successful\" AND eventMessage CONTAINS \"Widgets:$1:\"")"
 }
 launched() { logged appDelegate 'launch finished'; }
 # How many lines hold <text>. Absent is a count of 0, and a read that fails is a failure, never a count.
@@ -100,10 +99,10 @@ say "launch: no panel or Settings in the window list"
 
 # What an image restores at login sits over the widgets, and a click lands on whatever is on top. Read here, at the click,
 # because nothing says when a login has finished restoring.
-covering | while IFS= read -r owner; do
+covering | while read -r pid owner; do
   # The app is what this check reads, and quitting NotificationCenter would undo the load the clicks just waited on.
   case "$owner" in OrangeDrink | NotificationCenter) fail "$owner has a window over the widgets" ;; esac
-  if guest pkill -x "$owner"; then say "quit $owner: it was over the widgets"; fi
+  if guest kill "$pid"; then say "quit $owner: it was over the widgets"; fi
 done
 wait_for "a window stayed over the widgets" 10 uncovered
 

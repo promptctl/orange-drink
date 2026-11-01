@@ -19,11 +19,11 @@ RECORDED_DEVICE_INTENT = (
 def declared():
     """Each widget kind's AppIntent as the source declares it, None for a kind with none: {"MacBattery": None, ...}."""
     shelf = (REPO / "Sources/Shared/WidgetShelf.swift").read_text()
-    kinds = dict(re.findall(r'case (\w+) = "(\w+)"', shelf))
-    widgets = "\n".join(path.read_text() for path in (REPO / "Sources/OrangeDrinkWidgets").glob("*.swift"))
+    kinds = dict(re.findall(r'case (\w+) = "(\w+)"', re.search(r"enum WidgetKind.*?\n}", shelf, re.DOTALL).group()))
+    widgets = "\n".join(path.read_text() for path in (REPO / "Sources/OrangeDrinkWidgets").rglob("*.swift"))
     found = re.findall(r"(?:Static|AppIntent)Configuration\(kind: WidgetKind\.(\w+)\.rawValue(?:, intent: (\w+)\.self)?", widgets)
-    if not found:
-        sys.exit("FAILED: no widget configuration found in Sources/OrangeDrinkWidgets")
+    if {case for case, _ in found} != set(kinds):
+        sys.exit(f"FAILED: WidgetKind has {sorted(kinds)} but Sources/OrangeDrinkWidgets reads as {sorted(found)}")
     return {kinds[case]: intent or None for case, intent in found}
 
 
