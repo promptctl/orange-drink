@@ -99,8 +99,8 @@ extension UnreadDevices {
     }
 }
 
-/// What the app knows of its devices, as the widgets draw them. A list is one the app read, so an empty one
-/// can only mean nothing is connected. The app derives it from `DeviceList`.
+/// What the app knows of its devices, as the widgets draw them. A list is one a sweep read, so an empty one says
+/// nothing is connected, as far as the app has been told (orange-devices-bue.4gw). The app derives it from `DeviceList`.
 enum WidgetDevices: Codable, Equatable, Sendable {
     case connected([WidgetDevice])
     case unread(UnreadDevices)
