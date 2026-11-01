@@ -233,6 +233,23 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(try !Self.pixels(Self.entry(Self.onBattery, Self.three, style: style)).contains(Self.isGreen))
     }
 
+    /// With no names, the glyph is all that says which battery a row is, and all a stopped Mac has to warn with.
+    @Test(arguments: [WidgetStyle.list, .bars]) func aRowDrawsItsOwnBatterysGlyph(style: WidgetStyle) throws {
+        let images = try Self.view(Self.entry(.ended, Self.three, style: style)).inspect().findAll(ViewType.Image.self)
+        let glyphs = try images.map { try $0.actualImage().name() }.filter { $0 != "bolt.fill" }
+        #expect(glyphs == ["exclamationmark.triangle", "iphone", "dot.radiowaves.left.and.right", "ipad"])
+    }
+
+    @Test(arguments: [WidgetStyle.list, .bars]) func aRowWithNoReadingSaysSo(style: WidgetStyle) throws {
+        #expect(try Self.texts(Self.entry(.waiting, Self.three, style: style)) == ["–", "95%", "54%", "40%"])
+    }
+
+    @Test func aBarWithNoReadingIsAnEmptyTrack() throws {
+        let bar = try Self.bars(Self.entry(.waiting, Self.three, style: .bars))[0]
+        #expect(bar.width > 0)
+        #expect(bar.fraction(Self.isGrey) == 0)
+    }
+
     @Test func theListDrawsNoBar() throws {
         let row = try Self.pixels(Self.entry(Self.charging, Self.three, style: .list)).row(0, of: 4).longestRun
         #expect(row.width < 40, "a run \(row.width) px wide")

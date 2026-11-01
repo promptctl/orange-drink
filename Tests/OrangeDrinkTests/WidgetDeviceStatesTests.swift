@@ -141,11 +141,12 @@ private let unreadStates = [
         }
     }
 
-    /// Two rows of rings fill Small and Medium, so the Mac's ring is in the first whether a device or a reason is in the second.
-    @Test(arguments: [WidgetFamily.systemSmall, .systemMedium]) func theMacsRingKeepsItsRowBesideTheReason(family: WidgetFamily) throws {
+    /// A reason takes the row a second row of rings would, so the Mac's ring sits where it does in a list two rows long.
+    @Test(arguments: WidgetFamilies.allBatteries) func theMacsRingKeepsItsRowBesideTheReason(family: WidgetFamily) throws {
         func top(_ entry: AllBatteriesEntry) throws -> Int? { try AllBatteriesWidgetTests.pixels(entry, family).top }
         let mac = AllBatteriesWidgetTests.onBattery
-        let beside = try top(AllBatteriesWidgetTests.entry(mac, AllBatteriesWidgetTests.twenty))
+        let twoRows = Array(AllBatteriesWidgetTests.twenty.prefix(2 * BatteryGrid(family, .rings).columns - 1))
+        let beside = try top(AllBatteriesWidgetTests.entry(mac, twoRows))
         for reason in UnreadDevices.allCases {
             #expect(try top(Self.entry(reason, mac: mac)) == beside, "\(reason)")
         }
