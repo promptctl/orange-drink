@@ -74,6 +74,20 @@ import Testing
         #expect(bar() == ["Mouse", "AirPods", "Keyboard"])
     }
 
+    @Test func anEmptyCardSaysWhy() {
+        var list = DeviceList()
+        let note = { PinnedDevicesList(list, pinned: [Self.a]).emptyNote }
+        #expect(note() == UnreadDevices.waiting.explanation)
+        list.apply(.permission(.notDetermined))
+        #expect(note() == UnreadDevices.unanswered.explanation)
+        list.apply(.permission(.denied))
+        #expect(note() == UnreadDevices.denied.explanation)
+        list.apply(.swept([]))
+        #expect(note() == "Pin a connected device from the Devices screen to arrange it here.")
+        list.end()
+        #expect(note() == UnreadDevices.ended.explanation)
+    }
+
     @Test func aLevelChangeRedrawsAnItemWithoutMakingAnyAgain() {
         var made: [Recording] = []
         let controller = PinnedItemsController(makeItem: { _ in let item = Recording(); made.append(item); return item })

@@ -53,6 +53,13 @@ struct BatteryRing: View {
     }
 }
 
+/// A widget's small words, however many lines they take.
+struct Caption: View {
+    let text: String
+
+    var body: some View { Text(text).font(.caption).multilineTextAlignment(.center) }
+}
+
 struct Message: View {
     let glyph: String
     let text: String
@@ -60,7 +67,7 @@ struct Message: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: glyph).font(.title)
-            Text(text).font(.caption).multilineTextAlignment(.center)
+            Caption(text: text)
         }
         .foregroundStyle(.secondary)
     }
@@ -241,8 +248,7 @@ struct RingAndReason: View {
             let cell = grid.cell(in: space.size)
             VStack(spacing: 0) {
                 BatteryRing(battery: mac).frame(width: cell.width, height: cell.height)
-                Text(reason.text).font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
-                    .frame(height: cell.height)
+                Caption(text: reason.text).foregroundStyle(.secondary).frame(height: cell.height)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

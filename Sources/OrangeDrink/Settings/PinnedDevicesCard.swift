@@ -11,8 +11,10 @@ struct PinnedDevicesList: Equatable {
     }
 
     let entries: [Entry]
+    let emptyNote: Phrase
 
     init(_ list: DeviceList, pinned: PinnedOrder) {
+        emptyNote = list.unread?.explanation ?? "Pin a connected device from the Devices screen to arrange it here."
         let rows = PinnedItem.items(list, pinned: pinned).map(\.row)
         entries = rows.indices.map { index in
             Entry(row: rows[index], above: rows.indices.contains(index - 1) ? rows[index - 1].id : nil,
@@ -34,7 +36,7 @@ struct PinnedDevicesCard: View {
             SettingEditor(settings) { edits in
                 let list = PinnedDevicesList(devices.list, pinned: edits.value.pinned)
                 if list.entries.isEmpty {
-                    Text("Pin a connected device from the Devices screen to arrange it here.").foregroundStyle(.secondary)
+                    PhraseText(list.emptyNote).foregroundStyle(.secondary)
                 } else {
                     SettingCard {
                         ForEach(list.entries) { entry in

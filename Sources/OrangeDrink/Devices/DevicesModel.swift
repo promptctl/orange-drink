@@ -42,7 +42,7 @@ import Observation
     deinit { subscription?.cancel() }
 }
 
-enum DevicesModelError: Error, Equatable {
+enum DevicesModelError: Error {
     /// The event stream finished; a live device source never does.
     case streamFinished
 }

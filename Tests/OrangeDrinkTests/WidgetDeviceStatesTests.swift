@@ -149,8 +149,7 @@ private let contents = allBatteriesSizes.map { family, size in
     @Test(arguments: contents) func everyReasonFitsTheRowBeneathTheRing(family: WidgetFamily, content: CGSize) throws {
         let height = RingGrid(family).cell(in: content).height
         for reason in Self.reasons {
-            let text = Text(reason.text).font(.caption).multilineTextAlignment(.center)
-            let needed = ImageRenderer(content: text.frame(width: content.width).fixedSize(horizontal: false, vertical: true))
+            let needed = ImageRenderer(content: Caption(text: reason.text).frame(width: content.width).fixedSize(horizontal: false, vertical: true))
             let image = try #require(needed.nsImage)
             #expect(image.size.height <= height, "\(reason) needs \(image.size.height) pt of \(height) pt")
         }
