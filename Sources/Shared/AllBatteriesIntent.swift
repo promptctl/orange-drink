@@ -31,7 +31,7 @@ struct AllBatteriesIntent: WidgetConfigurationIntent {
 }
 
 /// A placed All Batteries widget's settings, read once from what Edit Widget holds. [LAW:one-source-of-truth] A value,
-/// because an intent's parameters are shared references, and with no init of its own, so the intent alone says the defaults.
+/// because an intent's parameters are shared references, and made only from an intent, so the intent alone says the defaults.
 struct AllBatteriesSettings: Equatable, Sendable {
     let style: WidgetStyle
     let showNames: Bool
@@ -44,6 +44,8 @@ struct AllBatteriesSettings: Equatable, Sendable {
 
     /// One battery as these settings draw it. [LAW:dataflow-not-control-flow] Past here a name is a value, or none.
     func drawn(_ battery: WidgetBattery, named name: String) -> WidgetBattery {
-        WidgetBattery(glyph: battery.glyph, level: battery.level, charging: battery.charging, name: showNames ? name : nil, appearance: appearance)
+        var drawn = battery
+        (drawn.name, drawn.appearance) = (showNames ? name : nil, appearance)
+        return drawn
     }
 }

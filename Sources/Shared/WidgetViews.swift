@@ -28,23 +28,24 @@ struct BatteryPercentage: View {
     }
 }
 
-/// A battery's name on one line, sized by the font its caller sets. Cut in the middle, because a device's name
-/// usually starts with its owner's: cut at the end, "Brandon's AirPods" and "Brandon's iPhone" would read the same.
+/// A battery's name on one line, one size in every style. Cut in the middle, because a device's name usually
+/// starts with its owner's: cut at the end, "Brandon's AirPods" and "Brandon's iPhone" would read the same.
 struct BatteryName: View {
     let name: String
 
-    var body: some View { Text(name).lineLimit(1).truncationMode(.middle) }
+    var body: some View { Text(name).font(.caption).lineLimit(1).truncationMode(.middle) }
 }
 
 /// The reference ring from design-docs/widgets.md: a dark track, an arc filled clockwise from the top
-/// to the level, the glyph in the centre and the percentage below; green with a bolt while charging. A name goes under
-/// the percentage, and the ring gives up the room it takes, so a cell's bolt and name both stay inside it.
+/// to the level, the glyph in the centre and the percentage below; a bolt while charging, in its tint. A name goes under
+/// the percentage, and the room it takes comes out of the ring, so a cell's bolt and name both stay inside it.
 struct BatteryRing: View {
     let battery: WidgetBattery
 
     var body: some View {
         GeometryReader { space in
-            let side = min(space.size.width, space.size.height) * (battery.name == nil ? 0.62 : 0.54)
+            let full = min(space.size.width, space.size.height) * 0.62
+            let side = battery.name == nil ? full : full * 0.74
             let line = side * 0.1
             VStack(spacing: side * 0.1) {
                 ZStack {
@@ -73,8 +74,8 @@ struct BatteryRing: View {
                 .frame(width: side, height: side)
                 VStack(spacing: 0) {
                     BatteryPercentage(battery: battery)
-                        .font(.system(size: side * 0.2, weight: .bold))
-                    if let name = battery.name { BatteryName(name: name).font(.system(size: side * 0.2)) }
+                        .font(.system(size: full * 0.2, weight: .bold))
+                    if let name = battery.name { BatteryName(name: name) }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -105,7 +106,7 @@ struct RowName: View {
     let battery: WidgetBattery
 
     var body: some View {
-        if let name = battery.name { BatteryName(name: name).font(.caption).frame(maxWidth: .infinity, alignment: .leading) }
+        if let name = battery.name { BatteryName(name: name).frame(maxWidth: .infinity, alignment: .leading) }
     }
 }
 

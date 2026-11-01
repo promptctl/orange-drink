@@ -345,7 +345,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(WidgetStyle.allCases.map(\.rawValue) == ["rings", "list", "bars"])
     }
 
-    @Test func aWidgetWithNoSavedOptionsDrawsAsItDidAndASavedAppearanceKeepsItsName() {
+    @Test func anIntentDefaultsToNoNamesTheMacAndColorAndASavedAppearanceKeepsItsName() {
         let intent = AllBatteriesIntent()
         #expect(!intent.showNames)
         #expect(intent.includeMac)
@@ -355,14 +355,11 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     // MARK: the options
 
-    static let named = [
-        WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 95, approximate: false)),
-        WidgetDevice(address: "BB", name: "AirPods", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
-    ]
-
-    static func device(named name: String) -> WidgetDevice {
-        WidgetDevice(address: name, name: name, kind: .accessory, level: BatteryLevel(percent: 54, approximate: false))
+    static func device(named name: String, _ percent: Int = 54, kind: DeviceKind = .accessory) -> WidgetDevice {
+        WidgetDevice(address: name, name: name, kind: kind, level: BatteryLevel(percent: percent, approximate: false))
     }
+
+    static let named = [device(named: "iPhone", 95, kind: .phone), device(named: "AirPods")]
 
     @Test(arguments: WidgetStyle.allCases, WidgetFamilies.allBatteries) func showDeviceNamesPutsEachNameWithItsLevel(style: WidgetStyle, family: WidgetFamily) throws {
         let shown = try Self.texts(Self.entry(Self.charging, Self.named, style: style) { $0.showNames = true }, family)
@@ -386,13 +383,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(try !Self.pixels(Self.entry(Self.charging, Self.three, style: style) { $0.appearance = .monochrome }).contains(Self.isGreen))
     }
 
-    /// With no green, the bolt is all that says a battery is charging. As in the coloured row, "100%" leaves the strip to the bolt.
-    @Test(arguments: [true, false]) func aMonochromeRowKeepsItsBolt(charging: Bool) throws {
-        let entry = Self.entry(.level(percent: 100, charging: charging), [], style: .bars) { $0.appearance = .monochrome }
-        let image = try Self.image(entry, .systemSmall, content: Self.content(.systemSmall))
-        let column = try (Self.content(.systemSmall).width - 4 - RowPercentage.width) * 2
-        let strip = try #require(image.cropping(to: CGRect(x: column, y: 0, width: 8 * 2, height: CGFloat(image.height))))
-        #expect((WidgetPixels(strip).top != nil) == charging)
+    /// With no green, the bolt is all that tells a charging battery from one that is not.
+    @Test(arguments: WidgetStyle.allCases) func monochromeStillShowsCharging(style: WidgetStyle) throws {
+        func drawn(charging: Bool) throws -> Data {
+            try Self.bytes(Self.entry(.level(percent: 80, charging: charging), [], style: style) { $0.appearance = .monochrome })
+        }
+        #expect(try drawn(charging: true) != drawn(charging: false))
     }
 
     /// One shelf drawn by two placed widgets: defaults draw what a widget drew before these options, and each option moves it.
@@ -446,12 +442,25 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(try drawn("Brandon's AirPods") != drawn("Brandon's iPhone"))
     }
 
-    /// The ring's text is held to its cell's width, so a long name draws nothing over the next cell.
+    /// A name's room comes out of the ring: the percentage stays the size it is with no name, and the name is a caption.
+    @Test func aNamedRingKeepsItsPercentageAndDrawsItsNameAsACaption() throws {
+        func bands(names: Bool) throws -> [Int] {
+            try WidgetPixels(Self.image(Self.entry(.noBattery, [Self.device(named: "HH")]) { $0.showNames = names }, .systemSmall, content: Self.content(.systemSmall))).bands
+        }
+        let plain = try bands(names: false), named = try bands(names: true)
+        let caption = try WidgetPixels(widgetImage(Text("HH").font(.caption), size: Self.content(.systemSmall), scheme: .dark, scale: 2)).bands
+        try #require(plain.count == 2 && named.count == 3, "ring and percentage, then a name")
+        #expect(abs(named[1] - plain[1]) <= 1, "the percentage")
+        #expect(abs(named[2] - caption[0]) <= 1, "the name")
+    }
+
+    /// The ring's text is held to its cell's width, so a long name draws nothing over the next cell. An unheld name
+    /// runs rightward, so the long name is the left cell's and the right cell is the one read.
     @Test func aRingsNameStaysInItsCell() throws {
         func neighbour(_ name: String) throws -> Data {
-            let image = try Self.image(Self.entry(.noBattery, [Self.device(named: "A"), Self.device(named: name)]) { $0.showNames = true }, .systemSmall, content: Self.content(.systemSmall))
-            let left = try #require(image.cropping(to: CGRect(x: 0, y: 0, width: image.width / 2, height: image.height)))
-            return try #require(NSBitmapImageRep(cgImage: left).representation(using: .png, properties: [:]))
+            let image = try Self.image(Self.entry(.noBattery, [Self.device(named: name), Self.device(named: "A")]) { $0.showNames = true }, .systemSmall, content: Self.content(.systemSmall))
+            let right = try #require(image.cropping(to: CGRect(x: image.width / 2, y: 0, width: image.width / 2, height: image.height)))
+            return try #require(NSBitmapImageRep(cgImage: right).representation(using: .png, properties: [:]))
         }
         #expect(try neighbour("B") == neighbour("A device with quite a long name"))
     }
@@ -551,6 +560,9 @@ struct WidgetPixels {
 
     /// The first line anything is painted on, and nil when nothing is.
     var top: Int? { (0..<rep.pixelsHigh).first { line($0, contains: Self.isPainted) } }
+
+    /// Each painted band's height, top to bottom, parted by clear lines: in a ring, the ring, its percentage, and its name.
+    var bands: [Int] { (0..<rep.pixelsHigh).map { line($0, contains: Self.isPainted) }.split(separator: false).map(\.count) }
 }
 
 /// [LAW:verifiable-goals] Edit Widget offers what the build extracted into the extension's metadata, and an intent compiled
