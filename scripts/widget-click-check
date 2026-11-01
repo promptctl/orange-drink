@@ -19,20 +19,34 @@ cd "$(dirname "$0")/.."
 
 tools=/tmp/tools
 desktop="$tools/desktop"
-on_failure() { log_lines appDelegate >&2; log_lines hotkey >&2; guest "$desktop" windows OrangeDrink >&2; }
+on_failure() { log_lines appDelegate >&2; log_lines hotkey >&2; guest "$desktop" windows OrangeDrink >&2; { echo 'in layers 0 to 19, over the widgets:'; covering; } >&2; guest ls -R "$timelines" >&2; refusals | tail -n 3 >&2; }
 say() { echo "widget-click-check: $image: $*" >&2; }
 
 # The middle of each widget scripts/place-widgets places.
 mac_battery='98 128'
 device_battery='278 128'
 all_batteries='188 308'
+kinds='MacBattery DeviceBattery AllBatteries'
 
 # Whether <window list> holds the panel or Settings, each known by its level: NSWindow.Level.popUpMenu and .normal. The app's
 # others sit elsewhere: the menu bar item, which macOS before 26 lists as the app's, at 25, and a pill at 1000.
 lists_panel() { [ -n "$(awk '$1 == 101' <<<"$1")" ]; }
 lists_settings() { [ -n "$(awk '$1 == 0' <<<"$1")" ]; }
 panel_open() { local read; read=$(guest "$desktop" windows OrangeDrink) && lists_panel "$read"; }
-extension_runs() { guest pgrep -f OrangeDrinkWidgets.appex; }
+covering() { guest "$desktop" covering $mac_battery $device_battery $all_batteries; }
+# Nothing over the widgets. A read that fails is a failure, never an empty list.
+uncovered() { local read; read=$(covering) && [ -z "$read" ]; }
+descriptors_cached() { guest sh -c "grep -qrF '$identifier.Widgets' '$chronod_data'"; }
+timelines_written() { guest sh -c "for kind in $kinds; do ls '$timelines'/\$kind/*.chrono-timeline || exit 1; done"; }
+# chronod's refusals of a widget's intent, each of which puts off its next try by an hour.
+refusals() { log_matching 'process == "chronod" AND eventMessage CONTAINS "Code=1103"'; }
+# Whether the NotificationCenter running now, if it is not <pid>, has loaded <kind>'s timeline. Its placeholder loads under
+# category "placeholder". The grep is on the process column because `log show` can print its predicate above the lines.
+timeline_loaded() {
+  local running
+  running=$(guest pgrep -x NotificationCenter) && [ "$running" != "$2" ] &&
+    grep -qF 'NotificationCenter[' <<<"$(log_matching "processID == $running AND category == \"timeline\" AND eventMessage CONTAINS \"Content load successful\" AND eventMessage CONTAINS \"Widgets:$1:\"")"
+}
 launched() { logged appDelegate 'launch finished'; }
 # How many lines hold <text>. Absent is a count of 0, and a read that fails is a failure, never a count.
 lines() { local read; read=$(log_lines appDelegate) || return; awk -v text="$1" 'index($0, text) { n++ } END { print n + 0 }' <<<"$read"; }
@@ -54,22 +68,43 @@ expect_click() {
 }
 
 swiftc -O -target arm64-apple-macos14 -o "$scratch/desktop" scripts/desktop.swift
-scripts/place-widgets "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$built/Contents/Info.plist")" >"$scratch/widgets.plist"
+identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$built/Contents/Info.plist")
+timelines="/Users/admin/Library/Containers/$identifier.Widgets/Data/SystemData/com.apple.chrono/timelines"
+chronod_data='/Users/admin/Library/Group Containers/group.com.apple.chronod/chronod'
+scripts/place-widgets "$identifier" >"$scratch/widgets.plist"
 tar -C "$(dirname "$built")" -cf "$scratch/app.tar" "$(basename "$built")"
 
 vm_boot
 guest sh -c "mkdir -p '$tools' '$(dirname "$app")' && cp '$shared/desktop' '$tools' && tar -C '$(dirname "$app")' -xf '$shared/app.tar'"
 
-# The Xcode image restores a Terminal window over the desktop, and a click lands on whatever is on top. Other images run none.
-guest sh -c 'pkill -x Terminal; true'
 guest open "$app"
 wait_for "the app never logged the end of its launch" 60 launched
-guest sh -c "defaults write com.apple.notificationcenterui widgets \"\$(cat '$shared/widgets.plist')\" && killall NotificationCenter"
-wait_for "the widget extension never ran: was the placement read?" 60 extension_runs
+# A placement written here is not one the gallery made, which needs no restart (orange-widgets-5jo.0gq). On macOS 14 chronod says
+# it "shouldn't cache" a just-added extension, so until it has restarted since the placement a widget's bundle "could not be looked
+# up" and its intent is refused, for an hour. One restart puts the extension in its database and the next reads it from there.
+# NotificationCenter draws an intent's timeline only if it starts after that timeline is written. Until then it shows the redacted
+# placeholder, which takes a click too, so what the clicks wait on is the load.
+guest sh -c "defaults write com.apple.notificationcenterui widgets \"\$(cat '$shared/widgets.plist')\" && killall chronod NotificationCenter"
+wait_for "chronod's database never named the extension" 60 descriptors_cached
+guest killall chronod
+wait_for "a widget's timeline was never written: was the placement read?" 60 timelines_written
+replaced=$(guest pgrep -x NotificationCenter) || fail "NotificationCenter was not running to restart"
+guest killall NotificationCenter
+for kind in $kinds; do wait_for "NotificationCenter never loaded $kind's timeline" 60 timeline_loaded "$kind" "$replaced"; done
 # A launch's fact, and the placement's time after it, so this absence is not read before the app has done anything.
 windows=$(guest "$desktop" windows OrangeDrink)
 ! lists_panel "$windows" || fail "a launch opened the panel"
-say "launch: no panel in the window list"
+! lists_settings "$windows" || fail "a launch opened Settings"
+say "launch: no panel or Settings in the window list"
+
+# What an image restores at login sits over the widgets, and a click lands on whatever is on top. Read here, at the click,
+# because nothing says when a login has finished restoring.
+covering | while read -r pid owner; do
+  # The app is what this check reads, and quitting NotificationCenter would undo the load the clicks just waited on.
+  case "$owner" in OrangeDrink | NotificationCenter) fail "$owner has a window over the widgets" ;; esac
+  if guest kill "$pid"; then say "quit $owner: it was over the widgets"; fi
+done
+wait_for "a window stayed over the widgets" 10 uncovered
 
 expect_click MacBattery 1 click $mac_battery
 logged appDelegate 'widget click by user activity: MacBattery, panel was closed' || fail "the first click found the panel open"

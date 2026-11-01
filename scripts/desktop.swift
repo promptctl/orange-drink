@@ -3,6 +3,7 @@
 //   desktop click <x> <y>                    one left click at that point, in points from the top left of the display
 //   desktop double-click <x> <y> <gap ms>    two, in one process because two `tart exec` calls cannot hold a gap
 //   desktop windows <owner>                  one line per window of that owner on screen: layer, then x y width height
+//   desktop covering <x> <y>...              one line per process with a window in layers 0 to 19 over any of those points: pid, then owner
 import CoreGraphics
 import Foundation
 
@@ -31,12 +32,35 @@ func point(_ x: String, _ y: String) -> CGPoint {
     return CGPoint(x: x, y: y)
 }
 
-func windows(of owner: String) {
+struct Window {
+    let pid: Int
+    let owner: String
+    let layer: Int
+    let bounds: CGRect
+}
+
+// The window list promises a pid, a layer, and bounds, so one without is a list that cannot be read. An owner's name is optional.
+func onScreenWindows() -> [Window] {
     guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] else { fail("no window list") }
-    for window in list where window[kCGWindowOwnerName as String] as? String == owner {
-        let bounds = window[kCGWindowBounds as String] as? [String: CGFloat] ?? [:]
-        print(window[kCGWindowLayer as String] ?? "?", bounds["X"] ?? "?", bounds["Y"] ?? "?", bounds["Width"] ?? "?", bounds["Height"] ?? "?")
+    return list.map { window in
+        guard let pid = window[kCGWindowOwnerPID as String] as? Int,
+              let layer = window[kCGWindowLayer as String] as? Int,
+              let bounds = (window[kCGWindowBounds as String] as? NSDictionary).flatMap({ CGRect(dictionaryRepresentation: $0) }) else { fail("unreadable window: \(window)") }
+        return Window(pid: pid, owner: window[kCGWindowOwnerName as String] as? String ?? "?", layer: layer, bounds: bounds)
     }
+}
+
+func windows(of owner: String) {
+    for window in onScreenWindows() where window.owner == owner {
+        print(window.layer, window.bounds.minX, window.bounds.minY, window.bounds.width, window.bounds.height)
+    }
+}
+
+// A widget sits at a negative layer. Layers 0 to 19 hold apps' windows and their alerts, which a login can leave over one. From
+// the Dock's layer, 20, up are overlays that cover the whole display and take no click, and the app's own panel and pill.
+func covering(_ points: [CGPoint]) {
+    let over = onScreenWindows().filter { (0..<20).contains($0.layer) && points.contains(where: $0.bounds.contains) }
+    for line in Set(over.map { "\($0.pid) \($0.owner)" }) { print(line) }
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -54,6 +78,8 @@ case ("double-click", 4):
     press(at: target, clickCount: 2)
 case ("windows", 2):
     windows(of: arguments[1])
+case ("covering", let count) where count > 1 && count % 2 == 1:
+    covering(stride(from: 1, to: count, by: 2).map { point(arguments[$0], arguments[$0 + 1]) })
 default:
-    fail("usage: click <x> <y> | double-click <x> <y> <gap ms> | windows <owner>")
+    fail("usage: click <x> <y> | double-click <x> <y> <gap ms> | windows <owner> | covering <x> <y>...")
 }

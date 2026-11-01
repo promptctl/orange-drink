@@ -299,8 +299,18 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     // MARK: the settings
 
-    static func bytes(_ entry: AllBatteriesEntry) throws -> Data {
-        try #require(image(entry, .systemSmall, content: content(.systemSmall)).dataProvider?.data as Data?)
+    /// A rendering at Small, compared by what it draws: two renderings of one view can land a few pixels a level of 255 apart.
+    struct Drawing: Equatable {
+        static let levels = 2
+        let bytes: Data
+
+        static func == (a: Drawing, b: Drawing) -> Bool {
+            a.bytes.count == b.bytes.count && zip(a.bytes, b.bytes).allSatisfy { abs(Int($0) - Int($1)) <= levels }
+        }
+    }
+
+    static func drawing(_ entry: AllBatteriesEntry) throws -> Drawing {
+        try Drawing(bytes: #require(image(entry, .systemSmall, content: content(.systemSmall)).dataProvider?.data as Data?))
     }
 
     /// A shelf of the test's own, holding the charging Mac and the three devices.
@@ -321,10 +331,10 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     @Test(arguments: WidgetStyle.allCases) func aWidgetsStyleSettingGivesAnEntryDrawnInThatStyle(style: WidgetStyle) throws {
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
-        let drawn = try Self.bytes(Self.configured(style, in: shelf))
-        #expect(try drawn == Self.bytes(Self.entry(Self.charging, Self.three, style: style)))
+        let drawn = try Self.drawing(Self.configured(style, in: shelf))
+        #expect(try drawn == Self.drawing(Self.entry(Self.charging, Self.three, style: style)))
         for other in WidgetStyle.allCases where other != style {
-            #expect(try drawn != Self.bytes(Self.entry(Self.charging, Self.three, style: other)))
+            #expect(try drawn != Self.drawing(Self.entry(Self.charging, Self.three, style: other)))
         }
     }
 
@@ -391,8 +401,8 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     /// With no green, the bolt is all that tells a charging battery from one that is not.
     @Test(arguments: WidgetStyle.allCases) func monochromeStillShowsCharging(style: WidgetStyle) throws {
-        func drawn(charging: Bool) throws -> Data {
-            try Self.bytes(Self.entry(.level(percent: 80, charging: charging), [], style: style) { $0.appearance = .monochrome })
+        func drawn(charging: Bool) throws -> Drawing {
+            try Self.drawing(Self.entry(.level(percent: 80, charging: charging), [], style: style) { $0.appearance = .monochrome })
         }
         #expect(try drawn(charging: true) != drawn(charging: false))
     }
@@ -406,16 +416,16 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
             set(intent)
             return AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: intent)
         }
-        let defaults = try Self.bytes(entry())
+        let defaults = try Self.drawing(entry())
         #expect(try Self.texts(entry()) == ["80%", "95%", "54%", "40%"])
         #expect(try Self.pixels(entry()).contains(Self.isGreen))
         let changes: [(AllBatteriesIntent) -> Void] = [{ $0.showNames = true }, { $0.includeMac = false }, { $0.appearance = .monochrome }]
-        for change in changes { #expect(try Self.bytes(entry(change)) != defaults) }
+        for change in changes { #expect(try Self.drawing(entry(change)) != defaults) }
         let flipped = entry { $0.showNames = true; $0.includeMac = false; $0.appearance = .monochrome }
         #expect(try Self.texts(flipped).contains("Device AA"))
         #expect(try !Self.texts(flipped).contains("80%"))
         #expect(try !Self.pixels(flipped).contains(Self.isGreen))
-        #expect(try Self.bytes(entry()) == defaults, "the flipped widget left the default's alone")
+        #expect(try Self.drawing(entry()) == defaults, "the flipped widget left the default's alone")
     }
 
     /// Clipped ink draws as if it fit, so a full widget of long names must leave its first and last lines clear.
@@ -442,8 +452,8 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     /// A device's name usually starts with its owner's, and at Small a row has room for a few characters of it.
     @Test(arguments: [WidgetStyle.list, .bars]) func twoNamesThatStartAlikeStayApartAtSmall(style: WidgetStyle) throws {
-        func drawn(_ name: String) throws -> Data {
-            try Self.bytes(Self.entry(.noBattery, [Self.device(named: name)], style: style) { $0.showNames = true })
+        func drawn(_ name: String) throws -> Drawing {
+            try Self.drawing(Self.entry(.noBattery, [Self.device(named: name)], style: style) { $0.showNames = true })
         }
         #expect(try drawn("Brandon's AirPods") != drawn("Brandon's iPhone"))
     }

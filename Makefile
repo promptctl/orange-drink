@@ -12,7 +12,7 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
 
-.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
+.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
 
 generate:
 	xcodegen generate --use-cache
@@ -29,6 +29,7 @@ test: generate
 	$(MAKE) hardware-check-test
 	$(MAKE) release-test
 	$(MAKE) vm-check-test
+	$(MAKE) place-widgets-test
 
 # The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
 hardware-check-test:
@@ -41,6 +42,10 @@ release-test:
 # The VM checks' common steps, run against a stand-in for tart: no VM boots.
 vm-check-test:
 	scripts/vm-check-test.sh
+
+# The store scripts/place-widgets writes, decoded and held against what macOS wrote and what the widgets declare: no VM.
+place-widgets-test:
+	scripts/place-widgets-test.py
 
 # The hosted tests in a VM with no window, because the test host is the app, which puts its status item in the menu bar.
 # The warning gate runs here, and the VM only runs what was built. Prints the result bundle's counts and failures.
@@ -162,8 +167,8 @@ battery-notification-check: release
 
 # A click on a placed widget on real macOS, in a VM with no window, because only a real click makes macOS deliver what it
 # delivers: scripts/widget-click-check places all three widgets, clicks them, and reads the app's log and the window list.
-# It needs Tart and these images. macOS 14 is not among them: the widgets draw blank there (orange-widgets-5jo.0gq).
-WIDGET_CLICK_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest
+# It needs Tart and these images.
+WIDGET_CLICK_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest ghcr.io/cirruslabs/macos-sonoma-base:latest
 widget-click-check: release
 	@set -e; for image in $(WIDGET_CLICK_IMAGES); do scripts/widget-click-check "$(RELEASE_APP)" "$$image"; done
 
