@@ -378,6 +378,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unread(mac: nil, reason))
     }
 
+    @Test(arguments: UnreadDevices.allCases) func theMacBesideAReasonIsDrawnByTheOptions(reason: UnreadDevices) {
+        let level = BatteryLevel(percent: 80, approximate: false)
+        let mac = WidgetBattery(glyph: MacBattery.glyph, level: level, charging: true, name: MacBattery.name, appearance: .monochrome)
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unread(mac: mac, reason))
+    }
+
     @Test(arguments: WidgetStyle.allCases) func monochromeDrawsNoGreen(style: WidgetStyle) throws {
         #expect(try Self.pixels(Self.entry(Self.charging, Self.three, style: style)).contains(Self.isGreen))
         #expect(try !Self.pixels(Self.entry(Self.charging, Self.three, style: style) { $0.appearance = .monochrome }).contains(Self.isGreen))
@@ -454,15 +460,21 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(abs(named[2] - caption[0]) <= 1, "the name")
     }
 
-    /// The ring's text is held to its cell's width, so a long name draws nothing over the next cell. An unheld name
-    /// runs rightward, so the long name is the left cell's and the right cell is the one read.
-    @Test func aRingsNameStaysInItsCell() throws {
-        func neighbour(_ name: String) throws -> Data {
-            let image = try Self.image(Self.entry(.noBattery, [Self.device(named: name), Self.device(named: "A")]) { $0.showNames = true }, .systemSmall, content: Self.content(.systemSmall))
-            let right = try #require(image.cropping(to: CGRect(x: image.width / 2, y: 0, width: image.width / 2, height: image.height)))
-            return try #require(NSBitmapImageRep(cgImage: right).representation(using: .png, properties: [:]))
+    /// A full widget of long names at each size: its middle is a line between cells, and two names must leave it clear to read as two.
+    @Test(arguments: WidgetFamilies.allBatteries) func twoLongRingNamesStayApart(family: WidgetFamily) throws {
+        let devices = (1..<40).map { Self.device(named: "A device with quite a long name \($0)") }
+        let image = try Self.image(Self.entry(.noBattery, devices) { $0.showNames = true }, family, content: Self.content(family))
+        let middle = try #require(image.cropping(to: CGRect(x: image.width / 2 - 3, y: 0, width: 6, height: image.height)))
+        #expect(WidgetPixels(middle).top == nil)
+    }
+
+    /// At a ring's size the name is the larger text, so it is the fainter.
+    @Test func aNameIsQuieterThanALevel() throws {
+        func solid(_ text: some View) throws -> Bool {
+            try WidgetPixels(widgetImage(text, size: CGSize(width: 63, height: 20), scheme: .dark, scale: 2)).contains { $0.alphaComponent > 0.7 }
         }
-        #expect(try neighbour("B") == neighbour("A device with quite a long name"))
+        #expect(try solid(Text("HH").font(.caption)))
+        #expect(try !solid(BatteryName(name: "HH")))
     }
 
     // MARK: the shelf

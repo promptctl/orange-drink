@@ -28,24 +28,26 @@ struct BatteryPercentage: View {
     }
 }
 
-/// A battery's name on one line, one size in every style. Cut in the middle, because a device's name usually
-/// starts with its owner's: cut at the end, "Brandon's AirPods" and "Brandon's iPhone" would read the same.
+/// A battery's name on one line, one size in every style and quieter than its level, which at a ring's size it
+/// outgrows. Cut in the middle, because a device's name usually starts with its owner's: cut at the end,
+/// "Brandon's AirPods" and "Brandon's iPhone" would read the same.
 struct BatteryName: View {
     let name: String
 
-    var body: some View { Text(name).font(.caption).lineLimit(1).truncationMode(.middle) }
+    var body: some View { Text(name).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
 }
 
 /// The reference ring from design-docs/widgets.md: a dark track, an arc filled clockwise from the top
 /// to the level, the glyph in the centre and the percentage below; a bolt while charging, in its tint. A name goes under
-/// the percentage, and the room it takes comes out of the ring, so a cell's bolt and name both stay inside it.
+/// the percentage, and its line's height comes off the ring, so a cell's bolt and name both stay inside it. It stops short
+/// of the cell's edges, or two long names side by side would read as one.
 struct BatteryRing: View {
     let battery: WidgetBattery
 
     var body: some View {
         GeometryReader { space in
             let full = min(space.size.width, space.size.height) * 0.62
-            let side = battery.name == nil ? full : full * 0.74
+            let side = battery.name == nil ? full : full - 10
             let line = side * 0.1
             VStack(spacing: side * 0.1) {
                 ZStack {
@@ -75,7 +77,7 @@ struct BatteryRing: View {
                 VStack(spacing: 0) {
                     BatteryPercentage(battery: battery)
                         .font(.system(size: full * 0.2, weight: .bold))
-                    if let name = battery.name { BatteryName(name: name) }
+                    if let name = battery.name { BatteryName(name: name).padding(.horizontal, 2) }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
