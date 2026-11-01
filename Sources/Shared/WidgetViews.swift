@@ -32,9 +32,9 @@ struct BatteryPercentage: View {
 /// outgrows. Cut in the middle, because a device's name usually starts with its owner's: cut at the end,
 /// "Brandon's AirPods" and "Brandon's iPhone" would read the same.
 struct BatteryName: View {
-    let name: String
+    let name: Phrase
 
-    var body: some View { Text(name).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+    var body: some View { PhraseText(name).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
 }
 
 /// The reference ring from design-docs/widgets.md: a dark track, an arc filled clockwise from the top
@@ -153,14 +153,14 @@ struct BatteryCell: View {
 
 /// A widget's small words, however many lines they take.
 struct Caption: View {
-    let text: String
+    let text: Phrase
 
-    var body: some View { Text(text).font(.caption).multilineTextAlignment(.center) }
+    var body: some View { PhraseText(text).font(.caption).multilineTextAlignment(.center) }
 }
 
 struct Message: View {
     let glyph: String
-    let text: String
+    let text: Phrase
 
     var body: some View {
         VStack(spacing: 6) {
@@ -191,11 +191,20 @@ enum WidgetFamilies {
 
 extension WidgetKind {
     /// What the gallery and the Widgets screen call the widget.
-    var title: LocalizedStringKey {
+    var title: Phrase {
         switch self {
         case .macBattery: "Mac Battery"
         case .deviceBattery: "Device Battery"
         case .allBatteries: "All Batteries"
+        }
+    }
+
+    /// What the gallery says beneath the widget's name.
+    var galleryDescription: Phrase {
+        switch self {
+        case .macBattery: "Your Mac's battery at a glance."
+        case .deviceBattery: "One device's battery at a glance."
+        case .allBatteries: "Your Mac and all your devices in one widget."
         }
     }
 }

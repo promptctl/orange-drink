@@ -18,10 +18,13 @@ struct DeviceEntity: AppEntity {
 }
 
 struct DeviceQuery: EntityQuery {
+    /// What Edit Widget calls a chosen device that is not on the list.
+    static let unavailable: Phrase = "Unavailable device"
+
     /// A device that is not connected resolves too, so a widget keeps its choice while the device is away.
     func entities(for identifiers: [String]) async throws -> [DeviceEntity] {
         WidgetDevices.resolve(identifiers, in: Self.shelf()).map { address, device in
-            device.map(DeviceEntity.init) ?? DeviceEntity(id: address, name: "Unavailable device")
+            device.map(DeviceEntity.init) ?? DeviceEntity(id: address, name: Self.unavailable.resolve(in: .matchSystem))
         }
     }
 

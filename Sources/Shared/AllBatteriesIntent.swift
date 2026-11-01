@@ -88,8 +88,9 @@ struct AllBatteriesSettings: Equatable, Sendable {
         }
     }
 
-    /// One battery as these settings draw it. [LAW:dataflow-not-control-flow] Past here a name is a value, or none.
-    func drawn(_ battery: WidgetBattery, named name: String) -> WidgetBattery {
+    /// One battery as these settings draw it. [LAW:dataflow-not-control-flow] Past here a name is a value, or none. A
+    /// device's own name is the phrase `"\(name)"`, whose key no catalog holds, so every language says it as it is.
+    func drawn(_ battery: WidgetBattery, named name: Phrase) -> WidgetBattery {
         var drawn = battery
         (drawn.name, drawn.appearance) = (showNames ? name : nil, appearance)
         return drawn

@@ -60,7 +60,7 @@ struct WidgetTypeButton: View {
         Button(action: choose) {
             HStack(spacing: 6) {
                 Image(systemName: kind.symbol).accessibilityHidden(true)
-                Text(kind.title)
+                PhraseText(kind.title)
             }
             .font(.callout)
             .padding(.horizontal, 10).padding(.vertical, 6)
@@ -74,7 +74,8 @@ struct WidgetTypeButton: View {
 }
 
 /// A widget as the desktop shows it: the real view at its real size, drawn from what the app has on hand for the shelf.
-/// [LAW:one-source-of-truth] It holds the two values the shelf publishes, so it says what a placed widget says.
+/// [LAW:one-source-of-truth] It holds the two values the shelf publishes, so it shows what a placed widget shows, said
+/// in the app's language where a placed widget says it in the Mac's.
 struct WidgetPreview: View {
     /// WidgetKit keeps this margin inside a widget.
     static let margin: CGFloat = 16

@@ -41,7 +41,7 @@ import Testing
     /// Every sentence in the catalog is there in each language, with the same holes to fill.
     @Test func everyCatalogKeyHasEveryLanguageWithTheSameHoles() throws {
         let catalog = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Sources/OrangeDrink/Localizable.xcstrings")
+            .appendingPathComponent("Sources/Shared/Localizable.xcstrings")
         let strings = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: catalog)) as? [String: Any])["strings"] as? [String: [String: Any]]
         /// The holes a text fills, in the order of the values; a `%` that is neither `%%` nor a hole would
         /// make `String(format:)` read the text after it as a conversion, so it is a hole of its own kind.
