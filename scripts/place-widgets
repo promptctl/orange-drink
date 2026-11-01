@@ -5,19 +5,44 @@
 #   scripts/place-widgets <app's bundle identifier>
 #
 # A private format, read off a desktop macOS placed itself, and this is the one file that knows it. Each widget is an
-# NSKeyedArchiver archive of ChronoServices' CHSWidget, which is why this is Python: plistlib writes the archive's UIDs. A
-# widget it cannot place is a check that says the extension never ran.
+# NSKeyedArchiver archive of ChronoServices' CHSWidget, which is why this is Python: plistlib writes the archive's UIDs.
 import plistlib
 import sys
 import uuid
 
 BINARY = plistlib.FMT_BINARY
 SMALL, MEDIUM = ("Small", 1), ("Medium", 2)
-# In display cells from the top left. scripts/widget-click-check clicks the middle of each.
-WIDGETS = [("MacBattery", SMALL, 0, 0), ("DeviceBattery", SMALL, 1, 0), ("AllBatteries", MEDIUM, 0, 1)]
+# Each widget's kind, its AppIntent if it has one, and its cell, from the top left of the display. macOS 14 reloads a
+# widget with an AppIntent only if it was placed with one. scripts/widget-click-check clicks the middle of each.
+WIDGETS = [
+    ("MacBattery", None, SMALL, 0, 0),
+    ("DeviceBattery", "SelectDeviceIntent", SMALL, 1, 0),
+    ("AllBatteries", "AllBatteriesIntent", MEDIUM, 0, 1),
+]
 
 
-def archive(app, kind, family):
+def opack_text(text):
+    return bytes([0x40 + len(text)]) + text.encode()
+
+
+def intent_reference(app, intent):
+    """A CHSIntentReference's objects: its `idata` is an OPACK dictionary. chronod works out the stable hash and fills in
+    the parameters' defaults, so what a widget is placed with never goes stale as its intent gains parameters."""
+    uid = plistlib.UID
+    idata = bytes([0xE4]) + b"".join([
+        opack_text("launchId"), opack_text(app),
+        opack_text("isAppIntent"), bytes([0x01]),
+        opack_text("appIntentIdentifier"), opack_text(intent),
+        opack_text("serializedParameters"), bytes([0xE0]),
+    ])
+    return [
+        {"$class": uid(10), "idata": uid(9), "stableHash": 0},
+        idata,
+        {"$classname": "CHSIntentReference", "$classes": ["CHSIntentReference", "NSObject"]},
+    ]
+
+
+def archive(app, kind, intent, family):
     uid = plistlib.UID
     return plistlib.dumps({
         "$version": 100000,
@@ -26,22 +51,22 @@ def archive(app, kind, family):
         "$objects": [
             "$null",
             {"$class": uid(7), "family": family, "kind": uid(6), "extensionIdentity": uid(2),
-             "personaIdentifier": uid(0), "activityIdentifier": uid(0), "intent2": uid(0)},
+             "activityIdentifier": uid(0), "intent2": uid(8 if intent else 0)},
             {"$class": uid(5), "extensionBundleIdentifier": uid(3), "containerBundleIdentifier": uid(4), "deviceIdentifier": uid(0)},
             app + ".Widgets",
             app,
             {"$classname": "CHSExtensionIdentity", "$classes": ["CHSExtensionIdentity", "NSObject"]},
             kind,
             {"$classname": "CHSWidget", "$classes": ["CHSWidget", "NSObject"]},
-        ],
+        ] + (intent_reference(app, intent) if intent else []),
     }, fmt=BINARY)
 
 
 def main(app):
     instances, items = [], []
-    for order, (kind, (size, family), column, row) in enumerate(WIDGETS, start=1):
+    for order, (kind, intent, (size, family), column, row) in enumerate(WIDGETS, start=1):
         identifier = str(uuid.uuid4()).upper()
-        instances.append(plistlib.dumps({"uuid": identifier, "widget": archive(app, kind, family)}, fmt=BINARY))
+        instances.append(plistlib.dumps({"uuid": identifier, "widget": archive(app, kind, intent, family)}, fmt=BINARY))
         items.append({"Identifier": identifier, "Column": column, "Row": row, "Size": {size: {}}, "ZOrder": order})
     placement = {"CompatibilityVersion": 1, "NumberedDisplays": [{"Number": 0, "Resolutions": [
         {"Size": [1024.0, 738.0], "Groups": [{"Origin": [8.0, 8.0], "Items": items}]},
