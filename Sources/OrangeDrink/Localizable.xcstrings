@@ -6371,7 +6371,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Batterie de l'appareil"
+            "value": "Batterie de l’appareil"
           }
         },
         "es": {
@@ -6415,13 +6415,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre Mac et tous vos appareils dans un seul widget. Petit, moyen, grand et très grand : plus la taille est grande, plus il y a d'appareils."
+            "value": "Votre Mac et tous vos appareils dans un seul widget. Petite, moyenne, grande et très grande : plus la taille est grande, plus il y a d’appareils."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu Mac y todos tus dispositivos en un solo widget. Pequeño, mediano, grande y extragrande: cuanto mayor es el tamaño, más dispositivos caben."
+            "value": "Tu Mac y todos tus dispositivos en un solo widget. Pequeña, mediana, grande y extragrande: cuanto mayor es el tamaño, más dispositivos caben."
           }
         }
       }
@@ -6569,7 +6569,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites un clic droit sur le bureau et choisissez **Modifier les widgets…**, ou ouvrez le centre de notifications (cliquez sur l'horloge) et faites défiler jusqu'en bas."
+            "value": "Faites un clic droit sur le bureau et choisissez **Modifier les widgets…**, ou ouvrez le centre de notifications (cliquez sur l’horloge) et faites défiler jusqu’en bas."
           }
         },
         "es": {
@@ -6679,7 +6679,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites un clic droit sur un widget placé → Modifier le widget. C'est là que vous choisissez les appareils, le style, les noms et l'appareil qu'affiche un widget Batterie de l'appareil. Ajoutez le même widget deux fois avec des réglages différents si vous le souhaitez."
+            "value": "Faites un clic droit sur un widget placé → Modifier le widget. C’est là que vous choisissez les appareils, le style, les noms et l’appareil qu’affiche un widget Batterie de l’appareil. Ajoutez le même widget deux fois avec des réglages différents si vous le souhaitez."
           }
         },
         "es": {

@@ -47,7 +47,8 @@ import WidgetKit
         func press(_ button: String) throws { try screen.inspect().find(button: button).tap() }
     }
 
-    /// What the rendered preview's widget draws at Small, in the grid's reading order: the Mac comes first.
+    /// What the rendered preview's widget draws at Small, in the grid's reading order: the Mac comes first. The widget
+    /// alone, because `RingPixels` finds a ring by its alpha and the surface is opaque.
     static func macRing(_ preview: WidgetPreview) throws -> RingPixels {
         try #require(try AllBatteriesWidgetTests.cells(widgetImage(preview.widget, size: AllBatteriesWidgetTests.content(.systemSmall), scheme: .dark, scale: 2)).first)
     }
@@ -139,6 +140,14 @@ import WidgetKit
         #expect(drawn == ["80%"] + panel)
     }
 
+    /// Hiding takes a device off the panel, as its label says. A placed widget keeps it, so the preview does.
+    @Test func aDeviceHiddenFromThePanelStaysInThePreview() async throws {
+        let bed = try await Bed()
+        try bed.settings.update { $0.toggleHidden(DeviceID(address: "B")) }
+        #expect(ConnectedDevices(bed.devices.list, settings: bed.settings.value).rows.map(\.percent) == ["95%"])
+        #expect(try bed.screen.inspect().find(AllBatteriesView.self).findAll(ViewType.Text.self).map { try $0.string() } == ["80%", "54%", "95%"])
+    }
+
     @Test func deviceBatteryPreviewsTheDeviceFirstInTheRanking() async throws {
         let bed = try await Bed()
         try bed.press("Device Battery")
@@ -151,6 +160,33 @@ import WidgetKit
         bed.send.yield(.swept([Bed.device("A", 95, .phone), Bed.device("B", 12, .accessory)]))
         #expect(await eventually { DeviceRanking.rows(bed.devices.list).first?.percent == "12%" })
         #expect(try bed.screen.inspect().find(AllBatteriesView.self).findAll(ViewType.Text.self).map { try $0.string() } == ["80%", "12%", "95%"])
+    }
+
+    /// `inspect()` draws the screen afresh, so only this says an open screen hears of a change.
+    @Test func anOpenScreenHearsOfAReadingAndOfADevice() async throws {
+        let bed = try await Bed()
+        let (changes, change) = AsyncStream.makeStream(of: Void.self)
+        var next = changes.makeAsyncIterator()
+        func draw() throws {
+            _ = try withObservationTracking { Result { try bed.preview() } } onChange: { change.yield() }.get()
+        }
+
+        try draw()
+        bed.feed.yield(try BatteryHistoryTests.onBattery(79))
+        #expect(await next.next() != nil)
+
+        try draw()
+        bed.send.yield(.swept([Bed.device("A", 12, .phone)]))
+        #expect(await next.next() != nil)
+    }
+
+    /// The bolt's gap is cut out of the ring, so it must stop at the widget. The inset leaves out the clipped corners.
+    @Test func theSurfaceIsUnbrokenBehindTheChargingBolt() async throws {
+        let bed = try await Bed()
+        let rep = NSBitmapImageRep(cgImage: try widgetImage(bed.preview(), size: WidgetPreviewSize.small.points, scheme: .dark, scale: 2))
+        let inside = 12..<(rep.pixelsWide - 12)
+        let holes = inside.flatMap { y in inside.filter { x in (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) < 1 } }
+        #expect(holes.isEmpty)
     }
 
     @Test func aReadingOnBatteryWithTheScreenOpenTakesTheGreenAndTheBoltOffTheMac() async throws {

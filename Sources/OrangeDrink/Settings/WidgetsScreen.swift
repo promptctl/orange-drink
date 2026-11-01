@@ -66,6 +66,7 @@ struct WidgetTypeButton: View {
             .padding(.horizontal, 10).padding(.vertical, 6)
             .background(Color.veil(isSelected ? 0.15 : 0), in: Capsule())
             .overlay(Capsule().strokeBorder(Color.veil(isSelected ? 0.3 : 0.15), lineWidth: 1))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(kind.title))
@@ -167,7 +168,7 @@ struct WidgetsScreen: View {
                     }
                 }
                 SegmentedPills(selection: Bindable(choice).size, options: WidgetPreviewSize.allCases, accent: .gray, title: \.title)
-                // [LAW:one-source-of-truth] The two derivations the shelf is published from, read here in `body` so each
+                // [LAW:one-source-of-truth] The two derivations the shelf is published from, read as the view draws so each
                 // reading and each change to the list redraws the preview.
                 WidgetPreview(kind: choice.kind, size: choice.size, mac: MacBattery(battery.state), devices: WidgetDevices(devices.list, pinned: settings.value.pinned))
                     .frame(maxWidth: .infinity)
