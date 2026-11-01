@@ -4,6 +4,12 @@ import os
 
 // Compiled into the app and its widget extension: what the app hands its widgets, and where.
 
+/// Where the shelf logs, on either side of it. Not generic, so every widget's publisher shares the one category.
+enum ShelfLog {
+    static let category = "widgets"
+    static let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: category)
+}
+
 /// The Mac as the widgets draw it.
 ///
 /// [LAW:types-are-the-program] The app's battery state, so the widget can tell a level from "no more
@@ -104,28 +110,71 @@ extension UnreadDevices {
     }
 }
 
+/// The devices pinned to the menu bar, in the order their items sit there, connected or not.
+struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, CustomDebugStringConvertible {
+    let addresses: [String]
+
+    init(addresses: [String]) { self.addresses = addresses }
+    init(arrayLiteral addresses: String...) { self.init(addresses: addresses) }
+
+    /// What the shelf's logs carry, which are public: how many, never an address.
+    var debugDescription: String { "\(addresses.count) pinned" }
+}
+
 /// What the app knows of its devices, as the widgets draw them. A list is the devices a sweep read that report a battery, so
 /// an empty one says none does, as far as the app has been told (orange-devices-bue.4gw). The app derives it from `DeviceList`.
 enum WidgetDevices: Codable, Equatable, Sendable {
-    case connected([WidgetDevice])
+    case connected([WidgetDevice], pinned: WidgetPins)
     case unread(UnreadDevices)
+}
+
+/// Why an All Batteries widget lists no device. [LAW:types-are-the-program] Each is a list the widget could not draw, so none
+/// of them can reach a person as a widget with nothing to say.
+enum NoDevicesListed: Error, Equatable, Sendable {
+    case unread(UnreadDevices)
+    /// Custom, with nothing chosen yet.
+    case noneChosen
+    /// Same as menu bar, with nothing pinned.
+    case nonePinned
+    /// Custom or Same as menu bar, and none of those devices is on the list. The list holds only what reports a battery,
+    /// so this is as true of a connected device with no level as of one that has gone (orange-widgets-5jo.qak).
+    case noneReporting
+}
+
+extension NoDevicesListed {
+    var glyph: String {
+        switch self {
+        case .unread(let reason): reason.glyph
+        case .noneChosen, .nonePinned, .noneReporting: DeviceKind.accessory.symbol
+        }
+    }
+
+    var text: String {
+        switch self {
+        case .unread(let reason): reason.text
+        case .noneChosen: "Choose devices: right-click → Edit Widget"
+        case .nonePinned: "Pin a device on the Devices screen"
+        case .noneReporting: "This widget's devices aren't reporting a battery"
+        }
+    }
 }
 
 /// What the All Batteries widget draws, whatever its style. [LAW:dataflow-not-control-flow] Pure over the
 /// shelf's two values.
 enum AllBatteries: Equatable, Sendable {
     /// The Mac first, so a full widget never pushes it out, then the devices in the panel's ranking, so the
-    /// lowest are the ones that fit. Empty when no device reports a battery and the Mac is left out or has none.
+    /// lowest are the ones that fit, or in the order a widget's selection gives. Empty when no device reports a
+    /// battery and the Mac is left out or has none.
     case listed([WidgetBattery])
     /// The Mac, nil when it has no battery, and why no device is listed. It keeps its place beside the reason:
     /// it is the one thing the widget can show a person who keeps Bluetooth refused.
-    case unread(mac: WidgetBattery?, UnreadDevices)
+    case unlisted(mac: WidgetBattery?, NoDevicesListed)
 
     init(mac: MacBattery, devices: WidgetDevices, settings: AllBatteriesSettings) {
         let mac = (settings.includeMac ? mac.battery : nil).map { settings.drawn($0, named: MacBattery.name) }
-        self = switch devices {
-        case .connected(let devices): .listed([mac].compactMap(\.self) + devices.map { settings.drawn(WidgetBattery($0), named: $0.name) })
-        case .unread(let reason): .unread(mac: mac, reason)
+        self = switch devices.listed(by: settings.devices) {
+        case .success(let devices): .listed([mac].compactMap(\.self) + devices.map { settings.drawn(WidgetBattery($0), named: $0.name) })
+        case .failure(let reason): .unlisted(mac: mac, reason)
         }
     }
 }
@@ -221,15 +270,32 @@ extension WidgetDevices {
     /// The devices a widget can be set to: the connected ones, none while the app has no list or is not running.
     static func choices(in shelf: Shelved<WidgetDevices>) -> [WidgetDevice] {
         switch shelf {
-        case .running(.connected(let devices)): devices
+        case .running(.connected(let devices, _)): devices
         case .running(.unread), .appNotRunning: []
         }
     }
 
     /// One result per id asked for, present or not: a chosen device that has disconnected still resolves
-    /// (to nil), so its widget draws "Not connected" instead of losing its choice.
+    /// (to nil), so a widget keeps its choice while the device is away.
     static func resolve(_ addresses: [String], in shelf: Shelved<WidgetDevices>) -> [(address: String, device: WidgetDevice?)] {
         let connected = choices(in: shelf)
         return addresses.map { address in (address, connected.first { $0.address == address }) }
+    }
+
+    /// The devices a widget's selection lists, or why it lists none. [LAW:one-type-per-behavior] Custom and Same as menu
+    /// bar differ only in where their addresses come from.
+    func listed(by selection: WidgetDeviceSelection) -> Result<[WidgetDevice], NoDevicesListed> {
+        switch (self, selection) {
+        case (.unread(let reason), _): .failure(.unread(reason))
+        case (.connected(let devices, _), .automatic): .success(devices)
+        case (.connected(let devices, _), .custom(let addresses)): Self.picked(addresses, from: devices, unset: .noneChosen)
+        case (.connected(let devices, let pinned), .sameAsMenuBar): Self.picked(pinned.addresses, from: devices, unset: .nonePinned)
+        }
+    }
+
+    /// As the pinned menu bar items do, an address not on the list is left out and the rest keep their order.
+    private static func picked(_ addresses: [String], from list: [WidgetDevice], unset: NoDevicesListed) -> Result<[WidgetDevice], NoDevicesListed> {
+        let devices = addresses.compactMap { address in list.first { $0.address == address } }
+        return devices.isEmpty ? .failure(addresses.isEmpty ? unset : .noneReporting) : .success(devices)
     }
 }

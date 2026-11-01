@@ -1,5 +1,4 @@
 import AppKit
-import Observation
 
 /// One pinned device's menu bar item: the same row the panel and the Devices screen show, so its
 /// name, type glyph, and level text ("37%", "~50%" when approximate, "–" when unknown) are written once.
@@ -28,8 +27,6 @@ struct PinnedItem: Equatable, Identifiable {
 ///
 /// [LAW:effects-at-boundaries] The diffing is here and asserted with a recording item; the one
 /// `NSStatusItem` is behind `PinnedStatusItem`.
-/// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list or the
-/// pins, so the items follow both with no timer and no polling.
 @MainActor final class PinnedItemsController {
     /// Makes the status item for a device. The bar places the first item made rightmost and each
     /// later one to its left, so the items are made right to left.
@@ -53,15 +50,6 @@ struct PinnedItem: Equatable, Identifiable {
         for index in held.indices where held[index].shown != items[index] {
             held[index].item.show(items[index])
             held[index].shown = items[index]
-        }
-    }
-
-    /// Follows the model's list and the settings' pins from now on.
-    func follow(devices: DevicesModel, settings: DeviceSettingsModel) {
-        withObservationTracking {
-            apply(PinnedItem.items(devices.list, pinned: settings.value.pinned))
-        } onChange: { [weak self] in
-            Task { @MainActor in self?.follow(devices: devices, settings: settings) }
         }
     }
 }

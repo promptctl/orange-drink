@@ -30,16 +30,6 @@ import Testing
         PinnedItemsController(makeItem: { _ in let item = RecordingItem(); items.made.append(item); return item })
     }
 
-    /// Spins until `condition` holds or five seconds pass, so a failure fails instead of hanging the run.
-    private func eventually(_ condition: () -> Bool) async -> Bool {
-        let deadline = ContinuousClock.now + .seconds(5)
-        while !condition() {
-            guard ContinuousClock.now < deadline else { return false }
-            await Task.yield()
-        }
-        return true
-    }
-
     @Test func aPinnedDeviceShowsItsLevelAndFollowsAChange() {
         let items = Items()
         let controller = controller(items)
@@ -98,24 +88,23 @@ import Testing
 
     @Test func theControllerFollowsTheModelAndThePinsThroughObservation() async throws {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events)
         let defaults = UserDefaults(suiteName: "PinnedItemsTests.\(UUID())")!
         let settings = try DeviceSettingsModel(defaults: defaults)
         let items = Items()
-        let controller = controller(items)
-        // The observation holds the controller weakly, so keep it alive to the end of the test.
-        defer { withExtendedLifetime(controller) {} }
-        do {
-            controller.follow(devices: model, settings: settings)
-            try settings.update { $0.togglePinned(Self.mouse) }
-            send.yield(.swept(list([Self.mouse: level(37)]).devices))
-            #expect(await eventually { items.made.first?.shown?.row.percent == "37%" })
-            send.yield(.swept(list([Self.mouse: level(30)]).devices))
-            #expect(await eventually { items.made.first?.shown?.row.percent == "30%" })
-            try settings.update { $0.togglePinned(Self.mouse) }
-            #expect(await eventually { items.made.first?.removed == true })
-            #expect(items.made.count == 1)
-        }
+        let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: shelf) }
+        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
+        let model = DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: controller(items))
+        try settings.update { $0.togglePinned(Self.mouse) }
+        send.yield(.swept(list([Self.mouse: level(37)]).devices))
+        #expect(await eventually { items.made.first?.shown?.row.percent == "37%" })
+        send.yield(.swept(list([Self.mouse: level(30)]).devices))
+        #expect(await eventually { items.made.first?.shown?.row.percent == "30%" })
+        try settings.update { $0.togglePinned(Self.mouse) }
+        #expect(await eventually { items.made.first?.removed == true })
+        #expect(items.made.count == 1)
+        _ = model
     }
 
     @Test func thePinPersistsAndAnOlderStoredValueWithoutItStillLoads() throws {

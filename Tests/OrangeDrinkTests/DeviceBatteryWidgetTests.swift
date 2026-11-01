@@ -37,7 +37,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     /// What the widget reads for a device, through its own read path.
     func levelRead(_ address: String) throws -> Int? {
-        guard case .running(.connected(let devices)) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
+        guard case .running(.connected(let devices, _)) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
         return devices.first { $0.address == address }?.level?.percent
     }
 
@@ -46,22 +46,18 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     @Test func theWidgetReadsEachDevicesLevelAfterEveryChange() async throws {
         let reloads = Reloads()
         let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { if $0 == .deviceBattery { reloads.count += 1 } }
-        let (changed, signal) = AsyncStream.makeStream(of: Void.self)
-        var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events, shelf: publisher, onChange: { _ in signal.yield() })
+        let model = try DevicesModel(events: events, shelf: publisher)
 
         send.yield(.swept([Self.iPhone]))
+        #expect(try await eventually { try levelRead("AA") == 95 })
         send.yield(.reported(Self.earbuds(54)))
-        _ = await next.next()
-        _ = await next.next()
+        #expect(try await eventually { try levelRead("BB") == 54 })
         #expect(try levelRead("AA") == 95)
-        #expect(try levelRead("BB") == 54)
 
         send.yield(.reported(Self.earbuds(50)))
-        _ = await next.next()
+        #expect(try await eventually { try levelRead("BB") == 50 })
         #expect(try levelRead("AA") == 95)
-        #expect(try levelRead("BB") == 50)
         // One write per change of what the widgets draw: the launch, both arrivals and the earbuds' step.
         #expect(reloads.count == 4)
         _ = model
@@ -69,24 +65,20 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     @Test func anEndedDeviceStreamTakesItsLevelsOffTheShelfInsteadOfFreezingThem() async throws {
         let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
-        let (changed, signal) = AsyncStream.makeStream(of: Void.self)
-        var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events, shelf: publisher, onChange: { _ in signal.yield() })
+        let model = try DevicesModel(events: events, shelf: publisher)
         send.yield(.swept([Self.iPhone]))
-        _ = await next.next()
-        #expect(try levelRead("AA") == 95)
+        #expect(try await eventually { try levelRead("AA") == 95 })
 
         send.finish()
-        _ = await next.next()
-        #expect(try WidgetShelf.read(.devices, from: shelf).get() == .running(.unread(.ended)))
+        #expect(try await eventually { try WidgetShelf.read(.devices, from: shelf).get() == .running(.unread(.ended)) })
         _ = model
     }
 
     @Test func aDevicesModelTornDownIsNotAnEndedStreamAndLeavesTheShelfAlone() async throws {
         let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        var model: DevicesModel? = DevicesModel(events: events, shelf: publisher)
+        var model: DevicesModel? = try DevicesModel(events: events, shelf: publisher)
         model = nil
         send.finish()
         try await Task.sleep(for: .milliseconds(100))
@@ -96,7 +88,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     @Test func theShelfLogsNeitherADevicesNameNorItsAddress() {
         let device = WidgetDevice(address: "AA-BB", name: "Brandon's iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
-        let line = String(describing: Shelved.running(WidgetDevices.connected([device])))
+        let line = String(describing: Shelved.running(WidgetDevices.connected([device], pinned: [])))
         #expect(!line.contains("Brandon") && !line.contains("AA-BB"))
         #expect(line.contains("80%"))
     }
@@ -105,10 +97,10 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
         var list = DeviceList()
         list.apply(.swept([Self.iPhone]))
-        publisher.publish(WidgetDevices(list))
+        publisher.publish(WidgetDevices(list, pinned: []))
         #expect(try levelRead("AA") == 95)
         list.apply(.gone(Self.iPhone.id))
-        publisher.publish(WidgetDevices(list))
+        publisher.publish(WidgetDevices(list, pinned: []))
         #expect(try levelRead("AA") == nil)
         publisher.publishQuit()
         #expect(try WidgetShelf.read(.devices, from: shelf).get() == .appNotRunning)
@@ -124,26 +116,26 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
             Self.earbuds(54),
         ]))
         // Ranked as the panel ranks them: lowest first, unread last, a device with no battery absent; the case is never the level.
-        #expect(WidgetDevices(list) == .connected([
+        #expect(WidgetDevices(list, pinned: []) == .connected([
             WidgetDevice(address: "CC", name: "iPad", kind: .tablet, level: BatteryLevel(percent: 40, approximate: true)),
             WidgetDevice(address: "BB", name: "Earbuds", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
             WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 95, approximate: false)),
             WidgetDevice(address: "DD", name: "Speaker", kind: .accessory, level: nil),
-        ]))
+        ], pinned: []))
     }
 
     // MARK: the settings
 
     @Test func theSettingsOfferTheConnectedDevicesAndNothingWhileTheAppIsNotRunning() {
         let devices = [WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: nil)]
-        #expect(WidgetDevices.choices(in: .running(.connected(devices))) == devices)
+        #expect(WidgetDevices.choices(in: .running(.connected(devices, pinned: []))) == devices)
         #expect(WidgetDevices.choices(in: .running(.unread(.denied))).isEmpty)
         #expect(WidgetDevices.choices(in: .appNotRunning).isEmpty)
     }
 
     @Test func aChosenDeviceThatIsGoneStillResolvesToNothing() {
         let phone = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: nil)
-        let resolved = WidgetDevices.resolve(["AA", "ZZ"], in: .running(.connected([phone])))
+        let resolved = WidgetDevices.resolve(["AA", "ZZ"], in: .running(.connected([phone], pinned: [])))
         #expect(resolved.map(\.address) == ["AA", "ZZ"])
         #expect(resolved.map(\.device) == [phone, nil])
         // A list the app could not read keeps the widget's choice too.
@@ -161,7 +153,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test(arguments: widgetSizes) func eachWidgetFillsItsArcClockwiseFromTheTopAsFarAsItsOwnDevicesLevel(family: WidgetFamily, size: CGSize) throws {
-        let devices = WidgetDevices({ var list = DeviceList(); list.apply(.swept([Self.iPhone, Self.earbuds(54)])); return list }())
+        let devices = WidgetDevices({ var list = DeviceList(); list.apply(.swept([Self.iPhone, Self.earbuds(54)])); return list }(), pinned: [])
         func filled(_ address: String) throws -> Double {
             let view = DeviceBatteryView(entry: Self.entry(.success(.running(devices)), chosen: address), appName: "Orange Drink", family: family)
             return try RingPixels(widgetImage(view, size: size, scheme: .light, scale: 1)).filledFraction
@@ -176,13 +168,13 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         func texts(_ shelf: Result<Shelved<WidgetDevices>, any Error>, chosen: String?) throws -> [String] {
             try DeviceBatteryView(entry: Self.entry(shelf, chosen: chosen), appName: "Orange Drink", family: .systemSmall).inspect().findAll(ViewType.Text.self).map { try $0.string() }
         }
-        #expect(try texts(.success(.running(.connected([unread]))), chosen: "ZZ") == ["Not connected"])
+        #expect(try texts(.success(.running(.connected([unread], pinned: []))), chosen: "ZZ") == ["Not connected"])
         #expect(try texts(.success(.appNotRunning), chosen: "AA") == ["Open Orange Drink"])
         #expect(try texts(.failure(ShelfError.noGroupEntitlement), chosen: "AA") == ["Open Orange Drink"])
-        #expect(try texts(.success(.running(.connected([unread]))), chosen: nil) == ["Choose a device: right-click → Edit Widget"])
-        #expect(try texts(.success(.running(.connected([unread]))), chosen: "AA") == ["–"])
+        #expect(try texts(.success(.running(.connected([unread], pinned: []))), chosen: nil) == ["Choose a device: right-click → Edit Widget"])
+        #expect(try texts(.success(.running(.connected([unread], pinned: []))), chosen: "AA") == ["–"])
         let estimate = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 40, approximate: true))
-        #expect(try texts(.success(.running(.connected([estimate]))), chosen: "AA") == ["~40%"])
+        #expect(try texts(.success(.running(.connected([estimate], pinned: []))), chosen: "AA") == ["~40%"])
     }
 }
 

@@ -12,7 +12,7 @@ struct AllBatteriesProvider: AppIntentTimelineProvider {
             WidgetDevice(address: "earbuds", name: "Earbuds", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
             WidgetDevice(address: "tablet", name: "iPad", kind: .tablet, level: BatteryLevel(percent: 62, approximate: false)),
         ]
-        return AllBatteriesEntry(date: .now, mac: .success(.running(.level(percent: 80, charging: true))), devices: .success(.running(.connected(devices))), settings: AllBatteriesSettings(AllBatteriesIntent()))
+        return AllBatteriesEntry(date: .now, mac: .success(.running(.level(percent: 80, charging: true))), devices: .success(.running(.connected(devices, pinned: []))), settings: AllBatteriesSettings(AllBatteriesIntent()))
     }
 
     func snapshot(for configuration: AllBatteriesIntent, in context: Context) async -> AllBatteriesEntry {
@@ -26,7 +26,7 @@ struct AllBatteriesProvider: AppIntentTimelineProvider {
     }
 
     private func entry(_ configuration: AllBatteriesIntent) -> AllBatteriesEntry {
-        AllBatteriesEntry(date: .now, directory: Result { try WidgetShelf.groupContainer() }, log: log, configuration: configuration)
+        AllBatteriesEntry(date: .now, directory: Result { try WidgetShelf.groupContainer() }, log: ShelfLog.log, configuration: configuration)
     }
 }
 

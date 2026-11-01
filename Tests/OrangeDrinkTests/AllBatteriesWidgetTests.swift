@@ -42,7 +42,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     }
 
     static func entry(_ mac: MacBattery, _ devices: [WidgetDevice], style: WidgetStyle = .rings, _ set: (AllBatteriesIntent) -> Void = { _ in }) -> AllBatteriesEntry {
-        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.connected(devices))), settings: settings(style: style, set))
+        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.connected(devices, pinned: []))), settings: settings(style: style, set))
     }
 
     static func view(_ entry: AllBatteriesEntry, _ family: WidgetFamily = .systemSmall) -> AllBatteriesView {
@@ -57,7 +57,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     // MARK: the list
 
     @Test func theMacComesFirstThenTheDevicesInThePanelsRanking() {
-        #expect(AllBatteries(mac: Self.charging, devices: .connected(Self.three), settings: Self.settings()) == .listed([
+        #expect(AllBatteries(mac: Self.charging, devices: .connected(Self.three, pinned: []), settings: Self.settings()) == .listed([
             WidgetBattery(glyph: "laptopcomputer", level: BatteryLevel(percent: 80, approximate: false), charging: true),
             WidgetBattery(glyph: "iphone", level: BatteryLevel(percent: 95, approximate: false), charging: false),
             WidgetBattery(glyph: "dot.radiowaves.left.and.right", level: BatteryLevel(percent: 54, approximate: false), charging: false),
@@ -67,12 +67,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     @Test func aMacWithNoBatteryIsNotListedAndOneWithNoReadingIsListedEmpty() {
         let devices = [Self.device("AA", 95, approximate: true)]
-        #expect(AllBatteries(mac: .noBattery, devices: .connected(devices), settings: Self.settings()) == .listed([WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .noBattery, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([WidgetBattery(devices[0])]))
         let waiting = WidgetBattery(glyph: "laptopcomputer", level: nil, charging: false)
-        #expect(AllBatteries(mac: .waiting, devices: .connected(devices), settings: Self.settings()) == .listed([waiting, WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .waiting, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([waiting, WidgetBattery(devices[0])]))
         let stopped = WidgetBattery(glyph: "exclamationmark.triangle", level: nil, charging: false)
-        #expect(AllBatteries(mac: .ended, devices: .connected(devices), settings: Self.settings()) == .listed([stopped, WidgetBattery(devices[0])]))
-        #expect(AllBatteries(mac: .ended, devices: .connected([]), settings: Self.settings()) == .listed([stopped]))
+        #expect(AllBatteries(mac: .ended, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([stopped, WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .ended, devices: .connected([], pinned: []), settings: Self.settings()) == .listed([stopped]))
         #expect(WidgetBattery(devices[0]).level == BatteryLevel(percent: 95, approximate: true))
     }
 
@@ -176,7 +176,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
                 #expect(try Self.texts(AllBatteriesEntry(date: .now, mac: mac, devices: devices, settings: Self.settings(style: style))) == ["Open Orange Drink"])
             }
         }
-        let running = Result<Shelved<WidgetDevices>, any Error>.success(.running(.connected(Self.three)))
+        let running = Result<Shelved<WidgetDevices>, any Error>.success(.running(.connected(Self.three, pinned: [])))
         try open(.success(.appNotRunning), running)
         try open(.failure(ShelfError.noGroupEntitlement), running)
         try open(.success(.running(Self.charging)), .success(.appNotRunning))
@@ -318,7 +318,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { _ in }.publish(charging)
-        ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }.publish(.connected(three))
+        ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }.publish(.connected(three, pinned: []))
         return shelf
     }
 
@@ -345,7 +345,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
         _ = Self.configured(style, in: shelf, log: Logger(subsystem: IOKitBattery.logSubsystem, category: category))
-        let line = "widget style \(style.rawValue) names false mac true appearance color"
+        let line = "widget devices automatic style \(style.rawValue) names false mac true appearance color"
         #expect(try await log.logged(line))
         #expect(try log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
     }
@@ -385,13 +385,13 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     }
 
     @Test(arguments: UnreadDevices.allCases) func includeThisMacOffDropsTheMacFromBesideAReason(reason: UnreadDevices) {
-        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unread(mac: nil, reason))
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unlisted(mac: nil, .unread(reason)))
     }
 
     @Test(arguments: UnreadDevices.allCases) func theMacBesideAReasonIsDrawnByTheOptions(reason: UnreadDevices) {
         let level = BatteryLevel(percent: 80, approximate: false)
         let mac = WidgetBattery(glyph: MacBattery.glyph, level: level, charging: true, name: MacBattery.name, appearance: .monochrome)
-        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unread(mac: mac, reason))
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unlisted(mac: mac, .unread(reason)))
     }
 
     @Test(arguments: WidgetStyle.allCases) func monochromeDrawsNoGreen(style: WidgetStyle) throws {
@@ -509,9 +509,9 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         }
 
         #expect(reloads { mac.publish(Self.charging) } == [.macBattery, .allBatteries])
-        #expect(reloads { devices.publish(.connected(Self.three)) } == [.deviceBattery, .allBatteries])
+        #expect(reloads { devices.publish(.connected(Self.three, pinned: [])) } == [.deviceBattery, .allBatteries])
         #expect(reloads { mac.publish(Self.charging) } == [])
-        #expect(reloads { devices.publish(.connected(Self.three)) } == [])
+        #expect(reloads { devices.publish(.connected(Self.three, pinned: [])) } == [])
 
         func shelved() -> AllBatteriesEntry { AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: AllBatteriesIntent()) }
         #expect(try Self.texts(shelved()) == ["80%", "95%", "54%", "40%"])
@@ -605,8 +605,37 @@ struct WidgetIntentMetadataTests {
                 let valueType: ValueType
             }
             struct VisibilityMetadata: Decodable { let isDiscoverable: Bool }
+            /// Which options Edit Widget offers, for which value of which option.
+            struct Configuration: Decodable {
+                struct WhenClause: Decodable {
+                    struct Wrapper: Decodable {
+                        struct Condition: Decodable {
+                            struct Value: Decodable {
+                                struct Enumeration: Decodable { let value: String }
+                                let enumeration: Enumeration
+                            }
+                            let parameterIdentifier: String
+                            let value: Value
+                        }
+                        struct Arm: Decodable {
+                            struct ActionSummary: Decodable {
+                                struct Wrapper: Decodable { let otherParameterIdentifiers: [String] }
+                                let wrapper: Wrapper
+                            }
+                            let actionSummary: ActionSummary
+                            var parameters: [String] { actionSummary.wrapper.otherParameterIdentifiers }
+                        }
+                        let condition: Condition
+                        let when: Arm
+                        let otherwise: Arm
+                    }
+                    let wrapper: Wrapper
+                }
+                let whenClause: WhenClause?
+            }
             let visibilityMetadata: VisibilityMetadata
             let parameters: [Parameter]
+            let actionConfiguration: Configuration?
         }
         struct Enum: Decodable {
             struct Case: Decodable { let identifier: String }
@@ -633,12 +662,24 @@ struct WidgetIntentMetadataTests {
     @Test func editWidgetOffersEachOptionAndItsCases() throws {
         let metadata = try Self.metadata(of: Self.widgets)
         let parameters = try #require(metadata.actions["AllBatteriesIntent"]).parameters
-        #expect(parameters.map(\.name) == ["style", "showNames", "includeMac", "appearance"])
-        #expect(parameters.map(\.valueType.linkEnumeration?.wrapper.identifier) == ["WidgetStyle", nil, nil, "WidgetAppearance"])
+        #expect(parameters.map(\.name) == ["devices", "chosen", "style", "showNames", "includeMac", "appearance"])
+        #expect(parameters.map(\.valueType.linkEnumeration?.wrapper.identifier) == ["WidgetDeviceChoice", nil, "WidgetStyle", nil, nil, "WidgetAppearance"])
+        let devices = try #require(metadata.enums.first { $0.identifier == "WidgetDeviceChoice" })
+        #expect(devices.cases.map(\.identifier) == WidgetDeviceChoice.allCases.map(\.rawValue))
         let style = try #require(metadata.enums.first { $0.identifier == "WidgetStyle" })
         #expect(style.cases.map(\.identifier) == WidgetStyle.allCases.map(\.rawValue))
         let appearance = try #require(metadata.enums.first { $0.identifier == "WidgetAppearance" })
         #expect(appearance.cases.map(\.identifier) == WidgetAppearance.allCases.map(\.rawValue))
+    }
+
+    /// `parameters` lists every option whatever Edit Widget shows; the summary decides, and an option an arm leaves out is gone from it.
+    @Test func editWidgetOffersTheChosenDevicesOnlyToCustomAndEveryOtherOptionAlways() throws {
+        let action = try #require(Self.metadata(of: Self.widgets).actions["AllBatteriesIntent"])
+        let summary = try #require(action.actionConfiguration?.whenClause?.wrapper)
+        #expect(summary.condition.parameterIdentifier == "devices")
+        #expect(summary.condition.value.enumeration.value == WidgetDeviceChoice.custom.rawValue)
+        #expect(summary.when.parameters == action.parameters.map(\.name))
+        #expect(summary.otherwise.parameters == action.parameters.map(\.name).filter { $0 != "chosen" })
     }
 
     @Test(arguments: [(app, "AllBatteriesIntent"), (widgets, "AllBatteriesIntent"), (widgets, "SelectDeviceIntent")])

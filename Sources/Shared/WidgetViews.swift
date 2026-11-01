@@ -171,7 +171,7 @@ struct Message: View {
 }
 
 extension Message {
-    init(_ reason: UnreadDevices) { self.init(glyph: reason.glyph, text: reason.text) }
+    init(_ reason: NoDevicesListed) { self.init(glyph: reason.glyph, text: reason.text) }
 }
 
 private extension View {
@@ -237,8 +237,8 @@ struct DeviceBatteryView: View {
     @ViewBuilder private var content: some View {
         switch entry.shelf {
         case .failure, .success(.appNotRunning): Message(glyph: DeviceKind.accessory.symbol, text: "Open \(appName)")
-        case .success(.running(.unread(let reason))): Message(reason)
-        case .success(.running(.connected(let devices))): chosen(from: devices)
+        case .success(.running(.unread(let reason))): Message(.unread(reason))
+        case .success(.running(.connected(let devices, _))): chosen(from: devices)
         }
     }
 
@@ -284,7 +284,7 @@ extension AllBatteriesEntry {
     init(date: Date, directory: Result<URL, any Error>, log: Logger, configuration: AllBatteriesIntent) {
         let settings = AllBatteriesSettings(configuration)
         self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log), settings: settings)
-        log.notice("widget style \(settings.style.rawValue, privacy: .public) names \(settings.showNames, privacy: .public) mac \(settings.includeMac, privacy: .public) appearance \(settings.appearance.rawValue, privacy: .public)")
+        log.notice("widget devices \(settings.devices, privacy: .public) style \(settings.style.rawValue, privacy: .public) names \(settings.showNames, privacy: .public) mac \(settings.includeMac, privacy: .public) appearance \(settings.appearance.rawValue, privacy: .public)")
     }
 }
 
@@ -351,7 +351,7 @@ struct BatteryCells: View {
 /// The Mac, the size and in the place the grid gives it, above why no device is beside it.
 struct BatteryAndReason: View {
     let mac: WidgetBattery
-    let reason: UnreadDevices
+    let reason: NoDevicesListed
     let grid: BatteryGrid
 
     var body: some View {
@@ -390,8 +390,8 @@ struct AllBatteriesView: View {
         switch all {
         case .listed(let batteries) where batteries.isEmpty: Message(glyph: DeviceKind.accessory.symbol, text: "No device batteries")
         case .listed(let batteries): BatteryCells(batteries: batteries, grid: grid)
-        case .unread(nil, let reason): Message(reason)
-        case .unread(let mac?, let reason): BatteryAndReason(mac: mac, reason: reason, grid: grid)
+        case .unlisted(nil, let reason): Message(reason)
+        case .unlisted(let mac?, let reason): BatteryAndReason(mac: mac, reason: reason, grid: grid)
         }
     }
 }
