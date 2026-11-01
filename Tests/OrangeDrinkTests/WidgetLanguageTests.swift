@@ -33,7 +33,7 @@ import WidgetKit
 
     // MARK: what a widget draws
 
-    /// Every message each widget draws, read from the views, so a sentence a view says is one this test asks about.
+    /// The message each widget draws in each of these states, read from the views, so a test asks about the sentence a view says.
     static func messages() throws -> [Phrase] {
         let mac = try [Shelved.running(MacBattery.noBattery), .running(.ended), .appNotRunning].map {
             try MacBatteryView(entry: MacBatteryEntry(date: .now, battery: .success($0)), appName: "App").inspect().find(Message.self).actualView().text
@@ -108,25 +108,25 @@ import WidgetKit
         try Option.allCases.map { try #require(Option.caseDisplayRepresentations[$0]).title }
     }
 
-    /// Each sentence of the Widgets screen, and the Edit Widget words it names.
-    static func sentences() throws -> [(sentence: String, names: [LocalizedStringResource])] {
+    /// The Edit Widget words each sentence of the Widgets screen names.
+    static func namesBySentence() throws -> [[LocalizedStringResource]] {
         let intent = AllBatteriesIntent()
         return [
-            ("**Devices:** Automatic (as many as fit), Custom (your order), or Same as menu bar", try [intent.$devices.title] + options(WidgetDeviceChoice.self)),
-            ("**Style:** Rings, List or Bars", try [intent.$style.title] + options(WidgetStyle.self)),
-            ("Show device names · Include this Mac", [intent.$showNames.title, intent.$includeMac.title]),
-            ("**Appearance:** Color or Monochrome", try [intent.$appearance.title] + options(WidgetAppearance.self)),
+            try [intent.$devices.title] + options(WidgetDeviceChoice.self),
+            try [intent.$style.title] + options(WidgetStyle.self),
+            [intent.$showNames.title, intent.$includeMac.title],
+            try [intent.$appearance.title] + options(WidgetAppearance.self),
         ]
     }
 
-    @Test func editWidgetUsesTheWordsTheWidgetsScreenSays() throws {
+    @Test func editWidgetUsesTheWordsTheWidgetsScreenSays() async throws {
+        let bed = try await WidgetsScreenTests.Bed()
         let widgets = try Self.widgets()
         for language in Self.shipped {
-            for (sentence, names) in try Self.sentences() {
-                let said = language.resolve(sentence, in: Self.app)
-                for name in names {
-                    #expect(said.contains(language.resolve(name.key, in: widgets)), "\(name.key) in \(said)")
-                }
+            let sentences = try bed.texts(in: Locale(identifier: try #require(language.code)))
+            for names in try Self.namesBySentence() {
+                let words = names.map { language.resolve($0.key, in: widgets) }
+                #expect(sentences.contains { sentence in words.allSatisfy { sentence.contains($0) } }, "\(words) in \(sentences)")
             }
         }
     }
