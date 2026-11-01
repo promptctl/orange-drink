@@ -179,11 +179,11 @@ enum AllBatteries: Equatable, Sendable {
     }
 }
 
-/// A widget's kind, the name a placed widget is saved under.
-enum WidgetKind: String, Sendable {
+/// A widget's kind, the name a placed widget is saved under, in the order the Widgets screen offers them.
+enum WidgetKind: String, CaseIterable, Sendable {
+    case allBatteries = "AllBatteries"
     case macBattery = "MacBattery"
     case deviceBattery = "DeviceBattery"
-    case allBatteries = "AllBatteries"
 }
 
 /// What a shelf file holds: a widget's value and the app's own lifetime, so the widget can tell a value

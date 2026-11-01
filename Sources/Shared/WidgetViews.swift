@@ -63,7 +63,7 @@ struct BatteryRing: View {
                     // mask can cut nothing but the ring, where destinationOut cut through what lay behind a hosted view.
                     .mask {
                         Path { shape in
-                            shape.addRect(CGRect(x: -line, y: -line, width: side + 2 * line, height: side + 2 * line))
+                            shape.addRect(CGRect(x: -side, y: -side, width: side * 3, height: side * 3))
                             shape.addEllipse(in: CGRect(x: (side - gap) / 2, y: -gap / 2, width: gap, height: gap))
                         }
                         .fill(style: FillStyle(eoFill: true))

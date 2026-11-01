@@ -123,6 +123,10 @@ import WidgetKit
         }
     }
 
+    @Test(arguments: WidgetPreviewSize.allCases) func everyPillIsASizeEveryWidgetDeclares(size: WidgetPreviewSize) {
+        #expect([WidgetFamilies.allBatteries, WidgetFamilies.macBattery, WidgetFamilies.deviceBattery].allSatisfy { $0.contains(size.family) })
+    }
+
     @Test(arguments: WidgetPreviewSize.allCases) func deviceBatteryDrawsAtTheChosenSize(size: WidgetPreviewSize) async throws {
         let bed = try await Bed()
         try bed.press("Device Battery")
@@ -140,8 +144,8 @@ import WidgetKit
         #expect(drawn == ["80%"] + panel)
     }
 
-    /// Hiding takes a device off the panel, as its label says. A placed widget keeps it, so the preview does.
-    @Test func aDeviceHiddenFromThePanelStaysInThePreview() async throws {
+    /// Hiding takes a device off the panel, as its label says. A placed All Batteries keeps it, so its preview does.
+    @Test func aDeviceHiddenFromThePanelStaysInAllBatteries() async throws {
         let bed = try await Bed()
         try bed.settings.update { $0.toggleHidden(DeviceID(address: "B")) }
         #expect(ConnectedDevices(bed.devices.list, settings: bed.settings.value).rows.map(\.percent) == ["95%"])
@@ -153,6 +157,14 @@ import WidgetKit
         try bed.press("Device Battery")
         let drawn = try bed.screen.inspect().find(DeviceBatteryView.self).findAll(ViewType.Text.self).map { try $0.string() }
         #expect(drawn == ["54%"])
+    }
+
+    /// A placed Device Battery shows a device someone chose. Nobody chose this one, so a hidden one doesn't stand in.
+    @Test func deviceBatteryPreviewsNoDeviceThePanelHides() async throws {
+        let bed = try await Bed()
+        try bed.settings.update { $0.toggleHidden(DeviceID(address: "B")) }
+        try bed.press("Device Battery")
+        #expect(try bed.screen.inspect().find(DeviceBatteryView.self).findAll(ViewType.Text.self).map { try $0.string() } == ["95%"])
     }
 
     @Test func aDeviceThatChangesChangesThePreview() async throws {

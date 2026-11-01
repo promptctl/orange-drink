@@ -59,7 +59,7 @@ struct WidgetTypeButton: View {
     var body: some View {
         Button(action: choose) {
             HStack(spacing: 6) {
-                Image(systemName: kind.symbol)
+                Image(systemName: kind.symbol).accessibilityHidden(true)
                 Text(kind.title)
             }
             .font(.callout)
@@ -69,7 +69,6 @@ struct WidgetTypeButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text(kind.title))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -84,6 +83,8 @@ struct WidgetPreview: View {
     let size: WidgetPreviewSize
     let mac: MacBattery
     let devices: WidgetDevices
+    /// The address Device Battery shows. Nothing here has a widget's settings, so nobody chose it.
+    let device: String?
     @Environment(\.appLanguage) private var language
 
     var body: some View {
@@ -106,9 +107,7 @@ struct WidgetPreview: View {
         case .macBattery:
             MacBatteryView(entry: MacBatteryEntry(date: .now, battery: .success(.running(mac))), appName: appName)
         case .deviceBattery:
-            // Nothing here has a widget's settings, so it shows the device first in the widgets' ranking.
-            DeviceBatteryView(entry: DeviceBatteryEntry(date: .now, shelf: .success(.running(devices)), chosen: WidgetDevices.choices(in: .running(devices)).first?.address),
-                              appName: appName, family: size.family)
+            DeviceBatteryView(entry: DeviceBatteryEntry(date: .now, shelf: .success(.running(devices)), chosen: device), appName: appName, family: size.family)
         }
     }
 }
@@ -119,10 +118,7 @@ struct WidgetsScreen: View {
     let battery: BatteryModel
     let devices: DevicesModel
     let settings: DeviceSettingsModel
-    @State var choice = WidgetPreviewChoice()
-
-    /// The type picker's order.
-    private static let types: [WidgetKind] = [.allBatteries, .macBattery, .deviceBattery]
+    @State private var choice = WidgetPreviewChoice()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -163,14 +159,15 @@ struct WidgetsScreen: View {
         SettingCard {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 6) {
-                    ForEach(Self.types, id: \.self) { kind in
+                    ForEach(WidgetKind.allCases, id: \.self) { kind in
                         WidgetTypeButton(kind: kind, isSelected: choice.kind == kind) { choice.kind = kind }
                     }
                 }
                 SegmentedPills(selection: Bindable(choice).size, options: WidgetPreviewSize.allCases, accent: .gray, title: \.title)
                 // [LAW:one-source-of-truth] The two derivations the shelf is published from, read as the view draws so each
-                // reading and each change to the list redraws the preview.
-                WidgetPreview(kind: choice.kind, size: choice.size, mac: MacBattery(battery.state), devices: WidgetDevices(devices.list, pinned: settings.value.pinned))
+                // reading and each change to the list redraws the preview. Device Battery shows the panel's first device.
+                WidgetPreview(kind: choice.kind, size: choice.size, mac: MacBattery(battery.state), devices: WidgetDevices(devices.list, pinned: settings.value.pinned),
+                              device: ConnectedDevices(devices.list, settings: settings.value).rows.first?.id.address)
                     .frame(maxWidth: .infinity)
                 // The design doc words this for All Batteries alone.
                 if choice.kind == .allBatteries {
