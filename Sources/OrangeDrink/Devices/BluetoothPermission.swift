@@ -21,8 +21,8 @@ enum BluetoothPermission: Equatable, Sendable {
     }
 
     /// Reports each update and returns once reading is allowed. A prompt left open and a refusal are both waits with no
-    /// end, and only the device list is held by them: nothing sweeps a Bluetooth that macOS refused, so a sweep always means
-    /// the list was read (`DeviceList`). Updates end without an answer only when the wait is cancelled, so nothing past it can run unanswered.
+    /// end, and only the device list is held by them: nothing sweeps a Bluetooth that macOS refused, so a sweep means the list
+    /// was read (`DeviceList`). Permission taken away after this returns is not heard (orange-devices-bue.4gw). Updates end without an answer only when the wait is cancelled, so nothing past it can run unanswered.
     static func answer(from updates: AsyncStream<CBManagerAuthorization>, report: (BluetoothPermission) -> Void) async throws {
         for await update in updates {
             let permission = BluetoothPermission(update)

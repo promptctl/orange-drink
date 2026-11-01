@@ -153,6 +153,7 @@ enum BluetoothDevices {
             serial.lock()
             defer { serial.unlock() }
             guard !registrations.withLockUnchecked({ $0.stopped }) else { return }
+            // nil is IOBluetooth's own answer for no paired devices (IOBluetoothDevice.h), not a read that failed.
             let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
             connected.forEach(register)
             continuation.yield(reader.sweep(connected.compactMap(BluetoothPeer.init)))
