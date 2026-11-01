@@ -102,7 +102,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         #expect(try levelRead("AA") == 95)
         list.apply(.gone(Self.iPhone.id))
         publisher.publish(WidgetDevices(list, pinned: []))
-        #expect(try levelRead("AA") == nil)
+        #expect(try WidgetShelf.read(.devices, from: shelf).get() == .running(.connected([], pinned: [])))
         publisher.publishQuit()
         #expect(try WidgetShelf.read(.devices, from: shelf).get() == .appNotRunning)
     }

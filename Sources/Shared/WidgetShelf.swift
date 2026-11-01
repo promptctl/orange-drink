@@ -129,10 +129,12 @@ struct WidgetDeviceList: Codable, Equatable, Sendable {
     let ranked: [WidgetDevice]
     let pinned: WidgetPins
     /// The connected devices the ranking leaves out, with no level to rank: one settling after a reconnect, or one power
-    /// management has no source for. Only a widget already set to one draws it.
+    /// management has no source for. Device Battery and Edit Widget read it for a device already chosen; All Batteries does
+    /// not, so a device with no battery gains no row.
     let unlevelled: [WidgetDevice]
 
-    /// [LAW:one-source-of-truth] The one lookup of a chosen device: nil only for a device that is not connected.
+    /// [LAW:one-source-of-truth] Where Device Battery and Edit Widget find a chosen device: nil only for a device that is
+    /// not connected.
     func device(at address: String) -> WidgetDevice? {
         (ranked + unlevelled).first { $0.address == address }
     }
@@ -152,7 +154,7 @@ enum NoDevicesListed: Error, Equatable, Sendable {
     case noneChosen
     /// Same as menu bar, with nothing pinned.
     case nonePinned
-    /// Custom or Same as menu bar, and none of those devices is on the list. The list holds only what reports a battery,
+    /// Custom or Same as menu bar, and none of those devices is ranked. `ranked` holds only what reports a battery,
     /// so this is as true of a connected device with no level as of one that has gone.
     case noneReporting
 }

@@ -80,9 +80,10 @@ import WidgetKit
 
     // MARK: when that is none
 
-    /// The list holds only what reports a battery, so these words have to hold beside a device that is connected and has no level.
+    /// `ranked` holds only what reports a battery, so these words have to hold beside a device that is connected and has no level.
     @Test func noDeviceListedSaysWhy() {
-        let silent = WidgetDevices.connected([], pinned: ["silent"])
+        let keyboard = WidgetDevice(address: "silent", name: "Keyboard", kind: .accessory, level: nil)
+        let silent = WidgetDevices.connected(WidgetDeviceList(ranked: [], pinned: ["silent"], unlevelled: [keyboard]))
         #expect(silent.listed(by: .sameAsMenuBar) == .failure(.noneReporting))
         #expect(silent.listed(by: .custom(["silent"])) == .failure(.noneReporting))
         #expect(silent.listed(by: .custom([])) == .failure(.noneChosen))

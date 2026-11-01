@@ -65,9 +65,9 @@ private let unreadStates = [
         try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: AllBatteriesIntent()))
     }
 
-    func deviceBatterySays(chosen: String?) throws -> [String] {
+    func deviceBatterySays(chosen: String?, family: WidgetFamily = .systemSmall) throws -> [String] {
         let entry = DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: .success(shelf), log: ShelfLog.log), chosen: chosen)
-        return try DeviceBatteryView(entry: entry, appName: "Orange Drink", family: .systemSmall).inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        return try DeviceBatteryView(entry: entry, appName: "Orange Drink", family: family).inspect().findAll(ViewType.Text.self).map { try $0.string() }
     }
 
     @Test(arguments: unreadStates) func aListTheAppCouldNotReadSaysWhyOnEveryWidget(state: DeviceState) async throws {
@@ -102,6 +102,8 @@ private let unreadStates = [
         let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
         let model = try await publish(read, mac: .noBattery)
         #expect(try deviceBatterySays(chosen: "EE") == ["–"])
+        #expect(try deviceBatterySays(chosen: "EE", family: .systemMedium) == ["–", "Keyboard"])
+        #expect(try deviceBatterySays(chosen: "EE", family: .systemLarge) == ["–", "Keyboard"])
         #expect(try deviceBatterySays(chosen: "ZZ") == ["Not connected"])
         #expect(try deviceBatterySays(chosen: nil) == ["No device batteries"])
         _ = model
