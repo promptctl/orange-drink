@@ -85,9 +85,7 @@ struct DevicesScreen: View {
     }
 
     @ViewBuilder private func detectedCard(_ detected: DetectedDevices, _ edits: SettingEdits<DeviceSettings>) -> some View {
-        if devices.failure != nil {
-            Text("Device readings stopped. Quit and reopen the app.").foregroundStyle(.secondary)
-        } else if detected.entries.isEmpty {
+        if detected.entries.isEmpty {
             PhraseText(detected.emptyNote).foregroundStyle(.secondary)
         } else {
             SettingCard {

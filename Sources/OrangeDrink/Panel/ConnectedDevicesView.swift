@@ -3,21 +3,16 @@ import SwiftUI
 /// The expanded Connected Devices card: one row per device under inset hairlines.
 struct ConnectedDevicesView: View {
     let connected: ConnectedDevices
-    let failed: Bool
 
     var body: some View {
-        if failed {
-            note("Device readings stopped. Quit and reopen the app.")
+        let rows = connected.rows
+        if rows.isEmpty {
+            note(connected.emptyNote)
         } else {
-            let rows = connected.rows
-            if rows.isEmpty {
-                note(connected.emptyNote)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                        if index > 0 { Divider().padding(.leading, 34) }
-                        DeviceRowView(row: row)
-                    }
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                    if index > 0 { Divider().padding(.leading, 34) }
+                    DeviceRowView(row: row)
                 }
             }
         }

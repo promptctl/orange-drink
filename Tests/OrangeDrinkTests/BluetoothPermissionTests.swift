@@ -15,9 +15,9 @@ struct BluetoothPermissionTests {
         return reported
     }
 
-    @Test func theWaitReturnsAtTheFirstAnswer() async throws {
+    @Test func theWaitReturnsOnceReadingIsAllowed() async throws {
         #expect(try await Self.reports(Self.updates(.notDetermined, .allowedAlways, .denied)) == [.notDetermined, .allowed])
-        #expect(try await Self.reports(Self.updates(.denied)) == [.denied])
+        #expect(try await Self.reports(Self.updates(.denied, .allowedAlways)) == [.denied, .allowed])
     }
 
     /// What the delegate calls of a Mac with Bluetooth off may be: updates that are no answer.
@@ -35,12 +35,23 @@ struct BluetoothPermissionTests {
         #expect(BluetoothPermission(.restricted) == .denied)
     }
 
-    @Test func aListKeepsTheLastPermission() {
+    @Test func aListIsUnreadUntilASweepAndSaysWhy() {
         var list = DeviceList()
-        #expect(list.permission == .allowed)
+        #expect(list.unread == .waiting)
         list.apply(.permission(.notDetermined))
+        #expect(list.unread == .unanswered)
         list.apply(.permission(.denied))
-        #expect(list.permission == .denied)
+        #expect(list.unread == .denied)
+        list.apply(.permission(.allowed))
+        #expect(list.unread == .waiting)
+        list.apply(.reported(DeviceListTests.mouse))
+        #expect(list.unread == .waiting)
+        list.apply(.swept([]))
+        #expect(list.unread == nil)
+        list.apply(.swept([DeviceListTests.mouse]))
+        list.end()
+        #expect(list.unread == .ended)
+        #expect(list.devices.isEmpty)
     }
 
     // The stream with the real setup behind it: `power` is the first thing past the wait, and it throws, so no test reaches IOBluetooth.
@@ -59,6 +70,20 @@ struct BluetoothPermissionTests {
         #expect(try await iterator.next() == .permission(.allowed))
         await #expect(throws: BluetoothDevicesError.missingSymbol("stand-in")) { _ = try await iterator.next() }
         #expect(reached.isMarked)
+    }
+
+    // Past a refusal is setup, so a stream that went on would throw at the first `next` after it instead of reporting the allowance.
+    @Test func aRefusalSetsNothingUpAndStaysSubscribed() async throws {
+        let (updates, feed) = AsyncStream<CBManagerAuthorization>.makeStream()
+        let events = BluetoothDevices.events(authorizations: { updates }, power: { () throws(BluetoothDevicesError) in
+            throw .missingSymbol("stand-in")
+        })
+        var iterator = events.makeAsyncIterator()
+        feed.yield(.denied)
+        #expect(try await iterator.next() == .permission(.denied))
+        feed.yield(.allowedAlways)
+        #expect(try await iterator.next() == .permission(.allowed))
+        await #expect(throws: BluetoothDevicesError.missingSymbol("stand-in")) { _ = try await iterator.next() }
     }
 }
 

@@ -113,7 +113,7 @@ struct DeviceListTests {
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let answered = await list(of: model) { $0.devices.first?.levels != .unread }
         #expect(DeviceRanking.rows(answered).map(\.percent) == ["47%"])
-        #expect(model.failure == nil)
+        #expect(model.list.unread != .ended)
     }
 
     @Test func aFinishedStreamIsAFailureNotAFrozenList() async {
@@ -122,27 +122,25 @@ struct DeviceListTests {
         send.yield(.reported(DeviceListTests.mouse))
         _ = await list(of: model) { $0.devices.count == 1 }
         send.finish()
-        let (changes, change) = AsyncStream.makeStream(of: Void.self)
-        var next = changes.makeAsyncIterator()
-        while model.failure == nil {
-            withObservationTracking { _ = model.failure } onChange: { change.yield() }
-            guard await next.next() != nil else { break }
-        }
-        #expect(model.failure as? DevicesModelError == .streamFinished)
-        #expect(model.list.devices.isEmpty)
+        let ended = await list(of: model) { $0.unread == .ended }
+        #expect(ended.devices.isEmpty)
     }
 
     @Test func aFailedSubscriptionIsOnTheModel() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(events: events)
         send.finish(throwing: BluetoothDevicesError.registration)
-        let (changes, change) = AsyncStream.makeStream(of: Void.self)
-        var next = changes.makeAsyncIterator()
-        while model.failure == nil {
-            withObservationTracking { _ = model.failure } onChange: { change.yield() }
-            guard await next.next() != nil else { break }
-        }
-        #expect(model.failure as? BluetoothDevicesError == .registration)
+        _ = await list(of: model) { $0.unread == .ended }
+    }
+
+    @Test func onChangeIsToldOfTheEndedList() async {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let (told, tell) = AsyncStream.makeStream(of: DeviceList.self)
+        let model = DevicesModel(events: events, onChange: { tell.yield($0) })
+        send.finish()
+        var lists = told.makeAsyncIterator()
+        #expect(await lists.next()?.unread == .ended)
+        _ = model
     }
 }
 
@@ -158,17 +156,17 @@ struct DeviceListTests {
         try #require(!connected.isEmpty, "this check needs paired devices connected")
         let accessories = try Self.accessoryLevels()
         let log = try BatteryLog(category: "devices")
-        // The first sweep is the whole connected set, and a refused host's sweep is empty, so the permission is read beside it.
+        // The first sweep is the whole connected set, and a refused host never sweeps, so the refusal ends the wait for it.
         var list = DeviceList()
         sweep: for try await event in BluetoothDevices.events() {
             list.apply(event)
             switch event {
             case .permission(.notDetermined): print("answer the Bluetooth prompt: Allow the test host")
-            case .swept: break sweep
+            case .permission(.denied), .swept: break sweep
             default: continue
             }
         }
-        try #require(list.permission == .allowed, "macOS refused this test host Bluetooth, so its sweep has no devices")
+        try #require(list.unread == nil, "macOS refused this test host Bluetooth, so nothing swept")
         try #require(!list.devices.contains { $0.levels == .unread }, "powerd did not answer the sweep; the devices log names the call")
         // system_profiler names its devices and nothing more, so the name is the only key the two lists share.
         let swept = try Dictionary(list.devices.map { ($0.name, $0) }) { _, _ in

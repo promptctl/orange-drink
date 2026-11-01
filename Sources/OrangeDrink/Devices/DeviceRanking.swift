@@ -54,7 +54,7 @@ struct ConnectedDevices: Equatable {
         let ranked = DeviceRanking.rows(list)
         rows = ranked.filter { !settings.hidden.contains($0.id) }
         emptyNote = rows.count < ranked.count ? "Every device is hidden. Show them again in Settings → Devices."
-            : list.permission.explanation ?? "No connected Bluetooth devices to show."
+            : list.unread?.explanation ?? "No connected Bluetooth devices to show."
     }
 }
 
@@ -78,7 +78,7 @@ struct DetectedDevices: Equatable {
     let emptyNote: Phrase
 
     init(_ list: DeviceList, settings: DeviceSettings) {
-        emptyNote = list.permission.explanation ?? "No connected Bluetooth devices report a battery."
+        emptyNote = list.unread?.explanation ?? "No connected Bluetooth devices report a battery."
         entries = DeviceRanking.rows(list).map { Entry(row: $0, isHidden: settings.hidden.contains($0.id), isAlerting: settings.alerting.contains($0.id),
                       isPinned: settings.pinned.contains($0.id)) }
     }

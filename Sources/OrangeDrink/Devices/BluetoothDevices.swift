@@ -102,8 +102,8 @@ enum BluetoothDevices {
             self.reader = reader
         }
 
-        /// [LAW:no-silent-failure] An OS this edge does not understand ends the subscription, which the model
-        /// shows as a failure. A read powerd does not answer is a state of the levels, not an end (`DeviceReader`).
+        /// [LAW:no-silent-failure] An OS this edge does not understand ends the subscription, so the list
+        /// goes `.ended`. A read powerd does not answer is a state of the levels, not an end (`DeviceReader`).
         static func fail(_ continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, _ error: any Error) {
             BluetoothDevices.log.error("device subscription failed: \(String(describing: error), privacy: .public)")
             continuation.finish(throwing: error)
@@ -153,6 +153,7 @@ enum BluetoothDevices {
             serial.lock()
             defer { serial.unlock() }
             guard !registrations.withLockUnchecked({ $0.stopped }) else { return }
+            // nil is IOBluetooth's own answer for no paired devices (IOBluetoothDevice.h), not a read that failed.
             let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
             connected.forEach(register)
             continuation.yield(reader.sweep(connected.compactMap(BluetoothPeer.init)))

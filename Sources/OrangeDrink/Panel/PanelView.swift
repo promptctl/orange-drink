@@ -33,7 +33,7 @@ struct PanelView: View {
             if connected.isShown {
                 CollapsibleCard(title: "Connected Devices", symbol: "iphone.gen3.radiowaves.left.and.right", symbolColor: .cyan,
                                 section: .connectedDevices, sections: sections) {
-                    ConnectedDevicesView(connected: connected, failed: devices.failure != nil)
+                    ConnectedDevicesView(connected: connected)
                 }
             }
             ActionsCard(lowPowerMode: lowPowerMode, updates: updates)

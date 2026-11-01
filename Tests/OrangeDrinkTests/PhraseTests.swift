@@ -137,11 +137,11 @@ import Testing
                     "Make the icon and its text larger and easier to read", "Status colors",
                     "Green when charging, orange for low battery. Off keeps the icon neutral and only turns it red when critical.",
                     "Bluetooth Devices", "Show Connected Devices", "Display battery levels for paired Bluetooth devices in the menu bar dropdown",
-                    "Detected Devices", "Device readings stopped. Quit and reopen the app.", "No connected Bluetooth devices report a battery.",
+                    "Detected Devices", "No connected Bluetooth devices report a battery.",
                     "No connected Bluetooth devices to show.", "Every device is hidden. Show them again in Settings → Devices.",
                     "Pinned Devices", "Pin a connected device from the Devices screen to arrange it here.",
                     "The top device sits leftmost in the menu bar. Dragging an item in the menu bar is undone when a pinned device connects, disconnects, or is moved here."]
-        phrases += [BluetoothPermission.notDetermined, .denied].compactMap(\.explanation)
+        phrases += UnreadDevices.allCases.map(\.explanation)
         phrases += ["Charge Limit", "Pause charging at your target so the battery sits in a healthier range.", "Target", "Charging pauses at this level",
                     ChargingScreen.limitHelp]
         for edit: (inout [String: Any]) -> Void in [{ _ in }, { $0["AppleRawMaxCapacity"] = 4000 }, { $0["Temperature"] = 3700 },
