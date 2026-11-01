@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A thin rounded bar on a dark track, filled to a fraction: the one level bar, in the panel and the widgets.
+/// A thin rounded bar on a dark track, filled to a fraction: the level bar of the panel's rows and the widgets.
 struct LevelBar: View {
     let fraction: Double, tint: Color
 

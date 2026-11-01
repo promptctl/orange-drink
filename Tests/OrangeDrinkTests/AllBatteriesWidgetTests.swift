@@ -147,19 +147,18 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         Self.expectOtherRingsAreGrey(cells)
     }
 
-    static func ring(_ entry: AllBatteriesEntry, _ family: WidgetFamily, _ size: CGSize) throws -> Double {
-        let content = CGSize(width: size.width - 2 * margin, height: size.height - 2 * margin)
-        return try RingPixels(image(entry, family, content: content)).across / 2
+    static func ring(_ entry: AllBatteriesEntry, _ family: WidgetFamily, _ content: CGSize) throws -> Double {
+        try RingPixels(image(entry, family, content: content)).across / 2
     }
 
     @Test func aRingAtSmallIsTheReferencesThirtyEightPointsAcross() throws {
-        let across = try Self.ring(Self.entry(Self.onBattery, Self.three), .systemSmall, CGSize(width: 158, height: 158))
+        let across = try Self.ring(Self.entry(Self.onBattery, Self.three), .systemSmall, Self.content(.systemSmall))
         #expect(abs(across - 38) < 4, "a ring is \(across) pt across")
     }
 
-    @Test(arguments: allBatteriesSizes) func aRingIsOneSizeHoweverFewBatteriesThereAre(family: WidgetFamily, size: CGSize) throws {
-        let few = try Self.ring(Self.entry(Self.onBattery, Array(Self.three.prefix(1))), family, size)
-        let full = try Self.ring(Self.entry(Self.onBattery, Self.twenty), family, size)
+    @Test(arguments: allBatteriesContents) func aRingIsOneSizeHoweverFewBatteriesThereAre(family: WidgetFamily, content: CGSize) throws {
+        let few = try Self.ring(Self.entry(Self.onBattery, Array(Self.three.prefix(1))), family, content)
+        let full = try Self.ring(Self.entry(Self.onBattery, Self.twenty), family, content)
         #expect(abs(few - full) < 1, "\(few) pt with two batteries, \(full) pt with a full widget")
     }
 
@@ -435,7 +434,8 @@ struct WidgetIntentMetadataTests {
                 let name: String
                 let valueType: ValueType
             }
-            let isDiscoverable: Bool
+            struct VisibilityMetadata: Decodable { let isDiscoverable: Bool }
+            let visibilityMetadata: VisibilityMetadata
             let parameters: [Parameter]
         }
         struct Enum: Decodable {
@@ -464,7 +464,8 @@ struct WidgetIntentMetadataTests {
         #expect(style.cases.map(\.identifier) == WidgetStyle.allCases.map(\.rawValue))
     }
 
-    @Test(arguments: [app, widgets]) func theSettingsAreNotAnActionOfTheirOwn(bundle: URL) throws {
-        #expect(try #require(Self.metadata(of: bundle).actions["AllBatteriesIntent"]).isDiscoverable == false)
+    @Test(arguments: [(app, "AllBatteriesIntent"), (widgets, "AllBatteriesIntent"), (widgets, "SelectDeviceIntent")])
+    func theSettingsAreNotAnActionOfTheirOwn(bundle: URL, intent: String) throws {
+        #expect(try #require(Self.metadata(of: bundle).actions[intent]).visibilityMetadata.isDiscoverable == false)
     }
 }

@@ -14,6 +14,7 @@ enum WidgetStyle: String, CaseIterable, AppEnum {
 struct AllBatteriesIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "All Batteries"
     static let description = IntentDescription("How this widget draws your batteries.")
+    static let isDiscoverable = false
 
     @Parameter(title: "Style", default: .rings) var style: WidgetStyle
 }

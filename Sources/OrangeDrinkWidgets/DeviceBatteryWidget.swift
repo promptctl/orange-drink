@@ -45,6 +45,7 @@ struct DeviceQuery: EntityQuery {
 struct SelectDeviceIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "Device"
     static let description = IntentDescription("The device whose battery this widget shows.")
+    static let isDiscoverable = false
 
     @Parameter(title: "Device") var device: DeviceEntity?
 }
