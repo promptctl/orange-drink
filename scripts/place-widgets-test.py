@@ -53,6 +53,13 @@ def main():
     if actual["DeviceBattery"] != RECORDED_DEVICE_INTENT:
         sys.exit(f"FAILED: DeviceBattery's idata is not what macOS writes: {actual['DeviceBattery']!r}")
     print("ok: an intent is placed in the bytes macOS writes")
+    waited = re.search(r"^kinds='(.+)'$", (REPO / "scripts/widget-click-check").read_text(), re.MULTILINE).group(1).split()
+    if set(waited) != set(actual):
+        sys.exit(f"FAILED: scripts/widget-click-check waits on {sorted(waited)} but place-widgets places {sorted(actual)}")
+    print("ok: the click check waits on every placed widget")
+    if subprocess.run([REPO / "scripts/place-widgets", "x" * 33], capture_output=True).returncode == 0:
+        sys.exit("FAILED: place-widgets wrote 33 bytes under an OPACK tag that holds 32")
+    print("ok: text OPACK's tag cannot hold is refused")
 
 
 main()

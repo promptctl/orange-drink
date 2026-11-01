@@ -22,7 +22,10 @@ WIDGETS = [
 
 
 def opack_text(text):
-    return bytes([0x40 + len(text)]) + text.encode()
+    data = text.encode()
+    if len(data) > 32:
+        sys.exit(f"place-widgets: {text} is past the 32 bytes OPACK's tags 0x40 to 0x60 hold, the only form read off macOS")
+    return bytes([0x40 + len(data)]) + data
 
 
 def intent_reference(app, intent):
@@ -51,7 +54,7 @@ def archive(app, kind, intent, family):
         "$objects": [
             "$null",
             {"$class": uid(7), "family": family, "kind": uid(6), "extensionIdentity": uid(2),
-             "activityIdentifier": uid(0), "intent2": uid(8 if intent else 0)},
+             "personaIdentifier": uid(0), "activityIdentifier": uid(0), "intent2": uid(8 if intent else 0)},
             {"$class": uid(5), "extensionBundleIdentifier": uid(3), "containerBundleIdentifier": uid(4), "deviceIdentifier": uid(0)},
             app + ".Widgets",
             app,

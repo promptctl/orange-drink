@@ -32,24 +32,33 @@ func point(_ x: String, _ y: String) -> CGPoint {
     return CGPoint(x: x, y: y)
 }
 
-func windows(of owner: String) {
+struct Window {
+    let owner: String
+    let layer: Int
+    let bounds: CGRect
+}
+
+// The window list promises a layer and bounds, so one without is a list that cannot be read. An owner's name is optional.
+func onScreenWindows() -> [Window] {
     guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] else { fail("no window list") }
-    for window in list where window[kCGWindowOwnerName as String] as? String == owner {
-        let bounds = window[kCGWindowBounds as String] as? [String: CGFloat] ?? [:]
-        print(window[kCGWindowLayer as String] ?? "?", bounds["X"] ?? "?", bounds["Y"] ?? "?", bounds["Width"] ?? "?", bounds["Height"] ?? "?")
+    return list.map { window in
+        guard let layer = window[kCGWindowLayer as String] as? Int,
+              let bounds = (window[kCGWindowBounds as String] as? NSDictionary).flatMap({ CGRect(dictionaryRepresentation: $0) }) else { fail("unreadable window: \(window)") }
+        return Window(owner: window[kCGWindowOwnerName as String] as? String ?? "?", layer: layer, bounds: bounds)
+    }
+}
+
+func windows(of owner: String) {
+    for window in onScreenWindows() where window.owner == owner {
+        print(window.layer, window.bounds.minX, window.bounds.minY, window.bounds.width, window.bounds.height)
     }
 }
 
 // A widget sits at a negative layer, and from the Dock's layer, 20, up are overlays that cover the whole display and take no
 // click. So what can sit over a widget is layers 0 to 19: apps' windows and their alerts.
 func covering(_ points: [CGPoint]) {
-    guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] else { fail("no window list") }
-    let over = list.filter { window in
-        guard let layer = window[kCGWindowLayer as String] as? Int, (0..<20).contains(layer),
-              let bounds = (window[kCGWindowBounds as String] as? NSDictionary).flatMap({ CGRect(dictionaryRepresentation: $0) }) else { return false }
-        return points.contains(where: bounds.contains)
-    }
-    for owner in Set(over.compactMap { $0[kCGWindowOwnerName as String] as? String }) { print(owner) }
+    let over = onScreenWindows().filter { (0..<20).contains($0.layer) && points.contains(where: $0.bounds.contains) }
+    for owner in Set(over.map(\.owner)) { print(owner) }
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
