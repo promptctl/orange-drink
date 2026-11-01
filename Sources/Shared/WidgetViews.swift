@@ -5,12 +5,33 @@ import os
 // Compiled into the app and its widget extension: what the widgets draw. The app compiles them so a test
 // renders the real views with no window.
 
+extension WidgetBattery {
+    /// A charging battery is green, wherever and however it is drawn.
+    var tint: Color { charging ? .green : .primary }
+}
+
+/// A charging battery's bolt, sized by the font its caller sets.
+struct BatteryBolt: View {
+    let battery: WidgetBattery
+
+    var body: some View {
+        Image(systemName: "bolt.fill").foregroundStyle(battery.tint).opacity(battery.charging ? 1 : 0)
+    }
+}
+
+/// A battery's level in words, sized by the font its caller sets.
+struct BatteryPercentage: View {
+    let battery: WidgetBattery
+
+    var body: some View {
+        Text(BatteryLevel.text(battery.level)).monospacedDigit().foregroundStyle(battery.tint)
+    }
+}
+
 /// The reference ring from design-docs/widgets.md: a dark track, an arc filled clockwise from the top
 /// to the level, the glyph in the centre and the percentage below; green with a bolt while charging.
 struct BatteryRing: View {
     let battery: WidgetBattery
-
-    private var tint: Color { battery.charging ? .green : .primary }
 
     var body: some View {
         GeometryReader { space in
@@ -21,8 +42,8 @@ struct BatteryRing: View {
                     ZStack {
                         Circle().stroke(.gray.opacity(0.35), lineWidth: line)
                         Circle()
-                            .trim(from: 0, to: Double(battery.level?.percent ?? 0) / 100)
-                            .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                            .trim(from: 0, to: BatteryLevel.fraction(battery.level))
+                            .stroke(battery.tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                         // The bolt sits in a gap cut from the ring: drawn over the green arc it would not read.
                         // Opaque, because destinationOut removes only as much as the cut's own alpha.
@@ -36,19 +57,62 @@ struct BatteryRing: View {
                     .compositingGroup()
                     Image(systemName: battery.glyph)
                         .font(.system(size: side * 0.32))
-                    Image(systemName: "bolt.fill")
+                    BatteryBolt(battery: battery)
                         .font(.system(size: side * 0.16))
-                        .foregroundStyle(.green)
                         .offset(y: -side / 2)
-                        .opacity(battery.charging ? 1 : 0)
                 }
                 .frame(width: side, height: side)
-                Text(BatteryLevel.text(battery.level))
+                BatteryPercentage(battery: battery)
                     .font(.system(size: side * 0.2, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(tint)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+/// A row's percentage, in a column every row shares so the bars line up. The bolt hangs off the text's
+/// leading edge, in the room "100%" leaves, so it takes none from "~100%", the longest there is.
+struct RowPercentage: View {
+    static let width: CGFloat = 42
+    static let font = Font.subheadline.bold()
+
+    let battery: WidgetBattery
+
+    var body: some View {
+        BatteryPercentage(battery: battery)
+            .font(Self.font)
+            .overlay(alignment: .leading) {
+                BatteryBolt(battery: battery).font(.caption2).offset(x: -9)
+            }
+            .frame(width: Self.width, alignment: .trailing)
+    }
+}
+
+/// One battery on one line, with its glyph and percentage either side of whatever a style puts between them.
+struct BatteryRow<Middle: View>: View {
+    let battery: WidgetBattery
+    @ViewBuilder let middle: Middle
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: battery.glyph).font(.subheadline).frame(width: 20)
+            middle
+            RowPercentage(battery: battery)
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
+/// One battery in one style.
+struct BatteryCell: View {
+    let battery: WidgetBattery
+    let style: WidgetStyle
+
+    var body: some View {
+        switch style {
+        case .rings: BatteryRing(battery: battery)
+        case .list: BatteryRow(battery: battery) { Spacer(minLength: 0) }
+        case .bars: BatteryRow(battery: battery) { LevelBar(fraction: BatteryLevel.fraction(battery.level), tint: battery.tint) }
         }
     }
 }
@@ -179,30 +243,43 @@ struct AllBatteriesEntry: TimelineEntry {
     /// What the app put on the shelf, or why there is nothing to read.
     let mac: Result<Shelved<MacBattery>, any Error>
     let devices: Result<Shelved<WidgetDevices>, any Error>
+    let style: WidgetStyle
 }
 
 extension AllBatteriesEntry {
-    /// What the widget reads: both of the shelf's files, each logged.
-    init(date: Date, directory: Result<URL, any Error>, log: Logger) {
-        self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log))
+    /// What the widget reads: both of the shelf's files, each logged, in the style its settings hold.
+    init(date: Date, directory: Result<URL, any Error>, log: Logger, configuration: AllBatteriesIntent) {
+        self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log), style: configuration.style)
+        log.info("widget style \(configuration.style.rawValue, privacy: .public) from \(String(describing: directory), privacy: .public)")
     }
 }
 
-/// How many rings a widget of one family holds: the bigger the size, the more batteries fit.
-struct RingGrid {
+/// How a widget of one family lays out its batteries in one style: the bigger the size, the more fit.
+struct BatteryGrid {
+    let style: WidgetStyle
     let columns: Int
     let rows: Int
+    /// Where a block with room to spare sits, and where a short row sits within it. Rows are a table, so they
+    /// keep to their columns.
+    let alignment: Alignment
 
-    init(_ family: WidgetFamily) {
-        (columns, rows) = switch family {
+    init(_ family: WidgetFamily, _ style: WidgetStyle) {
+        let (ringColumns, ringRows) = switch family {
         case .systemMedium: (4, 2)
         case .systemLarge: (4, 4)
         case .systemExtraLarge: (8, 4)
         default: (2, 2)
         }
+        self.style = style
+        // [LAW:one-source-of-truth] A row takes two rings' width and half a ring's height, so a size holds the
+        // same batteries in every style, and changing style never changes which batteries a widget shows.
+        (columns, rows, alignment) = switch style {
+        case .rings: (ringColumns, ringRows, .center)
+        case .list, .bars: (ringColumns / 2, ringRows * 2, .leading)
+        }
     }
 
-    /// One ring's share of a widget's space.
+    /// One battery's share of a widget's space.
     func cell(in space: CGSize) -> CGSize {
         CGSize(width: space.width / CGFloat(columns), height: space.height / CGFloat(rows))
     }
@@ -214,43 +291,43 @@ struct RingGrid {
     }
 }
 
-/// The batteries in rings. [LAW:one-source-of-truth] The grid sets a ring's cell, because a ring grows
-/// into whatever it is offered: it is one size however few batteries there are, and the rows are centred.
-struct BatteryRings: View {
+/// The batteries in their grid. [LAW:one-source-of-truth] The grid sets a cell, because a ring grows into
+/// whatever it is offered: a battery is one size however few there are.
+struct BatteryCells: View {
     let batteries: [WidgetBattery]
-    let grid: RingGrid
+    let grid: BatteryGrid
 
     var body: some View {
         GeometryReader { space in
             let cell = grid.cell(in: space.size)
-            VStack(spacing: 0) {
+            VStack(alignment: grid.alignment.horizontal, spacing: 0) {
                 ForEach(Array(grid.rows(of: batteries).enumerated()), id: \.offset) { _, row in
                     HStack(spacing: 0) {
                         ForEach(Array(row.enumerated()), id: \.offset) { _, battery in
-                            BatteryRing(battery: battery).frame(width: cell.width, height: cell.height)
+                            BatteryCell(battery: battery, style: grid.style).frame(width: cell.width, height: cell.height)
                         }
                     }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: grid.alignment)
         }
     }
 }
 
-/// The Mac's ring, the size the grid makes it, above why no device is beside it.
-struct RingAndReason: View {
+/// The Mac, the size and in the place the grid gives it, above why no device is beside it.
+struct BatteryAndReason: View {
     let mac: WidgetBattery
     let reason: UnreadDevices
-    let grid: RingGrid
+    let grid: BatteryGrid
 
     var body: some View {
         GeometryReader { space in
             let cell = grid.cell(in: space.size)
-            VStack(spacing: 0) {
-                BatteryRing(battery: mac).frame(width: cell.width, height: cell.height)
-                Caption(text: reason.text).foregroundStyle(.secondary).frame(height: cell.height)
+            VStack(alignment: grid.alignment.horizontal, spacing: 0) {
+                BatteryCell(battery: mac, style: grid.style).frame(width: cell.width, height: cell.height)
+                Caption(text: reason.text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: grid.alignment)
         }
     }
 }
@@ -268,17 +345,18 @@ struct AllBatteriesView: View {
 
     @ViewBuilder private var content: some View {
         switch (entry.mac, entry.devices) {
-        case (.success(.running(let mac)), .success(.running(let devices))): rings(AllBatteries(mac: mac, devices: devices))
+        case (.success(.running(let mac)), .success(.running(let devices))): batteries(AllBatteries(mac: mac, devices: devices))
         default: Message(glyph: MacBattery.glyph, text: "Open \(appName)")
         }
     }
 
-    @ViewBuilder private func rings(_ all: AllBatteries) -> some View {
+    @ViewBuilder private func batteries(_ all: AllBatteries) -> some View {
+        let grid = BatteryGrid(family, entry.style)
         switch all {
         case .listed(let batteries) where batteries.isEmpty: Message(glyph: MacBattery.glyph, text: "No batteries")
-        case .listed(let batteries): BatteryRings(batteries: batteries, grid: RingGrid(family))
+        case .listed(let batteries): BatteryCells(batteries: batteries, grid: grid)
         case .unread(nil, let reason): Message(reason)
-        case .unread(let mac?, let reason): RingAndReason(mac: mac, reason: reason, grid: RingGrid(family))
+        case .unread(let mac?, let reason): BatteryAndReason(mac: mac, reason: reason, grid: grid)
         }
     }
 }
