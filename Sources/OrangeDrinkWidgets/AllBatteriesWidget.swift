@@ -35,7 +35,7 @@ struct AllBatteriesWidget: Widget {
         AppIntentConfiguration(kind: WidgetKind.allBatteries.rawValue, intent: AllBatteriesIntent.self, provider: AllBatteriesProvider()) { entry in
             FamilyReading { AllBatteriesView(entry: entry, appName: appName, family: $0) }
         }
-        .configurationDisplayName("All Batteries")
+        .configurationDisplayName(WidgetKind.allBatteries.title)
         .description("Your Mac and all your devices in one widget.")
         .supportedFamilies(WidgetFamilies.allBatteries)
     }

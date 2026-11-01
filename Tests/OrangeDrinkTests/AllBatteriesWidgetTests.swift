@@ -107,9 +107,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         try widgetImage(view(entry, family), size: size, scheme: .dark, scale: 2)
     }
 
-    /// The four rings of a rendering at Small, in reading order.
     static func cells(_ entry: AllBatteriesEntry) throws -> [RingPixels] {
-        let image = try image(entry, .systemSmall, content: content(.systemSmall))
+        try cells(image(entry, .systemSmall, content: content(.systemSmall)))
+    }
+
+    /// The four rings of a rendering at Small, in reading order.
+    static func cells(_ image: CGImage) throws -> [RingPixels] {
         let cell = image.width / 2
         return try [(0, 0), (1, 0), (0, 1), (1, 1)].map { column, row in
             try RingPixels(#require(image.cropping(to: CGRect(x: column * cell, y: row * cell, width: cell, height: cell))))

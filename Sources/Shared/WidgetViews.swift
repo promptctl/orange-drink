@@ -186,6 +186,17 @@ enum WidgetFamilies {
     static let allBatteries: [WidgetFamily] = [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
 }
 
+extension WidgetKind {
+    /// What the gallery and the Widgets screen call the widget.
+    var title: LocalizedStringKey {
+        switch self {
+        case .macBattery: "Mac Battery"
+        case .deviceBattery: "Device Battery"
+        case .allBatteries: "All Batteries"
+        }
+    }
+}
+
 struct MacBatteryEntry: TimelineEntry {
     let date: Date
     /// What the app put on the shelf, or why there is nothing to read.

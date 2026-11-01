@@ -40,7 +40,7 @@ struct DeviceBatteryWidget: Widget {
         AppIntentConfiguration(kind: WidgetKind.deviceBattery.rawValue, intent: SelectDeviceIntent.self, provider: DeviceBatteryProvider()) { entry in
             FamilyReading { DeviceBatteryView(entry: entry, appName: appName, family: $0) }
         }
-        .configurationDisplayName("Device Battery")
+        .configurationDisplayName(WidgetKind.deviceBattery.title)
         .description("One device's battery at a glance.")
         .supportedFamilies(WidgetFamilies.deviceBattery)
     }

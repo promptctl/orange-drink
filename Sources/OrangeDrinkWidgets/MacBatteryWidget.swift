@@ -27,7 +27,7 @@ struct MacBatteryWidget: Widget {
         StaticConfiguration(kind: WidgetKind.macBattery.rawValue, provider: MacBatteryProvider()) { entry in
             MacBatteryView(entry: entry, appName: appName)
         }
-        .configurationDisplayName("Mac Battery")
+        .configurationDisplayName(WidgetKind.macBattery.title)
         .description("Your Mac's battery at a glance.")
         .supportedFamilies(WidgetFamilies.macBattery)
     }
