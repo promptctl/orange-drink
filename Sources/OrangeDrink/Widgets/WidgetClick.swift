@@ -3,7 +3,7 @@ import WidgetKit
 
 /// A click on a placed widget. With no `widgetURL` or `Link` in the widget, macOS opens the app and passes it a user
 /// activity, and it does so for an app with no window of its own (orange-widgets-5jo.gq2 measured it on a real click).
-struct WidgetClick: Equatable {
+struct WidgetClick {
     let kind: WidgetKind
 
     /// [LAW:parse-dont-validate] The kind is `userInfo`'s and never `activityType`'s, which for a configurable widget

@@ -27,26 +27,29 @@ mac_battery='98 128'
 device_battery='278 128'
 all_batteries='188 308'
 
-# Whether <window list> holds the panel, known by its level, NSWindow.Level.popUpMenu. The app's others sit elsewhere: the menu
-# bar item, which macOS before 26 lists as the app's, at 25, a pill at 1000, and Settings at 0.
+# Whether <window list> holds the panel or Settings, each known by its level: NSWindow.Level.popUpMenu and .normal. The app's
+# others sit elsewhere: the menu bar item, which macOS before 26 lists as the app's, at 25, and a pill at 1000.
 lists_panel() { [ -n "$(awk '$1 == 101' <<<"$1")" ]; }
+lists_settings() { [ -n "$(awk '$1 == 0' <<<"$1")" ]; }
 panel_open() { local read; read=$(guest "$desktop" windows OrangeDrink) && lists_panel "$read"; }
 extension_runs() { guest pgrep -f OrangeDrinkWidgets.appex; }
 launched() { logged appDelegate 'launch finished'; }
-# How many lines hold <text>. Absent is a count of 0, and a read that fails stops the run.
+# How many lines hold <text>. Absent is a count of 0, and a read that fails is a failure, never a count.
 lines() { local read; read=$(log_lines appDelegate) || return; awk -v text="$1" 'index($0, text) { n++ } END { print n + 0 }' <<<"$read"; }
 more_lines() { [ "$(lines "$1")" -ge "$2" ]; }
 
 # Runs <click...>, waits for <count> more lines naming <kind>, and reads the panel. A line is written once the panel has been
-# told, but a panel on its way out is still listed then, so the panel has to be there a second later too.
+# told, but a panel on its way out is still listed then, so the panel has to be there a second later too, without Settings.
 expect_click() {
-  local kind=$1 count=$2 line="widget click by user activity: $1" before; shift 2
+  local kind=$1 count=$2 line="widget click by user activity: $1" before windows; shift 2
   before=$(lines "$line")
   guest "$desktop" "$@"
   wait_for "no log line for $kind after: $*" 30 more_lines "$line" "$((before + count))"
   wait_for "the panel is not in the window list after: $*" 10 panel_open
   sleep 1
-  panel_open || fail "the panel did not stay open after: $*"
+  windows=$(guest "$desktop" windows OrangeDrink)
+  lists_panel "$windows" || fail "the panel did not stay open after: $*"
+  ! lists_settings "$windows" || fail "Settings opened after: $*"
   say "$kind: $*: the click arrived as a user activity and the panel is open"
 }
 
@@ -78,7 +81,6 @@ expect_click MacBattery 2 double-click $mac_battery 120
 quit() { guest pkill -x OrangeDrink; wait_for "the app did not quit" 30 stopped; }
 quit
 expect_click MacBattery 1 click $mac_battery
-[ -n "$(pids)" ] || fail "the click did not launch the app"
 say "quit: a click launched the app"
 quit
 expect_click MacBattery 2 double-click $mac_battery 120
