@@ -18,7 +18,7 @@ struct DeviceEntity: AppEntity {
 }
 
 struct DeviceQuery: EntityQuery {
-    /// A device that is not connected resolves too, so its widget keeps its choice and says "Not connected".
+    /// A device that is not connected resolves too, so a widget keeps its choice while the device is away.
     func entities(for identifiers: [String]) async throws -> [DeviceEntity] {
         WidgetDevices.resolve(identifiers, in: Self.shelf()).map { address, device in
             device.map(DeviceEntity.init) ?? DeviceEntity(id: address, name: "Unavailable device")

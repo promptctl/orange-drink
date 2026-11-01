@@ -276,7 +276,7 @@ extension WidgetDevices {
     }
 
     /// One result per id asked for, present or not: a chosen device that has disconnected still resolves
-    /// (to nil), so its widget draws "Not connected" instead of losing its choice.
+    /// (to nil), so a widget keeps its choice while the device is away.
     static func resolve(_ addresses: [String], in shelf: Shelved<WidgetDevices>) -> [(address: String, device: WidgetDevice?)] {
         let connected = choices(in: shelf)
         return addresses.map { address in (address, connected.first { $0.address == address }) }
