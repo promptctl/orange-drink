@@ -33,8 +33,16 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     /// The reference's other three rings: phone, wireless arcs, tablet.
     static let three = [device("AA", 95, kind: .phone), device("BB", 54), device("CC", 40, kind: .tablet)]
 
-    static func entry(_ mac: MacBattery, _ devices: [WidgetDevice], style: WidgetStyle = .rings) -> AllBatteriesEntry {
-        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.connected(devices))), style: style)
+    /// [LAW:one-source-of-truth] Through an intent, the one thing that makes settings, so a test states only what it changes.
+    static func settings(style: WidgetStyle = .rings, _ set: (AllBatteriesIntent) -> Void = { _ in }) -> AllBatteriesSettings {
+        let intent = AllBatteriesIntent()
+        intent.style = style
+        set(intent)
+        return AllBatteriesSettings(intent)
+    }
+
+    static func entry(_ mac: MacBattery, _ devices: [WidgetDevice], style: WidgetStyle = .rings, _ set: (AllBatteriesIntent) -> Void = { _ in }) -> AllBatteriesEntry {
+        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.connected(devices))), settings: settings(style: style, set))
     }
 
     static func view(_ entry: AllBatteriesEntry, _ family: WidgetFamily = .systemSmall) -> AllBatteriesView {
@@ -49,7 +57,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     // MARK: the list
 
     @Test func theMacComesFirstThenTheDevicesInThePanelsRanking() {
-        #expect(AllBatteries(mac: Self.charging, devices: .connected(Self.three)) == .listed([
+        #expect(AllBatteries(mac: Self.charging, devices: .connected(Self.three), settings: Self.settings()) == .listed([
             WidgetBattery(glyph: "laptopcomputer", level: BatteryLevel(percent: 80, approximate: false), charging: true),
             WidgetBattery(glyph: "iphone", level: BatteryLevel(percent: 95, approximate: false), charging: false),
             WidgetBattery(glyph: "dot.radiowaves.left.and.right", level: BatteryLevel(percent: 54, approximate: false), charging: false),
@@ -59,12 +67,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     @Test func aMacWithNoBatteryIsNotListedAndOneWithNoReadingIsListedEmpty() {
         let devices = [Self.device("AA", 95, approximate: true)]
-        #expect(AllBatteries(mac: .noBattery, devices: .connected(devices)) == .listed([WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .noBattery, devices: .connected(devices), settings: Self.settings()) == .listed([WidgetBattery(devices[0])]))
         let waiting = WidgetBattery(glyph: "laptopcomputer", level: nil, charging: false)
-        #expect(AllBatteries(mac: .waiting, devices: .connected(devices)) == .listed([waiting, WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .waiting, devices: .connected(devices), settings: Self.settings()) == .listed([waiting, WidgetBattery(devices[0])]))
         let stopped = WidgetBattery(glyph: "exclamationmark.triangle", level: nil, charging: false)
-        #expect(AllBatteries(mac: .ended, devices: .connected(devices)) == .listed([stopped, WidgetBattery(devices[0])]))
-        #expect(AllBatteries(mac: .ended, devices: .connected([])) == .listed([stopped]))
+        #expect(AllBatteries(mac: .ended, devices: .connected(devices), settings: Self.settings()) == .listed([stopped, WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .ended, devices: .connected([]), settings: Self.settings()) == .listed([stopped]))
         #expect(WidgetBattery(devices[0]).level == BatteryLevel(percent: 95, approximate: true))
     }
 
@@ -165,7 +173,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     @Test func whatEachStateSays() throws {
         func open(_ mac: Result<Shelved<MacBattery>, any Error>, _ devices: Result<Shelved<WidgetDevices>, any Error>) throws {
             for style in WidgetStyle.allCases {
-                #expect(try Self.texts(AllBatteriesEntry(date: .now, mac: mac, devices: devices, style: style)) == ["Open Orange Drink"])
+                #expect(try Self.texts(AllBatteriesEntry(date: .now, mac: mac, devices: devices, settings: Self.settings(style: style))) == ["Open Orange Drink"])
             }
         }
         let running = Result<Shelved<WidgetDevices>, any Error>.success(.running(.connected(Self.three)))
@@ -175,7 +183,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         try open(.success(.running(Self.charging)), .failure(ShelfError.noGroupEntitlement))
 
         for style in WidgetStyle.allCases {
-            #expect(try Self.texts(Self.entry(.noBattery, [], style: style)) == ["No batteries"])
+            #expect(try Self.texts(Self.entry(.noBattery, [], style: style)) == ["No device batteries"])
         }
         #expect(try Self.texts(Self.entry(.noBattery, Self.three)) == ["95%", "54%", "40%"])
         // A cell has no room for Mac Battery's sentence, and a ring that stopped keeps the rings beside it on
@@ -327,7 +335,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
         _ = Self.configured(style, in: shelf, log: Logger(subsystem: IOKitBattery.logSubsystem, category: category))
-        let line = "widget style \(style.rawValue)"
+        let line = "widget style \(style.rawValue) names false mac true appearance color"
         #expect(try await log.logged(line))
         #expect(try log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
     }
@@ -335,6 +343,138 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     @Test func aWidgetWithNoSavedStyleDrawsRingsAndASavedStyleKeepsItsName() {
         #expect(AllBatteriesIntent().style == .rings)
         #expect(WidgetStyle.allCases.map(\.rawValue) == ["rings", "list", "bars"])
+    }
+
+    @Test func anIntentDefaultsToNoNamesTheMacAndColorAndASavedAppearanceKeepsItsName() {
+        let intent = AllBatteriesIntent()
+        #expect(!intent.showNames)
+        #expect(intent.includeMac)
+        #expect(intent.appearance == .color)
+        #expect(WidgetAppearance.allCases.map(\.rawValue) == ["color", "monochrome"])
+    }
+
+    // MARK: the options
+
+    static func device(named name: String, _ percent: Int = 54, kind: DeviceKind = .accessory) -> WidgetDevice {
+        WidgetDevice(address: name, name: name, kind: kind, level: BatteryLevel(percent: percent, approximate: false))
+    }
+
+    static let named = [device(named: "iPhone", 95, kind: .phone), device(named: "AirPods")]
+
+    @Test(arguments: WidgetStyle.allCases, WidgetFamilies.allBatteries) func showDeviceNamesPutsEachNameWithItsLevel(style: WidgetStyle, family: WidgetFamily) throws {
+        let shown = try Self.texts(Self.entry(Self.charging, Self.named, style: style) { $0.showNames = true }, family)
+        let cells = stride(from: 0, to: shown.count, by: 2).map { Set(shown[$0..<min($0 + 2, shown.count)]) }
+        #expect(cells == [["80%", MacBattery.name], ["95%", "iPhone"], ["54%", "AirPods"]])
+        #expect(try Self.texts(Self.entry(Self.charging, Self.named, style: style), family) == ["80%", "95%", "54%"])
+    }
+
+    @Test(arguments: WidgetStyle.allCases) func includeThisMacOffLeavesOnlyTheDevices(style: WidgetStyle) throws {
+        #expect(try Self.texts(Self.entry(Self.charging, Self.named, style: style) { $0.includeMac = false }) == ["95%", "54%"])
+        let named = Self.entry(Self.charging, Self.named, style: style) { $0.includeMac = false; $0.showNames = true }
+        #expect(try !Self.texts(named).contains(MacBattery.name))
+    }
+
+    @Test(arguments: UnreadDevices.allCases) func includeThisMacOffDropsTheMacFromBesideAReason(reason: UnreadDevices) {
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unread(mac: nil, reason))
+    }
+
+    @Test(arguments: UnreadDevices.allCases) func theMacBesideAReasonIsDrawnByTheOptions(reason: UnreadDevices) {
+        let level = BatteryLevel(percent: 80, approximate: false)
+        let mac = WidgetBattery(glyph: MacBattery.glyph, level: level, charging: true, name: MacBattery.name, appearance: .monochrome)
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unread(mac: mac, reason))
+    }
+
+    @Test(arguments: WidgetStyle.allCases) func monochromeDrawsNoGreen(style: WidgetStyle) throws {
+        #expect(try Self.pixels(Self.entry(Self.charging, Self.three, style: style)).contains(Self.isGreen))
+        #expect(try !Self.pixels(Self.entry(Self.charging, Self.three, style: style) { $0.appearance = .monochrome }).contains(Self.isGreen))
+    }
+
+    /// With no green, the bolt is all that tells a charging battery from one that is not.
+    @Test(arguments: WidgetStyle.allCases) func monochromeStillShowsCharging(style: WidgetStyle) throws {
+        func drawn(charging: Bool) throws -> Data {
+            try Self.bytes(Self.entry(.level(percent: 80, charging: charging), [], style: style) { $0.appearance = .monochrome })
+        }
+        #expect(try drawn(charging: true) != drawn(charging: false))
+    }
+
+    /// One shelf drawn by two placed widgets: defaults draw what a widget drew before these options, and each option moves it.
+    @Test func eachPlacedWidgetDrawsItsOwnOptionsFromTheSameLevels() throws {
+        let shelf = try Self.filledShelf()
+        defer { try? FileManager.default.removeItem(at: shelf) }
+        func entry(_ set: (AllBatteriesIntent) -> Void = { _ in }) -> AllBatteriesEntry {
+            let intent = AllBatteriesIntent()
+            set(intent)
+            return AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: intent)
+        }
+        let defaults = try Self.bytes(entry())
+        #expect(try Self.texts(entry()) == ["80%", "95%", "54%", "40%"])
+        #expect(try Self.pixels(entry()).contains(Self.isGreen))
+        let changes: [(AllBatteriesIntent) -> Void] = [{ $0.showNames = true }, { $0.includeMac = false }, { $0.appearance = .monochrome }]
+        for change in changes { #expect(try Self.bytes(entry(change)) != defaults) }
+        let flipped = entry { $0.showNames = true; $0.includeMac = false; $0.appearance = .monochrome }
+        #expect(try Self.texts(flipped).contains("Device AA"))
+        #expect(try !Self.texts(flipped).contains("80%"))
+        #expect(try !Self.pixels(flipped).contains(Self.isGreen))
+        #expect(try Self.bytes(entry()) == defaults, "the flipped widget left the default's alone")
+    }
+
+    /// Clipped ink draws as if it fit, so a full widget of long names must leave its first and last lines clear.
+    @Test(arguments: WidgetStyle.allCases, WidgetFamilies.allBatteries) func namesFitTheirCellsAtEverySize(style: WidgetStyle, family: WidgetFamily) throws {
+        let devices = (1..<40).map { Self.device(named: "A device with quite a long name \($0)") }
+        let image = try Self.image(Self.entry(Self.charging, devices, style: style) { $0.showNames = true }, family, content: Self.content(family))
+        let edge = { (y: Int) in try WidgetPixels(#require(image.cropping(to: CGRect(x: 0, y: y, width: image.width, height: 1)))).top }
+        #expect(try edge(0) == nil, "the top line")
+        #expect(try edge(image.height - 1) == nil, "the bottom line")
+    }
+
+    /// The name takes the room, not the percentage: however long it is, the percentage is where a short one leaves it.
+    @Test(arguments: [WidgetStyle.list, .bars], WidgetFamilies.allBatteries) func aNameLeavesThePercentageInItsColumn(style: WidgetStyle, family: WidgetFamily) throws {
+        func column(_ name: String) throws -> Data {
+            let image = try Self.image(Self.entry(.noBattery, [Self.device(named: name)], style: style) { $0.showNames = true }, family, content: Self.content(family))
+            let cell = try BatteryGrid(family, style).cell(in: Self.content(family)).width * 2
+            let width = (RowPercentage.width + 4) * 2
+            let strip = try #require(image.cropping(to: CGRect(x: cell - width, y: 0, width: width, height: CGFloat(image.height))))
+            #expect(WidgetPixels(strip).top != nil, "the percentage reached the column")
+            return try #require(NSBitmapImageRep(cgImage: strip).representation(using: .png, properties: [:]))
+        }
+        #expect(try column("A") == column("A device with quite a long name"))
+    }
+
+    /// A device's name usually starts with its owner's, and at Small a row has room for a few characters of it.
+    @Test(arguments: [WidgetStyle.list, .bars]) func twoNamesThatStartAlikeStayApartAtSmall(style: WidgetStyle) throws {
+        func drawn(_ name: String) throws -> Data {
+            try Self.bytes(Self.entry(.noBattery, [Self.device(named: name)], style: style) { $0.showNames = true })
+        }
+        #expect(try drawn("Brandon's AirPods") != drawn("Brandon's iPhone"))
+    }
+
+    /// A name's room comes out of the ring: the percentage stays the size it is with no name, and the name is a caption.
+    @Test func aNamedRingKeepsItsPercentageAndDrawsItsNameAsACaption() throws {
+        func bands(names: Bool) throws -> [Int] {
+            try WidgetPixels(Self.image(Self.entry(.noBattery, [Self.device(named: "HH")]) { $0.showNames = names }, .systemSmall, content: Self.content(.systemSmall))).bands
+        }
+        let plain = try bands(names: false), named = try bands(names: true)
+        let caption = try WidgetPixels(widgetImage(Text("HH").font(.caption), size: Self.content(.systemSmall), scheme: .dark, scale: 2)).bands
+        try #require(plain.count == 2 && named.count == 3, "ring and percentage, then a name")
+        #expect(abs(named[1] - plain[1]) <= 1, "the percentage")
+        #expect(abs(named[2] - caption[0]) <= 1, "the name")
+    }
+
+    /// A full widget of long names at each size: its middle is a line between cells, and two names must leave it clear to read as two.
+    @Test(arguments: WidgetFamilies.allBatteries) func twoLongRingNamesStayApart(family: WidgetFamily) throws {
+        let devices = (1..<40).map { Self.device(named: "A device with quite a long name \($0)") }
+        let image = try Self.image(Self.entry(.noBattery, devices) { $0.showNames = true }, family, content: Self.content(family))
+        let middle = try #require(image.cropping(to: CGRect(x: image.width / 2 - 3, y: 0, width: 6, height: image.height)))
+        #expect(WidgetPixels(middle).top == nil)
+    }
+
+    /// At a ring's size the name is the larger text, so it is the fainter.
+    @Test func aNameIsQuieterThanALevel() throws {
+        func solid(_ text: some View) throws -> Bool {
+            try WidgetPixels(widgetImage(text, size: CGSize(width: 63, height: 20), scheme: .dark, scale: 2)).contains { $0.alphaComponent > 0.7 }
+        }
+        #expect(try solid(Text("HH").font(.caption)))
+        #expect(try !solid(BatteryName(name: "HH")))
     }
 
     // MARK: the shelf
@@ -432,6 +572,9 @@ struct WidgetPixels {
 
     /// The first line anything is painted on, and nil when nothing is.
     var top: Int? { (0..<rep.pixelsHigh).first { line($0, contains: Self.isPainted) } }
+
+    /// Each painted band's height, top to bottom, parted by clear lines: in a ring, the ring, its percentage, and its name.
+    var bands: [Int] { (0..<rep.pixelsHigh).map { line($0, contains: Self.isPainted) }.split(separator: false).map(\.count) }
 }
 
 /// [LAW:verifiable-goals] Edit Widget offers what the build extracted into the extension's metadata, and an intent compiled
@@ -472,13 +615,15 @@ struct WidgetIntentMetadataTests {
     static let app = Bundle.main.bundleURL
     static let widgets = app.appending(path: "Contents/PlugIns/OrangeDrinkWidgets.appex")
 
-    @Test func editWidgetOffersTheStyleAndItsThreeCases() throws {
+    @Test func editWidgetOffersEachOptionAndItsCases() throws {
         let metadata = try Self.metadata(of: Self.widgets)
         let parameters = try #require(metadata.actions["AllBatteriesIntent"]).parameters
-        #expect(parameters.map(\.name) == ["style"])
-        #expect(parameters.map(\.valueType.linkEnumeration?.wrapper.identifier) == ["WidgetStyle"])
+        #expect(parameters.map(\.name) == ["style", "showNames", "includeMac", "appearance"])
+        #expect(parameters.map(\.valueType.linkEnumeration?.wrapper.identifier) == ["WidgetStyle", nil, nil, "WidgetAppearance"])
         let style = try #require(metadata.enums.first { $0.identifier == "WidgetStyle" })
         #expect(style.cases.map(\.identifier) == WidgetStyle.allCases.map(\.rawValue))
+        let appearance = try #require(metadata.enums.first { $0.identifier == "WidgetAppearance" })
+        #expect(appearance.cases.map(\.identifier) == WidgetAppearance.allCases.map(\.rawValue))
     }
 
     @Test(arguments: [(app, "AllBatteriesIntent"), (widgets, "AllBatteriesIntent"), (widgets, "SelectDeviceIntent")])
