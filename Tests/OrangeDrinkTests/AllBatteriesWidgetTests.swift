@@ -4,11 +4,17 @@ import SwiftUI
 import Testing
 import ViewInspector
 import WidgetKit
+import os
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is which batteries the widget lists, what it draws for them in each
 // style at each size, and which widgets redraw when the app changes a file, from a shelf in a directory of the test's own.
 let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, height: 354))]
+
+/// The content area of each size: WidgetKit keeps its margin inside a widget.
+let allBatteriesContents = allBatteriesSizes.map { family, size in
+    (family, CGSize(width: size.width - 2 * AllBatteriesWidgetTests.margin, height: size.height - 2 * AllBatteriesWidgetTests.margin))
+}
 
 @MainActor @Suite(.timeLimit(.minutes(1))) final class AllBatteriesWidgetTests {
     /// WidgetKit keeps this margin inside a widget: a rendering is the content area.
@@ -95,8 +101,7 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
 
     /// The four rings of a rendering at Small, in reading order.
     static func cells(_ entry: AllBatteriesEntry) throws -> [RingPixels] {
-        let side = 158 - 2 * margin
-        let image = try image(entry, .systemSmall, content: CGSize(width: side, height: side))
+        let image = try image(entry, .systemSmall, content: content(.systemSmall))
         let cell = image.width / 2
         return try [(0, 0), (1, 0), (0, 1), (1, 1)].map { column, row in
             try RingPixels(#require(image.cropping(to: CGRect(x: column * cell, y: row * cell, width: cell, height: cell))))
@@ -201,10 +206,8 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         #expect(grids.map(\.rows) == [4, 4, 8, 8])
     }
 
-    /// The content area of one size: WidgetKit keeps its margin inside a widget.
     static func content(_ family: WidgetFamily) throws -> CGSize {
-        let size = try #require(allBatteriesSizes.first { $0.0 == family }).1
-        return CGSize(width: size.width - 2 * margin, height: size.height - 2 * margin)
+        try #require(allBatteriesContents.first { $0.0 == family }).1
     }
 
     static func pixels(_ entry: AllBatteriesEntry, _ family: WidgetFamily = .systemSmall) throws -> WidgetPixels {
@@ -236,13 +239,21 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         #expect(row.width < 40, "a run \(row.width) px wide")
     }
 
+    /// Past the row's glyph and percentage a cell is empty, or a percentage would read with the next column's glyph.
+    @Test(arguments: WidgetFamilies.allBatteries) func aListRowKeepsItsPercentageBesideItsGlyph(family: WidgetFamily) throws {
+        let image = try Self.image(Self.entry(Self.onBattery, [], style: .list), family, content: Self.content(family))
+        let row = (4 + 20 + 4 + Int(RowPercentage.width)) * 2
+        let rest = try #require(image.cropping(to: CGRect(x: row, y: 0, width: image.width - row, height: image.height)))
+        #expect(WidgetPixels(rest).top == nil)
+    }
+
     /// "100%" leaves the percentage column's leading edge clear of digits, so green there is the bolt alone.
-    @Test(arguments: [(true, true), (false, false)]) func aChargingRowHasItsBoltBesideItsPercentage(charging: Bool, bolt: Bool) throws {
+    @Test(arguments: [true, false]) func aChargingRowHasItsBoltBesideItsPercentage(charging: Bool) throws {
         let entry = Self.entry(.level(percent: 100, charging: charging), [], style: .bars)
         let image = try Self.image(entry, .systemSmall, content: Self.content(.systemSmall))
         let column = try (Self.content(.systemSmall).width - 4 - RowPercentage.width) * 2
         let strip = try #require(image.cropping(to: CGRect(x: column, y: 0, width: 8 * 2, height: CGFloat(image.height))))
-        #expect(WidgetPixels(strip).contains(Self.isGreen) == bolt)
+        #expect(WidgetPixels(strip).contains(Self.isGreen) == charging)
     }
 
     @Test func theLongestPercentageFitsItsColumn() throws {
@@ -251,14 +262,15 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         #expect(try #require(needed.nsImage).size.width <= RowPercentage.width)
     }
 
-    @Test func barsKeepToTheirColumnsHoweverFewBatteriesThereAre() throws {
-        let start = { (devices: [WidgetDevice], row: Int, rows: Int) in
-            try Self.pixels(Self.entry(.noBattery, devices, style: .bars), .systemMedium).row(row, of: rows).longestRun.start
+    /// A row is read in the band the grid gives it, so a bar anywhere else starts somewhere else.
+    @Test func barsKeepTheirPlacesHoweverFewBatteriesThereAre() throws {
+        let start = { (devices: [WidgetDevice], row: Int) in
+            try Self.pixels(Self.entry(.noBattery, devices, style: .bars), .systemMedium).row(row, of: 4).longestRun.start
         }
-        let first = try start(Array(Self.twenty.prefix(3)), 0, 2)
-        #expect(try start(Array(Self.twenty.prefix(3)), 1, 2) == first, "a short last row")
-        #expect(try start(Array(Self.twenty.prefix(1)), 0, 1) == first, "a lone battery")
-        #expect(try start(Self.twenty, 0, 4) == first, "a full widget")
+        let first = try start(Self.twenty, 0)
+        #expect(first > 0)
+        #expect(try start(Array(Self.twenty.prefix(3)), 1) == first, "a short last row")
+        #expect(try start(Array(Self.twenty.prefix(1)), 0) == first, "a lone battery")
     }
 
     // MARK: the settings
@@ -276,10 +288,10 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
         return shelf
     }
 
-    static func configured(_ style: WidgetStyle, in shelf: URL) -> AllBatteriesEntry {
+    static func configured(_ style: WidgetStyle, in shelf: URL, log: Logger = ShelfLog.log) -> AllBatteriesEntry {
         let configuration = AllBatteriesIntent()
         configuration.style = style
-        return AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: configuration)
+        return AllBatteriesEntry(date: .now, directory: .success(shelf), log: log, configuration: configuration)
     }
 
     @Test(arguments: WidgetStyle.allCases) func aWidgetsStyleSettingGivesAnEntryDrawnInThatStyle(style: WidgetStyle) throws {
@@ -293,13 +305,15 @@ let allBatteriesSizes = widgetSizes + [(.systemExtraLarge, CGSize(width: 715, he
     }
 
     @Test(arguments: [WidgetStyle.list, .bars]) func eachTimelineLogsItsStyle(style: WidgetStyle) async throws {
-        let log = try BatteryLog(category: ShelfLog.category)
+        // A category of the test's own, because the host app publishes into the shelf's.
+        let category = "style-\(UUID().uuidString)"
+        let log = try BatteryLog(category: category)
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
-        _ = Self.configured(style, in: shelf)
-        // The host app publishes into the same log category; the shelf's path makes the line this test's own.
-        let directory = Result<URL, any Error>.success(shelf)
-        #expect(try await log.logged("widget style \(style.rawValue) from \(String(describing: directory))"))
+        _ = Self.configured(style, in: shelf, log: Logger(subsystem: IOKitBattery.logSubsystem, category: category))
+        let line = "widget style \(style.rawValue)"
+        #expect(try await log.logged(line))
+        #expect(try log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
     }
 
     @Test func aWidgetWithNoSavedStyleDrawsRingsAndASavedStyleKeepsItsName() {
@@ -364,11 +378,10 @@ struct WidgetPixels {
 
     private func colour(_ x: Int, _ y: Int) -> NSColor? { rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) }
 
-    /// One of a block of equal rows, centred in the rendering as a widget centres them.
+    /// One band of a rendering cut into equal rows from the top, as a grid cuts a widget.
     func row(_ index: Int, of rows: Int) -> WidgetPixels {
-        let height = rep.pixelsHigh / 4
-        let top = rep.pixelsHigh / 2 - rows * height / 2 + index * height
-        return WidgetPixels(rep.cgImage!.cropping(to: CGRect(x: 0, y: top, width: rep.pixelsWide, height: height))!)
+        let height = rep.pixelsHigh / rows
+        return WidgetPixels(rep.cgImage!.cropping(to: CGRect(x: 0, y: index * height, width: rep.pixelsWide, height: height))!)
     }
 
     /// The longest unbroken run on any line: in a row with a bar, the bar's track.
@@ -380,7 +393,7 @@ struct WidgetPixels {
         var longest = Run(start: 0, colours: [])
         var current: [NSColor] = []
         for x in 0...rep.pixelsWide {
-            if x < rep.pixelsWide, let colour = colour(x, y), colour.alphaComponent > 0.05 {
+            if x < rep.pixelsWide, let colour = colour(x, y), Self.isPainted(colour) {
                 current.append(colour)
             } else {
                 if current.count > longest.width { longest = Run(start: x - current.count, colours: current) }
@@ -390,10 +403,19 @@ struct WidgetPixels {
         return longest
     }
 
+    private static func isPainted(_ colour: NSColor) -> Bool { colour.alphaComponent > 0.05 }
+
+    private func line(_ y: Int, contains matches: (NSColor) -> Bool) -> Bool {
+        (0..<rep.pixelsWide).contains { x in colour(x, y).map(matches) ?? false }
+    }
+
     /// Whether the colour is anywhere in the rendering.
     func contains(_ matches: (NSColor) -> Bool) -> Bool {
-        (0..<rep.pixelsHigh).contains { y in (0..<rep.pixelsWide).contains { x in colour(x, y).map(matches) ?? false } }
+        (0..<rep.pixelsHigh).contains { line($0, contains: matches) }
     }
+
+    /// The first line anything is painted on, and nil when nothing is.
+    var top: Int? { (0..<rep.pixelsHigh).first { line($0, contains: Self.isPainted) } }
 }
 
 /// [LAW:verifiable-goals] Edit Widget offers what the build extracted into the extension's metadata, and an intent compiled

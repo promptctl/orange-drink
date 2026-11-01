@@ -88,7 +88,9 @@ struct RowPercentage: View {
     }
 }
 
-/// One battery on one line, with its glyph and percentage either side of whatever a style puts between them.
+/// One battery on one line, starting at its cell's leading edge: its glyph and percentage, either side of whatever a
+/// style puts between them. With nothing between them they stay together, so in a table of columns a percentage reads
+/// with its own glyph and not the next column's.
 struct BatteryRow<Middle: View>: View {
     let battery: WidgetBattery
     @ViewBuilder let middle: Middle
@@ -100,6 +102,7 @@ struct BatteryRow<Middle: View>: View {
             RowPercentage(battery: battery)
         }
         .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -111,7 +114,7 @@ struct BatteryCell: View {
     var body: some View {
         switch style {
         case .rings: BatteryRing(battery: battery)
-        case .list: BatteryRow(battery: battery) { Spacer(minLength: 0) }
+        case .list: BatteryRow(battery: battery) { EmptyView() }
         case .bars: BatteryRow(battery: battery) { LevelBar(fraction: BatteryLevel.fraction(battery.level), tint: battery.tint) }
         }
     }
@@ -250,7 +253,7 @@ extension AllBatteriesEntry {
     /// What the widget reads: both of the shelf's files, each logged, in the style its settings hold.
     init(date: Date, directory: Result<URL, any Error>, log: Logger, configuration: AllBatteriesIntent) {
         self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log), style: configuration.style)
-        log.info("widget style \(configuration.style.rawValue, privacy: .public) from \(String(describing: directory), privacy: .public)")
+        log.notice("widget style \(configuration.style.rawValue, privacy: .public)")
     }
 }
 
@@ -259,8 +262,8 @@ struct BatteryGrid {
     let style: WidgetStyle
     let columns: Int
     let rows: Int
-    /// Where a block with room to spare sits, and where a short row sits within it. Rows are a table, so they
-    /// keep to their columns.
+    /// Where a block with room to spare sits, and where a short row sits within it. Rows are a table, so each
+    /// keeps its place however few there are.
     let alignment: Alignment
 
     init(_ family: WidgetFamily, _ style: WidgetStyle) {
@@ -275,7 +278,7 @@ struct BatteryGrid {
         // same batteries in every style, and changing style never changes which batteries a widget shows.
         (columns, rows, alignment) = switch style {
         case .rings: (ringColumns, ringRows, .center)
-        case .list, .bars: (ringColumns / 2, ringRows * 2, .leading)
+        case .list, .bars: (ringColumns / 2, ringRows * 2, .topLeading)
         }
     }
 
@@ -325,7 +328,8 @@ struct BatteryAndReason: View {
             let cell = grid.cell(in: space.size)
             VStack(alignment: grid.alignment.horizontal, spacing: 0) {
                 BatteryCell(battery: mac, style: grid.style).frame(width: cell.width, height: cell.height)
-                Caption(text: reason.text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                // At least a row: a ring's stays where the grid puts it, and a row's is too short for a sentence.
+                Caption(text: reason.text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).frame(minHeight: cell.height)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: grid.alignment)
         }
