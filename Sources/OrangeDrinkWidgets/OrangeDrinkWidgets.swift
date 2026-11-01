@@ -1,9 +1,7 @@
 import SwiftUI
 import WidgetKit
-import os
 
-// [LAW:one-source-of-truth] project.yml fills both keys; absent, the extension is a broken build.
-let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "widgets")
+// [LAW:one-source-of-truth] project.yml fills the key; absent, the extension is a broken build.
 let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as! String
 
 /// Hands a view the family WidgetKit places it at.

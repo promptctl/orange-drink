@@ -13,7 +13,7 @@ import Observation
     /// [LAW:composability] The model mirrors whatever events it is given: the app hands it
     /// `BluetoothDevices.events()`, a test a recorded stream with no Bluetooth in the room.
     /// `onChange` is told of the list after every event and once more when the stream ends, so what acts on it (device
-    /// alerts) never watches `list`, and what mirrors it (the widgets' shelf) ends with it rather than keep drawing the last levels.
+    /// alerts) sees every list and never watches `list`.
     init<Events: AsyncSequence & Sendable>(
         events: Events, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) where Events.Element == DeviceEvent {

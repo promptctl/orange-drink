@@ -13,7 +13,6 @@ struct OrangeDrinkApp: App {
     @State private var battery: BatteryModel
     @State private var devices: DevicesModel
     @State private var deviceSettings: DeviceSettingsModel
-    private let pinnedItems: PinnedItemsController
     private let shortcuts: ShortcutsController
     @State private var alerts: AlertCenter
     @State private var appearance: NotificationAppearanceModel
@@ -72,11 +71,10 @@ struct OrangeDrinkApp: App {
         let reload: @MainActor (WidgetKind) -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: $0.rawValue) }
         let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf, reload: reload)
         let deviceWidgets = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf, reload: reload)
-        let devices = DevicesModel(events: BluetoothDevices.appEvents(), shelf: deviceWidgets, onChange: {
+        let devices = DevicesModel(events: BluetoothDevices.appEvents(), shelf: deviceWidgets, settings: deviceSettings, pinnedItems: PinnedItemsController(), onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
         })
         _devices = State(initialValue: devices)
-        pinnedItems = PinnedItemsController()
         // [LAW:no-silent-failure] A shortcut the system will not give us is logged, and the app runs without it.
         let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
         let hotKeys: any HotKeys
@@ -86,7 +84,6 @@ struct OrangeDrinkApp: App {
         } catch { fatalError("CarbonHotKeys.shared() throws only HotKeyError: \(error)") }
         shortcuts = ShortcutsController(model: shortcutsModel, hotKeys: hotKeys, panel: StatusItemPanel(item: .live))
         do { try shortcuts.start() } catch { log.error("no global shortcut to open the panel: \(error)") }
-        pinnedItems.follow(devices: devices, settings: deviceSettings)
         _deviceSettings = State(initialValue: deviceSettings)
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)

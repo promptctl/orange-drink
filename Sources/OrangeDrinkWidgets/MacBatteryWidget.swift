@@ -18,7 +18,7 @@ struct MacBatteryProvider: TimelineProvider {
     }
 
     private func entry() -> MacBatteryEntry {
-        MacBatteryEntry(date: .now, battery: WidgetShelf.load(.macBattery, from: Result { try WidgetShelf.groupContainer() }, log: log))
+        MacBatteryEntry(date: .now, battery: WidgetShelf.load(.macBattery, from: Result { try WidgetShelf.groupContainer() }, log: ShelfLog.log))
     }
 }
 

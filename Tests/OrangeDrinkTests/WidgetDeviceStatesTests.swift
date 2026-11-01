@@ -47,7 +47,7 @@ private let unreadStates = [
         let (changed, signal) = AsyncStream.makeStream(of: Void.self)
         var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events, shelf: publisher, onChange: { _ in signal.yield() })
+        let model = try DevicesModel(events: events, shelf: publisher, onChange: { _ in signal.yield() })
         for event in state.events {
             send.yield(event)
             _ = await next.next()
@@ -56,6 +56,8 @@ private let unreadStates = [
             send.finish()
             _ = await next.next()
         }
+        let reached = Shelved.running(WidgetDevices(model.list, pinned: []))
+        #expect(await eventually { (try? WidgetShelf.read(.devices, from: shelf).get()) == reached })
         return model
     }
 
@@ -130,12 +132,21 @@ private let unreadStates = [
 
     // MARK: the drawing
 
-    static func entry(_ reason: UnreadDevices, mac: MacBattery, style: WidgetStyle = .rings) -> AllBatteriesEntry {
-        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.unread(reason))), settings: AllBatteriesWidgetTests.settings(style: style))
+    /// Every reason a widget can give, each reached the way a placed widget reaches it.
+    static let reasons = UnreadDevices.allCases.map(NoDevicesListed.unread) + [.noneChosen, .nonePinned, .noneReporting]
+
+    static func entry(_ reason: NoDevicesListed, mac: MacBattery, style: WidgetStyle = .rings) -> AllBatteriesEntry {
+        let (devices, choice): (WidgetDevices, WidgetDeviceChoice) = switch reason {
+        case .unread(let unread): (.unread(unread), .automatic)
+        case .noneChosen: (.connected(AllBatteriesWidgetTests.three, pinned: []), .custom)
+        case .nonePinned: (.connected(AllBatteriesWidgetTests.three, pinned: []), .sameAsMenuBar)
+        case .noneReporting: (.connected(AllBatteriesWidgetTests.three, pinned: ["gone"]), .sameAsMenuBar)
+        }
+        return AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(devices)), settings: AllBatteriesWidgetTests.settings(style: style) { $0.devices = choice })
     }
 
     @Test(arguments: WidgetStyle.allCases) func everyStyleSaysWhyAndKeepsTheMacBesideIt(style: WidgetStyle) throws {
-        for reason in UnreadDevices.allCases {
+        for reason in Self.reasons {
             #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .noBattery, style: style)) == [reason.text])
             #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .level(percent: 79, charging: false), style: style)) == ["79%", reason.text])
         }
@@ -148,7 +159,7 @@ private let unreadStates = [
         let mac = AllBatteriesWidgetTests.onBattery
         let beside = try start(AllBatteriesWidgetTests.entry(mac, AllBatteriesWidgetTests.three, style: .bars))
         #expect(beside > 0)
-        for reason in UnreadDevices.allCases {
+        for reason in Self.reasons {
             #expect(try start(Self.entry(reason, mac: mac, style: .bars)) == beside, "\(reason)")
         }
     }
@@ -159,7 +170,7 @@ private let unreadStates = [
         let mac = AllBatteriesWidgetTests.onBattery
         let twoRows = Array(AllBatteriesWidgetTests.twenty.prefix(2 * BatteryGrid(family, .rings).columns - 1))
         let beside = try top(AllBatteriesWidgetTests.entry(mac, twoRows))
-        for reason in UnreadDevices.allCases {
+        for reason in Self.reasons {
             #expect(try top(Self.entry(reason, mac: mac)) == beside, "\(reason)")
         }
     }
@@ -169,7 +180,7 @@ private let unreadStates = [
             try RingPixels(widgetImage(AllBatteriesWidgetTests.view(entry, family), size: content, scheme: .dark, scale: 2)).across
         }
         let beside = try across(AllBatteriesWidgetTests.entry(AllBatteriesWidgetTests.onBattery, AllBatteriesWidgetTests.three))
-        for reason in UnreadDevices.allCases {
+        for reason in Self.reasons {
             let alone = try across(Self.entry(reason, mac: AllBatteriesWidgetTests.onBattery))
             #expect(abs(alone - beside) < 2, "\(alone) px beside \(reason), \(beside) px beside devices")
         }
@@ -179,7 +190,7 @@ private let unreadStates = [
     /// takes the height it needs, and that has to be no more than the Mac's cell leaves.
     @Test(arguments: WidgetStyle.allCases, allBatteriesContents) func everyReasonFitsBeneathTheMac(style: WidgetStyle, size: (family: WidgetFamily, content: CGSize)) throws {
         let room = size.content.height - BatteryGrid(size.family, style).cell(in: size.content).height
-        for reason in UnreadDevices.allCases {
+        for reason in Self.reasons {
             let needed = ImageRenderer(content: Caption(text: reason.text).frame(width: size.content.width).fixedSize(horizontal: false, vertical: true))
             let image = try #require(needed.nsImage)
             #expect(image.size.height <= room, "\(reason) needs \(image.size.height) pt of \(room) pt")

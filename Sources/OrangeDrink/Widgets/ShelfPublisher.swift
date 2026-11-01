@@ -1,11 +1,5 @@
 import Foundation
-import os
-
-/// Where the shelf publishers log. Not generic, so every widget's publisher shares the one category.
-enum ShelfLog {
-    static let category = "widgets"
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: category)
-}
+import Observation
 
 extension MacBattery {
     /// What the widget draws for the model's state. [LAW:one-source-of-truth] The widget derives from
@@ -28,23 +22,34 @@ extension WidgetDevice {
 
 extension WidgetDevices {
     /// What the widgets draw for the list. [LAW:one-source-of-truth] Derived from the one ranking the panel
-    /// reads, so a widget shows the level the panel shows, and from the list's one word on whether it was read.
-    init(_ list: DeviceList) {
-        self = list.unread.map(Self.unread) ?? .connected(DeviceRanking.rows(list).map(WidgetDevice.init))
+    /// reads, so a widget shows the level the panel shows, from the list's one word on whether it was read,
+    /// and from the one order the menu bar's items are made in.
+    init(_ list: DeviceList, pinned: PinnedOrder) {
+        self = list.unread.map(Self.unread) ?? .connected(DeviceRanking.rows(list).map(WidgetDevice.init), pinned: WidgetPins(addresses: pinned.ids.map(\.address)))
     }
 }
 
 extension DevicesModel {
-    /// A model whose every list reaches the shelf, the one it starts from included: a file a crashed run left behind
-    /// is not drawn as current while the first Bluetooth sweep is still out.
+    /// The one wiring of the list and the pins to what mirrors them: the pinned menu bar items and the widgets' shelf. The
+    /// list it starts from reaches the shelf before this returns, so a file a crashed run left behind is not drawn as current
+    /// while the first Bluetooth sweep is still out.
     convenience init<Events: AsyncSequence & Sendable>(
-        events: Events, shelf: ShelfPublisher<WidgetDevices>, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
+        events: Events, shelf: ShelfPublisher<WidgetDevices>, settings: DeviceSettingsModel, pinnedItems: PinnedItemsController,
+        onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) where Events.Element == DeviceEvent {
-        shelf.publish(WidgetDevices(DeviceList()))
-        self.init(events: events, onChange: {
-            shelf.publish(WidgetDevices($0))
-            onChange($0)
-        })
+        self.init(events: events, onChange: onChange)
+        mirror(to: shelf, settings: settings, pinnedItems: pinnedItems)
+    }
+
+    /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list or the pins, with no timer
+    /// and no polling. A mirror needs only the latest, so changes that land together reach it as one.
+    private func mirror(to shelf: ShelfPublisher<WidgetDevices>, settings: DeviceSettingsModel, pinnedItems: PinnedItemsController) {
+        withObservationTracking {
+            pinnedItems.apply(PinnedItem.items(list, pinned: settings.value.pinned))
+            shelf.publish(WidgetDevices(list, pinned: settings.value.pinned))
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.mirror(to: shelf, settings: settings, pinnedItems: pinnedItems) }
+        }
     }
 }
 
