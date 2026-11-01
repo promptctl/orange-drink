@@ -1,7 +1,7 @@
 import AppKit
 import OSLog
 
-/// The menu bar panel, as the hot key sees it.
+/// The menu bar panel, as the hot key and a click on a widget see it.
 @MainActor protocol Panel {
     var isOpen: Bool { get }
     func open()
@@ -32,19 +32,30 @@ import OSLog
 @MainActor struct StatusItemPanel: Panel {
     private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
 
-    var isOpen: Bool { NSApp.windows.contains { Self.isPanelWindow($0) && $0.isVisible } }
+    /// The running app's panel and its menu bar item, as one seam: a press toggles, whatever the panel is showing.
+    struct Item: Sendable {
+        let panelIsVisible: @MainActor () -> Bool
+        let press: @MainActor () -> Void
+
+        static let live = Item(panelIsVisible: { NSApp.windows.contains { isPanelWindow($0) && $0.isVisible } }, press: click)
+    }
+
+    let item: Item
+
+    var isOpen: Bool { item.panelIsVisible() }
 
     /// [LAW:one-source-of-truth] What the panel's window is, for everything that must tell it from the app's other windows.
     static func isPanelWindow(_ window: NSWindow?) -> Bool {
         window.map { String(describing: type(of: $0)).hasPrefix("MenuBarExtraWindow") } ?? false
     }
 
-    func open() { click() }
-    func close() { click() }
+    // [LAW:single-enforcer] Each says what it leaves true, so no caller has to read the panel first.
+    func open() { if !isOpen { item.press() } }
+    func close() { if isOpen { item.press() } }
 
-    private func click() {
-        guard let button = Self.itemButton() else {
-            Self.log.error("the panel's menu bar item has no button to click")
+    private static func click() {
+        guard let button = itemButton() else {
+            log.error("the panel's menu bar item has no button to click")
             return
         }
         button.performClick(nil)

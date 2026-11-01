@@ -9,7 +9,7 @@ let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as! Strin
 
 @main
 struct OrangeDrinkApp: App {
-    @NSApplicationDelegateAdaptor(TerminationLog.self) private var terminationLog
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var battery: BatteryModel
     @State private var devices: DevicesModel
     @State private var deviceSettings: DeviceSettingsModel
@@ -84,7 +84,7 @@ struct OrangeDrinkApp: App {
             log.error("no global shortcuts: \(error)")
             hotKeys = UnavailableHotKeys(cause: error)
         } catch { fatalError("CarbonHotKeys.shared() throws only HotKeyError: \(error)") }
-        shortcuts = ShortcutsController(model: shortcutsModel, hotKeys: hotKeys, panel: StatusItemPanel())
+        shortcuts = ShortcutsController(model: shortcutsModel, hotKeys: hotKeys, panel: StatusItemPanel(item: .live))
         do { try shortcuts.start() } catch { log.error("no global shortcut to open the panel: \(error)") }
         pinnedItems.follow(devices: devices, settings: deviceSettings)
         _deviceSettings = State(initialValue: deviceSettings)

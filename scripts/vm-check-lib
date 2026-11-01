@@ -1,5 +1,6 @@
 # The throwaway Tart VM the checks that must not touch this Mac's screen run in: scripts/update-check,
-# scripts/login-item-check, scripts/first-launch-check, scripts/battery-notification-check, and scripts/vm-test source
+# scripts/login-item-check, scripts/first-launch-check, scripts/battery-notification-check, scripts/widget-click-check, and
+# scripts/vm-test source
 # this under `set -euo pipefail`, so nothing shows on the Mac running them. A check may set:
 #   image        before sourcing: the Tart image to clone, for a check on another macOS
 #   vm_cleanup   directories to remove however the run ends, beside the scratch directory

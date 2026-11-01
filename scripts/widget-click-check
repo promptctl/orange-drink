@@ -1,0 +1,87 @@
+#!/bin/bash
+# A click on a placed widget on real macOS, inside a throwaway VM with no window, because what macOS delivers for a click is
+# known only from a real one. Places all three widgets and clicks them with synthesized mouse events. After each click it
+# reads two facts itself: the app's log line naming the path the click arrived on, and the panel in the window list. The
+# Bluetooth prompt stays unanswered: it covers no widget, and no click needs it. Run by `make widget-click-check`, once per
+# image.
+#
+#   scripts/widget-click-check <app> <tart image>
+#
+# Exits 0 when every reading holds and 1 naming the first that does not.
+set -euo pipefail
+
+usage='usage: scripts/widget-click-check <app> <tart image>'
+built=$(realpath "${1:?$usage}")
+image=${2:?$usage}
+cd "$(dirname "$0")/.."
+
+. scripts/vm-check-lib
+
+tools=/tmp/tools
+desktop="$tools/desktop"
+on_failure() { log_lines appDelegate >&2; log_lines hotkey >&2; guest "$desktop" windows OrangeDrink >&2; }
+say() { echo "widget-click-check: $image: $*" >&2; }
+
+# The middle of each widget scripts/place-widgets places.
+mac_battery='98 128'
+device_battery='278 128'
+all_batteries='188 308'
+
+# Whether <window list> holds the panel or Settings, each known by its level: NSWindow.Level.popUpMenu and .normal. The app's
+# others sit elsewhere: the menu bar item, which macOS before 26 lists as the app's, at 25, and a pill at 1000.
+lists_panel() { [ -n "$(awk '$1 == 101' <<<"$1")" ]; }
+lists_settings() { [ -n "$(awk '$1 == 0' <<<"$1")" ]; }
+panel_open() { local read; read=$(guest "$desktop" windows OrangeDrink) && lists_panel "$read"; }
+extension_runs() { guest pgrep -f OrangeDrinkWidgets.appex; }
+launched() { logged appDelegate 'launch finished'; }
+# How many lines hold <text>. Absent is a count of 0, and a read that fails is a failure, never a count.
+lines() { local read; read=$(log_lines appDelegate) || return; awk -v text="$1" 'index($0, text) { n++ } END { print n + 0 }' <<<"$read"; }
+more_lines() { [ "$(lines "$1")" -ge "$2" ]; }
+
+# Runs <click...>, waits for <count> more lines naming <kind>, and reads the panel. A line is written once the panel has been
+# told, but a panel on its way out is still listed then, so the panel has to be there a second later too, without Settings.
+expect_click() {
+  local kind=$1 count=$2 line="widget click by user activity: $1" before windows; shift 2
+  before=$(lines "$line")
+  guest "$desktop" "$@"
+  wait_for "no log line for $kind after: $*" 30 more_lines "$line" "$((before + count))"
+  wait_for "the panel is not in the window list after: $*" 10 panel_open
+  sleep 1
+  windows=$(guest "$desktop" windows OrangeDrink)
+  lists_panel "$windows" || fail "the panel did not stay open after: $*"
+  ! lists_settings "$windows" || fail "Settings opened after: $*"
+  say "$kind: $*: the click arrived as a user activity and the panel is open"
+}
+
+swiftc -O -target arm64-apple-macos14 -o "$scratch/desktop" scripts/desktop.swift
+scripts/place-widgets "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$built/Contents/Info.plist")" >"$scratch/widgets.plist"
+tar -C "$(dirname "$built")" -cf "$scratch/app.tar" "$(basename "$built")"
+
+vm_boot
+guest sh -c "mkdir -p '$tools' '$(dirname "$app")' && cp '$shared/desktop' '$tools' && tar -C '$(dirname "$app")' -xf '$shared/app.tar'"
+
+# The Xcode image restores a Terminal window over the desktop, and a click lands on whatever is on top. Other images run none.
+guest sh -c 'pkill -x Terminal; true'
+guest open "$app"
+wait_for "the app never logged the end of its launch" 60 launched
+guest sh -c "defaults write com.apple.notificationcenterui widgets \"\$(cat '$shared/widgets.plist')\" && killall NotificationCenter"
+wait_for "the widget extension never ran: was the placement read?" 60 extension_runs
+# A launch's fact, and the placement's time after it, so this absence is not read before the app has done anything.
+windows=$(guest "$desktop" windows OrangeDrink)
+! lists_panel "$windows" || fail "a launch opened the panel"
+say "launch: no panel in the window list"
+
+expect_click MacBattery 1 click $mac_battery
+logged appDelegate 'widget click by user activity: MacBattery, panel was closed' || fail "the first click found the panel open"
+expect_click MacBattery 1 click $mac_battery
+expect_click DeviceBattery 1 click $device_battery
+expect_click AllBatteries 1 click $all_batteries
+expect_click MacBattery 2 double-click $mac_battery 120
+
+quit() { guest pkill -x OrangeDrink; wait_for "the app did not quit" 30 stopped; }
+quit
+expect_click MacBattery 1 click $mac_battery
+say "quit: a click launched the app"
+quit
+expect_click MacBattery 2 double-click $mac_battery 120
+log_lines appDelegate | grep -F 'panel was' >&2
