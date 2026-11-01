@@ -19,6 +19,8 @@ enum MacBattery: Codable, Equatable, Sendable {
 
 extension MacBattery {
     static let glyph = "laptopcomputer"
+    /// What a widget that shows names calls the Mac, in the words the panel and the widget's settings use.
+    static let name = "This Mac"
     /// Readings that stopped, wherever they are drawn: the menu bar and every widget.
     static let stoppedGlyph = "exclamationmark.triangle"
 
@@ -57,6 +59,9 @@ struct WidgetBattery: Equatable, Sendable {
     /// nil while there is no reading.
     let level: BatteryLevel?
     let charging: Bool
+    /// What the widget calls it; nil where it shows no names.
+    var name: String? = nil
+    var appearance: WidgetAppearance = .color
 }
 
 extension WidgetBattery {
@@ -110,16 +115,17 @@ enum WidgetDevices: Codable, Equatable, Sendable {
 /// shelf's two values.
 enum AllBatteries: Equatable, Sendable {
     /// The Mac first, so a full widget never pushes it out, then the devices in the panel's ranking, so the
-    /// lowest are the ones that fit. Empty on a Mac with no battery and no device reporting one.
+    /// lowest are the ones that fit. Empty when no device reports a battery and the Mac is left out or has none.
     case listed([WidgetBattery])
     /// The Mac, nil when it has no battery, and why no device is listed. It keeps its place beside the reason:
     /// it is the one thing the widget can show a person who keeps Bluetooth refused.
     case unread(mac: WidgetBattery?, UnreadDevices)
 
-    init(mac: MacBattery, devices: WidgetDevices) {
+    init(mac: MacBattery, devices: WidgetDevices, settings: AllBatteriesSettings) {
+        let mac = (settings.includeMac ? mac.battery : nil).map { settings.drawn($0, named: MacBattery.name) }
         self = switch devices {
-        case .connected(let devices): .listed([mac.battery].compactMap(\.self) + devices.map(WidgetBattery.init))
-        case .unread(let reason): .unread(mac: mac.battery, reason)
+        case .connected(let devices): .listed([mac].compactMap(\.self) + devices.map { settings.drawn(WidgetBattery($0), named: $0.name) })
+        case .unread(let reason): .unread(mac: mac, reason)
         }
     }
 }

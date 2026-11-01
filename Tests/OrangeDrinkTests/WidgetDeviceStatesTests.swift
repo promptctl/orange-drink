@@ -8,7 +8,7 @@ import WidgetKit
 
 // [LAW:behavior-not-structure] The contract is what each widget draws for each state of the device list: every state goes
 // through a real model and the app's own publishing, into a shelf in a directory of the test's own, and comes back
-// through the widgets' read path. A list the app could not read never says "No batteries" or "Not connected".
+// through the widgets' read path. A list the app could not read never says "No device batteries" or "Not connected".
 /// What a stream brought the app to.
 struct DeviceState: Sendable, CustomTestStringConvertible {
     let name: String
@@ -87,9 +87,21 @@ private let unreadStates = [
     @Test func aListThatWasReadSaysWhatIsConnected() async throws {
         let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([])], reason: nil)
         let model = try await publish(read, mac: .noBattery)
-        #expect(try allBatteriesSays() == ["No batteries"])
+        #expect(try allBatteriesSays() == ["No device batteries"])
         #expect(try deviceBatterySays(chosen: "AA") == ["Not connected"])
         #expect(try deviceBatterySays(chosen: nil) == ["Choose a device: right-click → Edit Widget"])
+        _ = model
+    }
+
+    /// The list drops a connected device that reports no battery, so these words have to hold beside one, on any Mac.
+    @Test(arguments: [MacBattery.noBattery, .level(percent: 79, charging: false)]) func withNothingToListTheWidgetSaysNoDeviceBatteries(mac: MacBattery) async throws {
+        let silent = Device(id: DeviceID(address: "EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
+        let model = try await publish(read, mac: mac)
+        let intent = AllBatteriesIntent()
+        intent.includeMac = false
+        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: intent)
+        #expect(try AllBatteriesWidgetTests.texts(entry) == ["No device batteries"])
         _ = model
     }
 
@@ -119,7 +131,7 @@ private let unreadStates = [
     // MARK: the drawing
 
     static func entry(_ reason: UnreadDevices, mac: MacBattery, style: WidgetStyle = .rings) -> AllBatteriesEntry {
-        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.unread(reason))), style: style)
+        AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(.unread(reason))), settings: AllBatteriesWidgetTests.settings(style: style))
     }
 
     @Test(arguments: WidgetStyle.allCases) func everyStyleSaysWhyAndKeepsTheMacBesideIt(style: WidgetStyle) throws {

@@ -6,8 +6,8 @@ import os
 // renders the real views with no window.
 
 extension WidgetBattery {
-    /// A charging battery is green, wherever and however it is drawn.
-    var tint: Color { charging ? .green : .primary }
+    /// A charging battery is green, wherever and however it is drawn, unless its widget is monochrome.
+    var tint: Color { charging && appearance == .color ? .green : .primary }
 }
 
 /// A charging battery's bolt, sized by the font its caller sets.
@@ -28,14 +28,23 @@ struct BatteryPercentage: View {
     }
 }
 
+/// A battery's name on one line, sized by the font its caller sets. Cut in the middle, because a device's name
+/// usually starts with its owner's: cut at the end, "Brandon's AirPods" and "Brandon's iPhone" would read the same.
+struct BatteryName: View {
+    let name: String
+
+    var body: some View { Text(name).lineLimit(1).truncationMode(.middle) }
+}
+
 /// The reference ring from design-docs/widgets.md: a dark track, an arc filled clockwise from the top
-/// to the level, the glyph in the centre and the percentage below; green with a bolt while charging.
+/// to the level, the glyph in the centre and the percentage below; green with a bolt while charging. A name goes under
+/// the percentage, and the ring gives up the room it takes, so a cell's bolt and name both stay inside it.
 struct BatteryRing: View {
     let battery: WidgetBattery
 
     var body: some View {
         GeometryReader { space in
-            let side = min(space.size.width, space.size.height) * 0.62
+            let side = min(space.size.width, space.size.height) * (battery.name == nil ? 0.62 : 0.54)
             let line = side * 0.1
             VStack(spacing: side * 0.1) {
                 ZStack {
@@ -62,8 +71,11 @@ struct BatteryRing: View {
                         .offset(y: -side / 2)
                 }
                 .frame(width: side, height: side)
-                BatteryPercentage(battery: battery)
-                    .font(.system(size: side * 0.2, weight: .bold))
+                VStack(spacing: 0) {
+                    BatteryPercentage(battery: battery)
+                        .font(.system(size: side * 0.2, weight: .bold))
+                    if let name = battery.name { BatteryName(name: name).font(.system(size: side * 0.2)) }
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -85,6 +97,15 @@ struct RowPercentage: View {
                 BatteryBolt(battery: battery).font(.caption2).offset(x: -9)
             }
             .frame(width: Self.width, alignment: .trailing)
+    }
+}
+
+/// A row's name, when its widget shows names. It takes the row's spare width, which is what puts the percentage in its column.
+struct RowName: View {
+    let battery: WidgetBattery
+
+    var body: some View {
+        if let name = battery.name { BatteryName(name: name).font(.caption).frame(maxWidth: .infinity, alignment: .leading) }
     }
 }
 
@@ -114,8 +135,14 @@ struct BatteryCell: View {
     var body: some View {
         switch style {
         case .rings: BatteryRing(battery: battery)
-        case .list: BatteryRow(battery: battery) { EmptyView() }
-        case .bars: BatteryRow(battery: battery) { LevelBar(fraction: BatteryLevel.fraction(battery.level), tint: battery.tint) }
+        case .list: BatteryRow(battery: battery) { RowName(battery: battery) }
+        case .bars:
+            BatteryRow(battery: battery) {
+                VStack(alignment: .leading, spacing: 2) {
+                    RowName(battery: battery)
+                    LevelBar(fraction: BatteryLevel.fraction(battery.level), tint: battery.tint)
+                }
+            }
         }
     }
 }
@@ -246,14 +273,15 @@ struct AllBatteriesEntry: TimelineEntry {
     /// What the app put on the shelf, or why there is nothing to read.
     let mac: Result<Shelved<MacBattery>, any Error>
     let devices: Result<Shelved<WidgetDevices>, any Error>
-    let style: WidgetStyle
+    let settings: AllBatteriesSettings
 }
 
 extension AllBatteriesEntry {
-    /// What the widget reads: both of the shelf's files, each logged, in the style its settings hold.
+    /// What the widget reads: both of the shelf's files, each logged, and the settings it holds.
     init(date: Date, directory: Result<URL, any Error>, log: Logger, configuration: AllBatteriesIntent) {
-        self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log), style: configuration.style)
-        log.notice("widget style \(configuration.style.rawValue, privacy: .public)")
+        let settings = AllBatteriesSettings(configuration)
+        self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log), settings: settings)
+        log.notice("widget style \(settings.style.rawValue, privacy: .public) names \(settings.showNames, privacy: .public) mac \(settings.includeMac, privacy: .public) appearance \(settings.appearance.rawValue, privacy: .public)")
     }
 }
 
@@ -349,15 +377,15 @@ struct AllBatteriesView: View {
 
     @ViewBuilder private var content: some View {
         switch (entry.mac, entry.devices) {
-        case (.success(.running(let mac)), .success(.running(let devices))): batteries(AllBatteries(mac: mac, devices: devices))
+        case (.success(.running(let mac)), .success(.running(let devices))): batteries(AllBatteries(mac: mac, devices: devices, settings: entry.settings))
         default: Message(glyph: MacBattery.glyph, text: "Open \(appName)")
         }
     }
 
     @ViewBuilder private func batteries(_ all: AllBatteries) -> some View {
-        let grid = BatteryGrid(family, entry.style)
+        let grid = BatteryGrid(family, entry.settings.style)
         switch all {
-        case .listed(let batteries) where batteries.isEmpty: Message(glyph: MacBattery.glyph, text: "No batteries")
+        case .listed(let batteries) where batteries.isEmpty: Message(glyph: DeviceKind.accessory.symbol, text: "No device batteries")
         case .listed(let batteries): BatteryCells(batteries: batteries, grid: grid)
         case .unread(nil, let reason): Message(reason)
         case .unread(let mac?, let reason): BatteryAndReason(mac: mac, reason: reason, grid: grid)
