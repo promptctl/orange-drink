@@ -377,14 +377,14 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     @Test(arguments: WidgetStyle.allCases, WidgetFamilies.allBatteries) func showDeviceNamesPutsEachNameWithItsLevel(style: WidgetStyle, family: WidgetFamily) throws {
         let shown = try Self.texts(Self.entry(Self.charging, Self.named, style: style) { $0.showNames = true }, family)
         let cells = stride(from: 0, to: shown.count, by: 2).map { Set(shown[$0..<min($0 + 2, shown.count)]) }
-        #expect(cells == [["80%", MacBattery.name], ["95%", "iPhone"], ["54%", "AirPods"]])
+        #expect(cells == [["80%", MacBattery.name.english], ["95%", "iPhone"], ["54%", "AirPods"]])
         #expect(try Self.texts(Self.entry(Self.charging, Self.named, style: style), family) == ["80%", "95%", "54%"])
     }
 
     @Test(arguments: WidgetStyle.allCases) func includeThisMacOffLeavesOnlyTheDevices(style: WidgetStyle) throws {
         #expect(try Self.texts(Self.entry(Self.charging, Self.named, style: style) { $0.includeMac = false }) == ["95%", "54%"])
         let named = Self.entry(Self.charging, Self.named, style: style) { $0.includeMac = false; $0.showNames = true }
-        #expect(try !Self.texts(named).contains(MacBattery.name))
+        #expect(try !Self.texts(named).contains(MacBattery.name.english))
     }
 
     @Test(arguments: UnreadDevices.allCases) func includeThisMacOffDropsTheMacFromBesideAReason(reason: UnreadDevices) {
@@ -649,9 +649,10 @@ struct WidgetIntentMetadataTests {
         let enums: [Enum]
     }
 
+    static func metadataFile(of bundle: URL) -> URL { bundle.appending(path: "Contents/Resources/Metadata.appintents/extract.actionsdata") }
+
     static func metadata(of bundle: URL) throws -> Metadata {
-        let file = bundle.appending(path: "Contents/Resources/Metadata.appintents/extract.actionsdata")
-        return try JSONDecoder().decode(Metadata.self, from: Data(contentsOf: file))
+        try JSONDecoder().decode(Metadata.self, from: Data(contentsOf: metadataFile(of: bundle)))
     }
 
     static let app = Bundle.main.bundleURL

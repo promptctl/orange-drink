@@ -26,7 +26,7 @@ enum MacBattery: Codable, Equatable, Sendable {
 extension MacBattery {
     static let glyph = "laptopcomputer"
     /// What a widget that shows names calls the Mac, in the words the panel and the widget's settings use.
-    static let name = "This Mac"
+    static let name: Phrase = "This Mac"
     /// Readings that stopped, wherever they are drawn: the menu bar and every widget.
     static let stoppedGlyph = "exclamationmark.triangle"
 
@@ -66,7 +66,7 @@ struct WidgetBattery: Equatable, Sendable {
     let level: BatteryLevel?
     let charging: Bool
     /// What the widget calls it; nil where it shows no names.
-    var name: String? = nil
+    var name: Phrase? = nil
     var appearance: WidgetAppearance = .color
 }
 
@@ -100,7 +100,7 @@ extension UnreadDevices {
     }
 
     /// What a widget says for it. A widget is too small for the panel's sentences, and the panel says why at length.
-    var text: String {
+    var text: Phrase {
         switch self {
         case .waiting: "Reading devices…"
         case .unanswered: "Answer the Bluetooth prompt"
@@ -149,7 +149,7 @@ extension NoDevicesListed {
         }
     }
 
-    var text: String {
+    var text: Phrase {
         switch self {
         case .unread(let reason): reason.text
         case .noneChosen: "Choose devices: right-click → Edit Widget"
@@ -173,7 +173,7 @@ enum AllBatteries: Equatable, Sendable {
     init(mac: MacBattery, devices: WidgetDevices, settings: AllBatteriesSettings) {
         let mac = (settings.includeMac ? mac.battery : nil).map { settings.drawn($0, named: MacBattery.name) }
         self = switch devices.listed(by: settings.devices) {
-        case .success(let devices): .listed([mac].compactMap(\.self) + devices.map { settings.drawn(WidgetBattery($0), named: $0.name) })
+        case .success(let devices): .listed([mac].compactMap(\.self) + devices.map { settings.drawn(WidgetBattery($0), named: "\($0.name)") })
         case .failure(let reason): .unlisted(mac: mac, reason)
         }
     }

@@ -40,8 +40,8 @@ import WidgetKit
         func preview() throws -> WidgetPreview { try screen.inspect().find(WidgetPreview.self).actualView() }
 
         /// What the screen says, in reading order, with a sentence's bold marks left out.
-        func texts() throws -> [String] {
-            try screen.inspect().findAll(ViewType.Text.self).map { try $0.string().replacing("**", with: "") }
+        func texts(in locale: Locale = .testsDefault) throws -> [String] {
+            try screen.inspect().findAll(ViewType.Text.self).map { try $0.string(locale: locale).replacing("**", with: "") }
         }
 
         func press(_ button: String) throws { try screen.inspect().find(button: button).tap() }

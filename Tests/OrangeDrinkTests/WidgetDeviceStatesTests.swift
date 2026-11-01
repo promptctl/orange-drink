@@ -146,8 +146,8 @@ private let unreadStates = [
 
     @Test(arguments: WidgetStyle.allCases) func everyStyleSaysWhyAndKeepsTheMacBesideIt(style: WidgetStyle) throws {
         for reason in Self.reasons {
-            #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .noBattery, style: style)) == [reason.text])
-            #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .level(percent: 79, charging: false), style: style)) == ["79%", reason.text])
+            #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .noBattery, style: style)) == [reason.text.english])
+            #expect(try AllBatteriesWidgetTests.texts(Self.entry(reason, mac: .level(percent: 79, charging: false), style: style)) == ["79%", reason.text.english])
         }
     }
 
@@ -187,12 +187,14 @@ private let unreadStates = [
 
     /// A sentence is measured because text clipped by its frame draws as if it fit: laid out at the widget's width, it
     /// takes the height it needs, and that has to be no more than the Mac's cell leaves.
-    @Test(arguments: WidgetStyle.allCases, allBatteriesContents) func everyReasonFitsBeneathTheMac(style: WidgetStyle, size: (family: WidgetFamily, content: CGSize)) throws {
+    @Test(arguments: WidgetStyle.allCases, allBatteriesContents) func everyReasonFitsBeneathTheMacInEveryLanguage(style: WidgetStyle, size: (family: WidgetFamily, content: CGSize)) throws {
         let room = size.content.height - BatteryGrid(size.family, style).cell(in: size.content).height
         for reason in Self.reasons {
-            let needed = ImageRenderer(content: Caption(text: reason.text).frame(width: size.content.width).fixedSize(horizontal: false, vertical: true))
-            let image = try #require(needed.nsImage)
-            #expect(image.size.height <= room, "\(reason) needs \(image.size.height) pt of \(room) pt")
+            for language in WidgetLanguageTests.shipped {
+                let needed = ImageRenderer(content: Caption(text: reason.text).frame(width: size.content.width).fixedSize(horizontal: false, vertical: true).speaking(language))
+                let image = try #require(needed.nsImage)
+                #expect(image.size.height <= room, "\(reason) in \(language.code ?? "?") needs \(image.size.height) pt of \(room) pt")
+            }
         }
     }
 }

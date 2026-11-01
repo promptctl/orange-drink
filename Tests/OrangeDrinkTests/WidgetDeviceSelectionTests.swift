@@ -39,7 +39,7 @@ import WidgetKit
 
     static func names(_ all: AllBatteries) -> [String?]? {
         guard case .listed(let batteries) = all else { return nil }
-        return batteries.map(\.name)
+        return batteries.map(\.name?.english)
     }
 
     // MARK: which devices
@@ -75,7 +75,7 @@ import WidgetKit
 
     @Test(arguments: [WidgetDeviceChoice.custom, .sameAsMenuBar]) func theMacStaysAheadOfWhateverIsSelected(choice: WidgetDeviceChoice) {
         let settings = Self.settings(choice, chosen: ["B"], includeMac: true)
-        #expect(Self.names(Self.listed(settings, pinned: ["B"])) == [MacBattery.name, "Device B"])
+        #expect(Self.names(Self.listed(settings, pinned: ["B"])) == [MacBattery.name.english, "Device B"])
     }
 
     // MARK: when that is none
