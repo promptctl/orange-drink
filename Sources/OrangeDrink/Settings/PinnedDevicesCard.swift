@@ -15,7 +15,7 @@ struct PinnedDevicesList: Equatable {
 
     init(_ list: DeviceList, pinned: PinnedOrder) {
         emptyNote = list.unread?.explanation ?? "Pin a connected device from the Devices screen to arrange it here."
-        let rows = PinnedItem.items(list, pinned: pinned).map(\.row)
+        let rows = PinnedItem.rows(list, pinned: pinned)
         entries = rows.indices.map { index in
             Entry(row: rows[index], above: rows.indices.contains(index - 1) ? rows[index - 1].id : nil,
                   below: rows.indices.contains(index + 1) ? rows[index + 1].id : nil)
@@ -45,7 +45,7 @@ struct PinnedDevicesCard: View {
                                     .foregroundStyle(.secondary).accessibilityHidden(true)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(entry.row.name).fontWeight(.semibold)
-                                    Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
+                                    PhraseText(entry.row.percent).font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 12)
                                 moveButton("chevron.up", "Move \(entry.row.name) up, toward the left of the menu bar", entry.id, with: entry.above, edits)

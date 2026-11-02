@@ -4413,13 +4413,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "~%lld %%"
+            "value": "~%lld %%"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "~%lld %%"
+            "value": "~%lld %%"
           }
         }
       }
@@ -4435,13 +4435,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld %%"
+            "value": "%lld %%"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld %%"
+            "value": "%lld %%"
           }
         }
       }

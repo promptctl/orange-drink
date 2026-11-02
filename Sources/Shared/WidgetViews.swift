@@ -24,7 +24,7 @@ struct BatteryPercentage: View {
     let battery: WidgetBattery
 
     var body: some View {
-        Text(BatteryLevel.text(battery.level)).monospacedDigit().foregroundStyle(battery.tint)
+        PhraseText(BatteryLevel.text(battery.level)).monospacedDigit().foregroundStyle(battery.tint)
     }
 }
 
@@ -86,21 +86,25 @@ struct BatteryRing: View {
     }
 }
 
-/// A row's percentage, in a column every row shares so the bars line up. The bolt hangs off the text's
-/// leading edge, in the room "100%" leaves, so it takes none from "~100%", the longest there is.
+/// A row's percentage, in a column every row shares so the bars line up. [LAW:one-source-of-truth] The longest level
+/// there is, drawn hidden in the row's language and font, sets the column, so the column is as wide as that language
+/// says it. The bolt hangs off the text's leading edge, in the room "100%" leaves, so it takes none from the longest.
 struct RowPercentage: View {
-    static let width: CGFloat = 42
+    static let longest = BatteryLevel(percent: 100, approximate: true)
     static let font = Font.subheadline.bold()
 
     let battery: WidgetBattery
 
     var body: some View {
-        BatteryPercentage(battery: battery)
-            .font(Self.font)
-            .overlay(alignment: .leading) {
-                BatteryBolt(battery: battery).font(.caption2).offset(x: -9)
-            }
-            .frame(width: Self.width, alignment: .trailing)
+        ZStack(alignment: .trailing) {
+            PhraseText(BatteryLevel.text(Self.longest)).monospacedDigit().hidden()
+            BatteryPercentage(battery: battery)
+                .overlay(alignment: .leading) {
+                    BatteryBolt(battery: battery).font(.caption2).offset(x: -9)
+                }
+        }
+        .font(Self.font)
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

@@ -21,15 +21,15 @@ import Testing
     private func model() throws -> DeviceSettingsModel { try DeviceSettingsModel(defaults: defaults) }
 
     @Test func detectedDevicesRunLowestFirst() {
-        #expect(DetectedDevices(list, settings: DeviceSettings()).entries.map(\.row.percent) == ["37%", "49%", "54%", "95%"])
+        #expect(DetectedDevices(list, settings: DeviceSettings()).entries.map(\.row.percent.english) == ["37%", "49%", "54%", "95%"])
     }
 
     @Test func hidingADeviceRemovesItFromThePanelButNotFromDetectedDevices() throws {
         let settings = try model()
         try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
-        #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent) == ["37%", "49%", "95%"])
+        #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent.english) == ["37%", "49%", "95%"])
         let detected = DetectedDevices(list, settings: settings.value).entries
-        #expect(detected.map(\.row.percent) == ["37%", "49%", "54%", "95%"])
+        #expect(detected.map(\.row.percent.english) == ["37%", "49%", "54%", "95%"])
         #expect(detected.map(\.isHidden) == [false, false, true, false])
     }
 
@@ -37,7 +37,7 @@ import Testing
         let settings = try model()
         try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
         try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
-        #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent) == ["37%", "49%", "54%", "95%"])
+        #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent.english) == ["37%", "49%", "54%", "95%"])
     }
 
     @Test func anEmptyDetectedCardSaysWhy() throws {

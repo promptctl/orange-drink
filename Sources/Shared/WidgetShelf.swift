@@ -55,7 +55,7 @@ struct WidgetDevice: Codable, Equatable, Sendable, Identifiable, CustomDebugStri
     var id: String { address }
 
     /// What the shelf's logs carry, which are public: the kind and level, never the name or address.
-    var debugDescription: String { "\(kind) \(BatteryLevel.text(level))" }
+    var debugDescription: String { "\(kind) \(BatteryLevel.text(level).english)" }
 }
 
 /// One battery as a widget draws it, whatever the style.

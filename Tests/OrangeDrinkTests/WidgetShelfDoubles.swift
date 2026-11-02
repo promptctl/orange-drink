@@ -18,15 +18,21 @@ extension WidgetDevices {
     }
 }
 
+extension PinnedItem {
+    /// The items in English, for a test that does not care what language they are said in.
+    static func items(_ list: DeviceList, pinned: PinnedOrder) -> [PinnedItem] { items(list, pinned: pinned, language: AppLanguage(code: "en")) }
+}
+
 extension DevicesModel {
     /// The app's own wiring, for a test that does not care what the app has seen: a throwaway memory, mirrored beside `shelf`.
     convenience init<Events: AsyncSequence & Sendable>(
-        events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, settings: DeviceSettingsModel, pinnedItems: PinnedItemsController,
+        events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, settings: DeviceSettingsModel, language: AppLanguageModel? = nil, pinnedItems: PinnedItemsController,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) throws where Events.Element == DeviceEvent {
         let seen = try SeenDevicesModel(defaults: scratchDefaults())
         let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf.directory) { _ in }
-        self.init(events: events, shelf: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems, onChange: onChange)
+        self.init(events: events, shelf: shelf, seenShelf: seenShelf, settings: settings, seen: seen,
+                  language: try language ?? AppLanguageModel(defaults: scratchDefaults()), pinnedItems: pinnedItems, onChange: onChange)
     }
 
     /// The same, for a test that cares about neither the pins nor the menu bar: nothing pinned, in a throwaway suite.

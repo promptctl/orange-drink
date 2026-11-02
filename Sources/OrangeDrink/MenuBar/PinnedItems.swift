@@ -4,16 +4,23 @@ import AppKit
 /// name, type glyph, and level text ("37%", "~50%" when approximate, "–" when unknown) are written once.
 struct PinnedItem: Equatable, Identifiable {
     let row: DeviceRow
+    /// The row's level in the app's language. Held as text, so a change of language is a change the bar redraws.
+    let title: String
     var id: DeviceID { row.id }
 
-    /// One item for each pinned device with a row in the ranking, in the order the user arranged
-    /// them on the Menu Bar screen.
+    /// The row of each pinned device with one in the ranking, in the order the user arranged them
+    /// on the Menu Bar screen.
     ///
     /// [LAW:one-source-of-truth] Derived from the live list and the pinned order on every call; no
     /// item outlives the facts it shows.
-    static func items(_ list: DeviceList, pinned: PinnedOrder) -> [PinnedItem] {
+    static func rows(_ list: DeviceList, pinned: PinnedOrder) -> [DeviceRow] {
         let rows = DeviceRanking.rows(list)
-        return pinned.ids.compactMap { id in rows.first { $0.id == id } }.map(PinnedItem.init)
+        return pinned.ids.compactMap { id in rows.first { $0.id == id } }
+    }
+
+    /// One item for each of those rows, said in `language`: no SwiftUI environment reaches a status item.
+    static func items(_ list: DeviceList, pinned: PinnedOrder, language: AppLanguage) -> [PinnedItem] {
+        rows(list, pinned: pinned).map { PinnedItem(row: $0, title: $0.percent.resolve(in: language)) }
     }
 }
 
@@ -89,7 +96,7 @@ struct PinnedItem: Equatable, Identifiable {
         }
         button.image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
         button.imagePosition = .imageLeading
-        button.title = pinned.row.percent
+        button.title = pinned.title
         button.toolTip = pinned.row.name
     }
 

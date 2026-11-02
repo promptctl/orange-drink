@@ -10,7 +10,7 @@ struct DeviceRow: Equatable, Identifiable {
     /// nil when the device has no level to show: unknown this read, or none reported.
     let level: BatteryLevel?
 
-    var percent: String { BatteryLevel.text(level) }
+    var percent: Phrase { BatteryLevel.text(level) }
     var fraction: Double { BatteryLevel.fraction(level) }
     var tone: Tone { level?.percent ?? 0 >= DeviceRanking.nearlyFull ? .nearlyFull : .normal }
 }

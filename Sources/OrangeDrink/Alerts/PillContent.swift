@@ -51,10 +51,7 @@ struct PillContent: Equatable, Sendable {
 
     /// The pill for a watched device: its name and level, in the alert's severity, position, and glow.
     init(_ firing: DeviceFiring) {
-        // design-docs/devices.md: an approximate level is "~" wherever it appears.
-        let percent = firing.level.percent
-        let level: Phrase = firing.level.approximate ? "~\(percent)%" : "\(percent)%"
-        self.init(headline: "\(firing.name): \(level) Remaining", subline: nil, severity: firing.alert.severity,
+        self.init(headline: "\(firing.name): \(BatteryLevel.text(firing.level)) Remaining", subline: nil, severity: firing.alert.severity,
                   progress: BatteryLevel.fraction(firing.level), position: firing.alert.position, glow: firing.alert.glow)
     }
 

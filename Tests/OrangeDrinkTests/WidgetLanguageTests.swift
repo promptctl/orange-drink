@@ -148,6 +148,49 @@ import WidgetKit
         #expect(try Self.drawn(preview.speaking(AppLanguage(code: "fr"))) != Self.drawn(preview.speaking(AppLanguage(code: "en"))))
     }
 
+    // MARK: a level
+
+    static let exact = BatteryLevel(percent: 80, approximate: false)
+    static let rough = BatteryLevel(percent: 50, approximate: true)
+    /// A no-break space, so a level never wraps between its number and its sign.
+    static let forms = [("en", ["80%", "~50%"]), ("fr", ["80\u{a0}%", "~50\u{a0}%"]), ("es", ["80\u{a0}%", "~50\u{a0}%"])]
+
+    @Test func aLevelIsSaidTheWayItsLanguageWritesIt() throws {
+        for (code, said) in Self.forms {
+            let language = AppLanguage(code: code)
+            #expect(try [Self.exact, Self.rough].map { try Self.translation(BatteryLevel.text($0), language) } == said)
+            #expect([Self.exact, Self.rough].map { BatteryLevel.text($0).resolve(in: language, bundle: Self.app) } == said)
+        }
+    }
+
+    @Test func aWidgetDrawsALevelTheWayItsLanguageWritesIt() throws {
+        for (code, said) in Self.forms {
+            for (level, form) in zip([Self.exact, Self.rough], said) {
+                let battery = WidgetBattery(glyph: MacBattery.glyph, level: level, charging: false)
+                let drawn = BatteryPercentage(battery: battery).speaking(AppLanguage(code: code))
+                #expect(try Self.drawn(drawn) == Self.drawn(Text(verbatim: form).monospacedDigit().foregroundStyle(battery.tint)), "\(form)")
+            }
+        }
+    }
+
+    /// The level is the one text in these that a language changes, so a drawing that changes is the level being said.
+    @Test func aPanelRowAndAPlacedWidgetSayALevelInTheLanguageTheySpeak() throws {
+        let device = WidgetDevice(address: "A", name: "Mouse", kind: .accessory, level: Self.exact)
+        let row = DeviceRow(id: DeviceID(address: "A"), name: "Mouse", kind: .accessory, level: Self.exact)
+        let entry = AllBatteriesWidgetTests.entry(.noBattery, [device], style: .list)
+        let ring = DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected([device], pinned: []))), chosen: "A")
+        let views = [
+            AnyView(DeviceRowView(row: row)), AnyView(AllBatteriesWidgetTests.view(entry)),
+            AnyView(DeviceBatteryView(entry: ring, appName: "Orange Drink", family: .systemSmall)),
+        ]
+        for view in views {
+            let english = try Self.drawn(view.speaking(AppLanguage(code: "en")))
+            let french = try Self.drawn(view.speaking(AppLanguage(code: "fr")))
+            #expect(french != english)
+            #expect(try Self.drawn(view.speaking(AppLanguage(code: "es"))) == french)
+        }
+    }
+
     @Test func aDevicesNameIsDrawnAsItIsInEveryLanguage() throws {
         let name = BatteryName(name: "\("Rings")")
         #expect(try Self.drawn(name.speaking(AppLanguage(code: "fr"))) == Self.drawn(name.speaking(AppLanguage(code: "en"))))

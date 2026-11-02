@@ -38,7 +38,7 @@ extension DevicesModel {
     /// while the first Bluetooth sweep is still out.
     convenience init<Events: AsyncSequence & Sendable>(
         events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>,
-        settings: DeviceSettingsModel, seen: SeenDevicesModel, pinnedItems: PinnedItemsController,
+        settings: DeviceSettingsModel, seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) where Events.Element == DeviceEvent {
         self.init(events: events, onChange: { list in
@@ -50,19 +50,19 @@ extension DevicesModel {
             }
             onChange(list)
         })
-        mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems)
+        mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, language: language, pinnedItems: pinnedItems)
     }
 
-    /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list, the pins or what has been seen, with no timer
+    /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list, the pins, the language or what has been seen, with no timer
     /// and no polling. A mirror needs only the latest, so changes that land together reach it as one.
     private func mirror(to shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>, settings: DeviceSettingsModel,
-                        seen: SeenDevicesModel, pinnedItems: PinnedItemsController) {
+                        seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController) {
         withObservationTracking {
-            pinnedItems.apply(PinnedItem.items(list, pinned: settings.value.pinned))
+            pinnedItems.apply(PinnedItem.items(list, pinned: settings.value.pinned, language: language.value))
             shelf.publish(.running(WidgetDevices(list, pinned: settings.value.pinned)))
             seenShelf.publish(seen.value)
         } onChange: { [weak self] in
-            Task { @MainActor in self?.mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems) }
+            Task { @MainActor in self?.mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, language: language, pinnedItems: pinnedItems) }
         }
     }
 }

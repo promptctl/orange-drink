@@ -36,7 +36,7 @@ import Testing
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(
             events: events, shelf: devicesShelf, seenShelf: seenShelf, settings: try DeviceSettingsModel(defaults: defaults),
-            seen: try SeenDevicesModel(defaults: defaults), pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }))
+            seen: try SeenDevicesModel(defaults: defaults), language: try AppLanguageModel(defaults: defaults), pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }))
         return (model, send)
     }
 
