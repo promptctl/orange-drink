@@ -7,7 +7,7 @@ struct DeviceRow: Equatable, Identifiable {
     let id: DeviceID
     let name: String
     let kind: DeviceKind
-    /// nil when the device's levels are unknown this read.
+    /// nil when the device has no level to show: unknown this read, or none reported.
     let level: BatteryLevel?
 
     var percent: String { BatteryLevel.text(level) }
@@ -38,6 +38,13 @@ enum DeviceRanking {
             .map { device, level in
                 DeviceRow(id: device.id, name: device.name, kind: device.kind, level: level)
             }
+    }
+
+    /// Every connected device `rows` leaves out. [LAW:one-source-of-truth] The complement, so which levels get a row is
+    /// said once, in `rows`.
+    static func unlevelled(_ list: DeviceList) -> [DeviceRow] {
+        let ranked = Set(rows(list).map(\.id))
+        return list.devices.filter { !ranked.contains($0.id) }.map { DeviceRow(id: $0.id, name: $0.name, kind: $0.kind, level: nil) }
     }
 }
 

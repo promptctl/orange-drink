@@ -261,18 +261,18 @@ struct DeviceBatteryView: View {
         switch entry.shelf {
         case .failure, .success(.appNotRunning): Message(glyph: DeviceKind.accessory.symbol, text: "Open \(appName)")
         case .success(.running(.unread(let reason))): Message(.unread(reason))
-        case .success(.running(.connected(let devices, _))): chosen(from: devices)
+        case .success(.running(.connected(let list))): chosen(from: list)
         }
     }
 
-    @ViewBuilder private func chosen(from devices: [WidgetDevice]) -> some View {
+    @ViewBuilder private func chosen(from list: WidgetDeviceList) -> some View {
         if let address = entry.chosen {
-            if let device = devices.first(where: { $0.address == address }) {
+            if let device = list.device(at: address) {
                 ring(device)
             } else {
                 Message(glyph: DeviceKind.accessory.symbol, text: "Not connected")
             }
-        } else if devices.isEmpty {
+        } else if list.ranked.isEmpty {
             Message.noDeviceBatteries
         } else {
             Message(glyph: DeviceKind.accessory.symbol, text: "Choose a device: right-click → Edit Widget")

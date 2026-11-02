@@ -49,7 +49,7 @@ struct WidgetDevice: Codable, Equatable, Sendable, Identifiable, CustomDebugStri
     let address: String
     let name: String
     let kind: DeviceKind
-    /// nil while the device's levels are unknown this read.
+    /// nil while the device has no level to show: unknown this read, or none reported.
     let level: BatteryLevel?
 
     var id: String { address }
@@ -121,10 +121,28 @@ struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, Cust
     var debugDescription: String { "\(addresses.count) pinned" }
 }
 
-/// What the app knows of its devices, as the widgets draw them. A list is the devices a sweep read that report a battery, so
-/// an empty one says none does, as far as the app has been told (orange-devices-bue.4gw). The app derives it from `DeviceList`.
+/// What a sweep read of what is connected, as the widgets draw it. [LAW:locality-or-seam] One value, so a new fact about
+/// the list touches only what reads it.
+struct WidgetDeviceList: Codable, Equatable, Sendable {
+    /// The panel's ranking: the devices with a level, and those whose level is unknown this read. So an empty list says none
+    /// reports a battery, as far as the app has been told (orange-devices-bue.4gw).
+    let ranked: [WidgetDevice]
+    let pinned: WidgetPins
+    /// The connected devices the ranking leaves out, with no level to rank: one settling after a reconnect, or one power
+    /// management has no source for. Device Battery draws one it is set to and Edit Widget names one already chosen; All
+    /// Batteries lists only `ranked`, so a device with no battery gains no row.
+    let unlevelled: [WidgetDevice]
+
+    /// [LAW:one-source-of-truth] Where Device Battery and Edit Widget find a chosen device: nil only for a device that is
+    /// not connected.
+    func device(at address: String) -> WidgetDevice? {
+        (ranked + unlevelled).first { $0.address == address }
+    }
+}
+
+/// What the app knows of its devices, as the widgets draw them. The app derives it from `DeviceList`.
 enum WidgetDevices: Codable, Equatable, Sendable {
-    case connected([WidgetDevice], pinned: WidgetPins)
+    case connected(WidgetDeviceList)
     case unread(UnreadDevices)
 }
 
@@ -136,8 +154,7 @@ enum NoDevicesListed: Error, Equatable, Sendable {
     case noneChosen
     /// Same as menu bar, with nothing pinned.
     case nonePinned
-    /// Custom or Same as menu bar, and none of those devices is on the list. The list holds only what reports a battery,
-    /// so this is as true of a connected device with no level as of one that has gone (orange-widgets-5jo.qak).
+    /// Custom or Same as menu bar, and none of those devices is ranked: each is unlevelled, or has gone.
     case noneReporting
 }
 
@@ -267,19 +284,24 @@ extension WidgetShelf.Item where Value == WidgetDevices {
 /// What the Device Battery widget's settings offer and resolve. [LAW:dataflow-not-control-flow] Pure over
 /// the shelf's value, so the extension's AppIntents entity query only maps these and a test calls them.
 extension WidgetDevices {
-    /// The devices a widget can be set to: the connected ones, none while the app has no list or is not running.
-    static func choices(in shelf: Shelved<WidgetDevices>) -> [WidgetDevice] {
+    /// The list on the shelf; nil while the app has no list or is not running.
+    private static func list(in shelf: Shelved<WidgetDevices>) -> WidgetDeviceList? {
         switch shelf {
-        case .running(.connected(let devices, _)): devices
-        case .running(.unread), .appNotRunning: []
+        case .running(.connected(let list)): list
+        case .running(.unread), .appNotRunning: nil
         }
+    }
+
+    /// The devices a widget can be set to: the ranked ones, none while the app has no list or is not running.
+    static func choices(in shelf: Shelved<WidgetDevices>) -> [WidgetDevice] {
+        list(in: shelf)?.ranked ?? []
     }
 
     /// One result per id asked for, present or not: a chosen device that has disconnected still resolves
     /// (to nil), so a widget keeps its choice while the device is away.
     static func resolve(_ addresses: [String], in shelf: Shelved<WidgetDevices>) -> [(address: String, device: WidgetDevice?)] {
-        let connected = choices(in: shelf)
-        return addresses.map { address in (address, connected.first { $0.address == address }) }
+        let connected = list(in: shelf)
+        return addresses.map { address in (address, connected?.device(at: address)) }
     }
 
     /// The devices a widget's selection lists, or why it lists none. [LAW:one-type-per-behavior] Custom and Same as menu
@@ -287,9 +309,9 @@ extension WidgetDevices {
     func listed(by selection: WidgetDeviceSelection) -> Result<[WidgetDevice], NoDevicesListed> {
         switch (self, selection) {
         case (.unread(let reason), _): .failure(.unread(reason))
-        case (.connected(let devices, _), .automatic): .success(devices)
-        case (.connected(let devices, _), .custom(let addresses)): Self.picked(addresses, from: devices, unset: .noneChosen)
-        case (.connected(let devices, let pinned), .sameAsMenuBar): Self.picked(pinned.addresses, from: devices, unset: .nonePinned)
+        case (.connected(let list), .automatic): .success(list.ranked)
+        case (.connected(let list), .custom(let addresses)): Self.picked(addresses, from: list.ranked, unset: .noneChosen)
+        case (.connected(let list), .sameAsMenuBar): Self.picked(list.pinned.addresses, from: list.ranked, unset: .nonePinned)
         }
     }
 

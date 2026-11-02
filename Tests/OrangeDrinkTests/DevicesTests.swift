@@ -70,6 +70,15 @@ struct DeviceListTests {
         #expect(DeviceLevels.none.lowest == nil)
     }
 
+    @Test func aConnectedDeviceWithNoLevelIsLeftOutOfTheRankingAndAnUnreadOneIsNot() {
+        let keyboard = Device(id: DeviceID(address: "EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let speaker = Device(id: DeviceID(address: "DD"), name: "Speaker", kind: .accessory, levels: .unread)
+        var list = DeviceList()
+        list.apply(.swept([Self.mouse, keyboard, speaker]))
+        #expect(DeviceRanking.rows(list).map(\.id) == [Self.mouse.id, speaker.id])
+        #expect(DeviceRanking.unlevelled(list) == [DeviceRow(id: keyboard.id, name: "Keyboard", kind: .accessory, level: nil)])
+    }
+
     @Test(arguments: [
         (UInt32(0x02), "Pixel", DeviceKind.phone), (0, "Brandon’s iPhone", .phone), (0, "Brandon’s iPad", .tablet),
         (0x04, "Beats Studio Buds +", .accessory), (0x05, "Magic Trackpad", .accessory), (0, "DISTO X3", .accessory),

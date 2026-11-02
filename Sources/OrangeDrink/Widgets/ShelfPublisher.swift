@@ -25,7 +25,10 @@ extension WidgetDevices {
     /// reads, so a widget shows the level the panel shows, from the list's one word on whether it was read,
     /// and from the one order the menu bar's items are made in.
     init(_ list: DeviceList, pinned: PinnedOrder) {
-        self = list.unread.map(Self.unread) ?? .connected(DeviceRanking.rows(list).map(WidgetDevice.init), pinned: WidgetPins(addresses: pinned.ids.map(\.address)))
+        self = list.unread.map(Self.unread) ?? .connected(WidgetDeviceList(
+            ranked: DeviceRanking.rows(list).map(WidgetDevice.init),
+            pinned: WidgetPins(addresses: pinned.ids.map(\.address)),
+            unlevelled: DeviceRanking.unlevelled(list).map(WidgetDevice.init)))
     }
 }
 
