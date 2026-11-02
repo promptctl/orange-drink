@@ -86,9 +86,9 @@ struct BatteryRing: View {
     }
 }
 
-/// A row's percentage, in a column every row shares so the bars line up. [LAW:one-source-of-truth] The longest level
-/// there is, drawn hidden in the row's language and font, sets the column, so the column is as wide as that language
-/// says it. The bolt sits at the column's leading edge, in the room "100%" leaves, so it never leaves the column.
+/// A row's percentage, in a column every row shares so the bars line up. [LAW:one-source-of-truth] The widest a row
+/// can draw, the longest level or the bolt beside "100%", is drawn hidden in the row's language and font and sets the
+/// column, so the column is as wide as that language says it. The bolt ends where the level's text starts, at every level.
 struct RowPercentage: View {
     static let longest = BatteryLevel(percent: 100, approximate: true)
     static let font = Font.subheadline.bold()
@@ -98,9 +98,16 @@ struct RowPercentage: View {
     var body: some View {
         ZStack(alignment: .trailing) {
             BatteryPercentage(battery: WidgetBattery(glyph: battery.glyph, level: Self.longest, charging: false)).hidden()
+            HStack(spacing: 0) {
+                BatteryBolt(battery: battery).font(.caption2)
+                BatteryPercentage(battery: WidgetBattery(glyph: battery.glyph, level: BatteryLevel(percent: 100, approximate: false), charging: false))
+            }
+            .hidden()
             BatteryPercentage(battery: battery)
+                .overlay(alignment: .leading) {
+                    BatteryBolt(battery: battery).font(.caption2).alignmentGuide(.leading) { $0[.trailing] }
+                }
         }
-        .overlay(alignment: .leading) { BatteryBolt(battery: battery).font(.caption2) }
         .font(Self.font)
         .fixedSize(horizontal: true, vertical: false)
     }

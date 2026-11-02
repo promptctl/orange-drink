@@ -1,7 +1,7 @@
 import AppKit
 
 /// One pinned device's menu bar item: the same row the panel and the Devices screen show, so its
-/// name, type glyph, and level text ("37%", "~50%" when approximate, "–" when unknown) are written once.
+/// name, type glyph, and level are written once, the level said in the app's language.
 struct PinnedItem: Equatable, Identifiable {
     let row: DeviceRow
     /// The language the row's level is said in: a change of it is a change the bar redraws.

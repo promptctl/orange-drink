@@ -285,7 +285,14 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     /// before the column stays clear of it in every language. A named List row, so the column is at the trailing edge and no green bar reaches the gap.
     @Test(arguments: [true, false]) func aChargingRowHasItsBoltBesideItsPercentage(charging: Bool) throws {
         let entry = Self.entry(.level(percent: 100, charging: charging), [], style: .list) { $0.showNames = true }
+        let low = Self.entry(.level(percent: 5, charging: charging), [], style: .list) { $0.showNames = true }
         for language in WidgetLanguageTests.shipped {
+            // At a low level the bolt is beside the number, not at the column's far edge.
+            let lowImage = try Self.image(low, .systemSmall, content: Self.content(.systemSmall), language: language)
+            let lowColumn = try (Self.content(.systemSmall).width - 4 - Self.percentageColumn(language)) * 2
+            let lowEdge = try #require(lowImage.cropping(to: CGRect(x: lowColumn, y: 0, width: 4 * 2, height: CGFloat(lowImage.height))))
+            #expect(!WidgetPixels(lowEdge).contains(Self.isGreen), "5% in \(language)")
+            #expect(WidgetPixels(lowImage).contains(Self.isGreen) == charging, "5% in \(language)")
             let image = try Self.image(entry, .systemSmall, content: Self.content(.systemSmall), language: language)
             let column = try (Self.content(.systemSmall).width - 4 - Self.percentageColumn(language)) * 2
             let strip = try #require(image.cropping(to: CGRect(x: column, y: 0, width: 8 * 2, height: CGFloat(image.height))))
