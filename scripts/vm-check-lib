@@ -54,6 +54,10 @@ stopped() { [ -z "$(pids)" ]; }
 log_matching() { guest /usr/bin/log show --last 30m --info --style compact --predicate "$1"; }
 log_lines() { log_matching "category == \"$1\""; }
 logged() { grep -qF "$2" <<<"$(log_lines "$1")"; }
+# The guest's clock now, and what the app logged in devices since such a time, for a stage whose lines an earlier stage
+# logged too. `log show --info` holds info lines from before any `log config`, so a time is what anchors one.
+guest_now() { guest date '+%Y-%m-%d %H:%M:%S'; }
+devices_since() { guest /usr/bin/log show --start "$1" --info --style compact --predicate 'category == "devices"'; }
 
 # `tart get` knows only local VMs, and a check naming a pulled image hears from `tart clone` if it is gone.
 [ "$image" != orange-drink-xcode ] || tart get "$image" >/dev/null || fail "no VM named $image: tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 $image"

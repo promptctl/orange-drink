@@ -59,9 +59,9 @@ guest pkill -x OrangeDrink
 wait_for "the app did not quit" 30 stopped
 guest tccutil reset BluetoothAlways "$identifier"
 # Anchored here, because the stage above logged the same refusal.
-relaunched=$(guest date '+%Y-%m-%d %H:%M:%S')
+relaunched=$(guest_now)
 guest open "$app"
 uitest FirstLaunchUITests/testThePanelSaysBluetoothIsNotAllowed
-refused_since() { guest /usr/bin/log show --start "$relaunched" --info --style compact --predicate 'category == "devices"' | grep -qF 'bluetooth permission answered: denied'; }
+refused_since() { grep -qF 'bluetooth permission answered: denied' <<<"$(devices_since "$relaunched")"; }
 wait_for "the app never logged the refusal" 30 refused_since
 echo "first-launch-check: denied: the panel says Bluetooth is not allowed" >&2
