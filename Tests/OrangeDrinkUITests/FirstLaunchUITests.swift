@@ -32,9 +32,22 @@ import XCTest
 
     func testThePanelSaysBluetoothIsNotAllowed() throws {
         press(prompt.buttons["Don’t Allow"])
+        try expectThePanelToSayBluetoothIsNotAllowed()
+    }
+
+    /// As a person takes it away, with the app left running: the next minute's ask is what hears it, so the wait spans one.
+    func testTakingBluetoothAwayFromTheRunningApp() throws {
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.systempreferences")
+        NSWorkspace.shared.open(try XCTUnwrap(URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Bluetooth")))
+        press(settings.switches["OrangeDrink_Toggle"])
+        confirmWithThePassword(in: settings)
+        try expectThePanelToSayBluetoothIsNotAllowed(timeout: 2 * Self.installedAppTimeout)
+    }
+
+    private func expectThePanelToSayBluetoothIsNotAllowed(timeout: TimeInterval = installedAppTimeout) throws {
         let app = try openPanel()
         // By its start, because a query's string may be no longer than 128 characters.
         let refused = app.staticTexts.matching(NSPredicate(format: "value BEGINSWITH %@", "This app isn't allowed to use Bluetooth.")).firstMatch
-        XCTAssertTrue(refused.waitForExistence(timeout: Self.installedAppTimeout), "the panel never said Bluetooth is not allowed")
+        XCTAssertTrue(refused.waitForExistence(timeout: timeout), "the panel never said Bluetooth is not allowed")
     }
 }

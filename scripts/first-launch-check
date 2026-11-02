@@ -36,10 +36,29 @@ wait_for "the app never logged the answer" 30 logged devices 'bluetooth permissi
 wait_for "the device watcher never started after the answer" 30 logged devices "$started"
 echo "first-launch-check: allowed: the app logged the answer, then started the device watcher" >&2
 
+# The asks a line's stage has made since: each is a state line, at info, which this check keeps for its own reading.
+asks_after() { log_after "$1" "$(log_lines devices)" | grep -cF 'bluetooth permission: state' || true; }
+further_ask() { [ "$(asks_after 'device watcher stopped')" -ge 2 ]; }
+
+guest sudo -n log config --subsystem "$identifier" --mode 'level:info,persist:info' >&2
+uitest FirstLaunchUITests/testTakingBluetoothAwayFromTheRunningApp
+wait_for "the app never stopped its device watcher" 90 logged devices 'device watcher stopped'
+wait_for "the app never logged the permission taken away" 30 logged devices 'bluetooth permission answered: denied'
+wait_for "the app made no further ask after the refusal" 90 further_ask
+# At the top level, because errexit stops at a log that cannot be read only here: in a function's $() it would read as no line.
+lines=$(log_lines devices)
+revoked=$(log_after 'device watcher stopped' "$lines")
+[ -n "$revoked" ] || fail "the log no longer holds the watcher's stop"
+! grep -qF "$started" <<<"$revoked" || fail "the device watcher started after the permission was taken away"
+! grep -qF 'device sweep:' <<<"$revoked" || fail "the app swept after the permission was taken away"
+echo "first-launch-check: taken away: the panel says Bluetooth is not allowed, the watcher stopped, and a later ask swept nothing" >&2
+
 guest pkill -x OrangeDrink
 wait_for "the app did not quit" 30 stopped
 guest tccutil reset BluetoothAlways "$identifier"
+# Anchored here, because the stage above logged the same refusal.
+relaunched=$(guest_now)
 guest open "$app"
 uitest FirstLaunchUITests/testThePanelSaysBluetoothIsNotAllowed
-wait_for "the app never logged the refusal" 30 logged devices 'bluetooth permission answered: denied'
+wait_for "the app never logged the refusal" 30 refused_since "$relaunched"
 echo "first-launch-check: denied: the panel says Bluetooth is not allowed" >&2

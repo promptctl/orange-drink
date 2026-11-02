@@ -56,8 +56,8 @@ struct DeviceReaderTests {
     }
 
     @Test func anOSWithoutTheSymbolEndsTheSubscription() async {
-        let events = BluetoothDevices.events(authorizations: { AsyncStream { $0.yield(.allowedAlways) } },
-                                             power: { () throws(BluetoothDevicesError) in throw .missingSymbol("IOPSCopyPowerSourcesByType") })
+        let events = BluetoothDevices.events(asks: { _ in AsyncStream { $0.yield(.heard(.allowed)) } },
+                                             watcher: { _, _ in throw BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType") })
         await #expect(throws: BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType")) {
             for try await _ in events {}
         }

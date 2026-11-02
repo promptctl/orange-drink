@@ -125,7 +125,7 @@ struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, Cust
 /// the list touches only what reads it.
 struct WidgetDeviceList: Codable, Equatable, Sendable {
     /// The panel's ranking: the devices with a level, and those whose level is unknown this read. So an empty list says none
-    /// reports a battery, as far as the app has been told (orange-devices-bue.4gw).
+    /// reports a battery.
     let ranked: [WidgetDevice]
     let pinned: WidgetPins
     /// The connected devices the ranking leaves out, with no level to rank: one settling after a reconnect, or one power

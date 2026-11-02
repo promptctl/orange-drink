@@ -50,10 +50,17 @@ wait_for() {
 }
 stopped() { [ -z "$(pids)" ]; }
 # What the app logged in <category>. `logged` is for a line that must come: a here-string drops the read's status, so a
-# read that failed says it has not. Whatever says a line is absent reads log_lines itself.
-log_matching() { guest /usr/bin/log show --last 30m --style compact --predicate "$1"; }
+# read that failed says it has not. Whatever says a line is absent reads the log itself.
+log_matching() { guest /usr/bin/log show --last 30m --info --style compact --predicate "$1"; }
 log_lines() { log_matching "category == \"$1\""; }
 logged() { grep -qF "$2" <<<"$(log_lines "$1")"; }
+# The guest's clock now, and what the app logged in devices since such a time, for a stage whose lines an earlier stage
+# logged too. `log show --info` holds info lines from before any `log config`, so a time is what anchors one.
+guest_now() { guest date '+%Y-%m-%d %H:%M:%S'; }
+devices_since() { guest /usr/bin/log show --start "$1" --info --style compact --predicate 'category == "devices"'; }
+refused_since() { grep -qF 'bluetooth permission answered: denied' <<<"$(devices_since "$1")"; }
+# What follows <pattern> in <log>. A line of a stage before it is not a line of this one.
+log_after() { sed -n "/$1/,\$p" <<<"$2"; }
 
 # `tart get` knows only local VMs, and a check naming a pulled image hears from `tart clone` if it is gone.
 [ "$image" != orange-drink-xcode ] || tart get "$image" >/dev/null || fail "no VM named $image: tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 $image"
