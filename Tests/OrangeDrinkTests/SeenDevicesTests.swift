@@ -15,7 +15,7 @@ import Testing
     static func unavailable() -> String { DeviceQuery.unavailable.resolve(in: .matchSystem) }
 
     let shelf = FileManager.default.temporaryDirectory.appending(path: "seen-\(UUID().uuidString)")
-    let defaults = UserDefaults(suiteName: "SeenDevicesTests.\(UUID())")!
+    let defaults = scratchDefaults()
     let query: DeviceQuery
     let devicesShelf: ShelfPublisher<Shelved<WidgetDevices>>
     let seenShelf: ShelfPublisher<SeenDevices>

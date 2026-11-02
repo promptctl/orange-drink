@@ -33,7 +33,7 @@ extension WidgetDevices {
 }
 
 extension DevicesModel {
-    /// The one wiring of the list and the pins to what mirrors them: the pinned menu bar items and the widgets' shelf. The
+    /// The one wiring of the list, the pins and what has been seen to what mirrors them: the pinned menu bar items and the widgets' shelf. The
     /// list it starts from reaches the shelf before this returns, so a file a crashed run left behind is not drawn as current
     /// while the first Bluetooth sweep is still out.
     convenience init<Events: AsyncSequence & Sendable>(
@@ -53,7 +53,7 @@ extension DevicesModel {
         mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems)
     }
 
-    /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list or the pins, with no timer
+    /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list, the pins or what has been seen, with no timer
     /// and no polling. A mirror needs only the latest, so changes that land together reach it as one.
     private func mirror(to shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>, settings: DeviceSettingsModel,
                         seen: SeenDevicesModel, pinnedItems: PinnedItemsController) {
@@ -97,7 +97,7 @@ extension DevicesModel {
             try WidgetShelf.write(contents, as: item, to: directory)
             item.readers.forEach(reload)
             let readers = item.readers.map(\.rawValue).joined(separator: ", ")
-            ShelfLog.log.info("widget shelf written, reload asked: \(value, privacy: .public) in \(shelf, privacy: .public) for \(readers, privacy: .public)")
+            ShelfLog.log.info("widget shelf written: \(value, privacy: .public) in \(shelf, privacy: .public), reload asked of: \(readers, privacy: .public)")
         } catch {
             // [LAW:no-silent-failure] Logged; the shelf still differs, so the next state retries.
             ShelfLog.log.error("widget shelf write failed: \(value, privacy: .public) in \(shelf, privacy: .public): \(String(describing: error), privacy: .public)")

@@ -59,7 +59,7 @@ import ViewInspector
         widgets.publish(.running(.level(percent: 50, charging: false)))
         #expect(reloads.count == 1)
         // The host app publishes into the same log category; the shelf's path makes each line this test's own.
-        #expect(try await log.logged("widget shelf written, reload asked: level(percent: 50, charging: false) in \(shelf.path) for MacBattery, AllBatteries"))
+        #expect(try await log.logged("widget shelf written: level(percent: 50, charging: false) in \(shelf.path), reload asked of: MacBattery, AllBatteries"))
         #expect(try await log.logged("widget shelf unchanged: level(percent: 50, charging: false) in \(shelf.path)"))
     }
 

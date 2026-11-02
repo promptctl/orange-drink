@@ -24,7 +24,7 @@ extension DevicesModel {
         events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, settings: DeviceSettingsModel, pinnedItems: PinnedItemsController,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) throws where Events.Element == DeviceEvent {
-        let seen = try SeenDevicesModel(defaults: UserDefaults(suiteName: "WidgetShelfDoubles.\(UUID())")!)
+        let seen = try SeenDevicesModel(defaults: scratchDefaults())
         let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf.directory) { _ in }
         self.init(events: events, shelf: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems, onChange: onChange)
     }
@@ -33,7 +33,7 @@ extension DevicesModel {
     convenience init<Events: AsyncSequence & Sendable>(
         events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) throws where Events.Element == DeviceEvent {
-        let settings = try DeviceSettingsModel(defaults: UserDefaults(suiteName: "WidgetShelfDoubles.\(UUID())")!)
+        let settings = try DeviceSettingsModel(defaults: scratchDefaults())
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
         try self.init(events: events, shelf: shelf, settings: settings, pinnedItems: pinnedItems, onChange: onChange)
     }
