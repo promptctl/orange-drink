@@ -175,7 +175,7 @@ say "the alert closed and Script Editor's notification with the same words staye
 # info, which this check keeps for its own reading.
 guest sudo -n log config --subsystem "$identifier" --mode 'level:info,persist:info' >&2
 kept=$(guest_now)
-swept_on_a_timed_ask() { log_after 'bluetooth permission: state .*authorization 3' "$(devices_since "$kept")" | grep -qF 'device sweep:'; }
+swept_on_a_timed_ask() { grep -qF 'device sweep:' <<<"$(log_after 'bluetooth permission: state .*authorization 3' "$(devices_since "$kept")")"; }
 wait_for "the running app never swept on a timed ask" 150 swept_on_a_timed_ask
 lines=$(devices_since "$kept")
 ! grep -qF 'bluetooth permission answered: denied' <<<"$lines" || fail "a new manager refused the allowed app"
@@ -190,7 +190,7 @@ guest tccutil reset BluetoothAlways
 stopped_since() { grep -qF 'device watcher stopped' <<<"$(devices_since "$taken")"; }
 wait_for "the app never stopped its device watcher" 90 stopped_since
 wait_for "the Bluetooth prompt never came to the running app" 90 guest "$tree" answer 'Don’t Allow'
-refused_by_a_new_manager() { log_after 'bluetooth permission answered: denied' "$(devices_since "$taken")" | grep -qF 'bluetooth permission: state 3'; }
+refused_by_a_new_manager() { grep -qF 'bluetooth permission: state 3' <<<"$(log_after 'bluetooth permission answered: denied' "$(devices_since "$taken")")"; }
 wait_for "the running app never logged the refusal" 30 refused_since "$taken"
 wait_for "a new manager never refused the running app" 90 refused_by_a_new_manager
 say "taken away: the running app stopped its device watcher, and a new manager refused it"

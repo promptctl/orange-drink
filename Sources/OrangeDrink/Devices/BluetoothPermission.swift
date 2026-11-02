@@ -68,7 +68,7 @@ enum BluetoothPermission: Equatable, Sendable {
     private static func answer(
         to updates: Updates, _ timekeeper: any Timekeeper, prompted: (Ask) -> Void
     ) async throws -> Ask {
-        guard let update = try await firstUpdate(of: updates, within: BluetoothDevices.pollInterval, timekeeper) else {
+        guard let update = try await firstUpdate(of: updates, timekeeper) else {
             BluetoothDevices.log.error("bluetooth permission: no answer within the minute, the last one stands")
             return .stalled
         }
@@ -83,11 +83,9 @@ enum BluetoothPermission: Equatable, Sendable {
         return .heard(permission)
     }
 
-    /// `updates`' first element, or nil if `bound` passes first. The stream stays with the caller, so a prompt's wait can go on
-    /// reading it. It ends with no element only when cancelled, which throws.
-    private static func firstUpdate(
-        of updates: Updates, within bound: Duration, _ timekeeper: any Timekeeper
-    ) async throws -> CBManagerAuthorization? {
+    /// `updates`' first element, or nil if the minute passes first. The stream stays with the caller, so a prompt's wait can go
+    /// on reading it. It ends with no element only when cancelled, which throws.
+    private static func firstUpdate(of updates: Updates, _ timekeeper: any Timekeeper) async throws -> CBManagerAuthorization? {
         try await withThrowingTaskGroup(of: CBManagerAuthorization?.self) { race in
             defer { race.cancelAll() }
             race.addTask {
@@ -96,7 +94,7 @@ enum BluetoothPermission: Equatable, Sendable {
                 return update
             }
             race.addTask {
-                try await timekeeper.sleep(for: bound)
+                try await timekeeper.sleep(for: BluetoothDevices.pollInterval)
                 return nil
             }
             return try await race.next() ?? nil

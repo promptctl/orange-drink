@@ -39,7 +39,7 @@ enum BluetoothDevices {
     /// and the answer decides. IOBluetooth's first call holds its thread until the prompt is answered, so
     /// nothing touches it before an answer of allowed. A prompt left open and a refusal both hold the list
     /// unread: nothing sweeps a Bluetooth that macOS refused, so a sweep means the list was read (`DeviceList`).
-    /// Only a refusal stops the sweeps: an ask that went unanswered leaves the last answer standing.
+    /// Any answer but allowed stops the sweeps: an ask that went unanswered leaves the last answer standing.
     /// The registration runs on the main thread because that is the path shown to hear later connects:
     /// spike orange-distribution-kg2.73n registered from other threads too, but no device moved. Its
     /// notifications then post on a queue of its own, which is why the watcher is not main-actor isolated.
@@ -73,7 +73,7 @@ enum BluetoothDevices {
         case watching(any DeviceWatcher)
 
         /// A permission reaches the list only when it changes, because `.permission(.allowed)` means a sweep is awaited, and
-        /// a minute must not say that of a list already read. A watcher stops before its refusal is reported, so nothing follows it.
+        /// a minute must not say that of a list already read. A watcher stops before its refusal is reported, so no read follows it.
         func advanced(
             by ask: BluetoothPermission.Ask, _ continuation: Events, making watcher: () throws -> any DeviceWatcher
         ) async throws -> Watching {
@@ -232,7 +232,8 @@ protocol DeviceWatcher: Sendable {
     /// Registers for connects and sweeps once. Called on the main thread.
     func start() throws
     func sweep()
-    /// Ends the watcher's reads: once this returns it sweeps and reports nothing more.
+    /// Ends the watcher's reads: once this returns it sweeps and reports nothing more. A disconnect already in flight may
+    /// still say `.gone`, which a list emptied by the refusal ignores.
     func stop()
 }
 
