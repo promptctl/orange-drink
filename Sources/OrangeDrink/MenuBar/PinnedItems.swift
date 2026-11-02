@@ -4,9 +4,10 @@ import AppKit
 /// name, type glyph, and level text ("37%", "~50%" when approximate, "–" when unknown) are written once.
 struct PinnedItem: Equatable, Identifiable {
     let row: DeviceRow
-    /// The row's level in the app's language. Held as text, so a change of language is a change the bar redraws.
-    let title: String
+    /// The language the row's level is said in: a change of it is a change the bar redraws.
+    let language: AppLanguage
     var id: DeviceID { row.id }
+    var title: String { row.percent.resolve(in: language) }
 
     /// The row of each pinned device with one in the ranking, in the order the user arranged them
     /// on the Menu Bar screen.
@@ -20,7 +21,7 @@ struct PinnedItem: Equatable, Identifiable {
 
     /// One item for each of those rows, said in `language`: no SwiftUI environment reaches a status item.
     static func items(_ list: DeviceList, pinned: PinnedOrder, language: AppLanguage) -> [PinnedItem] {
-        rows(list, pinned: pinned).map { PinnedItem(row: $0, title: $0.percent.resolve(in: language)) }
+        rows(list, pinned: pinned).map { PinnedItem(row: $0, language: language) }
     }
 }
 
@@ -48,7 +49,7 @@ struct PinnedItem: Equatable, Identifiable {
 
     /// Makes the status items equal to `items`, in that order. A change in which devices have an
     /// item, or in their order, makes them all again, since the bar's order is the order they were
-    /// made in; a change only in a level redraws that item.
+    /// made in; a change only in a level or the language redraws the items it changes.
     func apply(_ items: [PinnedItem]) {
         if items.map(\.id) != held.map(\.id) {
             held.forEach { $0.item.remove() }

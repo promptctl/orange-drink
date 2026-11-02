@@ -173,7 +173,6 @@ import WidgetKit
         }
     }
 
-    /// The level is the one text in these that a language changes, so a drawing that changes is the level being said.
     @Test func aPanelRowAndAPlacedWidgetSayALevelInTheLanguageTheySpeak() throws {
         let device = WidgetDevice(address: "A", name: "Mouse", kind: .accessory, level: Self.exact)
         let row = DeviceRow(id: DeviceID(address: "A"), name: "Mouse", kind: .accessory, level: Self.exact)
@@ -183,11 +182,11 @@ import WidgetKit
             AnyView(DeviceRowView(row: row)), AnyView(AllBatteriesWidgetTests.view(entry)),
             AnyView(DeviceBatteryView(entry: ring, appName: "Orange Drink", family: .systemSmall)),
         ]
-        for view in views {
-            let english = try Self.drawn(view.speaking(AppLanguage(code: "en")))
-            let french = try Self.drawn(view.speaking(AppLanguage(code: "fr")))
-            #expect(french != english)
-            #expect(try Self.drawn(view.speaking(AppLanguage(code: "es"))) == french)
+        for (code, said) in Self.forms {
+            for view in views {
+                let texts = try view.speaking(AppLanguage(code: code)).inspect().findAll(ViewType.Text.self).filter { !$0.isHidden() }.map { try $0.string() }
+                #expect(texts.contains(said[0]), "\(texts) in \(code)")
+            }
         }
     }
 

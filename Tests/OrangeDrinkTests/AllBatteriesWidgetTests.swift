@@ -281,13 +281,18 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(WidgetPixels(rest).top == nil)
     }
 
-    /// "100%" leaves the percentage column's leading edge clear of digits, so green there is the bolt alone.
+    /// "100%" leaves the percentage column's leading edge clear of digits, so green there is the bolt alone, and the gap
+    /// before the column stays clear of it in every language. A named List row, so the column is at the trailing edge and no green bar reaches the gap.
     @Test(arguments: [true, false]) func aChargingRowHasItsBoltBesideItsPercentage(charging: Bool) throws {
-        let entry = Self.entry(.level(percent: 100, charging: charging), [], style: .bars)
-        let image = try Self.image(entry, .systemSmall, content: Self.content(.systemSmall))
-        let column = try (Self.content(.systemSmall).width - 4 - Self.percentageColumn()) * 2
-        let strip = try #require(image.cropping(to: CGRect(x: column, y: 0, width: 8 * 2, height: CGFloat(image.height))))
-        #expect(WidgetPixels(strip).contains(Self.isGreen) == charging)
+        let entry = Self.entry(.level(percent: 100, charging: charging), [], style: .list) { $0.showNames = true }
+        for language in WidgetLanguageTests.shipped {
+            let image = try Self.image(entry, .systemSmall, content: Self.content(.systemSmall), language: language)
+            let column = try (Self.content(.systemSmall).width - 4 - Self.percentageColumn(language)) * 2
+            let strip = try #require(image.cropping(to: CGRect(x: column, y: 0, width: 8 * 2, height: CGFloat(image.height))))
+            let gap = try #require(image.cropping(to: CGRect(x: column - 4 * 2, y: 0, width: 4 * 2, height: CGFloat(image.height))))
+            #expect(WidgetPixels(strip).contains(Self.isGreen) == charging, "\(language)")
+            #expect(!WidgetPixels(gap).contains(Self.isGreen), "\(language)")
+        }
     }
 
     @Test func theLongestPercentageFitsItsColumnInEveryLanguage() throws {
@@ -456,7 +461,9 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
             let cell = try BatteryGrid(family, style).cell(in: Self.content(family)).width * 2
             let width = try (Self.percentageColumn(language) + 4) * 2
             let strip = try #require(image.cropping(to: CGRect(x: cell - width, y: 0, width: width, height: CGFloat(image.height))))
+            let padding = try #require(image.cropping(to: CGRect(x: cell - 4 * 2, y: 0, width: 4 * 2, height: CGFloat(image.height))))
             #expect(WidgetPixels(strip).top != nil, "the percentage reached the column")
+            #expect(WidgetPixels(padding).top == nil, "the percentage stopped inside its cell")
             return try #require(NSBitmapImageRep(cgImage: strip).representation(using: .png, properties: [:]))
         }
         for language in WidgetLanguageTests.shipped {

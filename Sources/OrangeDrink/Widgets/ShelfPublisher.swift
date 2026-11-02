@@ -33,7 +33,7 @@ extension WidgetDevices {
 }
 
 extension DevicesModel {
-    /// The one wiring of the list, the pins and what has been seen to what mirrors them: the pinned menu bar items and the widgets' shelf. The
+    /// The one wiring of the list, the pins, the language and what has been seen to what mirrors them: the pinned menu bar items and the widgets' shelf. The
     /// list it starts from reaches the shelf before this returns, so a file a crashed run left behind is not drawn as current
     /// while the first Bluetooth sweep is still out.
     convenience init<Events: AsyncSequence & Sendable>(
