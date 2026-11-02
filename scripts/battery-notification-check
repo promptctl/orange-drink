@@ -172,17 +172,38 @@ say "the alert closed and Script Editor's notification with the same words staye
 
 # A refusal never reaches IOBluetooth: nothing past it sweeps, so a sweep means the list was read. macOS 14 and 15 are read
 # nowhere else.
+# A timed ask of an allowed app, the one run of it on macOS 14 and 15: a new manager that refused an allowed app would stop
+# every Mac's list at its first minute, and the refusal below could not tell that from a real one. The ask's state line is at
+# info, which this check keeps for its own reading, so what the line follows was logged after it was kept.
+guest sudo -n log config --subsystem "$identifier" --mode 'level:info,persist:info' >&2
+swept_on_a_timed_ask() { sed -n '/bluetooth permission: state .*authorization 3/,$p' <<<"$(log_lines devices)" | grep -qF 'device sweep:'; }
+wait_for "the running app never swept on a timed ask" 150 swept_on_a_timed_ask
+lines=$(log_lines devices)
+! grep -qF 'bluetooth permission answered: denied' <<<"$lines" || fail "a new manager refused the allowed app"
+! grep -qF 'device watcher stopped' <<<"$lines" || fail "the device watcher stopped with the app allowed"
+say "allowed: a timed ask of the running app said allowed, and it swept"
+
+# Every client's grant: one naming the app's bundle leaves this one standing, for an app `tart exec` started. The running
+# app's next ask is the one run of a refusal heard mid-run on macOS 14 and 15.
+guest tccutil reset BluetoothAlways
+wait_for "the app never stopped its device watcher" 90 logged devices 'device watcher stopped'
+wait_for "the app never logged the permission taken away" 30 logged devices 'bluetooth permission answered: denied'
+say "taken away: the running app's next ask heard it and stopped the device watcher"
+
 guest pkill -x OrangeDrink
 wait_for "the app did not quit" 30 stopped
-# Every client's grant: one naming the app's bundle leaves this one standing, for an app `tart exec` started.
 guest tccutil reset BluetoothAlways
+# Anchored here, because the stage above logged the same refusal.
+relaunched=$(guest date '+%Y-%m-%d %H:%M:%S')
+relaunch_lines() { guest /usr/bin/log show --start "$relaunched" --info --style compact --predicate 'category == "devices"'; }
+relaunch_refused() { grep -qF 'bluetooth permission answered: denied' <<<"$(relaunch_lines)"; }
 start_app
 wait_for "the Bluetooth prompt never came back after the reset" 30 guest "$tree" answer 'Don’t Allow'
-wait_for "the app never logged the refusal" 30 logged devices 'bluetooth permission answered: denied'
+wait_for "the app never logged the refusal" 30 relaunch_refused
 # The line follows the answer within the second when it comes, so its absence is read after a few.
 sleep 5
 # At the top level, because errexit stops at a log that cannot be read only here: in a function's $() it would read as no line.
-lines=$(log_lines devices)
+lines=$(relaunch_lines)
 refused=$(sed -n '/bluetooth permission answered: denied/,$p' <<<"$lines")
 [ -n "$refused" ] || fail "the log no longer holds the refusal"
 ! grep -qF 'device watcher started' <<<"$refused" || fail "the device watcher started after the refusal"

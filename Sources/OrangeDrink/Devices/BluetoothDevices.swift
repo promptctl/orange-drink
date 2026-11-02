@@ -34,38 +34,81 @@ enum BluetoothDevices {
     /// measured a sweep of every connected device at under a millisecond of CPU, and reading the accessory
     /// sources adds 0.1 ms (1e6), so a sweep a minute is far inside PROJECT.md's 0.1% budget.
     ///
-    /// [LAW:no-ambient-temporal-coupling] The wait on the Bluetooth prompt, the registration, every
-    /// sweep, and the unregistering are one task's business. IOBluetooth's first call holds its thread
-    /// until the prompt is answered, so nothing touches it before `BluetoothPermission.answer` returns.
+    /// [LAW:no-ambient-temporal-coupling] The wait on the Bluetooth prompt, the registration, every timed
+    /// sweep, and the unregistering are one loop's business, over one clock: each minute macOS is asked,
+    /// and the answer decides. IOBluetooth's first call holds its thread until the prompt is answered, so
+    /// nothing touches it before an answer of allowed. A prompt left open and a refusal both hold the list
+    /// unread: nothing sweeps a Bluetooth that macOS refused, so a sweep means the list was read (`DeviceList`).
+    /// Only a refusal stops the sweeps: an ask that went unanswered leaves the last answer standing.
     /// The registration runs on the main thread because that is the path shown to hear later connects:
     /// spike orange-distribution-kg2.73n registered from other threads too, but no device moved. Its
     /// notifications then post on a queue of its own, which is why the watcher is not main-actor isolated.
     static func events(
         timekeeper: any Timekeeper = SystemTimekeeper(),
-        authorizations: @escaping @Sendable () -> AsyncStream<CBManagerAuthorization> = BluetoothPermission.updates,
-        power: @escaping @Sendable () throws(BluetoothDevicesError) -> AccessoryPower = AccessoryPower.init
+        asks: @escaping @Sendable (any Timekeeper) -> AsyncStream<BluetoothPermission.Ask> = BluetoothPermission.asks(timekeeper:),
+        watcher: @escaping @Sendable (Events, any Timekeeper) throws -> any DeviceWatcher = liveWatcher
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
+                var state = Watching.held(nil)
+                defer { if case .watching(let watcher) = state { watcher.stop() } }
                 do {
-                    try await BluetoothPermission.answer(from: authorizations()) { continuation.yield(.permission($0)) }
-                    let reader = DeviceReader(sources: try power().read)
-                    let watcher = Watcher(continuation: continuation, timekeeper: timekeeper, reader: reader)
-                    defer { watcher.stop() }
-                    try await MainActor.run { try watcher.start() }
-                    log.notice("device watcher started")
-                    while true {
-                        try await timekeeper.sleep(for: pollInterval)
-                        watcher.sweep()
+                    for await ask in asks(timekeeper) {
+                        state = try await state.advanced(by: ask, continuation) { try watcher(continuation, timekeeper) }
                     }
-                } catch is CancellationError {
-                    return
                 } catch {
                     Watcher.fail(continuation, error)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    typealias Events = AsyncThrowingStream<DeviceEvent, any Error>.Continuation
+
+    /// [LAW:one-source-of-truth] Whether reading is allowed and whether a watcher runs are one fact: this value.
+    private enum Watching {
+        /// No watcher, with the last permission the list was told, nil before the first.
+        case held(BluetoothPermission?)
+        case watching(any DeviceWatcher)
+
+        /// A permission reaches the list only when it changes, because `.permission(.allowed)` means a sweep is awaited, and
+        /// a minute must not say that of a list already read. A watcher stops before its refusal is reported, so nothing follows it.
+        func advanced(
+            by ask: BluetoothPermission.Ask, _ continuation: Events, making watcher: () throws -> any DeviceWatcher
+        ) async throws -> Watching {
+            switch (self, ask) {
+            case (.watching(let running), .heard(.allowed)), (.watching(let running), .stalled):
+                running.sweep()
+                return self
+            case (.watching(let running), .heard(let permission)):
+                running.stop()
+                Self.report(permission, continuation)
+                return .held(permission)
+            case (.held, .heard(.allowed)):
+                Self.report(.allowed, continuation)
+                let started = try watcher()
+                try await MainActor.run { try started.start() }
+                log.notice("device watcher started")
+                return .watching(started)
+            case (.held(let reported), .heard(let permission)) where permission != reported:
+                Self.report(permission, continuation)
+                return .held(permission)
+            case (.held, _):
+                return self
+            }
+        }
+
+        private static func report(_ permission: BluetoothPermission, _ continuation: Events) {
+            if permission != .notDetermined {
+                log.notice("bluetooth permission answered: \(String(describing: permission), privacy: .public)")
+            }
+            continuation.yield(.permission(permission))
+        }
+    }
+
+    static func liveWatcher(_ continuation: Events, timekeeper: any Timekeeper) throws -> any DeviceWatcher {
+        Watcher(continuation: continuation, timekeeper: timekeeper, reader: DeviceReader(sources: try AccessoryPower().read))
     }
 
     /// [LAW:single-enforcer] The private selectors the edge reads, checked once at the border:
@@ -75,8 +118,8 @@ enum BluetoothDevices {
 
     /// Notifications arrive on IOBluetooth's queue while the task sweeps, so the registrations
     /// are held under a lock.
-    private final class Watcher: NSObject, @unchecked Sendable {
-        private let continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation
+    private final class Watcher: NSObject, DeviceWatcher, @unchecked Sendable {
+        private let continuation: Events
         private struct Registrations {
             var connect: IOBluetoothUserNotification?
             /// Keyed by address: registering for a connect replays it for devices already connected.
@@ -95,8 +138,7 @@ enum BluetoothDevices {
         private let timekeeper: any Timekeeper
         private let reader: DeviceReader
 
-        init(continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, timekeeper: any Timekeeper,
-             reader: DeviceReader) {
+        init(continuation: Events, timekeeper: any Timekeeper, reader: DeviceReader) {
             self.continuation = continuation
             self.timekeeper = timekeeper
             self.reader = reader
@@ -104,7 +146,7 @@ enum BluetoothDevices {
 
         /// [LAW:no-silent-failure] An OS this edge does not understand ends the subscription, so the list
         /// goes `.ended`. A read powerd does not answer is a state of the levels, not an end (`DeviceReader`).
-        static func fail(_ continuation: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, _ error: any Error) {
+        static func fail(_ continuation: Events, _ error: any Error) {
             BluetoothDevices.log.error("device subscription failed: \(String(describing: error), privacy: .public)")
             continuation.finish(throwing: error)
         }
@@ -119,13 +161,18 @@ enum BluetoothDevices {
             sweep()
         }
 
+        /// [LAW:no-ambient-temporal-coupling] `serial` lets a read in flight finish, so no sweep or report follows this. The
+        /// unregistering is outside it: a connect waits on `serial` on IOBluetooth's queue, and that queue may be what this waits on.
         func stop() {
+            serial.lock()
             let held = registrations.withLockUnchecked { state in
                 defer { state = Registrations(stopped: true) }
                 return state
             }
+            serial.unlock()
             held.connect?.unregister()
             held.disconnects.values.forEach { $0.unregister() }
+            BluetoothDevices.log.notice("device watcher stopped")
         }
 
         @objc private func connected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
@@ -149,10 +196,12 @@ enum BluetoothDevices {
             continuation.yield(.gone(id))
         }
 
+        private var stopped: Bool { registrations.withLockUnchecked { $0.stopped } }
+
         func sweep() {
             serial.lock()
             defer { serial.unlock() }
-            guard !registrations.withLockUnchecked({ $0.stopped }) else { return }
+            guard !stopped else { return }
             // nil is IOBluetooth's own answer for no paired devices (IOBluetoothDevice.h), not a read that failed.
             let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
             connected.forEach(register)
@@ -170,11 +219,21 @@ enum BluetoothDevices {
         private func observe(_ device: IOBluetoothDevice) {
             serial.lock()
             defer { serial.unlock() }
+            guard !stopped else { return }
             register(device)
             guard let peer = BluetoothPeer(device) else { return }
             continuation.yield(reader.report(peer))
         }
     }
+}
+
+/// What reads the connected devices while reading is allowed: the seam `BluetoothDevices.events` drives and a test stands in for.
+protocol DeviceWatcher: Sendable {
+    /// Registers for connects and sweeps once. Called on the main thread.
+    func start() throws
+    func sweep()
+    /// Ends the watcher's reads: once this returns it sweeps and reports nothing more.
+    func stop()
 }
 
 enum BluetoothDevicesError: Error, Equatable {

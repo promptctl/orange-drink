@@ -167,7 +167,11 @@ struct DeviceListTests {
         let log = try BatteryLog(category: "devices")
         // The first sweep is the whole connected set, and a refused host never sweeps, so the refusal ends the wait for it.
         var list = DeviceList()
-        sweep: for try await event in BluetoothDevices.events() {
+        let (seen, see) = AsyncStream.makeStream(of: Seen.self)
+        let subscription = Self.subscribe(see)
+        defer { subscription.cancel() }
+        sweep: for await next in seen {
+            guard case .event(let event) = next else { continue }
             list.apply(event)
             switch event {
             case .permission(.notDetermined): print("answer the Bluetooth prompt: Allow the test host")
@@ -207,6 +211,66 @@ struct DeviceListTests {
             for (part, percent) in ours { #expect(abs(percent - (reported[part] ?? percent)) <= 2, "\(name) \(part)") }
         }
         #expect(compared > 0, "macOS gives a level for none of the connected devices \(connected.keys.sorted()), so nothing was compared")
+        try await holdsToAsks(seen)
+    }
+
+    /// What a new manager says on a real radio, read from the asks and not the sweeps: the second sweep is the settle sweep of
+    /// the connects a registration replays, and a stalled ask sweeps too. Resetting the grant takes the host's bundle identifier,
+    /// which it shares with any installed copy of the app, so that copy asks again at its next launch.
+    private func holdsToAsks(_ seen: AsyncStream<Seen>) async throws {
+        let (timed, _) = await Self.nextAsk(seen)
+        printForTheRecord("a timed ask of an allowed host: \(String(describing: timed))")
+        try #require(timed == .heard(.allowed), "a new manager did not answer an allowed host on a real radio")
+        let identifier = try #require(Bundle.main.bundleIdentifier)
+        let reset = try ChildProcess.run("/usr/bin/tccutil", ["reset", "BluetoothAlways", identifier])
+        try #require(reset.status == 0, "tccutil exited \(reset.status): \(reset.errors)")
+        var (refused, heard) = await Self.nextAsk(seen)
+        // A sweep or two of the minute the grant went in can land before the ask that hears it.
+        while refused == .heard(.allowed) { (refused, heard) = await Self.nextAsk(seen) }
+        printForTheRecord("the ask after the grant was taken away: \(String(describing: refused))")
+        try #require(refused == .heard(.denied), "a new manager did not refuse a host whose grant was taken away")
+        let (further, after) = await Self.nextAsk(seen)
+        #expect(further == .heard(.denied), "the ask after the refusal said \(String(describing: further))")
+        let list = heard + after
+        #expect(list.contains(.permission(.denied)), "the refusal never reached the list")
+        let reads = list.drop { $0 != .permission(.denied) }.filter {
+            if case .swept = $0 { true } else if case .reported = $0 { true } else { false }
+        }
+        #expect(reads.isEmpty, "the host read devices after its refusal: \(reads)")
+    }
+
+    /// What the check watches: the events, and the asks that led to them, in one order.
+    enum Seen: Sendable {
+        case asked(BluetoothPermission.Ask)
+        case event(DeviceEvent)
+    }
+
+    private static func subscribe(_ see: AsyncStream<Seen>.Continuation) -> Task<Void, any Error> {
+        let events = BluetoothDevices.events(asks: { timekeeper in
+            let (asks, ask) = AsyncStream.makeStream(of: BluetoothPermission.Ask.self)
+            let real = BluetoothPermission.asks(timekeeper: timekeeper)
+            let tee = Task {
+                for await asked in real {
+                    see.yield(.asked(asked))
+                    ask.yield(asked)
+                }
+            }
+            ask.onTermination = { _ in tee.cancel() }
+            return asks
+        })
+        return Task { for try await event in events { see.yield(.event(event)) } }
+    }
+
+    /// The next ask, and the events ahead of it.
+    private static func nextAsk(_ seen: AsyncStream<Seen>) async -> (BluetoothPermission.Ask?, [DeviceEvent]) {
+        var events: [DeviceEvent] = []
+        for await next in seen {
+            switch next {
+            case .asked(let ask): return (ask, events)
+            case .event(let event): events.append(event)
+            }
+        }
+        return (nil, events)
     }
 
     enum DevicesLiveError: Error { case sharedName([String]) }

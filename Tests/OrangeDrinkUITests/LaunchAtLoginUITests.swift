@@ -5,9 +5,6 @@ import XCTest
 // because the helper's record shares that switch. Each test is its own launch, so each shows what the one before left, and
 // they run in that order. The script reads what the system said after each off the app's log.
 @MainActor final class LaunchAtLoginUITests: XCTestCase {
-    /// The password of the Tart image's user, which System Settings asks for to allow an item.
-    private static let guestPassword = "admin"
-
     override func setUp() {
         continueAfterFailure = false
     }
@@ -33,11 +30,7 @@ import XCTest
         let settings = XCUIApplication(bundleIdentifier: "com.apple.systempreferences")
         let allowed = settings.switches["background-switch-OrangeDrink"]
         press(allowed)
-        let password = settings.sheets.firstMatch.secureTextFields["Password"]
-        XCTAssertTrue(password.waitForExistence(timeout: Self.installedAppTimeout), "System Settings never asked for the password")
-        password.click()
-        password.typeText(Self.guestPassword)
-        press(settings.sheets.firstMatch.buttons["Modify Settings"])
+        confirmWithThePassword(in: settings)
         expect(allowed, toRead: 1)
     }
 

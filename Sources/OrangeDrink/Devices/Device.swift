@@ -80,7 +80,10 @@ struct DeviceList: Equatable, Sendable {
         case .swept(let devices):
             byID = Dictionary(devices.map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
             unread = nil
-        case .permission(let permission): unread = UnreadDevices(permission)
+        case .permission(let permission):
+            // Heard after a sweep, this is the end of what that sweep read, so nothing is kept to go stale, as in `end()`.
+            byID = [:]
+            unread = UnreadDevices(permission)
         }
     }
 

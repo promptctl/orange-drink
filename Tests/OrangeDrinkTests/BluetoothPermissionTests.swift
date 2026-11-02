@@ -3,36 +3,22 @@ import os
 import Testing
 @testable import OrangeDrink
 
-// [LAW:verifiable-goals] The wait on the Bluetooth prompt, over stand-in updates: no manager is made, so no prompt shows.
+// [LAW:verifiable-goals] What macOS's answers do, over stand-in asks and a stand-in watcher: no manager is made, so no prompt shows.
 struct BluetoothPermissionTests {
-    private static func updates(_ authorizations: CBManagerAuthorization...) -> AsyncStream<CBManagerAuthorization> {
-        AsyncStream { continuation in authorizations.forEach { continuation.yield($0) } }
-    }
-
-    private static func reports(_ updates: AsyncStream<CBManagerAuthorization>) async throws -> [BluetoothPermission] {
-        var reported: [BluetoothPermission] = []
-        try await BluetoothPermission.answer(from: updates) { reported.append($0) }
-        return reported
-    }
-
-    @Test func theWaitReturnsOnceReadingIsAllowed() async throws {
-        #expect(try await Self.reports(Self.updates(.notDetermined, .allowedAlways, .denied)) == [.notDetermined, .allowed])
-        #expect(try await Self.reports(Self.updates(.denied, .allowedAlways)) == [.denied, .allowed])
-    }
-
-    /// What the delegate calls of a Mac with Bluetooth off may be: updates that are no answer.
-    @Test func aRepeatedNotDeterminedIsNoAnswer() async throws {
-        #expect(try await Self.reports(Self.updates(.notDetermined, .notDetermined, .allowedAlways)) == [.notDetermined, .notDetermined, .allowed])
-    }
-
-    @Test func aCancelledWaitThrowsSoNothingPastItRuns() async {
-        let waiting = Task { try await Self.reports(Self.updates(.notDetermined)) }
-        waiting.cancel()
-        await #expect(throws: CancellationError.self) { try await waiting.value }
-    }
+    private typealias Ask = BluetoothPermission.Ask
 
     @Test func aProfilesRestrictionIsARefusal() {
         #expect(BluetoothPermission(.restricted) == .denied)
+    }
+
+    /// A running app's property goes on saying allowed after the permission is taken away.
+    @Test func anUnauthorizedManagerIsARefusalWhateverThePropertySays() {
+        #expect(CBManagerAuthorization(state: .unauthorized, authorization: .allowedAlways) == .denied)
+        for state in [CBManagerState.unknown, .resetting, .unsupported, .poweredOff, .poweredOn] {
+            #expect(CBManagerAuthorization(state: state, authorization: .allowedAlways) == .allowedAlways)
+            #expect(CBManagerAuthorization(state: state, authorization: .notDetermined) == .notDetermined)
+            #expect(CBManagerAuthorization(state: state, authorization: .denied) == .denied)
+        }
     }
 
     @Test func aListIsUnreadUntilASweepAndSaysWhy() {
@@ -54,40 +40,260 @@ struct BluetoothPermissionTests {
         #expect(list.devices.isEmpty)
     }
 
-    // The stream with the real setup behind it: `power` is the first thing past the wait, and it throws, so no test reaches IOBluetooth.
+    @Test func aRefusalHeardAfterASweepKeepsNoneOfItsRows() {
+        var list = DeviceList()
+        list.apply(.swept([DeviceListTests.mouse]))
+        list.apply(.permission(.denied))
+        #expect(list.unread == .denied)
+        #expect(list.devices.isEmpty)
+    }
+
+    // The loop of answers, over a stand-in watcher whose every sweep and stop is an event, so the stream's order is theirs.
+
     @Test func nothingIsSetUpUntilTheAnswer() async throws {
-        let (updates, feed) = AsyncStream<CBManagerAuthorization>.makeStream()
+        let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
         let reached = Reached()
-        let events = BluetoothDevices.events(authorizations: { updates }, power: { () throws(BluetoothDevicesError) in
+        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { _, _ in
             reached.mark()
-            throw .missingSymbol("stand-in")
+            throw BluetoothDevicesError.missingSymbol("stand-in")
         })
         var iterator = events.makeAsyncIterator()
-        feed.yield(.notDetermined)
+        ask.yield(.heard(.notDetermined))
         #expect(try await iterator.next() == .permission(.notDetermined))
         #expect(!reached.isMarked)
-        feed.yield(.allowedAlways)
+        ask.yield(.heard(.allowed))
         #expect(try await iterator.next() == .permission(.allowed))
         await #expect(throws: BluetoothDevicesError.missingSymbol("stand-in")) { _ = try await iterator.next() }
         #expect(reached.isMarked)
     }
 
-    // Past a refusal is setup, so a stream that went on would throw at the first `next` after it instead of reporting the allowance.
     @Test func aRefusalSetsNothingUpAndStaysSubscribed() async throws {
-        let (updates, feed) = AsyncStream<CBManagerAuthorization>.makeStream()
-        let events = BluetoothDevices.events(authorizations: { updates }, power: { () throws(BluetoothDevicesError) in
-            throw .missingSymbol("stand-in")
-        })
-        var iterator = events.makeAsyncIterator()
-        feed.yield(.denied)
+        let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        ask.yield(.heard(.denied))
         #expect(try await iterator.next() == .permission(.denied))
-        feed.yield(.allowedAlways)
+        ask.yield(.heard(.allowed))
         #expect(try await iterator.next() == .permission(.allowed))
-        await #expect(throws: BluetoothDevicesError.missingSymbol("stand-in")) { _ = try await iterator.next() }
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+    }
+
+    @Test func aMinutesAnswerSweepsAndTellsTheListNothing() async throws {
+        let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        ask.yield(.heard(.allowed))
+        #expect(try await iterator.next() == .permission(.allowed))
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+        ask.yield(.heard(.allowed))
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+    }
+
+    @Test func anUnansweredAskLeavesTheLastAnswerStanding() async throws {
+        let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        ask.yield(.stalled)
+        ask.yield(.heard(.allowed))
+        // A stall held nothing up and swept nothing: the first event is the answer's.
+        #expect(try await iterator.next() == .permission(.allowed))
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+        ask.yield(.stalled)
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+    }
+
+    @Test func permissionTakenAwayStopsTheWatcherBeforeTheListHearsAndNothingSweepsAfter() async throws {
+        let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        ask.yield(.heard(.allowed))
+        #expect(try await iterator.next() == .permission(.allowed))
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+        ask.yield(.heard(.denied))
+        #expect(try await iterator.next() == StandInWatcher.stop)
+        #expect(try await iterator.next() == .permission(.denied))
+        // Further minutes make no event: the next one of any kind is this allowance's.
+        ask.yield(.heard(.denied))
+        ask.yield(.stalled)
+        ask.yield(.heard(.allowed))
+        #expect(try await iterator.next() == .permission(.allowed))
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+    }
+
+    @Test func aPromptAfterAnAnswerIsARefusalOfReading() async throws {
+        let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        ask.yield(.heard(.allowed))
+        #expect(try await iterator.next() == .permission(.allowed))
+        #expect(try await iterator.next() == StandInWatcher.sweep)
+        ask.yield(.heard(.notDetermined))
+        #expect(try await iterator.next() == StandInWatcher.stop)
+        #expect(try await iterator.next() == .permission(.notDetermined))
+    }
+
+    @MainActor @Test func aCancelledSubscriptionStopsItsWatcher() async throws {
+        let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
+        let (swept, stopped) = (Reached(), Reached())
+        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _ in
+            StandInWatcher(continuation, stopped: stopped)
+        })
+        let reader = Task { for try await event in events where event == StandInWatcher.sweep { swept.mark() } }
+        ask.yield(.heard(.allowed))
+        #expect(await eventually { swept.isMarked })
+        reader.cancel()
+        #expect(await eventually { stopped.isMarked })
+    }
+
+    // The asks themselves, over stand-in asks and a clock the test moves. The sleep a test waits for is how it knows the ask
+    // before it was made.
+
+    @Test func anAnsweredAskIsDroppedAndTheNextWaitsForTheMinute() async throws {
+        let (timekeeper, made) = (ManualTimekeeper(), Made())
+        var asks = BluetoothPermission.asks(first: made.ask, then: made.ask, timekeeper: timekeeper).makeAsyncIterator()
+        await timekeeper.asleep()
+        made.answer(.allowedAlways)
+        #expect(await asks.next() == .heard(.allowed))
+        #expect(made.count == 1)
+        await made.dropped(1)
+        await timekeeper.asleep()
+        timekeeper.advance(by: BluetoothDevices.pollInterval)
+        await made.reached(2)
+        await timekeeper.asleep()
+        made.answer(.denied)
+        #expect(await asks.next() == .heard(.denied))
+        await made.dropped(2)
+    }
+
+    @Test func aPromptHasNoBoundAndItsOneAskHearsTheAnswer() async throws {
+        let (timekeeper, made) = (ManualTimekeeper(), Made())
+        var asks = BluetoothPermission.asks(first: made.ask, then: made.ask, timekeeper: timekeeper).makeAsyncIterator()
+        await timekeeper.asleep()
+        made.answer(.notDetermined)
+        #expect(await asks.next() == .heard(.notDetermined))
+        #expect(timekeeper.sleeping == 0)
+        // What the delegate calls of a Mac with Bluetooth off may be: updates that are no answer.
+        made.answer(.notDetermined)
+        made.answer(.allowedAlways)
+        #expect(await asks.next() == .heard(.allowed))
+        #expect(made.count == 1)
+    }
+
+    @Test(arguments: [1, 2]) func anAskWithNoAnswerByTheMinuteIsDroppedAndTheNextMadeAtOnce(silent: Int) async throws {
+        let (timekeeper, made) = (ManualTimekeeper(), Made())
+        var asks = BluetoothPermission.asks(first: made.ask, then: made.ask, timekeeper: timekeeper).makeAsyncIterator()
+        for _ in 1..<silent {
+            await timekeeper.asleep()
+            made.answer(.allowedAlways)
+            #expect(await asks.next() == .heard(.allowed))
+            await timekeeper.asleep()
+            timekeeper.advance(by: BluetoothDevices.pollInterval)
+            await made.reached(silent)
+        }
+        await timekeeper.asleep()
+        timekeeper.advance(by: BluetoothDevices.pollInterval)
+        #expect(await asks.next() == .stalled)
+        await made.dropped(silent)
+        await made.reached(silent + 1)
+    }
+
+    @MainActor @Test func aCancelDuringAnAskMakesNoOther() async throws {
+        let (timekeeper, made) = (ManualTimekeeper(), Made())
+        let asks = BluetoothPermission.asks(first: made.ask, then: made.ask, timekeeper: timekeeper)
+        let reader = Task { for await _ in asks {} }
+        await timekeeper.asleep()
+        reader.cancel()
+        await reader.value
+        await made.dropped(1)
+        #expect(await eventually { timekeeper.sleeping == 0 })
+        #expect(made.count == 1)
+    }
+
+    @MainActor @Test func aCancelDuringTheMinuteMakesNoAsk() async throws {
+        let (timekeeper, made) = (ManualTimekeeper(), Made())
+        let asks = BluetoothPermission.asks(first: made.ask, then: made.ask, timekeeper: timekeeper)
+        let reader = Task { for await _ in asks {} }
+        await timekeeper.asleep()
+        made.answer(.allowedAlways)
+        await made.dropped(1)
+        await timekeeper.asleep()
+        reader.cancel()
+        await reader.value
+        #expect(await eventually { timekeeper.sleeping == 0 })
+        #expect(made.count == 1)
     }
 }
 
-private final class Reached: Sendable {
+/// A watcher with no IOBluetooth: each sweep is the list it is given, and its stop an event of its own, so a test reads the order.
+final class StandInWatcher: DeviceWatcher {
+    static let sweep = DeviceEvent.swept([DeviceListTests.mouse])
+    static let stop = DeviceEvent.gone(DeviceID(address: "stand-in watcher stopped"))
+
+    private let continuation: BluetoothDevices.Events
+    private let swept: DeviceEvent
+    private let stopped: Reached?
+
+    init(_ continuation: BluetoothDevices.Events, timekeeper: any Timekeeper) {
+        self.continuation = continuation
+        swept = Self.sweep
+        stopped = nil
+    }
+
+    init(_ continuation: BluetoothDevices.Events, swept: DeviceEvent = sweep, stopped: Reached? = nil) {
+        self.continuation = continuation
+        self.swept = swept
+        self.stopped = stopped
+    }
+
+    func start() { sweep() }
+    func sweep() { continuation.yield(swept) }
+    func stop() {
+        stopped?.mark()
+        continuation.yield(Self.stop)
+    }
+}
+
+/// The asks a test's loop made, each of which it answers by hand, the latest first.
+private final class Made: Sendable {
+    private struct State {
+        var asks: [BluetoothPermission.Updates.Continuation] = []
+        var dropped = 0
+        var waiting: [(reached: @Sendable (State) -> Bool, resume: CheckedContinuation<Void, Never>)] = []
+    }
+    private let state = OSAllocatedUnfairLock(uncheckedState: State())
+
+    @Sendable func ask() -> BluetoothPermission.Updates {
+        let (updates, continuation) = BluetoothPermission.Updates.makeStream()
+        continuation.onTermination = { [state] _ in
+            state.withLockUnchecked { $0.dropped += 1; return Self.wake(&$0) }.forEach { $0.resume() }
+        }
+        state.withLockUnchecked { $0.asks.append(continuation); return Self.wake(&$0) }.forEach { $0.resume() }
+        return updates
+    }
+
+    func answer(_ authorization: CBManagerAuthorization) {
+        state.withLockUnchecked { $0.asks.last }?.yield(authorization)
+    }
+
+    var count: Int { state.withLockUnchecked { $0.asks.count } }
+
+    func reached(_ count: Int) async { await wait { $0.asks.count >= count } }
+    func dropped(_ count: Int) async { await wait { $0.dropped >= count } }
+
+    private func wait(for reached: @escaping @Sendable (State) -> Bool) async {
+        await withCheckedContinuation { continuation in
+            let ready = state.withLockUnchecked { state in
+                if reached(state) { return true }
+                state.waiting.append((reached, continuation))
+                return false
+            }
+            if ready { continuation.resume() }
+        }
+    }
+
+    private static func wake(_ state: inout State) -> [CheckedContinuation<Void, Never>] {
+        let now = state
+        state.waiting = now.waiting.filter { !$0.reached(now) }
+        return now.waiting.filter { $0.reached(now) }.map(\.resume)
+    }
+}
+
+final class Reached: Sendable {
     private let state = OSAllocatedUnfairLock(initialState: false)
     func mark() { state.withLock { $0 = true } }
     var isMarked: Bool { state.withLock { $0 } }

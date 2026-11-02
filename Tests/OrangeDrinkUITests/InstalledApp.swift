@@ -10,6 +10,15 @@ import XCTest
         XCUIApplication(url: URL(filePath: try XCTUnwrap(ProcessInfo.processInfo.environment["INSTALLED_APP"])))
     }
 
+    /// What System Settings asks of a change to a permission or a login item: the Tart image's user's password.
+    func confirmWithThePassword(in settings: XCUIApplication) {
+        let password = settings.sheets.firstMatch.secureTextFields["Password"]
+        XCTAssertTrue(password.waitForExistence(timeout: Self.installedAppTimeout), "System Settings never asked for the password")
+        password.click()
+        password.typeText("admin")
+        press(settings.sheets.firstMatch.buttons["Modify Settings"])
+    }
+
     /// The first match, because an alert's buttons are in the tree again on the Touch Bar a VM reports.
     func press(_ query: XCUIElement) {
         let control = query.firstMatch
