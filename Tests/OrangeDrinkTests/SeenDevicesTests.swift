@@ -116,28 +116,35 @@ import Testing
 
     // MARK: its name
 
+    /// The names after the app knows `known` and sweeps `devices`.
+    func names(knowing known: [String: String], after devices: [Device]) -> [String: String] {
+        var list = DeviceList()
+        list.apply(.swept(devices))
+        var seen = SeenDevices(names: known)
+        seen.see(list)
+        return seen.names
+    }
+
     /// orange-devices-bue.suy: a connected device swept with a blank name, so its name read as its address.
-    @Test func aReadWithNoNameKeepsTheNameTheAppKnows() async throws {
-        let (model, send) = try launch()
-        try await sweep([Self.buds], on: send, seen: ["BB"])
-        try await sweep([Self.device("BB", "BB")], on: send, seen: ["BB"])
-        #expect(try await named(["BB"]) == ["Earbuds"])
-        _ = model
+    @Test func aReadWithNoNameKeepsTheNameTheAppKnows() {
+        #expect(names(knowing: ["BB": "Earbuds"], after: [Self.device("BB", "BB")]) == ["BB": "Earbuds"])
     }
 
-    @Test func aRenameReplacesTheName() async throws {
-        let (model, send) = try launch()
-        try await sweep([Self.buds], on: send, seen: ["BB"])
-        send.yield(.swept([Self.device("BB", "Sam's Earbuds")]))
-        #expect(await eventually { (try? WidgetShelf.read(.seenDevices, from: shelf).get().names) == ["BB": "Sam's Earbuds"] })
-        _ = model
+    @Test func aRenameReplacesTheName() {
+        #expect(names(knowing: ["BB": "Earbuds"], after: [Self.device("BB", "Sam's Earbuds")]) == ["BB": "Sam's Earbuds"])
     }
 
-    @Test func aDeviceNeverNamedIsOfferedUnderItsAddress() async throws {
-        let (model, send) = try launch()
-        try await sweep([Self.device("BB", "BB")], on: send, seen: ["BB"])
-        #expect(try await offered() == ["BB"])
-        _ = model
+    @Test func aDeviceNeverNamedGoesByItsAddress() {
+        #expect(names(knowing: [:], after: [Self.device("BB", "BB")]) == ["BB": "BB"])
+    }
+
+    /// A sweep a minute that adds nothing leaves the preferences file alone.
+    @Test func anUpdateThatChangesNothingWritesNothing() throws {
+        let seen = try SeenDevicesModel(defaults: defaults)
+        try seen.update { $0.names = ["BB": "Earbuds"] }
+        defaults.removeObject(forKey: SeenDevices.storageKey)
+        try seen.update { $0.names = ["BB": "Earbuds"] }
+        #expect(defaults.data(forKey: SeenDevices.storageKey) == nil)
     }
 
     // MARK: what is offered
@@ -155,6 +162,13 @@ import Testing
         let (model, send) = try launch()
         try await sweep([Self.device("B", "Same"), Self.device("A", "Same"), Self.device("C", "Another")], on: send, seen: ["A", "B", "C"])
         #expect(try await query.suggestedEntities().map(\.id) == ["C", "A", "B"])
+        _ = model
+    }
+
+    @Test func theOffersRunInAPersonsAlphabeticalOrder() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.device("A", "Zed Mouse"), Self.device("B", "iPhone"), Self.device("C", "AirPods")], on: send, seen: ["A", "B", "C"])
+        #expect(try await offered() == ["AirPods", "iPhone", "Zed Mouse"])
         _ = model
     }
 

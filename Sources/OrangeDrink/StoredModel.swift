@@ -26,6 +26,8 @@ protocol Stored: Codable, Equatable, Sendable {
     func update(_ edit: (inout Value) -> Void) throws {
         var edited = value
         edit(&edited)
+        // A value already held costs no write, so a caller on a timer does not rewrite the preferences file.
+        guard edited != value else { return }
         try store.save(edited)
         value = edited
     }

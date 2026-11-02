@@ -28,9 +28,10 @@ struct DeviceQuery: EntityQuery {
         return identifiers.map { DeviceEntity(id: $0, name: names[$0] ?? Self.unavailable.resolve(in: .matchSystem)) }
     }
 
-    /// By name then address, so the choices keep their places as devices come and go.
+    /// In a person's alphabetical order then by address, so the choices keep their places as devices come and go.
     func suggestedEntities() async throws -> [DeviceEntity] {
-        seen().names.map { DeviceEntity(id: $0.key, name: $0.value) }.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+        seen().names.map { DeviceEntity(id: $0.key, name: $0.value) }
+            .sorted(using: [KeyPathComparator(\.name, comparator: .localizedStandard), KeyPathComparator(\.id)])
     }
 
     /// [LAW:no-silent-failure] A file that cannot be read offers no devices, and the log says why.
