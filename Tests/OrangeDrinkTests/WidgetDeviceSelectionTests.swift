@@ -80,7 +80,7 @@ import WidgetKit
 
     // MARK: when that is none
 
-    /// `ranked` holds only what reports a battery, so these words have to hold beside a device that is connected and has no level.
+    /// An unlevelled device is not ranked, so these words have to hold beside one.
     @Test func noDeviceListedSaysWhy() {
         let keyboard = WidgetDevice(address: "silent", name: "Keyboard", kind: .accessory, level: nil)
         let silent = WidgetDevices.connected(WidgetDeviceList(ranked: [], pinned: ["silent"], unlevelled: [keyboard]))

@@ -124,13 +124,13 @@ struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, Cust
 /// What a sweep read of what is connected, as the widgets draw it. [LAW:locality-or-seam] One value, so a new fact about
 /// the list touches only what reads it.
 struct WidgetDeviceList: Codable, Equatable, Sendable {
-    /// The devices that report a battery, in the panel's ranking, so an empty list says none does, as far as the app has
-    /// been told (orange-devices-bue.4gw).
+    /// The panel's ranking: the devices with a level, and those whose level is unknown this read. So an empty list says none
+    /// reports a battery, as far as the app has been told (orange-devices-bue.4gw).
     let ranked: [WidgetDevice]
     let pinned: WidgetPins
     /// The connected devices the ranking leaves out, with no level to rank: one settling after a reconnect, or one power
-    /// management has no source for. Device Battery and Edit Widget read it for a device already chosen; All Batteries does
-    /// not, so a device with no battery gains no row.
+    /// management has no source for. Device Battery draws one it is set to and Edit Widget names one already chosen; All
+    /// Batteries lists only `ranked`, so a device with no battery gains no row.
     let unlevelled: [WidgetDevice]
 
     /// [LAW:one-source-of-truth] Where Device Battery and Edit Widget find a chosen device: nil only for a device that is
@@ -154,8 +154,7 @@ enum NoDevicesListed: Error, Equatable, Sendable {
     case noneChosen
     /// Same as menu bar, with nothing pinned.
     case nonePinned
-    /// Custom or Same as menu bar, and none of those devices is ranked. `ranked` holds only what reports a battery,
-    /// so this is as true of a connected device with no level as of one that has gone.
+    /// Custom or Same as menu bar, and none of those devices is ranked: each is unlevelled, or has gone.
     case noneReporting
 }
 
@@ -293,8 +292,7 @@ extension WidgetDevices {
         }
     }
 
-    /// The devices a widget can be set to: the connected ones that report a battery, none while the app has no list or is
-    /// not running.
+    /// The devices a widget can be set to: the ranked ones, none while the app has no list or is not running.
     static func choices(in shelf: Shelved<WidgetDevices>) -> [WidgetDevice] {
         list(in: shelf)?.ranked ?? []
     }
