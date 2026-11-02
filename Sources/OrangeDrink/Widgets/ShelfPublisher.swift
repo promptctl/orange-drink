@@ -37,58 +37,64 @@ extension DevicesModel {
     /// list it starts from reaches the shelf before this returns, so a file a crashed run left behind is not drawn as current
     /// while the first Bluetooth sweep is still out.
     convenience init<Events: AsyncSequence & Sendable>(
-        events: Events, shelf: ShelfPublisher<WidgetDevices>, settings: DeviceSettingsModel, pinnedItems: PinnedItemsController,
+        events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>,
+        settings: DeviceSettingsModel, seen: SeenDevicesModel, pinnedItems: PinnedItemsController,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) where Events.Element == DeviceEvent {
-        self.init(events: events, onChange: onChange)
-        mirror(to: shelf, settings: settings, pinnedItems: pinnedItems)
+        self.init(events: events, onChange: { list in
+            do {
+                try seen.update { $0.see(list) }
+            } catch {
+                // [LAW:no-silent-failure] Logged; the memory still lacks the list, so the next event saves it.
+                ShelfLog.log.error("seen devices not saved: \(String(describing: error), privacy: .public)")
+            }
+            onChange(list)
+        })
+        mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems)
     }
 
     /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list or the pins, with no timer
     /// and no polling. A mirror needs only the latest, so changes that land together reach it as one.
-    private func mirror(to shelf: ShelfPublisher<WidgetDevices>, settings: DeviceSettingsModel, pinnedItems: PinnedItemsController) {
+    private func mirror(to shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>, settings: DeviceSettingsModel,
+                        seen: SeenDevicesModel, pinnedItems: PinnedItemsController) {
         withObservationTracking {
             pinnedItems.apply(PinnedItem.items(list, pinned: settings.value.pinned))
-            shelf.publish(WidgetDevices(list, pinned: settings.value.pinned))
+            shelf.publish(.running(WidgetDevices(list, pinned: settings.value.pinned)))
+            seenShelf.publish(seen.value)
         } onChange: { [weak self] in
-            Task { @MainActor in self?.mirror(to: shelf, settings: settings, pinnedItems: pinnedItems) }
+            Task { @MainActor in self?.mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems) }
         }
     }
 }
 
-/// Keeps one shelf file holding what its widgets should draw, and asks WidgetKit to redraw each of them
-/// when it changes.
-@MainActor final class ShelfPublisher<Value: Codable & Equatable & Sendable> {
-    private let item: WidgetShelf.Item<Value>
-    private let directory: URL
+/// Keeps one shelf file holding what the app hands its widgets, and asks WidgetKit to redraw each widget
+/// that draws it when it changes.
+@MainActor final class ShelfPublisher<Contents: Codable & Equatable & Sendable> {
+    private let item: WidgetShelf.Item<Contents>
+    let directory: URL
     private let reload: @MainActor (WidgetKind) -> Void
 
     /// [LAW:effects-at-boundaries] `reload` is the app's call into WidgetKit, asked once per reader of
     /// the file; a test passes a recorder.
-    init(item: WidgetShelf.Item<Value>, directory: URL, reload: @escaping @MainActor (WidgetKind) -> Void) {
+    init(item: WidgetShelf.Item<Contents>, directory: URL, reload: @escaping @MainActor (WidgetKind) -> Void) {
         self.item = item
         self.directory = directory
         self.reload = reload
     }
 
-    func publish(_ value: Value) { put(.running(value)) }
-
-    /// The app is ending normally: its widgets say so rather than keep drawing the last value.
-    func publishQuit() { put(.appNotRunning) }
-
     /// [LAW:one-source-of-truth] The shelf is the memory of what was published: a value it already
     /// holds costs no write and no reload, and another copy of the app that wrote over it (a test
     /// host quitting beside the installed app) is corrected by this one's next state, which a refused
     /// app does not have: nothing sweeps it. A shelf that cannot be read does not hold the value, so it is written.
-    private func put(_ shelved: Shelved<Value>) {
-        let value = String(describing: shelved)
+    func publish(_ contents: Contents) {
+        let value = String(describing: contents)
         let shelf = directory.path
-        guard (try? WidgetShelf.read(item, from: directory).get()) != shelved else {
+        guard (try? WidgetShelf.read(item, from: directory).get()) != contents else {
             ShelfLog.log.info("widget shelf unchanged: \(value, privacy: .public) in \(shelf, privacy: .public)")
             return
         }
         do {
-            try WidgetShelf.write(shelved, as: item, to: directory)
+            try WidgetShelf.write(contents, as: item, to: directory)
             item.readers.forEach(reload)
             let readers = item.readers.map(\.rawValue).joined(separator: ", ")
             ShelfLog.log.info("widget shelf written, reload asked: \(value, privacy: .public) in \(shelf, privacy: .public) for \(readers, privacy: .public)")

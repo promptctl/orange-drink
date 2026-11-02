@@ -121,6 +121,16 @@ struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, Cust
     var debugDescription: String { "\(addresses.count) pinned" }
 }
 
+/// Every device the app has seen, connected now or not: what Edit Widget names and offers. [LAW:types-are-the-program] Not
+/// `Shelved`: a device's name stays true after the app quits, and Edit Widget needs it then.
+struct SeenDevices: Codable, Equatable, Sendable, CustomDebugStringConvertible {
+    /// Each device's name, by address.
+    var names: [String: String] = [:]
+
+    /// What the shelf's logs carry, which are public: how many, never a name or an address.
+    var debugDescription: String { "\(names.count) seen" }
+}
+
 /// What a sweep read of what is connected, as the widgets draw it. [LAW:locality-or-seam] One value, so a new fact about
 /// the list touches only what reads it.
 struct WidgetDeviceList: Codable, Equatable, Sendable {
@@ -129,12 +139,11 @@ struct WidgetDeviceList: Codable, Equatable, Sendable {
     let ranked: [WidgetDevice]
     let pinned: WidgetPins
     /// The connected devices the ranking leaves out, with no level to rank: one settling after a reconnect, or one power
-    /// management has no source for. Device Battery draws one it is set to and Edit Widget names one already chosen; All
-    /// Batteries lists only `ranked`, so a device with no battery gains no row.
+    /// management has no source for. Device Battery draws one it is set to; All Batteries lists only `ranked`, so a device
+    /// with no battery gains no row.
     let unlevelled: [WidgetDevice]
 
-    /// [LAW:one-source-of-truth] Where Device Battery and Edit Widget find a chosen device: nil only for a device that is
-    /// not connected.
+    /// [LAW:one-source-of-truth] Where Device Battery finds its device: nil only for a device that is not connected.
     func device(at address: String) -> WidgetDevice? {
         (ranked + unlevelled).first { $0.address == address }
     }
@@ -203,11 +212,12 @@ enum WidgetKind: String, CaseIterable, Sendable {
     case deviceBattery = "DeviceBattery"
 }
 
-/// What a shelf file holds: a widget's value and the app's own lifetime, so the widget can tell a value
+/// What a file a widget draws holds: its value and the app's own lifetime, so the widget can tell a value
 /// from "the app quit". [LAW:one-source-of-truth] Every widget's file says it the one way. An end that
 /// skips the quit (a crash, a kill) writes nothing, and the last value stays drawn until the app runs again.
 enum Shelved<Value: Codable & Equatable & Sendable>: Codable, Equatable, Sendable, CustomStringConvertible {
     case running(Value)
+    /// The app ended normally: its widgets say so rather than keep drawing the last value.
     case appNotRunning
 
     /// What the shelf logs: the value as it is, not wrapped in its envelope.
@@ -219,35 +229,36 @@ enum Shelved<Value: Codable & Equatable & Sendable>: Codable, Equatable, Sendabl
     }
 }
 
-/// The shelf the app writes and its widgets read: one file per value, each declared once as an `Item`.
+/// The shelf the app writes and its widgets read: one file per value, each declared once as an `Item`, which names what the
+/// file holds.
 /// [LAW:one-source-of-truth] A file's name, its readers and its value live in the item alone; the
 /// directory is a parameter, the group container only at the two composition roots, so a test reads exactly
 /// what the widget would from a directory of its own.
 enum WidgetShelf {
-    struct Item<Value: Codable & Equatable & Sendable>: Sendable {
+    struct Item<Contents: Codable & Equatable & Sendable>: Sendable {
         /// The file in the shelf directory.
         let file: String
         /// The widgets that draw this file, which the app names when it asks WidgetKit to reload.
         let readers: [WidgetKind]
     }
 
-    static func write<Value>(_ shelved: Shelved<Value>, as item: Item<Value>, to directory: URL) throws {
-        try JSONEncoder().encode(shelved).write(to: directory.appending(path: item.file), options: .atomic)
+    static func write<Contents>(_ contents: Contents, as item: Item<Contents>, to directory: URL) throws {
+        try JSONEncoder().encode(contents).write(to: directory.appending(path: item.file), options: .atomic)
     }
 
-    static func read<Value>(_ item: Item<Value>, from directory: URL) -> Result<Shelved<Value>, any Error> {
-        Result { try JSONDecoder().decode(Shelved<Value>.self, from: Data(contentsOf: directory.appending(path: item.file))) }
+    static func read<Contents>(_ item: Item<Contents>, from directory: URL) -> Result<Contents, any Error> {
+        Result { try JSONDecoder().decode(Contents.self, from: Data(contentsOf: directory.appending(path: item.file))) }
     }
 
     /// What a widget draws from. [LAW:no-silent-failure] Logged either way: a failure is drawn as
     /// "Open the app", and the log carries its cause.
-    static func load<Value>(_ item: Item<Value>, from directory: Result<URL, any Error>, log: Logger) -> Result<Shelved<Value>, any Error> {
-        let shelved = directory.flatMap { read(item, from: $0) }
-        switch shelved {
+    static func load<Contents>(_ item: Item<Contents>, from directory: Result<URL, any Error>, log: Logger) -> Result<Contents, any Error> {
+        let contents = directory.flatMap { read(item, from: $0) }
+        switch contents {
         case .success(let value): log.info("widget shelf read: \(String(describing: value), privacy: .public)")
         case .failure(let error): log.error("widget shelf unreadable: \(String(describing: error), privacy: .public)")
         }
-        return shelved
+        return contents
     }
 
     /// The container of the app group this process is signed into. [LAW:one-source-of-truth] The
@@ -273,37 +284,20 @@ enum ShelfError: Error {
     case noContainer(group: String)
 }
 
-extension WidgetShelf.Item where Value == MacBattery {
+extension WidgetShelf.Item where Contents == Shelved<MacBattery> {
     static var macBattery: Self { Self(file: "mac.json", readers: [.macBattery, .allBatteries]) }
 }
 
-extension WidgetShelf.Item where Value == WidgetDevices {
+extension WidgetShelf.Item where Contents == Shelved<WidgetDevices> {
     static var devices: Self { Self(file: "devices.json", readers: [.deviceBattery, .allBatteries]) }
 }
 
-/// What the Device Battery widget's settings offer and resolve. [LAW:dataflow-not-control-flow] Pure over
-/// the shelf's value, so the extension's AppIntents entity query only maps these and a test calls them.
+extension WidgetShelf.Item where Contents == SeenDevices {
+    /// No widget draws it: Edit Widget reads it when it opens.
+    static var seenDevices: Self { Self(file: "seen-devices.json", readers: []) }
+}
+
 extension WidgetDevices {
-    /// The list on the shelf; nil while the app has no list or is not running.
-    private static func list(in shelf: Shelved<WidgetDevices>) -> WidgetDeviceList? {
-        switch shelf {
-        case .running(.connected(let list)): list
-        case .running(.unread), .appNotRunning: nil
-        }
-    }
-
-    /// The devices a widget can be set to: the ranked ones, none while the app has no list or is not running.
-    static func choices(in shelf: Shelved<WidgetDevices>) -> [WidgetDevice] {
-        list(in: shelf)?.ranked ?? []
-    }
-
-    /// One result per id asked for, present or not: a chosen device that has disconnected still resolves
-    /// (to nil), so a widget keeps its choice while the device is away.
-    static func resolve(_ addresses: [String], in shelf: Shelved<WidgetDevices>) -> [(address: String, device: WidgetDevice?)] {
-        let connected = list(in: shelf)
-        return addresses.map { address in (address, connected?.device(at: address)) }
-    }
-
     /// The devices a widget's selection lists, or why it lists none. [LAW:one-type-per-behavior] Custom and Same as menu
     /// bar differ only in where their addresses come from.
     func listed(by selection: WidgetDeviceSelection) -> Result<[WidgetDevice], NoDevicesListed> {

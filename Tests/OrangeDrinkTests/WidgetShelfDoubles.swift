@@ -19,12 +19,22 @@ extension WidgetDevices {
 }
 
 extension DevicesModel {
-    /// The app's own wiring, for a test that cares about neither the pins nor the menu bar: nothing pinned, in a throwaway suite.
+    /// The app's own wiring, for a test that does not care what the app has seen: a throwaway memory, mirrored beside `shelf`.
     convenience init<Events: AsyncSequence & Sendable>(
-        events: Events, shelf: ShelfPublisher<WidgetDevices>, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
+        events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, settings: DeviceSettingsModel, pinnedItems: PinnedItemsController,
+        onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
+    ) throws where Events.Element == DeviceEvent {
+        let seen = try SeenDevicesModel(defaults: UserDefaults(suiteName: "WidgetShelfDoubles.\(UUID())")!)
+        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf.directory) { _ in }
+        self.init(events: events, shelf: shelf, seenShelf: seenShelf, settings: settings, seen: seen, pinnedItems: pinnedItems, onChange: onChange)
+    }
+
+    /// The same, for a test that cares about neither the pins nor the menu bar: nothing pinned, in a throwaway suite.
+    convenience init<Events: AsyncSequence & Sendable>(
+        events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) throws where Events.Element == DeviceEvent {
         let settings = try DeviceSettingsModel(defaults: UserDefaults(suiteName: "WidgetShelfDoubles.\(UUID())")!)
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
-        self.init(events: events, shelf: shelf, settings: settings, pinnedItems: pinnedItems, onChange: onChange)
+        try self.init(events: events, shelf: shelf, settings: settings, pinnedItems: pinnedItems, onChange: onChange)
     }
 }

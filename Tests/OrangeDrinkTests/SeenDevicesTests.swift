@@ -1,0 +1,175 @@
+import Foundation
+import Testing
+@testable import OrangeDrink
+
+// [LAW:behavior-not-structure] The contract is what Edit Widget names and offers after the app has seen a device: through the
+// app's wiring to the shelf and the real entity query, from a shelf in a directory of the test's own and a defaults suite of its own.
+@MainActor @Suite(.timeLimit(.minutes(1))) final class SeenDevicesTests {
+    static let buds = device("BB", "Earbuds")
+    static let phone = device("AA", "iPhone")
+
+    static func device(_ address: String, _ name: String, levels: DeviceLevels = .single(BatteryLevel(percent: 50, approximate: false))) -> Device {
+        Device(id: DeviceID(address: address), name: name, kind: .accessory, levels: levels)
+    }
+
+    static func unavailable() -> String { DeviceQuery.unavailable.resolve(in: .matchSystem) }
+
+    let shelf = FileManager.default.temporaryDirectory.appending(path: "seen-\(UUID().uuidString)")
+    let defaults = UserDefaults(suiteName: "SeenDevicesTests.\(UUID())")!
+    let query: DeviceQuery
+    let devicesShelf: ShelfPublisher<Shelved<WidgetDevices>>
+    let seenShelf: ShelfPublisher<SeenDevices>
+
+    init() throws {
+        try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
+        query = DeviceQuery(directory: .success(shelf))
+        devicesShelf = ShelfPublisher(item: .devices, directory: shelf) { _ in }
+        seenShelf = ShelfPublisher(item: .seenDevices, directory: shelf) { _ in }
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: shelf)
+    }
+
+    /// The app, started over the test's shelf and defaults. A second call is a relaunch.
+    func launch() throws -> (model: DevicesModel, send: AsyncThrowingStream<DeviceEvent, any Error>.Continuation) {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let model = DevicesModel(
+            events: events, shelf: devicesShelf, seenShelf: seenShelf, settings: try DeviceSettingsModel(defaults: defaults),
+            seen: try SeenDevicesModel(defaults: defaults), pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }))
+        return (model, send)
+    }
+
+    /// What Edit Widget calls these devices.
+    func named(_ addresses: [String]) async throws -> [String] {
+        try await query.entities(for: addresses).map(\.name)
+    }
+
+    /// What Edit Widget offers.
+    func offered() async throws -> [String] {
+        try await query.suggestedEntities().map(\.name)
+    }
+
+    func connected() throws -> Int? {
+        guard case .running(.connected(let list)) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
+        return list.ranked.count + list.unlevelled.count
+    }
+
+    /// Sweeps `devices`, and waits until the devices file holds them and the seen file holds `addresses`.
+    func sweep(_ devices: [Device], on send: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, seen addresses: [String]) async throws {
+        send.yield(.swept(devices))
+        #expect(try await eventually {
+            try connected() == devices.count && Set(WidgetShelf.read(.seenDevices, from: shelf).get().names.keys) == Set(addresses)
+        })
+    }
+
+    // MARK: a device that has gone
+
+    /// The Done when of orange-widgets-5jo.tvo.
+    @Test func aDeviceOffTheShelfIsStillNamedAndOfferedAndOneNeverSeenIsNot() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.buds, Self.phone], on: send, seen: ["AA", "BB"])
+        try await sweep([Self.phone], on: send, seen: ["AA", "BB"])
+
+        #expect(try await named(["BB", "ZZ"]) == ["Earbuds", Self.unavailable()])
+        #expect(try await offered() == ["Earbuds", "iPhone"])
+        _ = model
+    }
+
+    @Test func theyKeepTheirNamesWhenTheAppHasNoListOrHasQuit() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.buds], on: send, seen: ["BB"])
+
+        send.yield(.permission(.denied))
+        #expect(try await eventually { try WidgetShelf.read(.devices, from: shelf).get() == .running(.unread(.denied)) })
+        #expect(try await named(["BB"]) == ["Earbuds"])
+
+        devicesShelf.publish(.appNotRunning)
+        #expect(try await named(["BB"]) == ["Earbuds"])
+        #expect(try await offered() == ["Earbuds"])
+        _ = model
+    }
+
+    @Test func aRelaunchKeepsThemAndAddsToThem() async throws {
+        let first = try launch()
+        try await sweep([Self.buds], on: first.send, seen: ["BB"])
+
+        let second = try launch()
+        try await sweep([Self.phone], on: second.send, seen: ["AA", "BB"])
+        #expect(try await offered() == ["Earbuds", "iPhone"])
+        _ = (first.model, second.model)
+    }
+
+    /// The memory is the app's and the file its mirror, so a file that cannot be read costs nothing the app knows.
+    @Test func aSeenFileThatCannotBeReadOffersNothingAndIsWrittenAgainWithItsNames() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.buds], on: send, seen: ["BB"])
+
+        try Data("not json".utf8).write(to: shelf.appending(path: WidgetShelf.Item<SeenDevices>.seenDevices.file))
+        #expect(try await offered().isEmpty)
+        #expect(try await named(["BB"]) == [Self.unavailable()])
+
+        send.yield(.swept([Self.phone]))
+        #expect(await eventually { (try? WidgetShelf.read(.seenDevices, from: shelf).get().names) == ["AA": "iPhone", "BB": "Earbuds"] })
+        _ = model
+    }
+
+    // MARK: its name
+
+    /// orange-devices-bue.suy: a connected device swept with a blank name, so its name read as its address.
+    @Test func aReadWithNoNameKeepsTheNameTheAppKnows() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.buds], on: send, seen: ["BB"])
+        try await sweep([Self.device("BB", "BB")], on: send, seen: ["BB"])
+        #expect(try await named(["BB"]) == ["Earbuds"])
+        _ = model
+    }
+
+    @Test func aRenameReplacesTheName() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.buds], on: send, seen: ["BB"])
+        send.yield(.swept([Self.device("BB", "Sam's Earbuds")]))
+        #expect(await eventually { (try? WidgetShelf.read(.seenDevices, from: shelf).get().names) == ["BB": "Sam's Earbuds"] })
+        _ = model
+    }
+
+    @Test func aDeviceNeverNamedIsOfferedUnderItsAddress() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.device("BB", "BB")], on: send, seen: ["BB"])
+        #expect(try await offered() == ["BB"])
+        _ = model
+    }
+
+    // MARK: what is offered
+
+    /// Device Battery draws such a device, so a widget can be set to one.
+    @Test func aDeviceWithNoLevelIsNamedAndOffered() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.device("EE", "Keyboard", levels: .none)], on: send, seen: ["EE"])
+        #expect(try await named(["EE"]) == ["Keyboard"])
+        #expect(try await offered() == ["Keyboard"])
+        _ = model
+    }
+
+    @Test func theOffersRunByNameThenAddress() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.device("B", "Same"), Self.device("A", "Same"), Self.device("C", "Another")], on: send, seen: ["A", "B", "C"])
+        #expect(try await query.suggestedEntities().map(\.id) == ["C", "A", "B"])
+        _ = model
+    }
+
+    @Test func aMacThatHasSeenNothingOffersNothing() async throws {
+        let (model, send) = try launch()
+        try await sweep([], on: send, seen: [])
+        #expect(try await offered().isEmpty)
+        #expect(try await named(["ZZ"]) == [Self.unavailable()])
+        _ = model
+    }
+
+    // MARK: the log
+
+    @Test func theLogsCarryHowManyAndNeverANameOrAnAddress() {
+        let line = String(describing: SeenDevices(names: ["AA-BB": "Sam's Earbuds"]))
+        #expect(line == "1 seen")
+    }
+}

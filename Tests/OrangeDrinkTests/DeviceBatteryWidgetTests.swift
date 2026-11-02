@@ -45,7 +45,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     @Test func theWidgetReadsEachDevicesLevelAfterEveryChange() async throws {
         let reloads = Reloads()
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { if $0 == .deviceBattery { reloads.count += 1 } }
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { if $0 == .deviceBattery { reloads.count += 1 } }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = try DevicesModel(events: events, shelf: publisher)
 
@@ -64,7 +64,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func anEndedDeviceStreamTakesItsLevelsOffTheShelfInsteadOfFreezingThem() async throws {
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = try DevicesModel(events: events, shelf: publisher)
         send.yield(.swept([Self.iPhone]))
@@ -78,7 +78,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     /// The Done when of orange-devices-bue.4gw: the stand-in's stream turns to a refusal after the watcher started, through the
     /// real loop, the model, and the app's wiring to the shelf.
     @Test func permissionTakenAwayFromARunningAppMakesEverySurfaceSaySo() async throws {
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let (asks, ask) = AsyncStream.makeStream(of: BluetoothPermission.Ask.self)
         let swept = DeviceEvent.swept([Self.iPhone])
         let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _ in
@@ -98,7 +98,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func aDevicesModelTornDownIsNotAnEndedStreamAndLeavesTheShelfAlone() async throws {
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         var model: DevicesModel? = try DevicesModel(events: events, shelf: publisher)
         model = nil
@@ -117,15 +117,15 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func aDeviceThatDisconnectsLeavesTheShelfAndTheAppQuittingSaysSo() async throws {
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         var list = DeviceList()
         list.apply(.swept([Self.iPhone]))
-        publisher.publish(WidgetDevices(list, pinned: []))
+        publisher.publish(.running(WidgetDevices(list, pinned: [])))
         #expect(try levelRead("AA") == 95)
         list.apply(.gone(Self.iPhone.id))
-        publisher.publish(WidgetDevices(list, pinned: []))
+        publisher.publish(.running(WidgetDevices(list, pinned: [])))
         #expect(try WidgetShelf.read(.devices, from: shelf).get() == .running(.connected([], pinned: [])))
-        publisher.publishQuit()
+        publisher.publish(.appNotRunning)
         #expect(try WidgetShelf.read(.devices, from: shelf).get() == .appNotRunning)
     }
 
@@ -145,31 +145,6 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
             WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 95, approximate: false)),
             WidgetDevice(address: "DD", name: "Speaker", kind: .accessory, level: nil),
         ], pinned: [], unlevelled: [WidgetDevice(address: "EE", name: "Mouse", kind: .accessory, level: nil)])))
-    }
-
-    // MARK: the settings
-
-    @Test func theSettingsOfferTheConnectedDevicesAndNothingWhileTheAppIsNotRunning() {
-        let devices = [WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: nil)]
-        #expect(WidgetDevices.choices(in: .running(.connected(devices, pinned: []))) == devices)
-        #expect(WidgetDevices.choices(in: .running(.unread(.denied))).isEmpty)
-        #expect(WidgetDevices.choices(in: .appNotRunning).isEmpty)
-    }
-
-    @Test func aChosenDeviceThatIsGoneStillResolvesToNothing() {
-        let phone = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: nil)
-        let resolved = WidgetDevices.resolve(["AA", "ZZ"], in: .running(.connected([phone], pinned: [])))
-        #expect(resolved.map(\.address) == ["AA", "ZZ"])
-        #expect(resolved.map(\.device) == [phone, nil])
-        // A list the app could not read keeps the widget's choice too.
-        #expect(WidgetDevices.resolve(["AA"], in: .running(.unread(.denied))).map(\.address) == ["AA"])
-    }
-
-    @Test func aChosenDeviceWithNoLevelResolvesAndIsNotOffered() {
-        let keyboard = WidgetDevice(address: "EE", name: "Keyboard", kind: .accessory, level: nil)
-        let shelf = Shelved.running(WidgetDevices.connected(WidgetDeviceList(ranked: [], pinned: [], unlevelled: [keyboard])))
-        #expect(WidgetDevices.resolve(["EE"], in: shelf).map(\.device) == [keyboard])
-        #expect(WidgetDevices.choices(in: shelf).isEmpty)
     }
 
     // MARK: the drawing
