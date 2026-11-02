@@ -1,19 +1,27 @@
 import AppKit
 
 /// One pinned device's menu bar item: the same row the panel and the Devices screen show, so its
-/// name, type glyph, and level text ("37%", "~50%" when approximate, "–" when unknown) are written once.
+/// name, type glyph, and level are written once, the level said in the app's language.
 struct PinnedItem: Equatable, Identifiable {
     let row: DeviceRow
+    /// The language the row's level is said in: a change of it is a change the bar redraws.
+    let language: AppLanguage
     var id: DeviceID { row.id }
+    var title: String { row.percent.resolve(in: language) }
 
-    /// One item for each pinned device with a row in the ranking, in the order the user arranged
-    /// them on the Menu Bar screen.
+    /// The row of each pinned device with one in the ranking, in the order the user arranged them
+    /// on the Menu Bar screen.
     ///
     /// [LAW:one-source-of-truth] Derived from the live list and the pinned order on every call; no
     /// item outlives the facts it shows.
-    static func items(_ list: DeviceList, pinned: PinnedOrder) -> [PinnedItem] {
+    static func rows(_ list: DeviceList, pinned: PinnedOrder) -> [DeviceRow] {
         let rows = DeviceRanking.rows(list)
-        return pinned.ids.compactMap { id in rows.first { $0.id == id } }.map(PinnedItem.init)
+        return pinned.ids.compactMap { id in rows.first { $0.id == id } }
+    }
+
+    /// One item for each of those rows, said in `language`: no SwiftUI environment reaches a status item.
+    static func items(_ list: DeviceList, pinned: PinnedOrder, language: AppLanguage) -> [PinnedItem] {
+        rows(list, pinned: pinned).map { PinnedItem(row: $0, language: language) }
     }
 }
 
@@ -41,7 +49,7 @@ struct PinnedItem: Equatable, Identifiable {
 
     /// Makes the status items equal to `items`, in that order. A change in which devices have an
     /// item, or in their order, makes them all again, since the bar's order is the order they were
-    /// made in; a change only in a level redraws that item.
+    /// made in; a change only in a level or the language redraws the items it changes.
     func apply(_ items: [PinnedItem]) {
         if items.map(\.id) != held.map(\.id) {
             held.forEach { $0.item.remove() }
@@ -89,7 +97,7 @@ struct PinnedItem: Equatable, Identifiable {
         }
         button.image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
         button.imagePosition = .imageLeading
-        button.title = pinned.row.percent
+        button.title = pinned.title
         button.toolTip = pinned.row.name
     }
 

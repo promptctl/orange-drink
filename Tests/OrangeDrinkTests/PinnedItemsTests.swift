@@ -35,10 +35,10 @@ import Testing
         let controller = controller(items)
         controller.apply(PinnedItem.items(list([Self.mouse: level(37)]), pinned: [Self.mouse]))
         #expect(items.made.count == 1)
-        #expect(items.made[0].shown?.row.percent == "37%")
+        #expect(items.made[0].shown?.title == "37%")
         controller.apply(PinnedItem.items(list([Self.mouse: level(30)]), pinned: [Self.mouse]))
         #expect(items.made.count == 1)
-        #expect(items.made[0].shown?.row.percent == "30%")
+        #expect(items.made[0].shown?.title == "30%")
     }
 
     // Removing an item would lose its place in the bar: a new one starts from the list's order.
@@ -50,11 +50,32 @@ import Testing
         unread.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .unread)]))
         controller.apply(PinnedItem.items(unread, pinned: [Self.mouse]))
         #expect(items.made.count == 1 && !items.made[0].removed)
-        #expect(items.made[0].shown?.row.percent == "–")
+        #expect(items.made[0].shown?.title == "–")
+    }
+
+    /// No environment reaches a status item, so the language reaches it as a value.
+    @Test func aPinnedItemSaysItsLevelInTheAppsLanguageAndFollowsAChange() async throws {
+        let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let settings = try DeviceSettingsModel(defaults: scratchDefaults())
+        let language = try AppLanguageModel(defaults: scratchDefaults())
+        try language.update { $0 = AppLanguage(code: "en") }
+        let items = Items()
+        let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: shelf) }
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
+        let model = try DevicesModel(events: events, shelf: publisher, settings: settings, language: language, pinnedItems: controller(items))
+        try settings.update { $0.togglePinned(Self.mouse) }
+        send.yield(.swept(list([Self.mouse: level(37)]).devices))
+        #expect(await eventually { items.made.first?.shown?.title == "37%" })
+        try language.update { $0 = AppLanguage(code: "fr") }
+        #expect(await eventually { items.made.first?.shown?.title == "37\u{a0}%" })
+        #expect(items.made.count == 1)
+        _ = model
     }
 
     @Test func anApproximateLevelIsMarked() {
-        #expect(PinnedItem.items(list([Self.mouse: level(50, approximate: true)]), pinned: [Self.mouse]).map(\.row.percent) == ["~50%"])
+        #expect(PinnedItem.items(list([Self.mouse: level(50, approximate: true)]), pinned: [Self.mouse]).map(\.title) == ["~50%"])
     }
 
     @Test func onlyPinnedConnectedDevicesWithALevelHaveAnItem() {
@@ -82,7 +103,7 @@ import Testing
         let items = Items()
         let controller = controller(items)
         controller.apply(PinnedItem.items(list([Self.mouse: level(37), Self.pods: level(80)]), pinned: [Self.mouse, Self.pods]))
-        #expect(items.made.map { $0.shown?.row.percent } == ["80%", "37%"] || items.made.map { $0.shown?.row.percent } == ["37%", "80%"])
+        #expect(items.made.map { $0.shown?.title } == ["80%", "37%"] || items.made.map { $0.shown?.title } == ["37%", "80%"])
         #expect(items.made.count == 2)
     }
 
@@ -98,9 +119,9 @@ import Testing
         let model = try DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices))
-        #expect(await eventually { items.made.first?.shown?.row.percent == "37%" })
+        #expect(await eventually { items.made.first?.shown?.row.percent.english == "37%" })
         send.yield(.swept(list([Self.mouse: level(30)]).devices))
-        #expect(await eventually { items.made.first?.shown?.row.percent == "30%" })
+        #expect(await eventually { items.made.first?.shown?.row.percent.english == "30%" })
         try settings.update { $0.togglePinned(Self.mouse) }
         #expect(await eventually { items.made.first?.removed == true })
         #expect(items.made.count == 1)

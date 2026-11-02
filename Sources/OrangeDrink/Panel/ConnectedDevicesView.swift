@@ -35,7 +35,7 @@ struct DeviceRowView: View {
                 HStack {
                     Text(row.name).lineLimit(1)
                     Spacer()
-                    Text(row.percent).fontWeight(.bold).foregroundStyle(tint)
+                    PhraseText(row.percent).fontWeight(.bold).foregroundStyle(tint)
                 }
                 LevelBar(fraction: row.fraction, tint: tint)
             }

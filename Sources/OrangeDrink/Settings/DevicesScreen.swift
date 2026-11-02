@@ -95,7 +95,7 @@ struct DevicesScreen: View {
                             .foregroundStyle(.secondary).accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.row.name).fontWeight(.semibold)
-                            Text(entry.row.percent).font(.caption).foregroundStyle(.secondary)
+                            PhraseText(entry.row.percent).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 12)
                         Button { edits.perform { $0.toggleAlerting(entry.id) } } label: {

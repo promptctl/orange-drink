@@ -24,7 +24,7 @@ struct BatteryPercentage: View {
     let battery: WidgetBattery
 
     var body: some View {
-        Text(BatteryLevel.text(battery.level)).monospacedDigit().foregroundStyle(battery.tint)
+        PhraseText(BatteryLevel.text(battery.level)).monospacedDigit().foregroundStyle(battery.tint)
     }
 }
 
@@ -86,21 +86,31 @@ struct BatteryRing: View {
     }
 }
 
-/// A row's percentage, in a column every row shares so the bars line up. The bolt hangs off the text's
-/// leading edge, in the room "100%" leaves, so it takes none from "~100%", the longest there is.
+/// A row's percentage, in a column every row shares so the bars line up. [LAW:one-source-of-truth] The widest a row
+/// can draw, the longest level or the bolt beside "100%", is drawn hidden in the row's language and font and sets the
+/// column, so the column is as wide as that language says it. The bolt ends where the level's text starts, at every level.
+/// Only the Mac charges, and its level is never approximate, so no row draws the bolt beside "~100%".
 struct RowPercentage: View {
-    static let width: CGFloat = 42
+    static let longest = BatteryLevel(percent: 100, approximate: true)
     static let font = Font.subheadline.bold()
 
     let battery: WidgetBattery
 
     var body: some View {
-        BatteryPercentage(battery: battery)
-            .font(Self.font)
-            .overlay(alignment: .leading) {
-                BatteryBolt(battery: battery).font(.caption2).offset(x: -9)
+        ZStack(alignment: .trailing) {
+            BatteryPercentage(battery: WidgetBattery(glyph: battery.glyph, level: Self.longest, charging: false)).hidden()
+            HStack(spacing: 0) {
+                BatteryBolt(battery: battery).font(.caption2)
+                BatteryPercentage(battery: WidgetBattery(glyph: battery.glyph, level: BatteryLevel(percent: 100, approximate: false), charging: false))
             }
-            .frame(width: Self.width, alignment: .trailing)
+            .hidden()
+            BatteryPercentage(battery: battery)
+                .overlay(alignment: .leading) {
+                    BatteryBolt(battery: battery).font(.caption2).alignmentGuide(.leading) { $0[.trailing] }
+                }
+        }
+        .font(Self.font)
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

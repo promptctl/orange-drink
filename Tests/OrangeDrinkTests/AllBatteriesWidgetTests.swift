@@ -51,7 +51,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     /// What the widget says, in reading order.
     static func texts(_ entry: AllBatteriesEntry, _ family: WidgetFamily = .systemSmall) throws -> [String] {
-        try view(entry, family).inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        try view(entry, family).inspect().findAll(ViewType.Text.self).filter { !$0.isHidden() }.map { try $0.string() }
     }
 
     // MARK: the list
@@ -103,8 +103,15 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
 
     // MARK: the drawing
 
-    static func image(_ entry: AllBatteriesEntry, _ family: WidgetFamily, content size: CGSize) throws -> CGImage {
-        try widgetImage(view(entry, family), size: size, scheme: .dark, scale: 2)
+    static func image(_ entry: AllBatteriesEntry, _ family: WidgetFamily, content size: CGSize, language: AppLanguage = .matchSystem) throws -> CGImage {
+        try widgetImage(view(entry, family).speaking(language), size: size, scheme: .dark, scale: 2)
+    }
+
+    static let longest = WidgetBattery(glyph: MacBattery.glyph, level: RowPercentage.longest, charging: false)
+
+    /// How wide `language` draws the column a row's percentage sits in.
+    static func percentageColumn(_ language: AppLanguage = .matchSystem) throws -> CGFloat {
+        try #require(ImageRenderer(content: RowPercentage(battery: longest).speaking(language)).nsImage).size.width
     }
 
     static func cells(_ entry: AllBatteriesEntry) throws -> [RingPixels] {
@@ -269,24 +276,37 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     /// Past the row's glyph and percentage a cell is empty, or a percentage would read with the next column's glyph.
     @Test(arguments: WidgetFamilies.allBatteries) func aListRowKeepsItsPercentageBesideItsGlyph(family: WidgetFamily) throws {
         let image = try Self.image(Self.entry(Self.onBattery, [], style: .list), family, content: Self.content(family))
-        let row = (4 + 20 + 4 + Int(RowPercentage.width)) * 2
+        let row = try (4 + 20 + 4 + Int(Self.percentageColumn())) * 2
         let rest = try #require(image.cropping(to: CGRect(x: row, y: 0, width: image.width - row, height: image.height)))
         #expect(WidgetPixels(rest).top == nil)
     }
 
-    /// "100%" leaves the percentage column's leading edge clear of digits, so green there is the bolt alone.
+    /// "100%" leaves the percentage column's leading edge clear of digits, so green there is the bolt alone, and the gap
+    /// before the column stays clear of it in every language. A named List row, so the column is at the trailing edge and no green bar reaches the gap.
     @Test(arguments: [true, false]) func aChargingRowHasItsBoltBesideItsPercentage(charging: Bool) throws {
-        let entry = Self.entry(.level(percent: 100, charging: charging), [], style: .bars)
-        let image = try Self.image(entry, .systemSmall, content: Self.content(.systemSmall))
-        let column = try (Self.content(.systemSmall).width - 4 - RowPercentage.width) * 2
-        let strip = try #require(image.cropping(to: CGRect(x: column, y: 0, width: 8 * 2, height: CGFloat(image.height))))
-        #expect(WidgetPixels(strip).contains(Self.isGreen) == charging)
+        let entry = Self.entry(.level(percent: 100, charging: charging), [], style: .list) { $0.showNames = true }
+        let low = Self.entry(.level(percent: 5, charging: charging), [], style: .list) { $0.showNames = true }
+        for language in WidgetLanguageTests.shipped {
+            // At a low level the bolt is beside the number, not at the column's far edge.
+            let lowImage = try Self.image(low, .systemSmall, content: Self.content(.systemSmall), language: language)
+            let lowColumn = try (Self.content(.systemSmall).width - 4 - Self.percentageColumn(language)) * 2
+            let lowEdge = try #require(lowImage.cropping(to: CGRect(x: lowColumn, y: 0, width: 4 * 2, height: CGFloat(lowImage.height))))
+            #expect(!WidgetPixels(lowEdge).contains(Self.isGreen), "5% in \(language)")
+            #expect(WidgetPixels(lowImage).contains(Self.isGreen) == charging, "5% in \(language)")
+            let image = try Self.image(entry, .systemSmall, content: Self.content(.systemSmall), language: language)
+            let column = try (Self.content(.systemSmall).width - 4 - Self.percentageColumn(language)) * 2
+            let strip = try #require(image.cropping(to: CGRect(x: column, y: 0, width: 8 * 2, height: CGFloat(image.height))))
+            let gap = try #require(image.cropping(to: CGRect(x: column - 4 * 2, y: 0, width: 4 * 2, height: CGFloat(image.height))))
+            #expect(WidgetPixels(strip).contains(Self.isGreen) == charging, "\(language)")
+            #expect(!WidgetPixels(gap).contains(Self.isGreen), "\(language)")
+        }
     }
 
-    @Test func theLongestPercentageFitsItsColumn() throws {
-        let longest = WidgetBattery(glyph: MacBattery.glyph, level: BatteryLevel(percent: 100, approximate: true), charging: false)
-        let needed = ImageRenderer(content: BatteryPercentage(battery: longest).font(RowPercentage.font).fixedSize())
-        #expect(try #require(needed.nsImage).size.width <= RowPercentage.width)
+    @Test func theLongestPercentageFitsItsColumnInEveryLanguage() throws {
+        for language in WidgetLanguageTests.shipped {
+            let needed = ImageRenderer(content: BatteryPercentage(battery: Self.longest).font(RowPercentage.font).fixedSize().speaking(language))
+            #expect(try #require(needed.nsImage).size.width <= Self.percentageColumn(language), "\(language)")
+        }
     }
 
     /// A row is read in the band the grid gives it, so a bar anywhere else starts somewhere else.
@@ -440,17 +460,22 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(try edge(image.height - 1) == nil, "the bottom line")
     }
 
-    /// The name takes the room, not the percentage: however long it is, the percentage is where a short one leaves it.
+    /// The name takes the room, not the percentage: however long it is, the longest percentage is where a short one leaves it, in every language.
     @Test(arguments: [WidgetStyle.list, .bars], WidgetFamilies.allBatteries) func aNameLeavesThePercentageInItsColumn(style: WidgetStyle, family: WidgetFamily) throws {
-        func column(_ name: String) throws -> Data {
-            let image = try Self.image(Self.entry(.noBattery, [Self.device(named: name)], style: style) { $0.showNames = true }, family, content: Self.content(family))
+        func column(_ name: String, _ language: AppLanguage) throws -> Data {
+            let device = WidgetDevice(address: name, name: name, kind: .accessory, level: RowPercentage.longest)
+            let image = try Self.image(Self.entry(.noBattery, [device], style: style) { $0.showNames = true }, family, content: Self.content(family), language: language)
             let cell = try BatteryGrid(family, style).cell(in: Self.content(family)).width * 2
-            let width = (RowPercentage.width + 4) * 2
+            let width = try (Self.percentageColumn(language) + 4) * 2
             let strip = try #require(image.cropping(to: CGRect(x: cell - width, y: 0, width: width, height: CGFloat(image.height))))
+            let padding = try #require(image.cropping(to: CGRect(x: cell - 4 * 2, y: 0, width: 4 * 2, height: CGFloat(image.height))))
             #expect(WidgetPixels(strip).top != nil, "the percentage reached the column")
+            #expect(WidgetPixels(padding).top == nil, "the percentage stopped inside its cell")
             return try #require(NSBitmapImageRep(cgImage: strip).representation(using: .png, properties: [:]))
         }
-        #expect(try column("A") == column("A device with quite a long name"))
+        for language in WidgetLanguageTests.shipped {
+            #expect(try column("A", language) == column("A device with quite a long name", language), "\(language)")
+        }
     }
 
     /// A device's name usually starts with its owner's, and at Small a row has room for a few characters of it.

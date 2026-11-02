@@ -95,7 +95,7 @@ import Testing
         let changed = Self.list([Self.a: "Keyboard", Self.b: "Mouse"], percent: 40)
         controller.apply(PinnedItem.items(changed, pinned: [Self.a, Self.b]))
         #expect(made.count == 2)
-        #expect(made.compactMap { $0.shown?.row.percent } == ["40%", "40%"])
+        #expect(made.compactMap { $0.shown?.title } == ["40%", "40%"])
     }
 }
 

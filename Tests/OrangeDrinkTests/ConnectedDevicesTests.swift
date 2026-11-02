@@ -42,7 +42,7 @@ struct ConnectedDevicesTests {
     }
 
     @Test func rowsRunLowestFirstWithApproximateLevelsMarked() {
-        #expect(rows(fleet).map(\.percent) == ["37%", "~50%", "54%", "95%"])
+        #expect(rows(fleet).map(\.percent.english) == ["37%", "~50%", "54%", "95%"])
     }
 
     @Test func onlyANearlyFullDeviceIsGreen() {
@@ -66,14 +66,14 @@ struct ConnectedDevicesTests {
     @Test func aDeviceWhoseLevelsAreUnreadKeepsItsRowWithNoLevelBelowTheRanking() {
         let rows = rows([device("1", "Aardvark", .unread), device("2", "Mouse", single(95)), device("3", "Speaker", .none)])
         #expect(rows.map(\.name) == ["Mouse", "Aardvark"])
-        #expect(rows.map(\.percent) == ["95%", "–"])
+        #expect(rows.map(\.percent.english) == ["95%", "–"])
         #expect(rows.map(\.fraction) == [0.95, 0])
     }
 
     @Test func earbudsShowTheirLowestBudNotTheCase() {
         let pods = device("1", "AirPods", .earbuds(left: BatteryLevel(percent: 60, approximate: false), right: nil,
                                                     case: BatteryLevel(percent: 5, approximate: false)))
-        #expect(rows([pods]).map(\.percent) == ["60%"])
+        #expect(rows([pods]).map(\.percent.english) == ["60%"])
         #expect(rows([pods]).map(\.fraction) == [0.6])
     }
 

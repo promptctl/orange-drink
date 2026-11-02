@@ -117,11 +117,11 @@ struct DeviceListTests {
         let sources = DeviceReaderTests.Sources(unanswered: .unanswered(call: "the model's outage"))
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let silent = await list(of: model) { !$0.devices.isEmpty }
-        #expect(DeviceRanking.rows(silent).map(\.percent) == ["–"])
+        #expect(DeviceRanking.rows(silent).map(\.percent.english) == ["–"])
         sources.unanswered = nil
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let answered = await list(of: model) { $0.devices.first?.levels != .unread }
-        #expect(DeviceRanking.rows(answered).map(\.percent) == ["47%"])
+        #expect(DeviceRanking.rows(answered).map(\.percent.english) == ["47%"])
         #expect(model.list.unread != .ended)
     }
 

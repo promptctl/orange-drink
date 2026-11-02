@@ -138,7 +138,7 @@ import WidgetKit
 
     @Test func thePreviewShowsTheLevelsThePanelShows() async throws {
         let bed = try await Bed()
-        let panel = ConnectedDevices(bed.devices.list, settings: bed.settings.value).rows.map(\.percent)
+        let panel = ConnectedDevices(bed.devices.list, settings: bed.settings.value).rows.map(\.percent.english)
         let drawn = try bed.screen.inspect().find(AllBatteriesView.self).findAll(ViewType.Text.self).map { try $0.string() }
         #expect(panel == ["54%", "95%"])
         #expect(drawn == ["80%"] + panel)
@@ -148,7 +148,7 @@ import WidgetKit
     @Test func aDeviceHiddenFromThePanelStaysInAllBatteries() async throws {
         let bed = try await Bed()
         try bed.settings.update { $0.toggleHidden(DeviceID(address: "B")) }
-        #expect(ConnectedDevices(bed.devices.list, settings: bed.settings.value).rows.map(\.percent) == ["95%"])
+        #expect(ConnectedDevices(bed.devices.list, settings: bed.settings.value).rows.map(\.percent.english) == ["95%"])
         #expect(try bed.screen.inspect().find(AllBatteriesView.self).findAll(ViewType.Text.self).map { try $0.string() } == ["80%", "54%", "95%"])
     }
 
@@ -170,7 +170,7 @@ import WidgetKit
     @Test func aDeviceThatChangesChangesThePreview() async throws {
         let bed = try await Bed()
         bed.send.yield(.swept([Bed.device("A", 95, .phone), Bed.device("B", 12, .accessory)]))
-        #expect(await eventually { DeviceRanking.rows(bed.devices.list).first?.percent == "12%" })
+        #expect(await eventually { DeviceRanking.rows(bed.devices.list).first?.percent.english == "12%" })
         #expect(try bed.screen.inspect().find(AllBatteriesView.self).findAll(ViewType.Text.self).map { try $0.string() } == ["80%", "12%", "95%"])
     }
 
