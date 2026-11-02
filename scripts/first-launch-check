@@ -36,8 +36,6 @@ wait_for "the app never logged the answer" 30 logged devices 'bluetooth permissi
 wait_for "the device watcher never started after the answer" 30 logged devices "$started"
 echo "first-launch-check: allowed: the app logged the answer, then started the device watcher" >&2
 
-# What follows <line> in what the app logged. A line of a stage before it is not a line of this one.
-log_after() { sed -n "/$1/,\$p" <<<"$2"; }
 # The asks a line's stage has made since: each is a state line, at info, which this check keeps for its own reading.
 asks_after() { log_after "$1" "$(log_lines devices)" | grep -cF 'bluetooth permission: state' || true; }
 further_ask() { [ "$(asks_after 'device watcher stopped')" -ge 2 ]; }
@@ -62,6 +60,5 @@ guest tccutil reset BluetoothAlways "$identifier"
 relaunched=$(guest_now)
 guest open "$app"
 uitest FirstLaunchUITests/testThePanelSaysBluetoothIsNotAllowed
-refused_since() { grep -qF 'bluetooth permission answered: denied' <<<"$(devices_since "$relaunched")"; }
-wait_for "the app never logged the refusal" 30 refused_since
+wait_for "the app never logged the refusal" 30 refused_since "$relaunched"
 echo "first-launch-check: denied: the panel says Bluetooth is not allowed" >&2

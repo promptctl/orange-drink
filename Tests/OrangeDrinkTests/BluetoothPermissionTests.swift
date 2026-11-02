@@ -14,11 +14,16 @@ struct BluetoothPermissionTests {
     /// A running app's property goes on saying allowed after the permission is taken away.
     @Test func anUnauthorizedManagerIsARefusalWhateverThePropertySays() {
         #expect(CBManagerAuthorization(state: .unauthorized, authorization: .allowedAlways) == .denied)
-        for state in [CBManagerState.unknown, .resetting, .unsupported, .poweredOff, .poweredOn] {
+        for state in [CBManagerState.unsupported, .poweredOff, .poweredOn] {
             #expect(CBManagerAuthorization(state: state, authorization: .allowedAlways) == .allowedAlways)
             #expect(CBManagerAuthorization(state: state, authorization: .notDetermined) == .notDetermined)
             #expect(CBManagerAuthorization(state: state, authorization: .denied) == .denied)
         }
+    }
+
+    /// A stale allowed in a refused app must not end an ask on a state that has not settled.
+    @Test(arguments: [CBManagerState.unknown, .resetting]) func anUnsettledManagerHasNoAnswerYet(state: CBManagerState) {
+        #expect(CBManagerAuthorization(state: state, authorization: .allowedAlways) == nil)
     }
 
     @Test func aListIsUnreadUntilASweepAndSaysWhy() {

@@ -127,7 +127,7 @@ enum BluetoothPermission: Equatable, Sendable {
     }
 
     /// [LAW:nothing-unseen] A stalled prompt stays in the persisted log; an idle app's ask a minute does not.
-    private static func logLevel(of authorization: CBManagerAuthorization) -> OSLogType {
+    private static func logLevel(of authorization: CBManagerAuthorization?) -> OSLogType {
         authorization == .notDetermined ? .default : .info
     }
 
@@ -139,16 +139,22 @@ enum BluetoothPermission: Equatable, Sendable {
         /// A prompt left open logs none of these; a wait that stalled logs one still not determined.
         func centralManagerDidUpdateState(_ central: CBCentralManager) {
             let authorization = CBManagerAuthorization(state: central.state, authorization: CBManager.authorization)
-            BluetoothDevices.log.log(level: logLevel(of: authorization), "bluetooth permission: state \(central.state.rawValue, privacy: .public), authorization \(authorization.rawValue, privacy: .public)")
-            continuation.yield(authorization)
+            let said = authorization.map { String($0.rawValue) } ?? "none yet"
+            BluetoothDevices.log.log(level: logLevel(of: authorization), "bluetooth permission: state \(central.state.rawValue, privacy: .public), authorization \(said, privacy: .public)")
+            if let authorization { continuation.yield(authorization) }
         }
     }
 }
 
 extension CBManagerAuthorization {
     /// [LAW:one-source-of-truth] The state is the live word on a refusal, because the property can be stale in a running
-    /// process. Any other state says nothing of permission: Bluetooth off, or no radio, reads as what the property says.
-    init(state: CBManagerState, authorization: CBManagerAuthorization) {
-        self = state == .unauthorized ? .denied : authorization
+    /// process. Bluetooth off, or no radio, says nothing of permission and reads as what the property says. Unknown and
+    /// resetting are CoreBluetooth's own "an update is imminent": no answer yet, so a stale allowed cannot end the ask.
+    init?(state: CBManagerState, authorization: CBManagerAuthorization) {
+        switch state {
+        case .unauthorized: self = .denied
+        case .unknown, .resetting: return nil
+        default: self = authorization
+        }
     }
 }

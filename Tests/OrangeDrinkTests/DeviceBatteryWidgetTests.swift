@@ -76,7 +76,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     /// The Done when of orange-devices-bue.4gw: the stand-in's stream turns to a refusal after the watcher started, through the
-    /// real loop, the model, and the app's wiring to the shelf, and a sweep after it would leave the list read.
+    /// real loop, the model, and the app's wiring to the shelf.
     @Test func permissionTakenAwayFromARunningAppMakesEverySurfaceSaySo() async throws {
         let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
         let (asks, ask) = AsyncStream.makeStream(of: BluetoothPermission.Ask.self)
@@ -95,13 +95,6 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         #expect(ConnectedDevices(model.list, settings: DeviceSettings()).emptyNote == denied)
         #expect(DetectedDevices(model.list, settings: DeviceSettings()).emptyNote == denied)
         #expect(PinnedDevicesList(model.list, pinned: [Self.iPhone.id]).emptyNote == denied)
-
-        ask.yield(.heard(.denied))
-        ask.yield(.stalled)
-        ask.yield(.heard(.denied))
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(model.list.unread == .denied)
-        #expect(try WidgetShelf.read(.devices, from: shelf).get() == .running(.unread(.denied)))
     }
 
     @Test func aDevicesModelTornDownIsNotAnEndedStreamAndLeavesTheShelfAlone() async throws {

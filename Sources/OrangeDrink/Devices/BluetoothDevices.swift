@@ -210,7 +210,7 @@ enum BluetoothDevices {
 
         private func register(_ device: IOBluetoothDevice) {
             guard let address = DeviceID(device)?.address else { return }
-            guard registrations.withLockUnchecked({ !$0.stopped && $0.disconnects[address] == nil }),
+            guard registrations.withLockUnchecked({ $0.disconnects[address] == nil }),
                   let notification = device.register(forDisconnectNotification: self, selector: #selector(disconnected(_:device:)))
             else { return }
             registrations.withLockUnchecked { $0.disconnects[address] = notification }
