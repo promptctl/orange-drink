@@ -320,8 +320,8 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     static func filledShelf() throws -> URL {
         let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
-        ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { _ in }.publish(charging)
-        ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }.publish(.connected(three, pinned: []))
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(charging))
+        ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }.publish(.running(.connected(three, pinned: [])))
         return shelf
     }
 
@@ -503,25 +503,25 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
         var asked: [WidgetKind] = []
-        let mac = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { asked.append($0) }
-        let devices = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { asked.append($0) }
+        let mac = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { asked.append($0) }
+        let devices = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
         func reloads(_ change: () -> Void) -> [WidgetKind] {
             asked = []
             change()
             return asked
         }
 
-        #expect(reloads { mac.publish(Self.charging) } == [.macBattery, .allBatteries])
-        #expect(reloads { devices.publish(.connected(Self.three, pinned: [])) } == [.deviceBattery, .allBatteries])
-        #expect(reloads { mac.publish(Self.charging) } == [])
-        #expect(reloads { devices.publish(.connected(Self.three, pinned: [])) } == [])
+        #expect(reloads { mac.publish(.running(Self.charging)) } == [.macBattery, .allBatteries])
+        #expect(reloads { devices.publish(.running(.connected(Self.three, pinned: []))) } == [.deviceBattery, .allBatteries])
+        #expect(reloads { mac.publish(.running(Self.charging)) } == [])
+        #expect(reloads { devices.publish(.running(.connected(Self.three, pinned: []))) } == [])
 
         func shelved() -> AllBatteriesEntry { AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: AllBatteriesIntent()) }
         #expect(try Self.texts(shelved()) == ["80%", "95%", "54%", "40%"])
 
-        #expect(reloads { mac.publish(Self.onBattery) } == [.macBattery, .allBatteries])
-        #expect(reloads { mac.publishQuit() } == [.macBattery, .allBatteries])
-        #expect(reloads { devices.publishQuit() } == [.deviceBattery, .allBatteries])
+        #expect(reloads { mac.publish(.running(Self.onBattery)) } == [.macBattery, .allBatteries])
+        #expect(reloads { mac.publish(.appNotRunning) } == [.macBattery, .allBatteries])
+        #expect(reloads { devices.publish(.appNotRunning) } == [.deviceBattery, .allBatteries])
         #expect(try Self.texts(shelved()) == ["Open Orange Drink"])
     }
 }

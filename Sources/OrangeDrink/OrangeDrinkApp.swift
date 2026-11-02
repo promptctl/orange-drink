@@ -35,6 +35,7 @@ struct OrangeDrinkApp: App {
         let alerts: AlertCenter
         let appearance: NotificationAppearanceModel
         let deviceSettings: DeviceSettingsModel
+        let seenDevices: SeenDevicesModel
         let menuBarIcon: MenuBarIconModel
         let look: AppAppearanceModel
         let language: AppLanguageModel
@@ -46,6 +47,7 @@ struct OrangeDrinkApp: App {
         do {
             appearance = try NotificationAppearanceModel(defaults: .standard)
             deviceSettings = try DeviceSettingsModel(defaults: .standard)
+            seenDevices = try SeenDevicesModel(defaults: .standard)
             menuBarIcon = try MenuBarIconModel(defaults: .standard)
             look = try AppAppearanceModel(defaults: .standard)
             language = try AppLanguageModel(defaults: .standard)
@@ -62,16 +64,17 @@ struct OrangeDrinkApp: App {
                 sounds.deliver($0)
             })
         } catch {
-            fatalError("stored alert, appearance, device, menu bar, app appearance, app language, shortcut, charge limit, or system notification settings do not decode: \(error)")
+            fatalError("stored alert, appearance, device, seen device, menu bar, app appearance, app language, shortcut, charge limit, or system notification settings do not decode: \(error)")
         }
         // [LAW:one-source-of-truth] project.yml signs every build into the app group, so a missing
         // container is a broken build, not a case to run past.
         let shelf: URL
         do { shelf = try WidgetShelf.groupContainer() } catch { fatalError("no widget shelf: \(error)") }
         let reload: @MainActor (WidgetKind) -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: $0.rawValue) }
-        let widgets = ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf, reload: reload)
-        let deviceWidgets = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf, reload: reload)
-        let devices = DevicesModel(events: BluetoothDevices.appEvents(), shelf: deviceWidgets, settings: deviceSettings, pinnedItems: PinnedItemsController(), onChange: {
+        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, reload: reload)
+        let deviceWidgets = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf, reload: reload)
+        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf, reload: reload)
+        let devices = DevicesModel(events: BluetoothDevices.appEvents(), shelf: deviceWidgets, seenShelf: seenShelf, settings: deviceSettings, seen: seenDevices, pinnedItems: PinnedItemsController(), onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
         })
         _devices = State(initialValue: devices)
@@ -115,8 +118,8 @@ struct OrangeDrinkApp: App {
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
                 if case .success(let recording) = history { recording.flush() }
-                widgets.publishQuit()
-                deviceWidgets.publishQuit()
+                widgets.publish(.appNotRunning)
+                deviceWidgets.publish(.appNotRunning)
             }
         }
         // [LAW:no-silent-failure] App energy needs the history store and the system's responsibility symbol;
@@ -132,7 +135,7 @@ struct OrangeDrinkApp: App {
         _chargeHold = State(initialValue: chargeHold)
         _battery = State(initialValue: BatteryModel(
             readings: BatteryMonitor.readings(), onState: { state in
-                widgets.publish(MacBattery(state))
+                widgets.publish(.running(MacBattery(state)))
                 // Every state, an ended stream included: readings that stop let charging run.
                 chargeHold.observe(state)
                 guard case .known(let reading) = state else { return }

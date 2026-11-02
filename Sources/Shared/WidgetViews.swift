@@ -272,8 +272,6 @@ struct DeviceBatteryView: View {
             } else {
                 Message(glyph: DeviceKind.accessory.symbol, text: "Not connected")
             }
-        } else if list.ranked.isEmpty {
-            Message.noDeviceBatteries
         } else {
             Message(glyph: DeviceKind.accessory.symbol, text: "Choose a device: right-click → Edit Widget")
         }

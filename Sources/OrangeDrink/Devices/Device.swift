@@ -48,6 +48,9 @@ struct Device: Equatable, Sendable, Identifiable {
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty } ?? address
     }
+
+    /// False for a device known only by the address `name(alias:broadcast:address:)` fell back to.
+    var hasName: Bool { name != id.address }
 }
 
 /// What the Bluetooth edge tells the list: a device's current state, that it is gone, or the

@@ -152,17 +152,17 @@ import WidgetKit
     }
 
     @Test func pinningFromTheDevicesScreenChangesASameAsMenuBarWidgetAndAsksItToRedraw() async throws {
-        ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { _ in }.publish(.noBattery)
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(.noBattery))
         let settings = try DeviceSettingsModel(defaults: UserDefaults(suiteName: "WidgetDeviceSelectionTests.\(UUID())")!)
         try settings.update {
             $0.togglePinned(DeviceID(address: "B"))
             $0.togglePinned(DeviceID(address: "D"))
         }
         var asked: [WidgetKind] = []
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { asked.append($0) }
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
-        let model = DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: pinnedItems)
+        let model = try DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: pinnedItems)
         send.yield(.swept(Self.addresses.enumerated().map { index, address in
             Device(id: DeviceID(address: address), name: "Device \(address)", kind: .accessory, levels: .single(BatteryLevel(percent: 30 + 10 * index, approximate: false)))
         }))

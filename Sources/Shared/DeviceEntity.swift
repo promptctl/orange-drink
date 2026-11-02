@@ -1,4 +1,5 @@
 import AppIntents
+import Foundation
 
 // Compiled into the app and its widget extension, because a widget's settings hold these.
 
@@ -12,31 +13,32 @@ struct DeviceEntity: AppEntity {
     let name: String
 
     var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
-
-    init(_ device: WidgetDevice) { self.init(id: device.address, name: device.name) }
-    init(id: String, name: String) { (self.id, self.name) = (id, name) }
 }
 
 struct DeviceQuery: EntityQuery {
-    /// What Edit Widget calls a chosen device that is not on the list.
+    /// What Edit Widget calls a chosen device the app has never seen.
     static let unavailable: Phrase = "Unavailable device"
 
-    /// A device that is not connected resolves too, so a widget keeps its choice while the device is away.
+    /// The shelf: the group container, or a directory of a test's own.
+    var directory: Swift.Result<URL, any Error> = Swift.Result { try WidgetShelf.groupContainer() }
+
+    /// One result per id asked for, so a widget keeps its choice even of a device the app has never seen.
     func entities(for identifiers: [String]) async throws -> [DeviceEntity] {
-        WidgetDevices.resolve(identifiers, in: Self.shelf()).map { address, device in
-            device.map(DeviceEntity.init) ?? DeviceEntity(id: address, name: Self.unavailable.resolve(in: .matchSystem))
-        }
+        let names = seen().names
+        return identifiers.map { DeviceEntity(id: $0, name: names[$0] ?? Self.unavailable.resolve(in: .matchSystem)) }
     }
 
+    /// In a person's alphabetical order then by address, so the choices keep their places as devices come and go.
     func suggestedEntities() async throws -> [DeviceEntity] {
-        WidgetDevices.choices(in: Self.shelf()).map(DeviceEntity.init)
+        seen().names.map { DeviceEntity(id: $0.key, name: $0.value) }
+            .sorted(using: [KeyPathComparator(\.name, comparator: .localizedStandard), KeyPathComparator(\.id)])
     }
 
-    /// [LAW:no-silent-failure] A shelf that cannot be read offers no devices, and the log says why.
-    private static func shelf() -> Shelved<WidgetDevices> {
-        switch WidgetShelf.load(.devices, from: Swift.Result { try WidgetShelf.groupContainer() }, log: ShelfLog.log) {
-        case .success(let shelved): shelved
-        case .failure: .appNotRunning
+    /// [LAW:no-silent-failure] A file that cannot be read offers no devices, and the log says why.
+    private func seen() -> SeenDevices {
+        switch WidgetShelf.load(.seenDevices, from: directory, log: ShelfLog.log) {
+        case .success(let seen): seen
+        case .failure: SeenDevices()
         }
     }
 }

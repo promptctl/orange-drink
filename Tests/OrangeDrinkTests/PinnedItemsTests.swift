@@ -94,8 +94,8 @@ import Testing
         let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
-        let model = DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: controller(items))
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
+        let model = try DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices))
         #expect(await eventually { items.made.first?.shown?.row.percent == "37%" })

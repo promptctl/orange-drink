@@ -42,8 +42,8 @@ private let unreadStates = [
 
     /// Publishes the mac and the state through the app's own wiring.
     func publish(_ state: DeviceState, mac: MacBattery) async throws -> DevicesModel {
-        ShelfPublisher<MacBattery>(item: .macBattery, directory: shelf) { _ in }.publish(mac)
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { _ in }
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(mac))
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let (changed, signal) = AsyncStream.makeStream(of: Void.self)
         var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
@@ -91,7 +91,7 @@ private let unreadStates = [
         let model = try await publish(read, mac: .noBattery)
         #expect(try allBatteriesSays() == ["No device batteries"])
         #expect(try deviceBatterySays(chosen: "AA") == ["Not connected"])
-        #expect(try deviceBatterySays(chosen: nil) == ["No device batteries"])
+        #expect(try deviceBatterySays(chosen: nil) == ["Choose a device: right-click → Edit Widget"])
         _ = model
     }
 
@@ -105,7 +105,7 @@ private let unreadStates = [
         #expect(try deviceBatterySays(chosen: "EE", family: .systemMedium) == ["–", "Keyboard"])
         #expect(try deviceBatterySays(chosen: "EE", family: .systemLarge) == ["–", "Keyboard"])
         #expect(try deviceBatterySays(chosen: "ZZ") == ["Not connected"])
-        #expect(try deviceBatterySays(chosen: nil) == ["No device batteries"])
+        #expect(try deviceBatterySays(chosen: nil) == ["Choose a device: right-click → Edit Widget"])
         _ = model
     }
 
@@ -130,12 +130,12 @@ private let unreadStates = [
 
     @Test(arguments: [#"{"running":{"_0":[]}}"#, #"{"running":{"_0":{"connected":{"_0":[]}}}}"#, #"{"running":{"_0":{"connected":{"_0":[],"pinned":{"addresses":[]}}}}}"#])
     func aFileInTheOldShapeDrawsOpenTheAppAndIsWrittenOver(old: String) throws {
-        try Data(old.utf8).write(to: shelf.appending(path: WidgetShelf.Item<WidgetDevices>.devices.file))
+        try Data(old.utf8).write(to: shelf.appending(path: WidgetShelf.Item<Shelved<WidgetDevices>>.devices.file))
         #expect(try deviceBatterySays(chosen: "AA") == ["Open Orange Drink"])
 
         var asked: [WidgetKind] = []
-        let publisher = ShelfPublisher<WidgetDevices>(item: .devices, directory: shelf) { asked.append($0) }
-        publisher.publish(.unread(.waiting))
+        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
+        publisher.publish(.running(.unread(.waiting)))
         #expect(asked == [.deviceBattery, .allBatteries])
         #expect(try deviceBatterySays(chosen: "AA") == ["Reading devices…"])
     }
