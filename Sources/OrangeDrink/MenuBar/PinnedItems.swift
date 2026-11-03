@@ -43,7 +43,7 @@ struct PinnedItem: Equatable, Identifiable {
     /// not redrawn.
     private var held: [(id: DeviceID, item: any PinnedStatusItem, shown: PinnedItem?)] = []
 
-    init(makeItem: @escaping @MainActor (DeviceID) -> any PinnedStatusItem = { NSPinnedStatusItem(id: $0) }) {
+    init(makeItem: @escaping @MainActor (DeviceID) -> any PinnedStatusItem) {
         self.makeItem = makeItem
     }
 
@@ -92,16 +92,18 @@ struct PinnedItem: Equatable, Identifiable {
             BluetoothDevices.log.error("a pinned device's status item has no button")
             return
         }
-        Self.fill(button, with: pinned)
-    }
-
-    /// The type glyph beside the level, on any button: a test fills one with no status bar behind it.
-    static func fill(_ button: NSButton, with pinned: PinnedItem) {
-        button.image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
-        button.imagePosition = .imageLeading
-        button.title = pinned.title
-        button.toolTip = pinned.row.name
+        button.show(pinned)
     }
 
     func remove() { NSStatusBar.system.removeStatusItem(item) }
+}
+
+extension NSButton {
+    /// The type glyph beside the level, on any button: a test fills one with no status bar behind it.
+    func show(_ pinned: PinnedItem) {
+        image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
+        imagePosition = .imageLeading
+        title = pinned.title
+        toolTip = pinned.row.name
+    }
 }

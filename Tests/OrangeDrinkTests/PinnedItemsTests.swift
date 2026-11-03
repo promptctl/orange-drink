@@ -143,10 +143,12 @@ import Testing
         func pinned(_ percent: Int) -> PinnedItem {
             PinnedItem.items(list([Self.mouse: level(percent)]), pinned: [Self.mouse])[0]
         }
-        NSPinnedStatusItem.fill(button, with: pinned(37))
+        button.show(pinned(37))
+        #expect(button.image != nil)
+        #expect(button.imagePosition == .imageLeading)
         #expect(button.title == "37%")
         #expect(button.toolTip == "Magic Mouse")
-        NSPinnedStatusItem.fill(button, with: pinned(30))
+        button.show(pinned(30))
         #expect(button.title == "30%")
     }
 
