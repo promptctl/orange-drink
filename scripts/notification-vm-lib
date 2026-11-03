@@ -15,6 +15,8 @@
 #                        the alerts in <list> that are not lines of <baseline>
 #   raise <level> <baseline>
 #                        raises the warning at <level> until an alert beyond <baseline> shows, for wait_for
+#   nothing_showing      whether the tree shows no notification at all; a tree that could not be read is not an empty one
+#   withdrawn            takes the warning down until nothing shows, for wait_for
 tools=/tmp/tools
 tree="$tools/notification-tree"
 battery="$tools/fake-battery"
@@ -33,6 +35,23 @@ raise() {
   warn "$1"
   sleep 2
   [ -n "$(new_alerts "$(list)" "$2")" ]
+}
+
+# Whether the tree shows nothing at all. A tree that could not be read is not an empty one.
+nothing_showing() { local showing; showing=$(list) && [ -z "$showing" ]; }
+# Withdraws the warning, as `raise` raises it. On macOS 26 the French step's alert stayed up for the whole wait in about half the runs
+# while `warn 1` was sent again and again; sending 3 and then 1 took it down (a live probe of the stuck alert), so a withdrawal that
+# finds something showing changes the level, where raise sends 1 and then its level. Nothing showing sends nothing: every raise begins
+# with `warn 1`, so no step reads the level a withdrawal would leave. A tree that could not be read sends nothing either, as 3 would
+# raise an alert for a tree nobody saw; wait_for looks again.
+withdrawn() {
+  local showing
+  showing=$(list) || return 1
+  [ -z "$showing" ] && return 0
+  warn 3
+  warn 1
+  sleep 2
+  nothing_showing
 }
 
 # Script Editor allowed banners, the Allow a person gives, which macOS 15 asks for before a new app's first. Its entry is not

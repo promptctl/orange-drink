@@ -28,8 +28,6 @@ on_failure() {
 }
 say() { echo "notification-capture: $image: $*" >&2; }
 
-# Whether the tree shows nothing at all. A tree that could not be read is not an empty one.
-nothing_showing() { local showing; showing=$(list) && [ -z "$showing" ]; }
 stack_gone() { local showing; showing=$(list) && ! grep -q '^AXNotificationCenterBannerStack' <<<"$showing"; }
 
 # Prints the tree's notifications as records of <step> if one look at it shows every subrole given: a banner fades, so a second look
@@ -69,11 +67,8 @@ alert_and_banner() {
   wait_for "$1: the tree never showed the alert and Script Editor's banner" 30 banner_beside_alert "$1" "$(cut -f2 <<<"$alert")" "$(cut -f3 <<<"$alert")"
 }
 
-# Withdraws the warning until nothing shows, as `raise` raises it until an alert does. On macOS 26 the French step's alert stayed up for
-# the whole wait in about half the runs while `warn 1` was sent again and again; sending 3 and then 1 took it down (a live probe of
-# the stuck alert), so a withdrawal that finds something showing is a change of level, as `raise`'s is. The banners fade meanwhile,
-# so the next step starts from nothing showing.
-withdrawn() { nothing_showing || { warn 3; warn 1; sleep 2; nothing_showing; }; }
+# Withdraws the warning until nothing shows (`withdrawn`, scripts/notification-vm-lib). The banners fade meanwhile, so the next step
+# starts from nothing showing.
 clear_all() { wait_for "$1: the notifications never went" 60 withdrawn; }
 
 notification_setup
