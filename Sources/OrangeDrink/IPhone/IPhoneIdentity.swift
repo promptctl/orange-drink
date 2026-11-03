@@ -23,7 +23,7 @@ extension DeviceKind {
     /// rename: "iPhone16,2" is a phone and "iPad13,1" a tablet. Every other model (a Vision Pro's "RealityDevice14,1", an iPod
     /// touch's "iPod9,1") is an accessory, the kind for every wireless device that is neither.
     init(productType: String) {
-        switch productType.wholeMatch(of: /(iPhone|iPad)\d+,\d+/)?.1.description {
+        switch productType.wholeMatch(of: /(iPhone|iPad)[0-9]+,[0-9]+/)?.1.description {
         case "iPhone": self = .phone
         case "iPad": self = .tablet
         default: self = .accessory
@@ -36,7 +36,7 @@ extension DeviceKind {
 /// address that joins it to its Bluetooth twin.
 func parseIPhoneIdentity(_ values: [String: Any]) throws -> IPhoneIdentity {
     func string(_ key: String) throws -> String {
-        guard let value = try optional(values, key, as: String.self) else { throw IPhoneParseError.missingKey(key) }
+        guard let value = try optionalValue(values, key, as: String.self) else { throw IPhoneParseError.missingKey(key) }
         return value
     }
     guard let bluetooth = BluetoothAddress(try string("BluetoothAddress")) else { throw IPhoneParseError.invalid("BluetoothAddress") }

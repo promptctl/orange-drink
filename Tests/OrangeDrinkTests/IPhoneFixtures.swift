@@ -191,9 +191,9 @@ let visionPro_visionOS27ReplyXML = """
 // The identity values lockdown's GetValue answered for DeviceName, ProductType and BluetoothAddress, from captures by
 // `make iphone-capture` (scripts/iphone-devices) on 2026-11-03, cut to the three keys IPhoneIdentity reads and laid out as the
 // capture file's top-level "Device" dict. The repo is public, so each Bluetooth address keeps its recorded form (lowercase,
-// colon-separated, six octets) with the last three octets replaced; the first three are the device maker's.
+// colon-separated, six octets) with the last three octets replaced; the first three are the device maker's. Each DeviceName is replaced too: it is the owner's own.
 
-// iPhone16,2 (iPhone 15 Pro Max), iOS 27.2, over Wi-Fi. Expected: name "bigrig", kind phone, address dc-10-57-00-00-01.
+// iPhone16,2 (iPhone 15 Pro Max), iOS 27.2, over Wi-Fi. Expected: name "Test iPhone", kind phone, address dc-10-57-00-00-01.
 let iPhone16_2_identityXML = """
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -204,7 +204,7 @@ let iPhone16_2_identityXML = """
 		<key>BluetoothAddress</key>
 		<string>dc:10:57:00:00:01</string>
 		<key>DeviceName</key>
-		<string>bigrig</string>
+		<string>Test iPhone</string>
 		<key>ProductType</key>
 		<string>iPhone16,2</string>
 	</dict>
@@ -213,7 +213,7 @@ let iPhone16_2_identityXML = """
 
 """
 
-// RealityDevice14,1 (Apple Vision Pro), visionOS 27.2, over Wi-Fi. Expected: name "SpaceGoggles2", kind accessory (neither a
+// RealityDevice14,1 (Apple Vision Pro), visionOS 27.2, over Wi-Fi. Expected: name "Test Vision Pro", kind accessory (neither a
 // phone nor a tablet), address 2c-57-ce-00-00-02.
 let visionPro_identityXML = """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -225,7 +225,7 @@ let visionPro_identityXML = """
 		<key>BluetoothAddress</key>
 		<string>2c:57:ce:00:00:02</string>
 		<key>DeviceName</key>
-		<string>SpaceGoggles2</string>
+		<string>Test Vision Pro</string>
 		<key>ProductType</key>
 		<string>RealityDevice14,1</string>
 	</dict>

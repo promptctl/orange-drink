@@ -17,13 +17,13 @@ import Testing
 
     @Test func aPhoneRecordedFromARealDeviceIsNamedAPhoneAndClaimsItsBluetoothAddress() throws {
         let identity = try parseIPhoneIdentity(try Self.values(iPhone16_2_identityXML))
-        #expect(identity == IPhoneIdentity(name: "bigrig", productType: "iPhone16,2", bluetooth: try #require(BluetoothAddress("dc-10-57-00-00-01"))))
+        #expect(identity == IPhoneIdentity(name: "Test iPhone", productType: "iPhone16,2", bluetooth: try #require(BluetoothAddress("dc-10-57-00-00-01"))))
         #expect(identity.kind == .phone)
     }
 
     @Test func aVisionProRecordedFromARealDeviceIsNeitherAPhoneNorATablet() throws {
         let identity = try parseIPhoneIdentity(try Self.values(visionPro_identityXML))
-        #expect(identity.name == "SpaceGoggles2")
+        #expect(identity.name == "Test Vision Pro")
         #expect(identity.bluetooth.key == "2c-57-ce-00-00-02")
         #expect(identity.kind == .accessory)
     }
@@ -45,7 +45,7 @@ import Testing
         ("iPhone16,2", DeviceKind.phone), ("iPhone8,1", .phone), ("iPad13,1", .tablet), ("iPad8,12", .tablet),
         ("iPod9,1", .accessory), ("RealityDevice14,1", .accessory), ("Watch7,1", .accessory),
         ("iPhone", .accessory), ("iPhone16", .accessory), ("MyiPhone16,2", .accessory), ("iPhone16,2 Pro", .accessory),
-        ("iPadPro1,1", .accessory), ("", .accessory),
+        ("iPadPro1,1", .accessory), ("", .accessory), ("iPhone\u{661}\u{666},\u{662}", .accessory),
     ])
     func aModelIsAPhoneOrATabletOnlyByItsIdentifiersShape(model: String, kind: DeviceKind) {
         #expect(DeviceKind(productType: model) == kind)

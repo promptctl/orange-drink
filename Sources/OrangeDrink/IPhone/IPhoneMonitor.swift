@@ -135,7 +135,8 @@ enum IPhoneEvent: Equatable {
     /// usbmuxd lists no handle for the device. Over Wi-Fi this is usually a drop it soon recovers from, not a departure.
     case unreachable(udid: String)
     /// Who the device says it is, read each time a relay is opened for it and delivered ahead of that relay's first reading.
-    /// A name changed on the device shows from the next relay opened.
+    /// A relay is held while usbmuxd keeps the device's handle, which a cabled device does for as long as it stays plugged
+    /// in, so a name changed on the device shows after the next replug or new handle, not within a poll.
     case identified(udid: String, IPhoneIdentity)
     case reading(udid: String, over: Transport, IPhoneBatteryReading)
     /// Non-terminal: this read failed; the device is read again a poll interval later, or on its next attach.
