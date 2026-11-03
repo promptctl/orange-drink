@@ -8,8 +8,8 @@ import Testing
     static let buds = device("BB", "Earbuds")
     static let phone = device("AA", "iPhone")
 
-    static func device(_ address: String, _ name: String, levels: DeviceLevels = .single(BatteryLevel(percent: 50, approximate: false))) -> Device {
-        Device(id: DeviceID.bluetooth(address), name: name, kind: .accessory, levels: levels)
+    static func device(_ address: String, _ name: String, levels: DeviceLevels = .single(BatteryLevel(percent: 50, approximate: false))) -> SourceDevice {
+        SourceDevice(id: DeviceID.bluetooth(address), name: name, kind: .accessory, levels: levels)
     }
 
     static func unavailable() -> String { DeviceQuery.unavailable.resolve(in: .matchSystem) }
@@ -56,7 +56,7 @@ import Testing
     }
 
     /// Sweeps `devices`, and waits until the devices file holds them and the seen file holds `addresses`.
-    func sweep(_ devices: [Device], on send: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, seen addresses: [String]) async throws {
+    func sweep(_ devices: [SourceDevice], on send: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, seen addresses: [String]) async throws {
         send.yield(.swept(devices))
         #expect(try await eventually {
             try connected() == devices.count && Set(WidgetShelf.read(.seenDevices, from: shelf).get().names.keys) == Set(addresses.map(DeviceID.bluetooth))
@@ -117,7 +117,7 @@ import Testing
     // MARK: its name
 
     /// The names after the app knows `known` and sweeps `devices`.
-    func names(knowing known: [String: String], after devices: [Device]) -> [String: String] {
+    func names(knowing known: [String: String], after devices: [SourceDevice]) -> [String: String] {
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(devices), from: .bluetooth)
         var seen = SeenDevices(names: Dictionary(uniqueKeysWithValues: known.map { (DeviceID.bluetooth($0.key), $0.value) }))

@@ -11,7 +11,7 @@ import Testing
     private func list(_ levels: [DeviceID: BatteryLevel?]) -> DeviceList {
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(levels.map { id, level in
-            Device(id: id, name: id == Self.mouse ? "Magic Mouse" : "AirPods", kind: .accessory,
+            SourceDevice(id: id, name: id == Self.mouse ? "Magic Mouse" : "AirPods", kind: .accessory,
                    levels: level.map { .single($0) } ?? .none)
         }), from: .bluetooth)
         return list
@@ -47,7 +47,7 @@ import Testing
         let controller = controller(items)
         controller.apply(PinnedItem.items(list([Self.mouse: level(37)]), pinned: [Self.mouse]))
         var unread = DeviceList(sources: [.bluetooth])
-        unread.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .unread)]), from: .bluetooth)
+        unread.apply(.swept([SourceDevice(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .unread)]), from: .bluetooth)
         controller.apply(PinnedItem.items(unread, pinned: [Self.mouse]))
         #expect(items.made.count == 1 && !items.made[0].removed)
         #expect(items.made[0].shown?.title == "–")
@@ -66,7 +66,7 @@ import Testing
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, language: language, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
-        send.yield(.swept(list([Self.mouse: level(37)]).devices))
+        send.yield(.swept(list([Self.mouse: level(37)]).devices.map(\.source)))
         #expect(await eventually { items.made.first?.shown?.title == "37%" })
         try language.update { $0 = AppLanguage(code: "fr") }
         #expect(await eventually { items.made.first?.shown?.title == "37\u{a0}%" })
@@ -118,9 +118,9 @@ import Testing
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
-        send.yield(.swept(list([Self.mouse: level(37)]).devices))
+        send.yield(.swept(list([Self.mouse: level(37)]).devices.map(\.source)))
         #expect(await eventually { items.made.first?.shown?.row.percent.english == "37%" })
-        send.yield(.swept(list([Self.mouse: level(30)]).devices))
+        send.yield(.swept(list([Self.mouse: level(30)]).devices.map(\.source)))
         #expect(await eventually { items.made.first?.shown?.row.percent.english == "30%" })
         try settings.update { $0.togglePinned(Self.mouse) }
         #expect(await eventually { items.made.first?.removed == true })

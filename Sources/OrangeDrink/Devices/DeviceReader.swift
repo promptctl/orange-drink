@@ -38,8 +38,8 @@ struct DeviceReader {
         return .reported(reported)
     }
 
-    private func device(_ peer: BluetoothPeer, _ reading: AccessoryPower.Reading) -> Device {
-        Device(id: peer.id, name: peer.name, kind: peer.kind, levels: reading.levels(of: peer.name))
+    private func device(_ peer: BluetoothPeer, _ reading: AccessoryPower.Reading) -> SourceDevice {
+        SourceDevice(id: peer.id, name: peer.name, kind: peer.kind, levels: reading.levels(of: peer.name))
     }
 
     private func reading() -> AccessoryPower.Reading {

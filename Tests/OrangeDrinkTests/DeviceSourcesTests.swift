@@ -5,11 +5,11 @@ import Testing
 
 // [LAW:verifiable-goals] The list fed by more than one source, each a stand-in stream: no Bluetooth and no usbmuxd in the room.
 private enum Fleet {
-    static let mouse = DeviceListTests.mouse
-    static let pods = DeviceListTests.pods
-    static let phone = Device(id: DeviceID(source: .iPhone, key: "00008110-A"), name: "Brandon's iPhone", kind: .phone,
+    static let mouse = DeviceListTests.mouse.source
+    static let pods = DeviceListTests.pods.source
+    static let phone = SourceDevice(id: DeviceID(source: .iPhone, key: "00008110-A"), name: "Brandon's iPhone", kind: .phone,
                               levels: .single(BatteryLevel(percent: 62, approximate: false)))
-    static let tablet = Device(id: DeviceID(source: .iPhone, key: "00008110-B"), name: "Brandon's iPad", kind: .tablet,
+    static let tablet = SourceDevice(id: DeviceID(source: .iPhone, key: "00008110-B"), name: "Brandon's iPad", kind: .tablet,
                                levels: .single(BatteryLevel(percent: 12, approximate: false)))
 }
 
@@ -36,7 +36,7 @@ struct DeviceSourcesListTests {
         list.apply(.swept([Fleet.mouse]), from: .bluetooth)
         #expect(Set(list.devices.map(\.id)) == [Fleet.mouse.id, Fleet.phone.id, Fleet.tablet.id])
         list.apply(.swept([]), from: .iPhone)
-        #expect(list.devices == [Fleet.mouse])
+        #expect(list.devices == [Fleet.mouse.device])
     }
 
     @Test func oneSourcesEndOrPermissionEmptiesOnlyItsOwnDevices() {
@@ -167,7 +167,7 @@ struct DeviceSourcesListTests {
         let failure = StandIn(reason: "the Bluetooth stand-in failed")
         sendBluetooth.finish(throwing: failure)
         let after = await list(of: model) { $0.unread(of: .bluetooth) == .ended }
-        #expect(after.devices == [Fleet.phone])
+        #expect(after.devices == [Fleet.phone.device])
         #expect(after.unread == nil)
         #expect(after.unread(of: .iPhone) == nil)
         #expect(try await log.logged("device source ended: bluetooth: \(String(describing: failure))"))
@@ -189,7 +189,7 @@ struct DeviceSourcesListTests {
         let failure = StandIn(reason: "the iPhone stand-in failed")
         sendIPhone.finish(throwing: failure)
         let after = await list(of: model) { $0.unread(of: .iPhone) == .ended }
-        #expect(after.devices == [Fleet.mouse])
+        #expect(after.devices == [Fleet.mouse.device])
         #expect(after.unread == nil)
         #expect(try await log.logged("device source ended: iphone: \(String(describing: failure))"))
     }
@@ -217,7 +217,7 @@ struct DeviceSourcesListTests {
         // would not remove an iPhone device, so one stored would still be listed.
         sendBluetooth.yield(.swept([Fleet.mouse]))
         let list = await list(of: model) { !$0.devices.isEmpty }
-        #expect(list.devices == [Fleet.mouse])
+        #expect(list.devices == [Fleet.mouse.device])
         #expect(try await log.logged("device source bluetooth reported a device of iphone; ignored"))
     }
 }

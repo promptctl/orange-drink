@@ -10,7 +10,7 @@ import Testing
     private func list(_ levels: [DeviceID: Int]) -> DeviceList {
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(levels.map { id, percent in
-            Device(id: id, name: id == Self.mouse ? "Magic Mouse" : "AirPods", kind: .accessory,
+            SourceDevice(id: id, name: id == Self.mouse ? "Magic Mouse" : "AirPods", kind: .accessory,
                    levels: .single(BatteryLevel(percent: percent, approximate: false)))
         }), from: .bluetooth)
         return list
@@ -65,7 +65,7 @@ import Testing
         func pods(left: Int?, right: Int?, case: Int) -> DeviceList {
             func level(_ percent: Int?) -> BatteryLevel? { percent.map { BatteryLevel(percent: $0, approximate: false) } }
             var list = DeviceList(sources: [.bluetooth])
-            list.apply(.swept([Device(id: Self.pods, name: "AirPods", kind: .accessory,
+            list.apply(.swept([SourceDevice(id: Self.pods, name: "AirPods", kind: .accessory,
                                       levels: .earbuds(left: level(left), right: level(right), case: level(`case`)))]), from: .bluetooth)
             return list
         }
@@ -86,8 +86,8 @@ import Testing
         var seen: [Int] = []
         let (counts, count) = AsyncStream.makeStream(of: Int.self)
         let model = DevicesModel(sources: [.bluetooth: events], onChange: { seen.append($0.devices.count); count.yield($0.devices.count) })
-        send.yield(.swept([DeviceListTests.mouse]))
-        send.yield(.reported(DeviceListTests.pods))
+        send.yield(.swept([DeviceListTests.mouse.source]))
+        send.yield(.reported(DeviceListTests.pods.source))
         var iterator = counts.makeAsyncIterator()
         _ = await iterator.next()
         _ = await iterator.next()
@@ -99,14 +99,14 @@ import Testing
         var settings = DeviceSettings()
         settings.toggleAlerting(DeviceListTests.mouse.id)
         var devices = DeviceList(sources: [.bluetooth])
-        devices.apply(.swept([DeviceListTests.mouse, DeviceListTests.pods]), from: .bluetooth)
+        devices.apply(.swept([DeviceListTests.mouse.source, DeviceListTests.pods.source]), from: .bluetooth)
         #expect(DetectedDevices(devices, settings: settings).entries.map(\.isAlerting) == [true, false])
     }
 
     @Test func aDeviceReportingNoLevelIsNotObserved() {
         var engine = DeviceAlertEngine()
         var silent = DeviceList(sources: [.bluetooth])
-        silent.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .none)]), from: .bluetooth)
+        silent.apply(.swept([SourceDevice(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .none)]), from: .bluetooth)
         #expect(engine.observe(silent, watching: [Self.mouse], alerts: [alert]).isEmpty)
     }
 
@@ -114,7 +114,7 @@ import Testing
         var engine = DeviceAlertEngine()
         func list(_ levels: DeviceLevels) -> DeviceList {
             var list = DeviceList(sources: [.bluetooth])
-            list.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: levels)]), from: .bluetooth)
+            list.apply(.swept([SourceDevice(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: levels)]), from: .bluetooth)
             return list
         }
         let low = DeviceLevels.single(BatteryLevel(percent: 19, approximate: false))

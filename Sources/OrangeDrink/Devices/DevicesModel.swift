@@ -41,7 +41,14 @@ import Observation
                 for other in Set(event.ids.map(\.source)).subtracting([source]).sorted(by: { $0.rawValue < $1.rawValue }) {
                     BluetoothDevices.log.error("device source \(source.rawValue, privacy: .public) reported a device of \(other.rawValue, privacy: .public); ignored")
                 }
+                let contestedBefore = Set(model.list.contested)
                 model.list.apply(event, from: source)
+                // [LAW:no-silent-failure] Two devices claiming one Bluetooth address are not merged, which a screen shows only as
+                // extra rows, so the fault is said here, where the list is first seen to hold it. Once per address, not at every
+                // relist of a phone on Wi-Fi.
+                for address in Set(model.list.contested).subtracting(contestedBefore).sorted() {
+                    BluetoothDevices.log.error("device list: more than one device claims Bluetooth address \(address, privacy: .private); their rows are not merged")
+                }
                 onChange(model.list)
             }
             ending = DevicesModelError.streamFinished

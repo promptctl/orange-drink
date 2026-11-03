@@ -17,8 +17,8 @@ struct DeviceReaderTests {
     }
 
     static let peer = BluetoothPeer(id: DeviceID.bluetooth("AA"), name: "FluffPods", kind: .accessory)
-    static func device(_ levels: DeviceLevels) -> Device {
-        Device(id: peer.id, name: peer.name, kind: peer.kind, levels: levels)
+    static func device(_ levels: DeviceLevels) -> SourceDevice {
+        SourceDevice(id: peer.id, name: peer.name, kind: peer.kind, levels: levels)
     }
     static let read = device(.single(BatteryLevel(percent: 47, approximate: false)))
 
@@ -39,7 +39,7 @@ struct DeviceReaderTests {
     @Test func aSourceReadThatAnsweredOmitsADeviceWithNoBattery() {
         let reader = Sources(unanswered: nil).reader
         let speaker = BluetoothPeer(id: DeviceID.bluetooth("BB"), name: "Speaker", kind: .accessory)
-        #expect(reader.sweep([speaker]) == .swept([Device(id: speaker.id, name: "Speaker", kind: .accessory, levels: .none)]))
+        #expect(reader.sweep([speaker]) == .swept([SourceDevice(id: speaker.id, name: "Speaker", kind: .accessory, levels: .none)]))
     }
 
     // Each logged line stands alone: a connect's read can be the only one powerd misses, with the settle sweep answered.

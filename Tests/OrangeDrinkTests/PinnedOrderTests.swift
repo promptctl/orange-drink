@@ -11,7 +11,7 @@ import Testing
     static func list(_ names: [DeviceID: String], percent: Int = 50) -> DeviceList {
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(names.map { id, name in
-            Device(id: id, name: name, kind: .accessory, levels: .single(BatteryLevel(percent: percent, approximate: false)))
+            SourceDevice(id: id, name: name, kind: .accessory, levels: .single(BatteryLevel(percent: percent, approximate: false)))
         }), from: .bluetooth)
         return list
     }

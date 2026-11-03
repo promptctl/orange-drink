@@ -16,8 +16,8 @@ private enum Phone {
                              storedMaximumCapacity: nil)
     }
 
-    static func device(_ levels: DeviceLevels) -> Device {
-        Device(id: id, name: udid, kind: .phone, levels: levels)
+    static func device(_ levels: DeviceLevels) -> SourceDevice {
+        SourceDevice(id: id, name: udid, kind: .phone, levels: levels)
     }
 
     static func percent(_ percent: Int) -> DeviceLevels { .single(BatteryLevel(percent: percent, approximate: false)) }
@@ -121,7 +121,7 @@ struct IPhoneDevicesMappingTests {
     }
 
     @Test func aReadersIPhoneIsInThePanelsRankingBesideBluetoothDevicesAndLeavesWhenItDetaches() async {
-        bluetooth.yield(.swept([DeviceListTests.mouse, DeviceListTests.pods]))
+        bluetooth.yield(.swept([DeviceListTests.mouse.source, DeviceListTests.pods.source]))
         reader.yield(.reachable(udid: Phone.udid, over: .usb))
         reader.yield(.reading(udid: Phone.udid, over: .usb, Phone.reading(62)))
         reader.yield(.listed)
@@ -140,7 +140,7 @@ struct IPhoneDevicesMappingTests {
     }
 
     @Test func theReaderFailingEndsItsSourceAndLeavesBluetoothListed() async {
-        bluetooth.yield(.swept([DeviceListTests.mouse]))
+        bluetooth.yield(.swept([DeviceListTests.mouse.source]))
         reader.yield(.reachable(udid: Phone.udid, over: .usb))
         reader.yield(.listed)
         reader.yield(.failed(.refused("usbmuxd is gone")))

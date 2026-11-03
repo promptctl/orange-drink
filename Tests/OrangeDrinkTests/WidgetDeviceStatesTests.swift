@@ -25,8 +25,8 @@ private let unreadStates = [
     DeviceState(name: "the prompt is open", events: [.permission(.notDetermined)], reason: "Answer the Bluetooth prompt"),
     DeviceState(name: "refused", events: [.permission(.denied)], reason: "Allow Bluetooth in System Settings, then reopen the app"),
     DeviceState(name: "allowed, before the first sweep", events: [.permission(.allowed)], reason: "Reading devices…"),
-    DeviceState(name: "a device reported before the first sweep", events: [.permission(.allowed), .reported(DeviceListTests.mouse)], reason: "Reading devices…"),
-    DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([DeviceListTests.mouse])], ends: true, reason: "Devices unavailable"),
+    DeviceState(name: "a device reported before the first sweep", events: [.permission(.allowed), .reported(DeviceListTests.mouse.source)], reason: "Reading devices…"),
+    DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([DeviceListTests.mouse.source])], ends: true, reason: "Devices unavailable"),
 ]
 
 @MainActor @Suite final class WidgetDeviceStatesTests {
@@ -98,7 +98,7 @@ private let unreadStates = [
     /// Right after a reconnect, or for as long as power management has no source under its name, a connected device has
     /// no level. It is still there, so it keeps its ring.
     @Test func aChosenDeviceWithNoLevelIsConnected() async throws {
-        let silent = Device(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let silent = SourceDevice(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
         let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
         let model = try await publish(read, mac: .noBattery)
         #expect(try deviceBatterySays(chosen: "EE") == ["–"])
@@ -111,7 +111,7 @@ private let unreadStates = [
 
     /// The ranking leaves out a connected device that reports no battery, so these words have to hold beside one, on any Mac.
     @Test(arguments: [MacBattery.noBattery, .level(percent: 79, charging: false)]) func withNothingToListTheWidgetSaysNoDeviceBatteries(mac: MacBattery) async throws {
-        let silent = Device(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let silent = SourceDevice(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
         let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
         let model = try await publish(read, mac: mac)
         let intent = AllBatteriesIntent()
