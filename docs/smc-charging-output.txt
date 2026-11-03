@@ -59,7 +59,7 @@ Charge Limit policy: no charge policy
 12:00:11 IsCharging=1 ExternalConnected=1 CurrentCapacity=13 InstantAmperage=4230 NotChargingReason=0 ChargerInhibitReason=0 ChargingCurrent=5931 CHNC=0000000000000000
 CHTE ui32 4 00000000
 pause key CHTE: baseline 00000000, pause value 01000000
-manual restore if this run dies uncaught: sudo /Users/bmf/code/orange-drink/.claude/worktrees/spike-16g/spikes/orange-admin-helper-b2q.16g/build/smc write CHTE 00000000
+manual restore if this run dies uncaught: sudo smc write CHTE 00000000
 
 == 1. the same write without root
 smc: write CHTE: kern_return 0xe00002c1 (kIOReturnNotPrivileged)
