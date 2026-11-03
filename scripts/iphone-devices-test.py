@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# [LAW:behavior-not-structure] scripts/iphone-devices run as a process against a stand-in usbmuxd on a Unix socket, so the
+# framing, the lockdown steps and the capture file are held against what usbmuxd and a device send, with no device and no
+# pairing. The stand-in frames its own replies with struct rather than the script's helpers, so a framing mistake in the
+# script is not copied into the test.
+import os
+import pathlib
+import plistlib
+import socket
+import socketserver
+import struct
+import subprocess
+import sys
+import tempfile
+import threading
+
+SCRIPT = pathlib.Path(__file__).resolve().parent / "iphone-devices"
+UDID = "00008140-000000000000001E"
+LOCKDOWN_PORT, RELAY_PORT = 62078, 4321
+DEVICE_VALUES = {"ProductType": "iPhone17,1", "ProductVersion": "27.2", "DeviceClass": "iPhone"}
+# A control character the device sends inside a string, which a plist parser refuses until the script strips it.
+RELAY_REPLY = plistlib.dumps({"Diagnostics": {"IORegistry": {"CurrentCapacity": 42, "Label": "AAA"}}}).replace(b"AAA", b"A\x01A")
+
+
+def exactly(sock, n):
+    data = b""
+    while len(data) < n:
+        chunk = sock.recv(n - len(data))
+        if not chunk:
+            raise ConnectionError
+        data += chunk
+    return data
+
+
+def mux_frame(plist):
+    payload = plistlib.dumps(plist)
+    return struct.pack("<IIII", 16 + len(payload), 1, 8, 1) + payload
+
+
+def stream_frame(payload):
+    return struct.pack(">I", len(payload)) + payload
+
+
+def read_stream(sock):
+    return plistlib.loads(exactly(sock, struct.unpack(">I", exactly(sock, 4))[0]))
+
+
+class StandInUsbmuxd(socketserver.StreamRequestHandler):
+    """Answers the requests the script makes. self.server.devices lists the devices; self.server.paired says whether a
+    pair record exists for them."""
+
+    def handle(self):
+        sock = self.request
+        n = struct.unpack("<I", exactly(sock, 16)[:4])[0]
+        request = plistlib.loads(exactly(sock, n - 16))
+        kind = request["MessageType"]
+        if kind == "ListDevices":
+            sock.sendall(mux_frame({"DeviceList": self.server.devices}))
+        elif kind == "ReadPairRecord":
+            record = {"HostID": "host", "SystemBUID": "buid", "HostCertificate": b"", "HostPrivateKey": b""}
+            sock.sendall(mux_frame({"PairRecordData": plistlib.dumps(record)} if self.server.paired else {"Number": 2}))
+        elif kind == "Connect":
+            sock.sendall(mux_frame({"Number": 0}))
+            port = socket.ntohs(request["PortNumber"])
+            {LOCKDOWN_PORT: self.lockdown, RELAY_PORT: self.relay}[port](sock)
+        else:
+            raise AssertionError(f"unexpected usbmuxd request {kind}")
+
+    def lockdown(self, sock):
+        while True:
+            request = read_stream(sock)
+            if request["Request"] == "StartSession":
+                reply = {"SessionID": "s"}
+            elif request["Request"] == "GetValue":
+                reply = {"Value": DEVICE_VALUES[request["Key"]]}
+            elif request["Request"] == "StartService":
+                assert request["Service"] == "com.apple.mobile.diagnostics_relay"
+                reply = {"Port": RELAY_PORT}
+            else:
+                raise AssertionError(f"unexpected lockdown request {request}")
+            sock.sendall(stream_frame(plistlib.dumps(reply)))
+            if request["Request"] == "StartService":
+                return
+
+    def relay(self, sock):
+        request = read_stream(sock)
+        assert request == {"Request": "IORegistry", "EntryClass": "IOPMPowerSource"}, request
+        sock.sendall(stream_frame(RELAY_REPLY))
+
+
+class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+
+
+def listing(connection_type):
+    return {"DeviceID": 7, "Properties": {"SerialNumber": UDID, "ConnectionType": connection_type}}
+
+
+def run(devices, paired, *args):
+    """The script's exit code, stdout and stderr, with a stand-in usbmuxd listing `devices`."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "usbmuxd")
+        server = Server(path, StandInUsbmuxd)
+        server.devices, server.paired = devices, paired
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            done = subprocess.run(
+                [sys.executable, "-I", str(SCRIPT), *args],
+                env={"USBMUXD_SOCKET": path}, capture_output=True, text=True, timeout=30,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+    return done.returncode, done.stdout, done.stderr
+
+
+def check(condition, message):
+    if not condition:
+        sys.exit(f"FAILED: {message}")
+
+
+def main():
+    code, out, err = run([], True, "list")
+    check(code == 0 and out.strip() == "0 device(s) listed", f"an empty list should print a count of 0 and exit 0: {code} {out!r} {err!r}")
+
+    code, out, err = run([listing("USB"), listing("Network")], True, "list")
+    check(code == 0 and out.count(UDID) == 2 and "ConnectionType USB" in out and "ConnectionType Network" in out,
+          f"each listing should print its connection type and UDID: {code} {out!r} {err!r}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        captures = os.path.join(tmp, "captures")
+        code, out, err = run([listing("USB")], True, "capture", captures)
+        written = os.listdir(captures)
+        check(code == 0 and written == [f"iPhone17,1-27.2-{UDID}-USB.plist"], f"capture should write one file named for the device, OS and connection: {code} {written} {err!r}")
+        reply = plistlib.loads(pathlib.Path(captures, written[0]).read_bytes())
+        check(reply["Device"] == {**DEVICE_VALUES, "ConnectionType": "USB"}, f"the file should stamp the device: {reply['Device']}")
+        check(reply["Diagnostics"]["IORegistry"] == {"CurrentCapacity": 42, "Label": "AA"}, f"the relay's reply should keep its keys and lose the control character: {reply}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        code, out, err = run([listing("Network")], False, "capture", tmp)
+        check(code == 1 and UDID in err and "no pair record" in err and os.listdir(tmp) == [],
+              f"a device that never trusted this Mac should fail loudly, name the device and write nothing: {code} {err!r}")
+
+    print("iphone-devices: every case held")
+
+
+main()

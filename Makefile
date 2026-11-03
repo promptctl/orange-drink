@@ -49,6 +49,7 @@ script-tests:
 	$(MAKE) vm-check-test
 	$(MAKE) place-widgets-test
 	$(MAKE) layout-events-count-test
+	$(MAKE) iphone-devices-test
 
 # The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
 hardware-check-test:
@@ -240,6 +241,20 @@ layout-events-count:
 # The figures that run prints, held against recorded events: no Accessibility trust, no NotificationCenter.
 layout-events-count-test:
 	scripts/layout-events-count-test.sh
+
+# The iPhones and iPads usbmuxd lists, cable and Wi-Fi: an empty list is a Mac with none attached, not an error.
+iphone-list:
+	python3 -I scripts/iphone-devices list
+
+# Every listed device's IOPMPowerSource reply, one plist per listing, into DIR: the source of the fixtures in
+# Tests/OrangeDrinkTests/IPhoneFixtures.swift. The files hold serial numbers, so DIR belongs outside the repo.
+iphone-capture:
+	@test -n "$(DIR)" || { echo "usage: make iphone-capture DIR=<directory outside the repo>" >&2; exit 2; }
+	python3 -I scripts/iphone-devices capture "$(DIR)"
+
+# Both subcommands against a stand-in for usbmuxd: no device, no pairing.
+iphone-devices-test:
+	python3 -I scripts/iphone-devices-test.py
 
 # The Release app. The last line printed is the app's path, so scripts/dmg spells neither the
 # configuration's directory nor the app's name.
