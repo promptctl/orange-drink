@@ -23,10 +23,9 @@ struct DeviceState: Sendable, CustomTestStringConvertible {
 private let unreadStates = [
     DeviceState(name: "launch, before any event", events: [], reason: "Reading devices…"),
     DeviceState(name: "the prompt is open", events: [.permission(.notDetermined)], reason: "Answer the Bluetooth prompt"),
-    DeviceState(name: "refused", events: [.permission(.denied)], reason: "Allow Bluetooth in System Settings, then reopen the app"),
+    DeviceState(name: "refused", events: [.permission(.denied)], reason: "Bluetooth is not allowed"),
     DeviceState(name: "allowed, before the first sweep", events: [.permission(.allowed)], reason: "Reading devices…"),
-    DeviceState(name: "a device reported before the first sweep", events: [.permission(.allowed), .reported(DeviceListTests.mouse.source)], reason: "Reading devices…"),
-    DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([DeviceListTests.mouse.source])], ends: true, reason: "Devices unavailable"),
+    DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([DeviceListTests.mouse.source])], ends: true, reason: "Bluetooth unavailable"),
 ]
 
 @MainActor @Suite final class WidgetDeviceStatesTests {
@@ -43,7 +42,7 @@ private let unreadStates = [
     /// Publishes the mac and the state through the app's own wiring.
     func publish(_ state: DeviceState, mac: MacBattery) async throws -> DevicesModel {
         ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(mac))
-        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
         let (changed, signal) = AsyncStream.makeStream(of: Void.self)
         var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
@@ -56,7 +55,7 @@ private let unreadStates = [
             send.finish()
             _ = await next.next()
         }
-        let reached = Shelved.running(WidgetDevices(model.list, pinned: []))
+        let reached = Shelved.running(WidgetDeviceList(model.list, pinned: []))
         #expect(await eventually { (try? WidgetShelf.read(.devices, from: shelf).get()) == reached })
         return model
     }
@@ -75,8 +74,39 @@ private let unreadStates = [
         let model = try await publish(state, mac: .noBattery)
         #expect(try allBatteriesSays() == [reason])
         #expect(try deviceBatterySays(chosen: "AA") == [reason])
-        #expect(try deviceBatterySays(chosen: nil) == [reason])
+        // A choice not yet made is said first, whatever a source did: the same precedence as `listed(by:)`.
+        #expect(try deviceBatterySays(chosen: nil) == ["Choose a device: right-click → Edit Widget"])
         _ = model
+    }
+
+    /// A device a source reported ahead of its first sweep is listed, as the panel lists it, and the widgets say the list is
+    /// incomplete beside it instead of drawing nothing but the reason. A device not on the list is not "not connected" alone.
+    @Test func aDeviceReportedBeforeTheFirstSweepIsDrawnBesideTheReasonItsSourceHasNotSwept() async throws {
+        let state = DeviceState(name: "reported before the sweep", events: [.permission(.allowed), .reported(DeviceListTests.mouse.source)], reason: nil)
+        let model = try await publish(state, mac: .noBattery)
+        #expect(try allBatteriesSays() == ["37%", "Reading devices…"])
+        #expect(try deviceBatterySays(chosen: "AA") == ["37%"])
+        #expect(try deviceBatterySays(chosen: "ZZ") == ["Not connected", "Reading devices…"])
+        #expect(try deviceBatterySays(chosen: nil) == ["Choose a device: right-click → Edit Widget"])
+        _ = model
+    }
+
+    /// The previous release wrote the list as an enum, `connected` or `unread`. A file it left behind still draws until the app
+    /// writes its own, at launch.
+    @Test func theShapesThePreviousReleaseWroteStillDraw() throws {
+        let shelved = WidgetShelf.Item<Shelved<WidgetDeviceList>>.devices.file
+        try Data(#"{"running":{"_0":{"connected":{"_0":{"ranked":[],"pinned":{"ids":[]},"unlevelled":[]}}}}}"#.utf8).write(to: shelf.appending(path: shelved))
+        #expect(try deviceBatterySays(chosen: "AA") == ["Not connected"])
+        try Data(#"{"running":{"_0":{"unread":{"_0":"denied"}}}}"#.utf8).write(to: shelf.appending(path: shelved))
+        #expect(try deviceBatterySays(chosen: "AA") == ["Bluetooth is not allowed"])
+        #expect(try deviceBatterySays(chosen: nil) == ["Choose a device: right-click → Edit Widget"])
+    }
+
+    @Test func aListWithUnreadSourcesSurvivesTheShelf() throws {
+        let list = WidgetDeviceList(ranked: [], pinned: [.bluetooth("p")], unlevelled: [],
+                                    unreadSources: [.bluetooth(.denied), .iPhone(.ended)])
+        try WidgetShelf.write(Shelved.running(list), as: .devices, to: shelf)
+        #expect(try WidgetShelf.read(.devices, from: shelf).get() == .running(list))
     }
 
     @Test(arguments: unreadStates) func aMacWithABatteryKeepsItsRingBesideTheReason(state: DeviceState) async throws {
@@ -130,28 +160,29 @@ private let unreadStates = [
 
     @Test(arguments: [#"{"running":{"_0":[]}}"#, #"{"running":{"_0":{"connected":{"_0":[]}}}}"#, #"{"running":{"_0":{"connected":{"_0":[],"pinned":{"ids":[]}}}}}"#])
     func aFileInTheOldShapeDrawsOpenTheAppAndIsWrittenOver(old: String) throws {
-        try Data(old.utf8).write(to: shelf.appending(path: WidgetShelf.Item<Shelved<WidgetDevices>>.devices.file))
+        try Data(old.utf8).write(to: shelf.appending(path: WidgetShelf.Item<Shelved<WidgetDeviceList>>.devices.file))
         #expect(try deviceBatterySays(chosen: "AA") == ["Open Orange Drink"])
 
         var asked: [WidgetKind] = []
-        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { asked.append($0) }
         publisher.publish(.running(.unread(.waiting)))
         #expect(asked == [.deviceBattery, .allBatteries])
         #expect(try deviceBatterySays(chosen: "AA") == ["Reading devices…"])
     }
 
     @Test func theShelfLogsWhyThereIsNoList() {
-        #expect(String(describing: Shelved.running(WidgetDevices.unread(.denied))).contains("denied"))
+        #expect(String(describing: Shelved.running(WidgetDeviceList.unread(.denied))).contains("denied"))
     }
 
     // MARK: the drawing
 
     /// Every reason a widget can give, each reached the way a placed widget reaches it.
-    static let reasons = UnreadDevices.allCases.map(NoDevicesListed.unread) + [.noneChosen, .nonePinned, .noneReporting]
+    static let unreadSources = DeviceSource.allCases.flatMap { source in UnreadDevices.allCases.map { UnreadSource(source: source, reason: $0) } }
+    static let reasons = unreadSources.map(NoDevicesListed.unread) + [.noneChosen, .nonePinned, .noneReporting]
 
     static func entry(_ reason: NoDevicesListed, mac: MacBattery, style: WidgetStyle = .rings) -> AllBatteriesEntry {
-        let (devices, choice): (WidgetDevices, WidgetDeviceChoice) = switch reason {
-        case .unread(let unread): (.unread(unread), .automatic)
+        let (devices, choice): (WidgetDeviceList, WidgetDeviceChoice) = switch reason {
+        case .unread(let unread): (.unread(unread.reason, of: unread.source), .automatic)
         case .noneChosen: (.connected(AllBatteriesWidgetTests.three, pinned: []), .custom)
         case .nonePinned: (.connected(AllBatteriesWidgetTests.three, pinned: []), .sameAsMenuBar)
         case .noneReporting: (.connected(AllBatteriesWidgetTests.three, pinned: [.bluetooth("gone")]), .sameAsMenuBar)
@@ -211,5 +242,40 @@ private let unreadStates = [
                 #expect(image.size.height <= room, "\(reason) in \(language.code ?? "?") needs \(image.size.height) pt of \(room) pt")
             }
         }
+    }
+
+    // MARK: the reason beside a full grid
+
+    /// The caption is one line scaled down to `UnreadCaption.floor` at the least, so a reason is whole there. Measured, because
+    /// text clipped by its frame draws as if it fit: its natural width at the floor has to fit the widget, and its height the row.
+    @Test(arguments: WidgetStyle.allCases, allBatteriesContents) func everyUnreadCaptionIsWholeAtItsFloorInEveryLanguage(style: WidgetStyle, size: (family: WidgetFamily, content: CGSize)) throws {
+        let cell = BatteryGrid(size.family, style).cell(in: size.content)
+        for source in Self.unreadSources {
+            for language in WidgetLanguageTests.shipped {
+                let natural = ImageRenderer(content: PhraseText(source.text).font(.caption).lineLimit(1).fixedSize().speaking(language))
+                let image = try #require(natural.nsImage)
+                #expect(image.size.width * UnreadCaption.floor <= size.content.width,
+                        "\(source) in \(language.code ?? "?") is \(image.size.width) pt wide, at \(UnreadCaption.floor) of \(size.content.width) pt")
+                #expect(image.size.height <= cell.height, "\(source) in \(language.code ?? "?") is \(image.size.height) pt tall of \(cell.height) pt")
+            }
+        }
+    }
+
+    /// A grid with a caption gives it a row: the batteries that fit are one row fewer, however many there are.
+    @Test(arguments: WidgetStyle.allCases, WidgetFamilies.allBatteries) func aGridWithACaptionHoldsOneRowFewer(style: WidgetStyle, family: WidgetFamily) {
+        let grid = BatteryGrid(family, style)
+        let many = Array(repeating: WidgetBattery(glyph: "iphone", level: nil, charging: false), count: 100)
+        #expect(grid.rows(of: many, reserving: 0).joined().count == grid.columns * grid.rows)
+        #expect(grid.rows(of: many, reserving: 1).joined().count == grid.columns * (grid.rows - 1))
+    }
+
+    /// Devices fill the widget and a source is unread: the reason is still the last thing drawn, in every size and style.
+    @Test(arguments: WidgetStyle.allCases, WidgetFamilies.allBatteries) func aFullWidgetStillSaysWhichSourceIsUnread(style: WidgetStyle, family: WidgetFamily) throws {
+        let devices = (0..<100).map { AllBatteriesWidgetTests.device("d\($0)", 20 + $0 % 70) }
+        let list = WidgetDeviceList(ranked: devices, pinned: [], unlevelled: [], unreadSources: [.bluetooth(.denied)])
+        let entry = AllBatteriesEntry(date: .now, mac: .success(.running(.noBattery)), devices: .success(.running(list)),
+                                      settings: AllBatteriesWidgetTests.settings(style: style))
+        let texts = try AllBatteriesWidgetTests.texts(entry, family)
+        #expect(texts.last == "Bluetooth is not allowed")
     }
 }

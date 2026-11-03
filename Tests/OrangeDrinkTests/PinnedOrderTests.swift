@@ -76,16 +76,16 @@ import Testing
 
     @Test func anEmptyCardSaysWhy() {
         var list = DeviceList(sources: [.bluetooth])
-        let note = { PinnedDevicesList(list, pinned: [Self.a]).emptyNote }
-        #expect(note() == UnreadDevices.waiting.explanation)
+        let note = { PinnedDevicesList(list, pinned: [Self.a]).notes }
+        #expect(note() == .only(.bluetooth(.waiting)))
         list.apply(.permission(.notDetermined), from: .bluetooth)
-        #expect(note() == UnreadDevices.unanswered.explanation)
+        #expect(note() == .only(.bluetooth(.unanswered)))
         list.apply(.permission(.denied), from: .bluetooth)
-        #expect(note() == UnreadDevices.denied.explanation)
+        #expect(note() == .only(.bluetooth(.denied)))
         list.apply(.swept([]), from: .bluetooth)
-        #expect(note() == "Pin a connected device from the Devices screen to arrange it here.")
+        #expect(note() == .none("Pin a connected device from the Devices screen to arrange it here."))
         list.end(.bluetooth)
-        #expect(note() == UnreadDevices.ended.explanation)
+        #expect(note() == .only(.bluetooth(.ended)))
     }
 
     @Test func aLevelChangeRedrawsAnItemWithoutMakingAnyAgain() {

@@ -53,15 +53,15 @@ enum DeviceRanking {
 struct ConnectedDevices: Equatable {
     let isShown: Bool
     let rows: [DeviceRow]
-    /// [LAW:one-source-of-truth] Why the card has no rows.
-    let emptyNote: Phrase
+    /// [LAW:one-source-of-truth] Why the card has no rows, and which sources are unread beside the rows it has.
+    let notes: ListNotes
 
     init(_ list: DeviceList, settings: DeviceSettings) {
         isShown = settings.showConnectedDevices
         let ranked = DeviceRanking.rows(list)
         rows = ranked.filter { !settings.hidden.contains($0.id) }
-        emptyNote = rows.count < ranked.count ? "Every device is hidden. Show them again in Settings → Devices."
-            : list.unread?.explanation ?? "No connected Bluetooth devices to show."
+        notes = list.notes(hidden: rows.count < ranked.count ? "Every device is hidden. Show them again in Settings → Devices." : nil,
+                           whenNone: "No connected Bluetooth devices to show.")
     }
 }
 
@@ -81,11 +81,11 @@ struct DetectedDevices: Equatable {
     }
 
     let entries: [Entry]
-    /// [LAW:one-source-of-truth] Why the card has no entries.
-    let emptyNote: Phrase
+    /// [LAW:one-source-of-truth] Why the card has no entries, and which sources are unread beside the ones it has.
+    let notes: ListNotes
 
     init(_ list: DeviceList, settings: DeviceSettings) {
-        emptyNote = list.unread?.explanation ?? "No connected Bluetooth devices report a battery."
+        notes = list.notes(whenNone: "No connected Bluetooth devices report a battery.")
         entries = DeviceRanking.rows(list).map { Entry(row: $0, isHidden: settings.hidden.contains($0.id), isAlerting: settings.alerting.contains($0.id),
                       isPinned: settings.pinned.contains($0.id)) }
     }

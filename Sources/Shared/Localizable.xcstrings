@@ -2466,28 +2466,6 @@
         }
       }
     },
-    "Device readings stopped. Quit and reopen the app.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Device readings stopped. Quit and reopen the app."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les relevés des appareils se sont arrêtés. Quittez puis rouvrez l’app."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se detuvieron las lecturas de los dispositivos. Sal de la app y vuelve a abrirla."
-          }
-        }
-      }
-    },
     "Every device is hidden. Show them again in Settings → Devices.": {
       "localizations": {
         "en": {
@@ -6250,6 +6228,72 @@
         }
       }
     },
+    "iPhone readings stopped. Quit and reopen the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone readings stopped. Quit and reopen the app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les relevés des iPhone se sont arrêtés. Quittez puis rouvrez l’app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se detuvieron las lecturas de los iPhones. Sal de la app y vuelve a abrirla."
+          }
+        }
+      }
+    },
+    "Bluetooth readings stopped. Quit and reopen the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth readings stopped. Quit and reopen the app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les relevés Bluetooth se sont arrêtés. Quittez puis rouvrez l’app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se detuvieron las lecturas de Bluetooth. Sal de la app y vuelve a abrirla."
+          }
+        }
+      }
+    },
+    "Reading your iPhones and iPads…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading your iPhones and iPads…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture de vos iPhone et iPad…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leyendo tus iPhones y iPads…"
+          }
+        }
+      }
+    },
     "Answer the Bluetooth prompt to see your devices.": {
       "localizations": {
         "en": {
@@ -6932,6 +6976,72 @@
         }
       }
     },
+    "iPhones unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhones unavailable"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone indisponibles"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhones no disponibles"
+          }
+        }
+      }
+    },
+    "Bluetooth unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth unavailable"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth indisponible"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth no disponible"
+          }
+        }
+      }
+    },
+    "Reading iPhones…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading iPhones…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture des iPhone…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leyendo iPhones…"
+          }
+        }
+      }
+    },
     "Answer the Bluetooth prompt": {
       "localizations": {
         "en": {
@@ -6954,46 +7064,24 @@
         }
       }
     },
-    "Allow Bluetooth in System Settings, then reopen the app": {
+    "Bluetooth is not allowed": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow Bluetooth in System Settings, then reopen the app"
+            "value": "Bluetooth is not allowed"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorisez le Bluetooth dans Réglages Système, puis rouvrez l’app"
+            "value": "Bluetooth non autorisé"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permite Bluetooth en Ajustes del Sistema y vuelve a abrir la app"
-          }
-        }
-      }
-    },
-    "Devices unavailable": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Devices unavailable"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Appareils indisponibles"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dispositivos no disponibles"
+            "value": "Bluetooth no permitido"
           }
         }
       }

@@ -248,15 +248,16 @@ struct IPhoneDevicesMappingTests {
 
     private func expectShown(_ reason: UnreadDevices, by list: DeviceList) {
         #expect(list.devices.isEmpty)
-        #expect(ConnectedDevices(list, settings: DeviceSettings()).emptyNote == reason.explanation)
-        #expect(DetectedDevices(list, settings: DeviceSettings()).emptyNote == reason.explanation)
-        #expect(PinnedDevicesList(list, pinned: PinnedOrder()).emptyNote == reason.explanation)
-        #expect(WidgetDevices(list, pinned: PinnedOrder()) == .unread(reason))
+        let shown = ListNotes.only(.bluetooth(reason))
+        #expect(ConnectedDevices(list, settings: DeviceSettings()).notes == shown)
+        #expect(DetectedDevices(list, settings: DeviceSettings()).notes == shown)
+        #expect(PinnedDevicesList(list, pinned: PinnedOrder()).notes == shown)
+        #expect(WidgetDeviceList(list, pinned: PinnedOrder()) == .unread(reason))
     }
 
     @Test func aReaderThatHasNotListedYetKeepsTheListWaitingEvenWhenBluetoothHasSwept() async {
         bluetooth.yield(.swept([]))
         let list = await list { $0.unread(of: .bluetooth) == nil }
-        #expect(list.unread == .waiting)
+        #expect(list.unreadSources == [.iPhone(.waiting)])
     }
 }

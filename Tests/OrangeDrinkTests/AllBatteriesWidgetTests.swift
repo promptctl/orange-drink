@@ -62,17 +62,17 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
             WidgetBattery(glyph: "iphone", level: BatteryLevel(percent: 95, approximate: false), charging: false),
             WidgetBattery(glyph: "dot.radiowaves.left.and.right", level: BatteryLevel(percent: 54, approximate: false), charging: false),
             WidgetBattery(glyph: "ipad", level: BatteryLevel(percent: 40, approximate: false), charging: false),
-        ]))
+        ], unread: []))
     }
 
     @Test func aMacWithNoBatteryIsNotListedAndOneWithNoReadingIsListedEmpty() {
         let devices = [Self.device("AA", 95, approximate: true)]
-        #expect(AllBatteries(mac: .noBattery, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .noBattery, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([WidgetBattery(devices[0])], unread: []))
         let waiting = WidgetBattery(glyph: "laptopcomputer", level: nil, charging: false)
-        #expect(AllBatteries(mac: .waiting, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([waiting, WidgetBattery(devices[0])]))
+        #expect(AllBatteries(mac: .waiting, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([waiting, WidgetBattery(devices[0])], unread: []))
         let stopped = WidgetBattery(glyph: "exclamationmark.triangle", level: nil, charging: false)
-        #expect(AllBatteries(mac: .ended, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([stopped, WidgetBattery(devices[0])]))
-        #expect(AllBatteries(mac: .ended, devices: .connected([], pinned: []), settings: Self.settings()) == .listed([stopped]))
+        #expect(AllBatteries(mac: .ended, devices: .connected(devices, pinned: []), settings: Self.settings()) == .listed([stopped, WidgetBattery(devices[0])], unread: []))
+        #expect(AllBatteries(mac: .ended, devices: .connected([], pinned: []), settings: Self.settings()) == .listed([stopped], unread: []))
         #expect(WidgetBattery(devices[0]).level == BatteryLevel(percent: 95, approximate: true))
     }
 
@@ -93,7 +93,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     @Test func aFullWidgetFillsItsGridARowAtATime() throws {
         let forty = (1...40).map { Self.device("\($0)", $0) }
         let rows = { (family: WidgetFamily, batteries: [WidgetDevice]) in
-            BatteryGrid(family, .rings).rows(of: batteries.map(WidgetBattery.init)).map(\.count)
+            BatteryGrid(family, .rings).rows(of: batteries.map(WidgetBattery.init), reserving: 0).map(\.count)
         }
         #expect(WidgetFamilies.allBatteries.map { rows($0, forty) } == [[2, 2], [4, 4], [4, 4, 4, 4], [8, 8, 8, 8]])
         #expect(rows(.systemMedium, Array(forty.prefix(5))) == [4, 1])
@@ -181,12 +181,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     }
 
     @Test func whatEachStateSays() throws {
-        func open(_ mac: Result<Shelved<MacBattery>, any Error>, _ devices: Result<Shelved<WidgetDevices>, any Error>) throws {
+        func open(_ mac: Result<Shelved<MacBattery>, any Error>, _ devices: Result<Shelved<WidgetDeviceList>, any Error>) throws {
             for style in WidgetStyle.allCases {
                 #expect(try Self.texts(AllBatteriesEntry(date: .now, mac: mac, devices: devices, settings: Self.settings(style: style))) == ["Open Orange Drink"])
             }
         }
-        let running = Result<Shelved<WidgetDevices>, any Error>.success(.running(.connected(Self.three, pinned: [])))
+        let running = Result<Shelved<WidgetDeviceList>, any Error>.success(.running(.connected(Self.three, pinned: [])))
         try open(.success(.appNotRunning), running)
         try open(.failure(ShelfError.noGroupEntitlement), running)
         try open(.success(.running(Self.charging)), .success(.appNotRunning))
@@ -341,7 +341,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(charging))
-        ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }.publish(.running(.connected(three, pinned: [])))
+        ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }.publish(.running(.connected(three, pinned: [])))
         return shelf
     }
 
@@ -405,13 +405,13 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     }
 
     @Test(arguments: UnreadDevices.allCases) func includeThisMacOffDropsTheMacFromBesideAReason(reason: UnreadDevices) {
-        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unlisted(mac: nil, .unread(reason)))
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unlisted(mac: nil, .unread(.bluetooth(reason))))
     }
 
     @Test(arguments: UnreadDevices.allCases) func theMacBesideAReasonIsDrawnByTheOptions(reason: UnreadDevices) {
         let level = BatteryLevel(percent: 80, approximate: false)
         let mac = WidgetBattery(glyph: MacBattery.glyph, level: level, charging: true, name: MacBattery.name, appearance: .monochrome)
-        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unlisted(mac: mac, .unread(reason)))
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unlisted(mac: mac, .unread(.bluetooth(reason))))
     }
 
     @Test(arguments: WidgetStyle.allCases) func monochromeDrawsNoGreen(style: WidgetStyle) throws {
@@ -526,7 +526,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         defer { try? FileManager.default.removeItem(at: shelf) }
         var asked: [WidgetKind] = []
         let mac = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { asked.append($0) }
-        let devices = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
+        let devices = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { asked.append($0) }
         func reloads(_ change: () -> Void) -> [WidgetKind] {
             asked = []
             change()

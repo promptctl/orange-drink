@@ -127,6 +127,8 @@ struct DeviceList: Equatable, Sendable {
             for device in devices where device.id.source == source { byID[device.id] = device }
             readings[source] = .read
         case .permission(let permission):
+            // [LAW:types-are-the-program] Bluetooth is the only source with a permission, so `UnreadSource` never holds another's.
+            precondition(source == .bluetooth, "a permission from \(source.rawValue), which has none")
             // Heard after a sweep, this is the end of what that sweep read, so nothing is kept to go stale, as in `end(_:)`.
             removeDevices(of: source)
             readings[source] = .unread(UnreadDevices(permission))
@@ -155,18 +157,20 @@ struct DeviceList: Equatable, Sendable {
         }
     }
 
-    /// Why a screen with no device to show has no list of what is connected, or nil when it has one to show or nothing is unread:
-    /// a function of the readings, so there is no second copy of them. A device of a source that has swept is something to show;
-    /// one reported ahead of its source's first sweep is not, as it is not the list. Otherwise the reason is the first source, in
-    /// `DeviceSource.allCases` order, that was denied or ended; waiting only when none was.
-    ///
-    /// A source unread beside listed devices is shown nowhere yet: orange-device-sources-rec.k69.
-    var unread: UnreadDevices? {
-        let reasons = DeviceSource.allCases.filter { readings[$0] != nil }.map { ($0, unread(of: $0)) }
-        guard reasons.contains(where: { $0.1 != nil }) else { return nil }
-        let showsDevice = reasons.contains { source, reason in reason == nil && byID.keys.contains { $0.source == source } }
-        guard !showsDevice else { return nil }
-        return reasons.lazy.compactMap(\.1).first { $0 != .waiting } ?? .waiting
+    /// The sources whose list has not arrived, and why, in `DeviceSource.allCases` order: the one value every surface reads to
+    /// say what is missing beside the devices it shows. [LAW:one-source-of-truth] A function of the readings, so there is no
+    /// second copy of them and no verdict picked among them; a device reported ahead of its source's first sweep is listed with
+    /// the rest in `devices`, and its source is here until it sweeps.
+    var unreadSources: [UnreadSource] {
+        DeviceSource.allCases.compactMap { source in unread(of: source).map { UnreadSource(source: source, reason: $0) } }
+    }
+
+    /// What a card of devices says beside its rows. [LAW:single-enforcer] The one place the rule is made: "none connected" is
+    /// not a true statement about a list some source has not delivered, so it is said only when nothing is unread, while a
+    /// fact about the card's own configuration (`hidden`: every device is hidden) is true whatever a source did and wins.
+    func notes(hidden: Phrase? = nil, whenNone: Phrase) -> ListNotes {
+        let unread = unreadSources
+        return ListNotes(empty: hidden ?? (unread.isEmpty ? whenNone : nil), unread: unread.map(\.explanation))
     }
 
     /// Each physical device once, in a stable order, by name then identity, so a view never reshuffles equal rows.
@@ -244,14 +248,30 @@ extension UnreadDevices {
         case .denied: .denied
         }
     }
+}
 
-    /// Why a card that lists devices is empty.
+extension UnreadSource {
+    /// Why a card that lists devices is missing some, or is empty: the panel's sentence, naming the source it is about.
+    /// `.unanswered` and `.denied` are Bluetooth's (`DeviceList` enforces it).
     var explanation: Phrase {
-        switch self {
-        case .waiting: "Reading your Bluetooth devices…"
-        case .unanswered: "Answer the Bluetooth prompt to see your devices."
-        case .denied: "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app."
-        case .ended: "Device readings stopped. Quit and reopen the app."
+        switch (reason, source) {
+        case (.waiting, .bluetooth): "Reading your Bluetooth devices…"
+        case (.waiting, .iPhone): "Reading your iPhones and iPads…"
+        case (.unanswered, _): "Answer the Bluetooth prompt to see your devices."
+        case (.denied, _): "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app."
+        case (.ended, .bluetooth): "Bluetooth readings stopped. Quit and reopen the app."
+        case (.ended, .iPhone): "iPhone readings stopped. Quit and reopen the app."
         }
+    }
+}
+
+/// What a card of devices says besides its rows: why it has none, when saying so is true, and which sources have not delivered.
+struct ListNotes: Equatable {
+    let empty: Phrase?
+    let unread: [Phrase]
+
+    /// The lines a card says: why it has no rows if it has none, then each unread source. Empty for a fully read list with rows.
+    func lines(rowsAreEmpty: Bool) -> [Phrase] {
+        (rowsAreEmpty ? empty.map { [$0] } ?? [] : []) + unread
     }
 }

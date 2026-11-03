@@ -158,7 +158,7 @@ struct DeviceMergeListTests {
         var merged = DeviceList(sources: DeviceSource.allCases)
         merged.apply(.swept([Phone.cabled(Phone.level(62))]), from: .iPhone)
         merged.apply(.permission(.denied), from: .bluetooth)
-        #expect(merged.unread == nil)
+        #expect(merged.unreadSources == [.bluetooth(.denied)])
         #expect(merged.unread(of: .iPhone) == nil)
     }
 

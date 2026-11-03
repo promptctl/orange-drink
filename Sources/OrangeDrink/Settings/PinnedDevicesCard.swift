@@ -11,10 +11,10 @@ struct PinnedDevicesList: Equatable {
     }
 
     let entries: [Entry]
-    let emptyNote: Phrase
+    let notes: ListNotes
 
     init(_ list: DeviceList, pinned: PinnedOrder) {
-        emptyNote = list.unread?.explanation ?? "Pin a connected device from the Devices screen to arrange it here."
+        notes = list.notes(whenNone: "Pin a connected device from the Devices screen to arrange it here.")
         let rows = PinnedItem.rows(list, pinned: pinned)
         entries = rows.indices.map { index in
             Entry(row: rows[index], above: rows.indices.contains(index - 1) ? rows[index - 1].id : nil,
@@ -36,7 +36,7 @@ struct PinnedDevicesCard: View {
             SettingEditor(settings) { edits in
                 let list = PinnedDevicesList(devices.list, pinned: edits.value.pinned)
                 if list.entries.isEmpty {
-                    PhraseText(list.emptyNote).foregroundStyle(.secondary)
+                    ListNotesView(rowsAreEmpty: true, notes: list.notes)
                 } else {
                     SettingCard {
                         ForEach(list.entries) { entry in
@@ -57,6 +57,7 @@ struct PinnedDevicesCard: View {
                     }
                     Text("The top device sits leftmost in the menu bar. Dragging an item in the menu bar is undone when a pinned device connects, disconnects, or is moved here.")
                         .font(.callout).foregroundStyle(.secondary)
+                    ListNotesView(rowsAreEmpty: false, notes: list.notes)
                 }
             }
         }

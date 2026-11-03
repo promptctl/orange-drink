@@ -28,20 +28,20 @@ struct BluetoothPermissionTests {
 
     @Test func aListIsUnreadUntilASweepAndSaysWhy() {
         var list = DeviceList(sources: [.bluetooth])
-        #expect(list.unread == .waiting)
+        #expect(list.unreadSources == [.bluetooth(.waiting)])
         list.apply(.permission(.notDetermined), from: .bluetooth)
-        #expect(list.unread == .unanswered)
+        #expect(list.unreadSources == [.bluetooth(.unanswered)])
         list.apply(.permission(.denied), from: .bluetooth)
-        #expect(list.unread == .denied)
+        #expect(list.unreadSources == [.bluetooth(.denied)])
         list.apply(.permission(.allowed), from: .bluetooth)
-        #expect(list.unread == .waiting)
+        #expect(list.unreadSources == [.bluetooth(.waiting)])
         list.apply(.reported(DeviceListTests.mouse.source), from: .bluetooth)
-        #expect(list.unread == .waiting)
+        #expect(list.unreadSources == [.bluetooth(.waiting)])
         list.apply(.swept([]), from: .bluetooth)
-        #expect(list.unread == nil)
+        #expect(list.unreadSources.isEmpty)
         list.apply(.swept([DeviceListTests.mouse.source]), from: .bluetooth)
         list.end(.bluetooth)
-        #expect(list.unread == .ended)
+        #expect(list.unreadSources == [.bluetooth(.ended)])
         #expect(list.devices.isEmpty)
     }
 
@@ -49,7 +49,7 @@ struct BluetoothPermissionTests {
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([DeviceListTests.mouse.source]), from: .bluetooth)
         list.apply(.permission(.denied), from: .bluetooth)
-        #expect(list.unread == .denied)
+        #expect(list.unreadSources == [.bluetooth(.denied)])
         #expect(list.devices.isEmpty)
     }
 

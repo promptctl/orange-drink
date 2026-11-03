@@ -17,7 +17,7 @@ import Testing
     let shelf = FileManager.default.temporaryDirectory.appending(path: "seen-\(UUID().uuidString)")
     let defaults = scratchDefaults()
     let query: DeviceQuery
-    let devicesShelf: ShelfPublisher<Shelved<WidgetDevices>>
+    let devicesShelf: ShelfPublisher<Shelved<WidgetDeviceList>>
     let seenShelf: ShelfPublisher<SeenDevices>
 
     init() throws {
@@ -51,7 +51,7 @@ import Testing
     }
 
     func connected() throws -> Int? {
-        guard case .running(.connected(let list)) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
+        guard case .running(let list) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
         return list.ranked.count + list.unlevelled.count
     }
 

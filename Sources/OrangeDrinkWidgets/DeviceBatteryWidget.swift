@@ -3,7 +3,7 @@ import SwiftUI
 import WidgetKit
 
 // The Device Battery widget's settings and timeline. [LAW:decomposition] Every decision is made by the Shared
-// code a test reaches (`WidgetDevices`, `DeviceBatteryView`); this file only hands WidgetKit and AppIntents
+// code a test reaches (`WidgetDeviceList`, `DeviceBatteryView`); this file only hands WidgetKit and AppIntents
 // the types they ask for.
 
 struct SelectDeviceIntent: WidgetConfigurationIntent {
@@ -17,7 +17,7 @@ struct SelectDeviceIntent: WidgetConfigurationIntent {
 struct DeviceBatteryProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> DeviceBatteryEntry {
         let phone = WidgetDevice(id: .bluetooth("placeholder"), name: "iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
-        return DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected(WidgetDeviceList(ranked: [phone], pinned: [], unlevelled: [])))), chosen: phone.id)
+        return DeviceBatteryEntry(date: .now, shelf: .success(.running(WidgetDeviceList(ranked: [phone], pinned: [], unlevelled: [], unreadSources: []))), chosen: phone.id)
     }
 
     func snapshot(for configuration: SelectDeviceIntent, in context: Context) async -> DeviceBatteryEntry {

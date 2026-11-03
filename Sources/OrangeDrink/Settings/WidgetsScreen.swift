@@ -83,7 +83,7 @@ struct WidgetPreview: View {
     let kind: WidgetKind
     let size: WidgetPreviewSize
     let mac: MacBattery
-    let devices: WidgetDevices
+    let devices: WidgetDeviceList
     /// The device Device Battery shows. Nothing here has a widget's settings, so nobody chose it.
     let device: DeviceID?
     @Environment(\.appLanguage) private var language
@@ -167,7 +167,7 @@ struct WidgetsScreen: View {
                 SegmentedPills(selection: Bindable(choice).size, options: WidgetPreviewSize.allCases, accent: .gray, title: \.title)
                 // [LAW:one-source-of-truth] The two derivations the shelf is published from, read as the view draws so each
                 // reading and each change to the list redraws the preview. Device Battery shows the panel's first device.
-                WidgetPreview(kind: choice.kind, size: choice.size, mac: MacBattery(battery.state), devices: WidgetDevices(devices.list, pinned: settings.value.pinned),
+                WidgetPreview(kind: choice.kind, size: choice.size, mac: MacBattery(battery.state), devices: WidgetDeviceList(devices.list, pinned: settings.value.pinned),
                               device: ConnectedDevices(devices.list, settings: settings.value).rows.first?.id)
                     .frame(maxWidth: .infinity)
                 // The design doc words this for All Batteries alone.
