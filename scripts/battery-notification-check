@@ -16,13 +16,10 @@ image=${2:?$usage}
 cd "$(dirname "$0")/.."
 
 . scripts/vm-check-lib
+. scripts/notification-vm-lib
 
-tools=/tmp/tools
-tree="$tools/notification-tree"
-battery="$tools/fake-battery"
 binary=$app/Contents/MacOS/OrangeDrink
 
-list() { guest "$tree" list; }
 # A here-string drops its command's status, so a read that failed would be a tree showing nothing. Whatever says something
 # is gone reads through this, and a failed read says it is not.
 read_tree() { showing=$(list); }
@@ -34,62 +31,20 @@ on_failure() {
 }
 say() { echo "battery-notification-check: $image: $*" >&2; }
 
-# The level powerd would publish: 1 none, 2 early, 3 final.
-warn() { guest sudo -n "$battery" warn "$1" >&2; }
-post() { guest osascript -e "display notification \"$2\" with title \"$1\""; }
 start_app() { guest sh -c "nohup '$binary' >/tmp/app.out 2>&1 &"; }
 
-has_battery() { grep -q InternalBattery <<<"$(guest pmset -g batt)"; }
 has_alert() { grep -q '^AXNotificationCenterAlert' <<<"$(list)"; }
-# The alerts in $1 beyond those the app's own launch left.
-new_alerts() { grep '^AXNotificationCenterAlert' <<<"$1" | grep -vxF "$installed" || [ "${PIPESTATUS[1]}" -eq 1 ]; }
 shows() { read_tree && grep -qxF "$1" <<<"$showing"; }
-nothing_new() { read_tree && [ -z "$(new_alerts "$showing")" ]; }
+# Whether anything beyond those the app's own launch left is an alert.
+nothing_new() { read_tree && [ -z "$(new_alerts "$showing" "$installed")" ]; }
 closes() { log_lines batteryNotifications | awk '/, closed$/ { n++ } END { print n + 0 }'; }
 closed_after() { [ "$(closes)" -gt "$1" ]; }
 
-swiftc -O -target arm64-apple-macos14 -o "$scratch/notification-tree" scripts/notification-tree.swift
-swiftc -O -target arm64-apple-macos14 -o "$scratch/fake-battery" scripts/fake-battery.swift
 tar -C "$(dirname "$built")" -cf "$scratch/app.tar" "$(basename "$built")"
 
-vm_boot
-guest sh -c "mkdir -p '$tools' '$(dirname "$app")' && cp '$shared/notification-tree' '$shared/fake-battery' '$tools' && tar -C '$(dirname "$app")' -xf '$shared/app.tar'"
-# The early warning is a notification on macOS 14 and 15. On 26 it is a banner that fades, and the final warning is first.
-major=$(guest sw_vers -productVersion | cut -d. -f1)
-first=$([ "$major" -lt 26 ] && echo 2 || echo 3)
+notification_setup
+guest sh -c "mkdir -p '$(dirname "$app")' && tar -C '$(dirname "$app")' -xf '$shared/app.tar'"
 identifier=$(guest /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
-
-# A stand-in battery, which ControlCenter builds its Battery module for when it starts.
-guest sudo -n sh -c "nohup '$battery' 4 6 1800 >/tmp/battery.out 2>&1 &"
-wait_for "the stand-in battery never reached powerd" 30 has_battery
-warn 1
-guest killall ControlCenter
-
-# Script Editor allowed banners, the Allow a person gives, which macOS 15 asks for before a new app's first. Its entry is
-# not there on every macOS, and a banner showing is what says this worked. It goes through `defaults export`, because the
-# plist on disk lags cfprefsd.
-post First 'Registers Script Editor with Notification Center'
-guest sh -c 'prefs=/tmp/ncprefs.plist
-for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-  defaults export com.apple.ncprefs "$prefs"; app=0
-  while bundle=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:bundle-id" "$prefs"); do
-    if [ "$bundle" = com.apple.ScriptEditor2 ]; then
-      flags=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:flags" "$prefs")
-      /usr/libexec/PlistBuddy -c "Set :apps:$app:flags $((flags | 1 << 25))" "$prefs"
-      defaults import com.apple.ncprefs "$prefs"
-      exit 0
-    fi
-    app=$((app + 1))
-  done
-  sleep 1
-done' 2>&1 | grep -v 'Does Not Exist' >&2 || [ "${PIPESTATUS[0]}" -eq 0 ]
-guest killall usernoted NotificationCenter
-banner_shows() {
-  post First 'A banner'
-  sleep 1
-  grep -q "$(printf '^AXNotificationCenterBanner\tFirst')" <<<"$(list)"
-}
-wait_for "Script Editor's banner never showed" 30 banner_shows
 
 # The first launch raises the Bluetooth prompt, and these images have no Xcode for FirstLaunchUITests to answer it. This
 # is the one run of that answer on macOS 14 and 15, so it is read here too. The launch also posts the system's login items
@@ -102,16 +57,9 @@ wait_for "the app's first pass never logged" 30 logged batteryNotifications 'pas
 wait_for "the login items alert never showed" 30 has_alert
 installed=$(grep '^AXNotificationCenterAlert' <<<"$(list)")
 
-# ControlCenter's restart ends when it has built its module, so the warning is raised until the notification shows.
-raise() {
-  warn 1
-  warn "$first"
-  sleep 2
-  [ -n "$(new_alerts "$(list)")" ]
-}
-wait_for "the low battery notification never showed" 30 raise
+wait_for "the low battery notification never showed" 30 raise "$first" "$installed"
 read_tree
-alert=$(new_alerts "$showing")
+alert=$(new_alerts "$showing" "$installed")
 sleep 5
 shows "$alert" || fail "with the switch off, the low battery alert did not stay"
 say "off: the low battery alert stayed for 5 seconds: $alert"

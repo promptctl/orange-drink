@@ -1,0 +1,94 @@
+#!/bin/bash
+# What NotificationCenter's accessibility tree shows for macOS's low battery notification, and for another app's with the same words,
+# on the macOS of one Tart image, in a throwaway VM with no window. It prints a raw capture on stdout (scripts/notification-fixtures says
+# what one is) and its progress on stderr: the macOS version, then every reading of the sweep, each tagged with its step.
+# Run by `make notification-fixtures` and `make notification-fixtures-check`, once per image.
+#
+#   scripts/notification-capture <tart image>
+#
+# Exits 0 with the whole sweep printed, and 1 naming the step that never showed what it waited for.
+set -euo pipefail
+
+usage='usage: scripts/notification-capture <tart image>'
+image=${1:?$usage}
+cd "$(dirname "$0")/.."
+
+# Stdout is the capture and nothing else: fd 3 keeps it, and whatever tart or the guest prints goes to stderr.
+exec 3>&1 1>&2
+
+. scripts/vm-check-lib
+. scripts/notification-vm-lib
+
+# The Mac's English is the first reading; these are the other languages the app is held to read, in the capture's order.
+languages=(fr-FR ja zh-Hans ar pt-BR pl)
+
+on_failure() {
+  guest cat /tmp/battery.out >&2
+  list >&2
+}
+say() { echo "notification-capture: $image: $*" >&2; }
+
+# Whether the tree shows nothing at all. A tree that could not be read is not an empty one.
+nothing_showing() { local showing; showing=$(list) && [ -z "$showing" ]; }
+stack_gone() { local showing; showing=$(list) && ! grep -q '^AXNotificationCenterBannerStack' <<<"$showing"; }
+
+# Prints the tree's notifications as records of <step> once it shows every subrole given, from the look that saw them: a banner fades,
+# so a second look can find it gone.
+snapshot() {
+  local step=$1 seen subrole line
+  shift
+  for _ in $(seq 1 150); do
+    seen=$(guest "$tree" values) || fail "$step: the tree could not be read"
+    # The whole subrole field: AXNotificationCenterBanner is not AXNotificationCenterBannerStack.
+    for subrole; do grep -q "^$subrole"$'\t' <<<"$seen" || continue 2; done
+    while IFS= read -r line; do printf '%s\t%s\n' "$step" "$line" >&3; done <<<"$seen"
+    return 0
+  done
+  fail "$step: the tree never showed $*"
+}
+
+# Raises the final warning, and has Script Editor post the alert's own words a second later: on macOS 26 a notification takes the
+# top-right corner from a banner already showing, so the alert comes first.
+alert_and_banner() {
+  local alert
+  wait_for "$1: the low battery alert never showed" 60 raise 3 ""
+  read -r alert <<<"$(new_alerts "$(list)" "")"
+  [ -n "$alert" ] || fail "$1: the alert that showed was gone when its words were read"
+  post "$(cut -f2 <<<"$alert")" "$(cut -f3 <<<"$alert")"
+  snapshot "$1" AXNotificationCenterAlert AXNotificationCenterBanner
+}
+
+# Withdraws the warning until nothing shows, as `raise` raises it until an alert does: on macOS 26 a single withdrawal left the French
+# step's alert up for the whole wait in some runs. The banners fade meanwhile, so the next step starts from nothing showing.
+withdrawn() { warn 1; nothing_showing; }
+clear_all() { wait_for "$1: the notifications never went" 60 withdrawn; }
+
+notification_setup
+printf 'macos\t%s\n' "$(guest sw_vers -productVersion)" >&3
+
+post First 'A banner'
+snapshot banner AXNotificationCenterBanner
+say "banner"
+wait_for "banner: the banner never went" 60 nothing_showing
+
+alert_and_banner final-warning
+say "final-warning"
+clear_all final-warning
+
+# The stack is the banner above, kept in the panel. The clock toggles the panel, so it is pressed for the stack to show, read,
+# and pressed again, and the stack is waited out: no reading after this is taken under an open panel.
+wait_for "panel: the low battery alert never showed" 60 raise 3 ""
+guest "$tree" panel
+snapshot panel AXNotificationCenterAlert AXNotificationCenterBannerStack
+guest "$tree" panel
+wait_for "panel: the panel never closed" 30 stack_gone
+say "panel"
+clear_all panel
+
+for language in "${languages[@]}"; do
+  guest defaults write -g AppleLanguages -array "$language" en
+  guest killall ControlCenter NotificationCenter usernoted
+  alert_and_banner "language-$language"
+  say "language-$language"
+  clear_all "language-$language"
+done

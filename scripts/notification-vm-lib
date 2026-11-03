@@ -1,0 +1,81 @@
+# What scripts/battery-notification-check and scripts/notification-capture share: a throwaway VM, built on scripts/vm-check-lib, in
+# which a stand-in battery raises the real low battery notification from ControlCenter's own code and Script Editor may post
+# banners, with the accessibility tree to read both through. Source it after vm-check-lib, from the repository root.
+#
+# The caller stages whatever else the VM is to read in $scratch before calling `notification_setup`, because the VM reads its
+# shared directory from boot, then:
+#   notification_setup   builds the tools, boots, and returns once Script Editor's banner shows. It sets `major` (the guest's macOS
+#                        major) and `first` (the warning level whose alert comes first: 2, the early warning's, where macOS 14 and
+#                        15 post one, and 3, the final warning's, on 26 where the early warning is a banner that fades).
+# and uses:
+#   warn <level>         the level powerd would publish: 1 none, 2 early, 3 final
+#   post <title> <body>  has Script Editor post a notification
+#   list                 the tree's notifications, one line each (scripts/notification-tree.swift)
+#   new_alerts <list> <baseline>
+#                        the alerts in <list> that are not lines of <baseline>
+#   raise <level> <baseline>
+#                        raises the warning at <level> until an alert beyond <baseline> shows, for wait_for
+tools=/tmp/tools
+tree="$tools/notification-tree"
+battery="$tools/fake-battery"
+
+warn() { guest sudo -n "$battery" warn "$1" >&2; }
+# The words sit inside AppleScript string literals, so a backslash or quote in a localized alert is escaped to stay text.
+as_literal() { local text=${1//\\/\\\\}; printf '%s\n' "${text//\"/\\\"}"; }
+post() { guest osascript -e "display notification \"$(as_literal "$2")\" with title \"$(as_literal "$1")\""; }
+list() { guest "$tree" list; }
+
+has_battery() { grep -q InternalBattery <<<"$(guest pmset -g batt)"; }
+new_alerts() { grep '^AXNotificationCenterAlert' <<<"$1" | grep -vxF "$2" || [ "${PIPESTATUS[1]}" -eq 1 ]; }
+# ControlCenter's restart ends when it has built its module, so the warning is raised until the notification shows.
+raise() {
+  warn 1
+  warn "$1"
+  sleep 2
+  [ -n "$(new_alerts "$(list)" "$2")" ]
+}
+
+# Script Editor allowed banners, the Allow a person gives, which macOS 15 asks for before a new app's first. Its entry is not
+# there on every macOS, and a banner showing is what says this worked. It goes through `defaults export`, because the plist on
+# disk lags cfprefsd.
+allow_script_editor() {
+  post First 'Registers Script Editor with Notification Center'
+  guest sh -c 'prefs=/tmp/ncprefs.plist
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  defaults export com.apple.ncprefs "$prefs"; app=0
+  while bundle=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:bundle-id" "$prefs"); do
+    if [ "$bundle" = com.apple.ScriptEditor2 ]; then
+      flags=$(/usr/libexec/PlistBuddy -c "Print :apps:$app:flags" "$prefs")
+      /usr/libexec/PlistBuddy -c "Set :apps:$app:flags $((flags | 1 << 25))" "$prefs"
+      defaults import com.apple.ncprefs "$prefs"
+      exit 0
+    fi
+    app=$((app + 1))
+  done
+  sleep 1
+done' 2>&1 | grep -v 'Does Not Exist' >&2 || [ "${PIPESTATUS[0]}" -eq 0 ]
+  guest killall usernoted NotificationCenter
+}
+banner_shows() {
+  post First 'A banner'
+  sleep 1
+  grep -q "$(printf '^AXNotificationCenterBanner\tFirst')" <<<"$(list)"
+}
+
+notification_setup() {
+  swiftc -O -target arm64-apple-macos14 -o "$scratch/notification-tree" scripts/notification-tree.swift
+  swiftc -O -target arm64-apple-macos14 -o "$scratch/fake-battery" scripts/fake-battery.swift
+  vm_boot
+  guest sh -c "mkdir -p '$tools' && cp '$shared/notification-tree' '$shared/fake-battery' '$tools'"
+  major=$(guest sw_vers -productVersion | cut -d. -f1)
+  first=$([ "$major" -lt 26 ] && echo 2 || echo 3)
+
+  # A stand-in battery, which ControlCenter builds its Battery module for when it starts.
+  guest sudo -n sh -c "nohup '$battery' 4 6 1800 >/tmp/battery.out 2>&1 &"
+  wait_for "the stand-in battery never reached powerd" 30 has_battery
+  warn 1
+  guest killall ControlCenter
+
+  allow_script_editor
+  wait_for "Script Editor's banner never showed" 30 banner_shows
+}

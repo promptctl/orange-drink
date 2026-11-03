@@ -15,7 +15,7 @@ HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c
 XCB_SETTINGS ?=
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)' $(XCB_SETTINGS)
 
-.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check iphone-list iphone-capture iphone-devices-test
+.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check iphone-list iphone-capture iphone-devices-test notification-fixtures notification-fixtures-test
 
 generate:
 	xcodegen generate --use-cache
@@ -50,6 +50,7 @@ script-tests:
 	$(MAKE) place-widgets-test
 	$(MAKE) layout-events-count-test
 	$(MAKE) iphone-devices-test
+	$(MAKE) notification-fixtures-test
 
 # The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
 hardware-check-test:
@@ -83,7 +84,7 @@ vm-test: generate
 # it asserts or records itself; a person only moves a cable or gives an approval macOS keeps for the user. Everything
 # else is tested in `make test`. docs/testing.md says which layer tests what.
 HARDWARE_CHECKS := unplug-check iphone-check devices-check position-check helper-repair-check \
-  release-helper-check update-check login-item-check battery-notification-check
+  release-helper-check update-check login-item-check battery-notification-check notification-fixtures-check
 .PHONY: $(HARDWARE_CHECKS) hardware-status
 record = swift scripts/hardware-check.swift run $@ --covers $($@.covers) --
 
@@ -198,9 +199,37 @@ first-launch-check: release
 BATTERY_NOTIFICATION_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest ghcr.io/cirruslabs/macos-sonoma-base:latest
 battery-notification-check.covers := Sources/OrangeDrink/SystemNotifications Sources/OrangeDrink/Battery/BatteryMonitor.swift \
   Sources/OrangeDrink/Battery/IOKitBattery.swift scripts/notification-tree.swift scripts/fake-battery.swift scripts/vm-check-lib \
-  scripts/battery-notification-check
+  scripts/notification-vm-lib scripts/battery-notification-check
 battery-notification-check: release
 	@$(record) bash -c 'set -e; for image; do scripts/battery-notification-check "$(RELEASE_APP)" "$$image"; done' _ $(BATTERY_NOTIFICATION_IMAGES)
+
+# The notification fixtures (Tests/OrangeDrinkTests/NotificationFixtures.swift) against today's macOS, in a VM of each image with no
+# window: scripts/notification-capture reads what NotificationCenter's accessibility tree shows for the low battery alert and for
+# another app's notification with the same words, in seven languages, and scripts/notification-fixtures check names every reading
+# that differs from the committed capture of that macOS. It needs Tart and these images.
+notification-fixtures-check.covers := Tests/OrangeDrinkTests/NotificationFixtures.swift scripts/notification-captures \
+  scripts/notification-capture scripts/notification-fixtures scripts/notification-tree.swift scripts/fake-battery.swift \
+  scripts/notification-vm-lib scripts/vm-check-lib
+# Shell for one raw capture per image, numbered in $$out, a directory removed when the shell exits; $(1) is the images.
+notification-sweep = set -e; out=$$(mktemp -d); trap "rm -rf $$out" EXIT; n=0; \
+  for image in $(1); do n=$$((n + 1)); scripts/notification-capture "$$image" > "$$out/$$n.tsv"; done
+notification-fixtures-check:
+	@$(record) bash -c '$(call notification-sweep,$(BATTERY_NOTIFICATION_IMAGES)); python3 -I scripts/notification-fixtures check "$$out"/*.tsv'
+
+# Recaptures the notification fixtures after a new macOS: the same sweep as notification-fixtures-check over the images in IMAGES,
+# which replaces those macOS versions' captures in scripts/notification-captures and regenerates NotificationFixtures.swift from
+# every committed capture. A failed image leaves both as they were. `git diff` then shows the wording that changed. Nothing shows on
+# the Mac running it.
+IMAGES ?= $(BATTERY_NOTIFICATION_IMAGES)
+notification-fixtures:
+	@$(call notification-sweep,$(IMAGES)); \
+	python3 -I scripts/notification-fixtures record "$$out"/*.tsv; \
+	python3 -I scripts/notification-fixtures render > "$$out/NotificationFixtures.swift"; \
+	mv "$$out/NotificationFixtures.swift" Tests/OrangeDrinkTests/NotificationFixtures.swift
+
+# The fixtures' tool, held against the committed captures and the Swift rendered from them: no VM.
+notification-fixtures-test:
+	scripts/notification-fixtures-test.py
 
 # A click on a placed widget on real macOS, in a VM with no window, because only a real click makes macOS deliver what it
 # delivers: scripts/widget-click-check places all three widgets, clicks them, and reads the app's log and the window list.

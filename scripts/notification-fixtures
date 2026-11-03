@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+# The notification fixtures (Tests/OrangeDrinkTests/NotificationFixtures.swift) are rendered from the captures committed in
+# scripts/notification-captures, one per macOS major. A capture is what scripts/notification-capture read from NotificationCenter's
+# accessibility tree in a VM of that macOS: a `macos` line with the full version, then one record per reading, tab-separated:
+#   <step> <subrole> <title> <body> <description> <action>...
+# The tree is read at several steps, so a raw capture holds a notification once for every step that saw it. `record` keeps the first
+# reading of each distinct record, so a committed capture holds each once, still tagged with the step that first saw it.
+#
+#   notification-fixtures record <raw capture>...   writes each capture's macos-<major>.tsv, or none if any is malformed
+#   notification-fixtures render                    prints the Swift of NotificationFixtures.swift from every committed capture
+#   notification-fixtures check <raw capture>...    fails naming every record that differs from the committed capture of that macOS
+#
+# Every subcommand takes --captures <directory> before its arguments, for a directory other than the committed one.
+import pathlib
+import re
+import sys
+
+COMMITTED = pathlib.Path(__file__).resolve().parent / "notification-captures"
+# [LAW:one-source-of-truth] Whether a notification is a low battery alert is its subrole, not a column beside it.
+ALERT = "AXNotificationCenterAlert"
+# Characters Swift source can show but a reader of it cannot see; they are written as escapes.
+INVISIBLE = {0x061C, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A)}
+
+
+class Malformed(Exception):
+    pass
+
+
+class Capture:
+    def __init__(self, version, records):
+        self.version, self.records = version, records
+        self.major = int(version.split(".")[0])
+
+    @property
+    def distinct(self):
+        # The first reading of each distinct record, in the order the sweep read them.
+        seen, kept = set(), []
+        for record in self.records:
+            if record[1:] not in seen:
+                seen.add(record[1:])
+                kept.append(record)
+        return kept
+
+
+def parse(path):
+    lines = pathlib.Path(path).read_text(encoding="utf-8").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    if not lines or not re.fullmatch(r"macos\t\d+(\.\d+)*", lines[0]):
+        raise Malformed(f"{path}:1: the first line is `macos<TAB><version>`")
+    records = []
+    for number, line in enumerate(lines[1:], start=2):
+        fields = tuple(line.split("\t"))
+        if len(fields) < 5 or not fields[0] or not fields[1].startswith("AXNotificationCenter"):
+            raise Malformed(f"{path}:{number}: a record is <step> <AXNotificationCenter subrole> <title> <body> <description> <action>...")
+        records.append(fields)
+    if not records:
+        raise Malformed(f"{path}: no records after the macos line")
+    return Capture(lines[0].split("\t")[1], records)
+
+
+def committed(directory):
+    captures = [parse(path) for path in sorted(pathlib.Path(directory).glob("macos-*.tsv"))]
+    if not captures:
+        raise Malformed(f"{directory}: no committed captures")
+    return captures
+
+
+def swift_string(text):
+    out = []
+    for character in text:
+        if character in '\\"':
+            out.append("\\" + character)
+        elif ord(character) in INVISIBLE or ord(character) < 0x20:
+            out.append("\\u{%X}" % ord(character))
+        else:
+            out.append(character)
+    return '"' + "".join(out) + '"'
+
+
+def entry(record, majors):
+    _, subrole, title, body, description, *actions = record
+    return (f"        // macOS {', '.join(map(str, sorted(majors)))}\n"
+            f"        NotificationValues(subrole: {swift_string(subrole)}, title: {swift_string(title)}, body: {swift_string(body)},\n"
+            f"                           description: {swift_string(description)},\n"
+            f"                           actions: [{', '.join(swift_string(action) for action in actions)}]),\n")
+
+
+def render(captures):
+    # Identical records across majors are one entry labelled with all of them. Newest group first, and within one newest
+    # major in the order that major's sweep read them.
+    groups = {}
+    for capture in captures:
+        for position, record in enumerate(capture.distinct):
+            group = groups.setdefault(record[1:], {"majors": set(), "newest": 0, "position": 0, "record": record})
+            group["majors"].add(capture.major)
+            if capture.major > group["newest"]:
+                group.update(newest=capture.major, position=position, record=record)
+    ordered = sorted(groups.values(), key=lambda group: (-group["newest"], group["position"]))
+    section = lambda alerts: "".join(entry(group["record"], group["majors"]) for group in ordered if (group["record"][1] == ALERT) == alerts)
+    versions = ", ".join(capture.version for capture in sorted(captures, key=lambda capture: -capture.major))
+    return (
+        "@testable import OrangeDrink\n\n"
+        "// Generated by `make notification-fixtures` from scripts/notification-captures; edit those, never this file.\n"
+        f"// What NotificationCenter's accessibility tree showed on macOS {versions}.\n"
+        "// ControlCenter's own code posted the low battery alerts, and Script Editor the others. Bidi marks are written as escapes.\n"
+        "enum NotificationFixtures {\n"
+        f"    static let lowBatteryAlerts = [\n{section(True)}    ]\n\n"
+        f"    static let otherApps = [\n{section(False)}    ]\n"
+        "}\n")
+
+
+def raw_captures(paths):
+    captures = [parse(path) for path in paths]
+    majors = [capture.major for capture in captures]
+    if len(set(majors)) != len(majors):
+        raise Malformed(f"two captures of one macOS major: {', '.join(map(str, paths))}")
+    return captures
+
+
+def record(directory, paths):
+    captures = raw_captures(paths)
+    pathlib.Path(directory).mkdir(parents=True, exist_ok=True)
+    for capture in captures:
+        text = f"macos\t{capture.version}\n" + "".join("\t".join(r) + "\n" for r in capture.distinct)
+        (pathlib.Path(directory) / f"macos-{capture.major}.tsv").write_text(text, encoding="utf-8")
+
+
+def check(directory, paths):
+    differences = []
+    held = {capture.major: capture for capture in committed(directory)}
+    for capture in raw_captures(paths):
+        if capture.major not in held:
+            differences.append(f"macOS {capture.major}: no committed capture")
+            continue
+        fresh, was = [r[1:] for r in capture.distinct], [r[1:] for r in held[capture.major].distinct]
+        changed = [f"macOS {capture.major}: shown now, not committed: {r}" for r in fresh if r not in was]
+        changed += [f"macOS {capture.major}: committed, not shown now: {r}" for r in was if r not in fresh]
+        if not changed and fresh != was:
+            changed.append(f"macOS {capture.major}: the same records, read in another order")
+        differences += changed
+    return differences
+
+
+def main(arguments):
+    directory = COMMITTED
+    if arguments[:1] == ["--captures"]:
+        directory, arguments = pathlib.Path(arguments[1]), arguments[2:]
+    command, paths = (arguments[0], arguments[1:]) if arguments else ("", [])
+    try:
+        if command == "record" and paths:
+            record(directory, paths)
+        elif command == "render" and not paths:
+            sys.stdout.write(render(committed(directory)))
+        elif command == "check" and paths:
+            differences = check(directory, paths)
+            if differences:
+                sys.exit("\n".join(differences) + "\nmake notification-fixtures records these\n")
+        else:
+            sys.exit("usage: notification-fixtures [--captures <directory>] record <raw capture>... | render | check <raw capture>...")
+    except Malformed as problem:
+        sys.exit(f"notification-fixtures: {problem}")
+
+
+main(sys.argv[1:])
