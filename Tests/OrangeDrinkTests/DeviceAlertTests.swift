@@ -4,8 +4,8 @@ import Testing
 
 // [LAW:verifiable-goals] A device's low alert from simulated levels: no Bluetooth in the room.
 @MainActor struct DeviceAlertTests {
-    static let mouse = DeviceID(address: "m")
-    static let pods = DeviceID(address: "p")
+    static let mouse = DeviceID.bluetooth("m")
+    static let pods = DeviceID.bluetooth("p")
 
     private func list(_ levels: [DeviceID: Int]) -> DeviceList {
         var list = DeviceList()

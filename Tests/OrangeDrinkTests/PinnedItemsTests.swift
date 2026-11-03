@@ -5,8 +5,8 @@ import Testing
 
 // [LAW:verifiable-goals] The pinned items from simulated devices: no Bluetooth in the room.
 @MainActor struct PinnedItemsTests {
-    static let mouse = DeviceID(address: "m")
-    static let pods = DeviceID(address: "p")
+    static let mouse = DeviceID.bluetooth("m")
+    static let pods = DeviceID.bluetooth("p")
 
     private func list(_ levels: [DeviceID: BatteryLevel?]) -> DeviceList {
         var list = DeviceList()
@@ -82,7 +82,7 @@ import Testing
         let devices = list([Self.mouse: level(37), Self.pods: nil])
         #expect(PinnedItem.items(devices, pinned: []).isEmpty)
         #expect(PinnedItem.items(devices, pinned: [Self.pods]).isEmpty)
-        #expect(PinnedItem.items(devices, pinned: [DeviceID(address: "gone")]).isEmpty)
+        #expect(PinnedItem.items(devices, pinned: [DeviceID.bluetooth("gone")]).isEmpty)
         #expect(PinnedItem.items(devices, pinned: [Self.mouse, Self.pods]).map(\.row.name) == ["Magic Mouse"])
     }
 

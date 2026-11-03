@@ -76,7 +76,7 @@ struct PinnedItem: Equatable, Identifiable {
     /// same holds for the visibility a ⌘-drag out of the bar saves, which would hide the item for
     /// good. `make position-check` holds the order against the real bar.
     init(id: DeviceID) {
-        let name = "pinned-device-\(id.address)"
+        let name = "pinned-device-\(id.wire)"
         for key in ["Preferred Position", "Visible"] {
             UserDefaults.standard.removeObject(forKey: "NSStatusItem \(key) \(name)")
         }

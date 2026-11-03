@@ -16,7 +16,7 @@ extension MacBattery {
 
 extension WidgetDevice {
     init(_ row: DeviceRow) {
-        self.init(address: row.id.address, name: row.name, kind: row.kind, level: row.level)
+        self.init(id: row.id, name: row.name, kind: row.kind, level: row.level)
     }
 }
 
@@ -27,7 +27,7 @@ extension WidgetDevices {
     init(_ list: DeviceList, pinned: PinnedOrder) {
         self = list.unread.map(Self.unread) ?? .connected(WidgetDeviceList(
             ranked: DeviceRanking.rows(list).map(WidgetDevice.init),
-            pinned: WidgetPins(addresses: pinned.ids.map(\.address)),
+            pinned: WidgetPins(ids: pinned.ids),
             unlevelled: DeviceRanking.unlevelled(list).map(WidgetDevice.init)))
     }
 }

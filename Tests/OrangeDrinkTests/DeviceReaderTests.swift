@@ -16,7 +16,7 @@ struct DeviceReaderTests {
         }
     }
 
-    static let peer = BluetoothPeer(id: DeviceID(address: "AA"), name: "FluffPods", kind: .accessory)
+    static let peer = BluetoothPeer(id: DeviceID.bluetooth("AA"), name: "FluffPods", kind: .accessory)
     static func device(_ levels: DeviceLevels) -> Device {
         Device(id: peer.id, name: peer.name, kind: peer.kind, levels: levels)
     }
@@ -38,7 +38,7 @@ struct DeviceReaderTests {
 
     @Test func aSourceReadThatAnsweredOmitsADeviceWithNoBattery() {
         let reader = Sources(unanswered: nil).reader
-        let speaker = BluetoothPeer(id: DeviceID(address: "BB"), name: "Speaker", kind: .accessory)
+        let speaker = BluetoothPeer(id: DeviceID.bluetooth("BB"), name: "Speaker", kind: .accessory)
         #expect(reader.sweep([speaker]) == .swept([Device(id: speaker.id, name: "Speaker", kind: .accessory, levels: .none)]))
     }
 

@@ -22,7 +22,7 @@ enum DeviceRanking {
     /// From this level up a device is nearly full and its bar turns green.
     static let nearlyFull = 90
 
-    /// Equal levels fall in name then address order, so a row never reshuffles between renders. An
+    /// Equal levels fall in name then identity order, so a row never reshuffles between renders. An
     /// unknown level keeps its row, below them: the device is still connected, and a pinned item keeps
     /// its place in the bar through an outage instead of showing a stale percent or leaving.
     static func rows(_ list: DeviceList) -> [DeviceRow] {
@@ -34,7 +34,7 @@ enum DeviceRanking {
                 case .single, .earbuds: device.levels.lowest.map { (device, $0) }
                 }
             }
-            .sorted { ($0.1?.percent ?? .max, $0.0.name, $0.0.id.address) < ($1.1?.percent ?? .max, $1.0.name, $1.0.id.address) }
+            .sorted { ($0.1?.percent ?? .max, $0.0.name, $0.0.id) < ($1.1?.percent ?? .max, $1.0.name, $1.0.id) }
             .map { device, level in
                 DeviceRow(id: device.id, name: device.name, kind: device.kind, level: level)
             }

@@ -1,8 +1,5 @@
 import Foundation
 
-/// A paired Bluetooth device, identified by its address: the one thing a rename cannot change.
-struct DeviceID: Hashable, Codable, Sendable { let address: String }
-
 /// [LAW:types-are-the-program] What a device reports, and no more: a device with one battery, one
 /// with earbuds and a case (each part may be missing, e.g. a bud out of its case), none at all, or
 /// not known this read. An unreported level is absent; 0% is a reading, a drained battery.
@@ -50,7 +47,7 @@ struct Device: Equatable, Sendable, Identifiable {
     }
 
     /// False for a device known only by the address `name(alias:broadcast:address:)` fell back to.
-    var hasName: Bool { name != id.address }
+    var hasName: Bool { name != id.key }
 }
 
 /// What the Bluetooth edge tells the list: a device's current state, that it is gone, or the
@@ -96,9 +93,9 @@ struct DeviceList: Equatable, Sendable {
         unread = .ended
     }
 
-    /// In a stable order, by name then address, so a view never reshuffles equal rows.
+    /// In a stable order, by name then identity, so a view never reshuffles equal rows.
     var devices: [Device] {
-        byID.values.sorted { ($0.name, $0.id.address) < ($1.name, $1.id.address) }
+        byID.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
 }
 

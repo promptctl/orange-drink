@@ -50,20 +50,20 @@ struct AllBatteriesIntent: WidgetConfigurationIntent {
     }
 }
 
-/// Which devices a placed widget lists. [LAW:types-are-the-program] Chosen addresses exist only on the choice that reads them.
+/// Which devices a placed widget lists. [LAW:types-are-the-program] Chosen devices exist only on the choice that reads them.
 enum WidgetDeviceSelection: Equatable, Sendable, CustomStringConvertible {
     /// As many as fit, in the panel's ranking.
     case automatic
-    /// These addresses, in the user's order, each once.
-    case custom([String])
+    /// These devices, in the user's order, each once.
+    case custom([DeviceID])
     /// The devices pinned to the menu bar, in the bar's order.
     case sameAsMenuBar
 
-    /// What the widget's log carries, which is public: how many were chosen, never their addresses.
+    /// What the widget's log carries, which is public: how many were chosen, never which.
     var description: String {
         switch self {
         case .automatic: "automatic"
-        case .custom(let addresses): "custom \(addresses.count)"
+        case .custom(let ids): "custom \(ids.count)"
         case .sameAsMenuBar: "sameAsMenuBar"
         }
     }
@@ -80,10 +80,9 @@ struct AllBatteriesSettings: Equatable, Sendable {
 
     init(_ intent: AllBatteriesIntent) {
         (style, showNames, includeMac, appearance) = (intent.style, intent.showNames, intent.includeMac, intent.appearance)
-        var seen = Set<String>()
         devices = switch intent.devices {
         case .automatic: .automatic
-        case .custom: .custom((intent.chosen ?? []).map(\.id).filter { seen.insert($0).inserted })
+        case .custom: .custom(DeviceEntity.identities(of: intent.chosen ?? []))
         case .sameAsMenuBar: .sameAsMenuBar
         }
     }

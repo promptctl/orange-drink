@@ -16,8 +16,8 @@ struct SelectDeviceIntent: WidgetConfigurationIntent {
 
 struct DeviceBatteryProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> DeviceBatteryEntry {
-        let phone = WidgetDevice(address: "placeholder", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
-        return DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected(WidgetDeviceList(ranked: [phone], pinned: [], unlevelled: [])))), chosen: phone.address)
+        let phone = WidgetDevice(id: .bluetooth("placeholder"), name: "iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
+        return DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected(WidgetDeviceList(ranked: [phone], pinned: [], unlevelled: [])))), chosen: phone.id)
     }
 
     func snapshot(for configuration: SelectDeviceIntent, in context: Context) async -> DeviceBatteryEntry {
@@ -31,7 +31,7 @@ struct DeviceBatteryProvider: AppIntentTimelineProvider {
 
     private func entry(_ configuration: SelectDeviceIntent) -> DeviceBatteryEntry {
         DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: Result { try WidgetShelf.groupContainer() }, log: ShelfLog.log),
-                           chosen: configuration.device?.id)
+                           chosen: DeviceEntity.identities(of: configuration.device.map { [$0] } ?? []).first)
     }
 }
 

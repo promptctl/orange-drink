@@ -33,7 +33,7 @@ import WidgetKit
         }
     }
 
-    static func listed(_ settings: AllBatteriesSettings, pinned: WidgetPins = ["B", "D"], mac: MacBattery = AllBatteriesWidgetTests.onBattery) -> AllBatteries {
+    static func listed(_ settings: AllBatteriesSettings, pinned: WidgetPins = [.bluetooth("B"), .bluetooth("D")], mac: MacBattery = AllBatteriesWidgetTests.onBattery) -> AllBatteries {
         AllBatteries(mac: mac, devices: .connected(five, pinned: pinned), settings: settings)
     }
 
@@ -49,7 +49,7 @@ import WidgetKit
     }
 
     @Test func sameAsMenuBarKeepsTheBarsOrderOverThePanelsRanking() {
-        #expect(Self.names(Self.listed(Self.settings(.sameAsMenuBar), pinned: ["D", "B"])) == ["Device D", "Device B"])
+        #expect(Self.names(Self.listed(Self.settings(.sameAsMenuBar), pinned: [.bluetooth("D"), .bluetooth("B")])) == ["Device D", "Device B"])
     }
 
     @Test func customShowsTheChosenDevicesInTheOrderTheyWereChosen() {
@@ -62,7 +62,7 @@ import WidgetKit
     }
 
     @Test func automaticAtSmallFillsAllFourPlaces() throws {
-        let withoutMac = AllBatteriesEntry(date: .now, mac: .success(.running(.noBattery)), devices: .success(.running(.connected(Self.five, pinned: ["B", "D"]))), settings: Self.settings(.automatic))
+        let withoutMac = AllBatteriesEntry(date: .now, mac: .success(.running(.noBattery)), devices: .success(.running(.connected(Self.five, pinned: [.bluetooth("B"), .bluetooth("D")]))), settings: Self.settings(.automatic))
         #expect(try AllBatteriesWidgetTests.texts(withoutMac).filter { $0.hasSuffix("%") } == ["30%", "40%", "50%", "60%"])
         let withMac = AllBatteriesEntry(date: .now, mac: .success(.running(.level(percent: 79, charging: false))), devices: .success(.running(.connected(Self.five, pinned: []))), settings: Self.settings(.automatic, includeMac: true))
         #expect(try AllBatteriesWidgetTests.texts(withMac).filter { $0.hasSuffix("%") } == ["79%", "30%", "40%", "50%"])
@@ -70,25 +70,25 @@ import WidgetKit
 
     @Test func aDeviceOffTheListIsLeftOutAndTheRestKeepTheirOrder() {
         #expect(Self.names(Self.listed(Self.settings(.custom, chosen: ["C", "gone", "A"]))) == ["Device C", "Device A"])
-        #expect(Self.names(Self.listed(Self.settings(.sameAsMenuBar), pinned: ["gone", "D"])) == ["Device D"])
+        #expect(Self.names(Self.listed(Self.settings(.sameAsMenuBar), pinned: [.bluetooth("gone"), .bluetooth("D")])) == ["Device D"])
     }
 
     @Test(arguments: [WidgetDeviceChoice.custom, .sameAsMenuBar]) func theMacStaysAheadOfWhateverIsSelected(choice: WidgetDeviceChoice) {
         let settings = Self.settings(choice, chosen: ["B"], includeMac: true)
-        #expect(Self.names(Self.listed(settings, pinned: ["B"])) == [MacBattery.name.english, "Device B"])
+        #expect(Self.names(Self.listed(settings, pinned: [.bluetooth("B")])) == [MacBattery.name.english, "Device B"])
     }
 
     // MARK: when that is none
 
     /// An unlevelled device is not ranked, so these words have to hold beside one.
     @Test func noDeviceListedSaysWhy() {
-        let keyboard = WidgetDevice(address: "silent", name: "Keyboard", kind: .accessory, level: nil)
-        let silent = WidgetDevices.connected(WidgetDeviceList(ranked: [], pinned: ["silent"], unlevelled: [keyboard]))
+        let keyboard = WidgetDevice(id: .bluetooth("silent"), name: "Keyboard", kind: .accessory, level: nil)
+        let silent = WidgetDevices.connected(WidgetDeviceList(ranked: [], pinned: [.bluetooth("silent")], unlevelled: [keyboard]))
         #expect(silent.listed(by: .sameAsMenuBar) == .failure(.noneReporting))
-        #expect(silent.listed(by: .custom(["silent"])) == .failure(.noneReporting))
+        #expect(silent.listed(by: .custom([.bluetooth("silent")])) == .failure(.noneReporting))
         #expect(silent.listed(by: .custom([])) == .failure(.noneChosen))
         #expect(WidgetDevices.connected(Self.five, pinned: []).listed(by: .sameAsMenuBar) == .failure(.nonePinned))
-        #expect(WidgetDevices.connected(Self.five, pinned: []).listed(by: .custom(["gone"])) == .failure(.noneReporting))
+        #expect(WidgetDevices.connected(Self.five, pinned: []).listed(by: .custom([.bluetooth("gone")])) == .failure(.noneReporting))
         #expect(WidgetDevices.unread(.denied).listed(by: .sameAsMenuBar) == .failure(.unread(.denied)))
         #expect(WidgetDevices.unread(.denied).listed(by: .automatic) == .failure(.unread(.denied)))
     }
@@ -123,8 +123,8 @@ import WidgetKit
     }
 
     @Test func theLogsCarryHowManyAndNeverAnAddress() {
-        #expect(String(describing: WidgetDeviceSelection.custom(["AA-BB", "CC-DD"])) == "custom 2")
-        let line = String(describing: Shelved.running(WidgetDevices.connected([], pinned: ["AA-BB"])))
+        #expect(String(describing: WidgetDeviceSelection.custom([.bluetooth("AA-BB"), .bluetooth("CC-DD")])) == "custom 2")
+        let line = String(describing: Shelved.running(WidgetDevices.connected([], pinned: [.bluetooth("AA-BB")])))
         #expect(!line.contains("AA-BB"))
         #expect(line.contains("1 pinned"))
     }
@@ -132,8 +132,8 @@ import WidgetKit
     @Test func aPinnedDeviceReachesTheShelfWhetherOrNotItIsConnected() {
         var list = DeviceList()
         list.apply(.swept([]))
-        let pinned = PinnedOrder([DeviceID(address: "gone"), DeviceID(address: "here")])
-        #expect(WidgetDevices(list, pinned: pinned) == .connected([], pinned: ["gone", "here"]))
+        let pinned = PinnedOrder([DeviceID.bluetooth("gone"), DeviceID.bluetooth("here")])
+        #expect(WidgetDevices(list, pinned: pinned) == .connected([], pinned: [.bluetooth("gone"), .bluetooth("here")]))
     }
 
     // MARK: through the app
@@ -155,8 +155,8 @@ import WidgetKit
         ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(.noBattery))
         let settings = try DeviceSettingsModel(defaults: scratchDefaults())
         try settings.update {
-            $0.togglePinned(DeviceID(address: "B"))
-            $0.togglePinned(DeviceID(address: "D"))
+            $0.togglePinned(DeviceID.bluetooth("B"))
+            $0.togglePinned(DeviceID.bluetooth("D"))
         }
         var asked: [WidgetKind] = []
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
@@ -164,7 +164,7 @@ import WidgetKit
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
         let model = try DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: pinnedItems)
         send.yield(.swept(Self.addresses.enumerated().map { index, address in
-            Device(id: DeviceID(address: address), name: "Device \(address)", kind: .accessory, levels: .single(BatteryLevel(percent: 30 + 10 * index, approximate: false)))
+            Device(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory, levels: .single(BatteryLevel(percent: 30 + 10 * index, approximate: false)))
         }))
         #expect(try await eventually { try sameAsMenuBarSays() == ["40%", "60%"] })
 

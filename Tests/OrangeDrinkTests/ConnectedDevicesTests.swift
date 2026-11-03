@@ -5,7 +5,7 @@ import Testing
 struct ConnectedDevicesTests {
     private func device(_ address: String, _ name: String, kind: DeviceKind = .accessory,
                         _ levels: DeviceLevels) -> Device {
-        Device(id: DeviceID(address: address), name: name, kind: kind, levels: levels)
+        Device(id: DeviceID.bluetooth(address), name: name, kind: kind, levels: levels)
     }
     private func single(_ percent: Int, approximate: Bool = false) -> DeviceLevels {
         .single(BatteryLevel(percent: percent, approximate: approximate))
@@ -84,6 +84,6 @@ struct ConnectedDevicesTests {
 
     @Test func equalLevelsOrderByNameThenAddress() {
         let tied = [device("2", "Mouse", single(50)), device("3", "Keyboard", single(50)), device("1", "Mouse", single(50))]
-        #expect(rows(tied).map(\.id.address) == ["3", "1", "2"])
+        #expect(rows(tied).map(\.id.key) == ["3", "1", "2"])
     }
 }

@@ -24,7 +24,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     static let onBattery = MacBattery.level(percent: 79, charging: false)
 
     static func device(_ address: String, _ percent: Int, kind: DeviceKind = .accessory, approximate: Bool = false) -> WidgetDevice {
-        WidgetDevice(address: address, name: "Device \(address)", kind: kind, level: BatteryLevel(percent: percent, approximate: approximate))
+        WidgetDevice(id: .bluetooth(address), name: "Device \(address)", kind: kind, level: BatteryLevel(percent: percent, approximate: approximate))
     }
 
     static let twentyLevels = Array(stride(from: 21, through: 97, by: 4))
@@ -389,7 +389,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     // MARK: the options
 
     static func device(named name: String, _ percent: Int = 54, kind: DeviceKind = .accessory) -> WidgetDevice {
-        WidgetDevice(address: name, name: name, kind: kind, level: BatteryLevel(percent: percent, approximate: false))
+        WidgetDevice(id: .bluetooth(name), name: name, kind: kind, level: BatteryLevel(percent: percent, approximate: false))
     }
 
     static let named = [device(named: "iPhone", 95, kind: .phone), device(named: "AirPods")]
@@ -463,7 +463,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     /// The name takes the room, not the percentage: however long it is, the longest percentage is where a short one leaves it, in every language.
     @Test(arguments: [WidgetStyle.list, .bars], WidgetFamilies.allBatteries) func aNameLeavesThePercentageInItsColumn(style: WidgetStyle, family: WidgetFamily) throws {
         func column(_ name: String, _ language: AppLanguage) throws -> Data {
-            let device = WidgetDevice(address: name, name: name, kind: .accessory, level: RowPercentage.longest)
+            let device = WidgetDevice(id: .bluetooth(name), name: name, kind: .accessory, level: RowPercentage.longest)
             let image = try Self.image(Self.entry(.noBattery, [device], style: style) { $0.showNames = true }, family, content: Self.content(family), language: language)
             let cell = try BatteryGrid(family, style).cell(in: Self.content(family)).width * 2
             let width = try (Self.percentageColumn(language) + 4) * 2
