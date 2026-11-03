@@ -15,7 +15,7 @@ HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c
 XCB_SETTINGS ?=
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)' $(XCB_SETTINGS)
 
-.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
+.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check iphone-list iphone-capture iphone-devices-test
 
 generate:
 	xcodegen generate --use-cache
