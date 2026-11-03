@@ -125,9 +125,11 @@ import Testing
         #expect(power == PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: true, sound: false))
     }
 
-    @MainActor @Test func aTemperatureSwitchOfTheWrongTypeFailsLoudlyInsteadOfReadingAsOn() throws {
-        let defaults = try Self.stored { $0["temperature"] = "off" }
-        #expect(throws: DecodingError.self) { try AlertSettingsModel(defaults: defaults) }
+    @MainActor @Test func aTemperatureSwitchOfTheWrongTypeOrNullFailsLoudlyInsteadOfReadingAsOn() throws {
+        for wrong in ["off" as Any, NSNull()] {
+            let defaults = try Self.stored { $0["temperature"] = wrong }
+            #expect(throws: DecodingError.self) { try AlertSettingsModel(defaults: defaults) }
+        }
     }
 }
 

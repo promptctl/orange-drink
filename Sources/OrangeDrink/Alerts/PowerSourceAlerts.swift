@@ -13,12 +13,12 @@ struct PowerSourceAlerts: Codable, Equatable, Sendable {
 
 extension PowerSourceAlerts {
     /// [LAW:parse-dont-validate] The Temperature switch is absent from what a release before it
-    /// stored, and reads as on; a stored value of the wrong type still fails the launch.
+    /// stored, and reads as on; a stored value of the wrong type, `null` included, still fails the launch.
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         pluggedIn = try values.decode(Bool.self, forKey: .pluggedIn)
         unplugged = try values.decode(Bool.self, forKey: .unplugged)
-        temperature = try values.decodeIfPresent(Bool.self, forKey: .temperature) ?? true
+        temperature = values.contains(.temperature) ? try values.decode(Bool.self, forKey: .temperature) : true
         sound = try values.decode(Bool.self, forKey: .sound)
     }
 }
