@@ -36,6 +36,7 @@ import ServiceManagement
     /// catalog test reads it: how to fix one the user can fix, what went wrong otherwise.
     static func explanation(of failure: HelperUseFailure, appName: String) -> Phrase {
         switch failure.cause {
+        case .helperFileUnreadable: "\(appName) lost its helper. Reopen \(appName) to change Low Power Mode."
         case .needsApproval: "Allow \(appName) in the background to change Low Power Mode."
         case .notRegistered, .notAnswering: "\(appName)'s helper isn't answering, so Low Power Mode didn't change."
         case .other: "Couldn't change Low Power Mode: \(failure.call.description)"

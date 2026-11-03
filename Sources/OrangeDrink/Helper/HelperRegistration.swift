@@ -214,6 +214,9 @@ struct HelperRegistration: Sendable {
         }
     }
 
+    /// [LAW:one-source-of-truth] The helper file in this bundle as it is now: the read every ask of `register` is behind.
+    func helperFile() -> HelperFile { HelperFile(effects.embedded()) }
+
     /// Returns once the steps ahead of this call have run, so no ask meets a service not registered yet.
     func waitForSteps() {
         queue.sync {}

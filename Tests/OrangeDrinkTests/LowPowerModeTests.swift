@@ -290,20 +290,27 @@ import Testing
 
     @Test func aCallThatSucceedsReadsNoStatus() throws {
         let reads = Reads()
-        let value = try HelperAccess.explained({ () throws(HelperCallError) in 7 }, status: { reads.count += 1; return .requiresApproval }, reconcile: { _ in reads.count += 1 })
+        let value = try HelperAccess.explained({ () throws(HelperCallError) in 7 }, status: { reads.count += 1; return .requiresApproval },
+                                               helperFile: { reads.count += 1; return .readable }, reconcile: { _ in reads.count += 1 })
         #expect(value == 7 && reads.count == 0)
     }
 
-    @Test(arguments: [SMAppService.Status.requiresApproval, .enabled, .notRegistered, .notFound])
-    func aCallThatFailsKeepsItsErrorAndTheStatusReadOnceAndTheRegistrationHearsIt(status: SMAppService.Status) {
+    @Test(arguments: [SMAppService.Status.requiresApproval, .enabled, .notRegistered, .notFound], [HelperFile.readable, .unreadable("gone")])
+    func aCallThatFailsKeepsItsErrorAndTheStatusAndFileReadOnceAndTheRegistrationHearsIt(status: SMAppService.Status, file: HelperFile) {
         let reads = Reads()
         let error = HelperCallError.connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x")
         var heard: [HelperUseFailure] = []
         #expect {
-            try HelperAccess.explained({ () throws(HelperCallError) in throw error }, status: { reads.count += 1; return status }, reconcile: { heard.append($0) })
-        } throws: { ($0 as? HelperUseFailure) == HelperUseFailure(call: error, status: status) }
-        #expect(reads.count == 1)
-        #expect(heard == [HelperUseFailure(call: error, status: status)])
+            try HelperAccess.explained({ () throws(HelperCallError) in throw error }, status: { reads.count += 1; return status },
+                                       helperFile: { reads.count += 1; return file }, reconcile: { heard.append($0) })
+        } throws: { ($0 as? HelperUseFailure) == HelperUseFailure(call: error, status: status, helperFile: file) }
+        #expect(reads.count == 2)
+        #expect(heard == [HelperUseFailure(call: error, status: status, helperFile: file)])
+    }
+
+    @Test func theRegistrationsReadOfTheFileIsKeptAsWhatItFound() {
+        #expect(HelperFile(.success(Data([1])) as Result<Data, HelperFailure>) == .readable)
+        #expect(HelperFile(.failure(HelperFailure("gone")) as Result<Data, HelperFailure>) == .unreadable("gone"))
     }
 
     static let noReply = HelperCallError.noReply(seconds: 10, service: "x")
@@ -326,6 +333,32 @@ import Testing
     ])
     func aFailureHasOneCause(call: HelperCallError, status: SMAppService.Status, cause: HelperUseFailure.Cause) {
         #expect(HelperUseFailure(call: call, status: status).cause == cause)
+    }
+
+    /// With no file to run, approval and registration have nothing to act on, so whatever the status says, only reopening
+    /// helps; a helper that answered is still there.
+    @Test(arguments: [noReply, connection], [SMAppService.Status.requiresApproval, .enabled, .notRegistered, .notFound])
+    func aFailureOnACopyWithNoHelperFileIsOnlyFixedByReopening(call: HelperCallError, status: SMAppService.Status) {
+        #expect(HelperUseFailure(call: call, status: status, helperFile: .unreadable("gone")).cause == .helperFileUnreadable)
+    }
+
+    @Test func aHelperThatAnsweredIsNotBlamedOnTheFile() {
+        for call in [HelperCallError.failed("x"), .unsupported("x")] {
+            #expect(HelperUseFailure(call: call, status: .notFound, helperFile: .unreadable("gone")).cause == .other)
+        }
+    }
+
+    @Test func aFailureOnACopyWithNoHelperFileSaysWhyBesideItsStatus() {
+        #expect(HelperUseFailure(call: Self.connection, status: .notFound, helperFile: .unreadable("gone")).description
+                    .hasSuffix("(cause helperFileUnreadable, helper status notFound; helper file unreadable: gone)"))
+    }
+
+    @MainActor @Test func aControlSaysToReopenTheAppWhenItsHelperFileIsGone() {
+        for status in [SMAppService.Status.notFound, .notRegistered, .enabled, .requiresApproval] {
+            let failure = HelperUseFailure(call: Self.connection, status: status, helperFile: .unreadable("gone"))
+            #expect(LowPowerMode.explanation(of: failure, appName: "App") == "\("App") lost its helper. Reopen \("App") to change Low Power Mode.")
+            #expect(ChargingScreen.explanation(of: failure, appName: "App") == "\("App") lost its helper. Reopen \("App") to hold the charge limit.")
+        }
     }
 
     /// [LAW:no-silent-failure] A status of enabled is not left to read as the truth.
