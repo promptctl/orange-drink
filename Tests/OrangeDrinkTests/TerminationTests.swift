@@ -91,7 +91,7 @@ import Testing
 
     // [LAW:behavior-not-structure] A real signal from a real process, end to end to the file. SIGUSR2 because the
     // test host is the app, whose own watch of SIGTERM would end it.
-    @Test(.timeLimit(.minutes(1))) func aSignalFromAnotherProcessIsRecordedWithThatProcesssPid() async throws {
+    @Test func aSignalFromAnotherProcessIsRecordedWithThatProcesssPid() async throws {
         let sender = Process()
         sender.executableURL = URL(filePath: "/bin/kill")
         sender.arguments = ["-USR2", "\(getpid())"]

@@ -29,7 +29,7 @@ private let unreadStates = [
     DeviceState(name: "the stream ended", events: [.permission(.allowed), .swept([DeviceListTests.mouse])], ends: true, reason: "Devices unavailable"),
 ]
 
-@MainActor @Suite(.timeLimit(.minutes(1))) final class WidgetDeviceStatesTests {
+@MainActor @Suite final class WidgetDeviceStatesTests {
     let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")
 
     init() throws {

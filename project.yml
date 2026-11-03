@@ -139,8 +139,12 @@ targets:
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "Reads the battery levels of your paired Bluetooth devices."
     scheme:
       testTargets: [OrangeDrinkTests]
-      # Text a test reads follows the host's language, so the tests name theirs. This reaches the scheme's Run action too,
-      # so Xcode runs the app in English on any Mac; a build from make is not touched.
+      # The tests' language and the time limit of every test that names none: a test awaiting a state that never comes
+      # fails instead of hanging the run. A plan, because build-for-testing writes it into the .xctestrun vm-test replays.
+      testPlans:
+        - path: OrangeDrink.xctestplan
+          defaultPlan: true
+      # Xcode's Run action in English on any Mac; a build from make is not touched.
       language: en
   # Its own scheme, so `make test` never runs it: scripts/vm-check-lib runs it in a VM, because a UI test takes the screen.
   OrangeDrinkUITests:

@@ -16,7 +16,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     (family, CGSize(width: size.width - 2 * AllBatteriesWidgetTests.margin, height: size.height - 2 * AllBatteriesWidgetTests.margin))
 }
 
-@MainActor @Suite(.timeLimit(.minutes(1))) final class AllBatteriesWidgetTests {
+@MainActor @Suite final class AllBatteriesWidgetTests {
     /// WidgetKit keeps this margin inside a widget: a rendering is the content area.
     nonisolated static let margin: CGFloat = 16
 

@@ -16,7 +16,7 @@ final class Reads: @unchecked Sendable {
 
 // [LAW:behavior-not-structure] The contract is when a reading is taken and what "Updated" says,
 // on a clock the test moves and readings it supplies.
-@Suite(.timeLimit(.minutes(1))) @MainActor struct BatteryRefresh {
+@Suite @MainActor struct BatteryRefresh {
     /// A model whose first reading has arrived, over a clock and a counted read.
     func model() async throws -> (BatteryModel, ManualTimekeeper, Reads, AsyncThrowingStream<BatteryReading?, any Error>.Continuation) {
         let first = try BatteryEvents.onBattery

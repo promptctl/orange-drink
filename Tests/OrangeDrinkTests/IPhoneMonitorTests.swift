@@ -95,7 +95,7 @@ import Testing
     }
 
     /// How many log lines since `log` began contain `fragment`.
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func pluggingInSwitchesOnWifiSyncOnceAndReadsOverTheCableEachPollInterval() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let syncs = OSAllocatedUnfairLock(initialState: 0)
@@ -117,7 +117,7 @@ import Testing
         #expect(harness.opened.withLock { $0 } == [5])
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aSnapshotEntryAndItsListenAttachReadOnceAndFailuresAreYielded() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
@@ -139,7 +139,7 @@ import Testing
         #expect(try await log.logged(Self.decision("\(UsbmuxEvent.attached(Self.usb(5, "B")))", [])))
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aDeviceThatDropsOffWifiAndReturnsDuringItsRestIsReadAtThePollAndNotBefore() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
@@ -164,7 +164,7 @@ import Testing
         #expect(try await log.count("iphone pacer started: E", awaiting: 1) == 1)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aDeviceGoneAtThePollIsReadOnItsNextAttach() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
@@ -191,7 +191,7 @@ import Testing
         #expect(try await log.count("iphone pacer started: F", awaiting: 2) == 2)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func pullingTheCableOfADeviceOnWifiWhileItRestsReadsItOverWifiAtThePoll() async throws {
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in
@@ -212,7 +212,7 @@ import Testing
         #expect(reads.withLock { $0 } == 2)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aReadWhoseCableIsPulledMidReadFailsOverTheCableAndTheNextGoesOverWifiAtThePoll() async throws {
         let cableReads = OSAllocatedUnfairLock(initialState: 0)
         let cableReadMayFinish = DispatchSemaphore(value: 0)
@@ -234,7 +234,7 @@ import Testing
         #expect(cableReads.withLock { $0 } == 1)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func pairingAfterAFailedReadAddsNoReadAndTheNextComesAtThePoll() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
@@ -257,7 +257,7 @@ import Testing
 
     // A read over a held relay is one request; opening one is two TLS handshakes. While usbmuxd keeps the handle, every
     // poll reads over the one relay.
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aDeviceUsbmuxdKeepsListedIsReadOverOneRelayEveryPoll() async throws {
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(snapshot: { [Self.wifi(6, "R")] }) { _, _ throws(IPhoneReadError) in
@@ -279,7 +279,7 @@ import Testing
 
     // iphone-check switches Wi-Fi sync off with the device cabled: usbmuxd's snapshot can still list its Wi-Fi handle,
     // ahead of the cable, and drop it a moment later (lm3.1tt cmt-d1c4f03c). The first read goes over the cable.
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aDeviceTheSnapshotListsOverWifiThenTheCableIsFirstReadOverTheCable() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let snapshot = [Self.wifi(6, "P"), Self.usb(5, "P")]
@@ -298,7 +298,7 @@ import Testing
     }
 
     // usbmuxd drops a Wi-Fi device's handle and lists it again under another; the relay went with the old handle.
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aDeviceListedAgainUnderANewHandleIsReadOverANewRelay() async throws {
         let harness = try Harness(snapshot: { [Self.wifi(6, "S")] }) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
@@ -318,7 +318,7 @@ import Testing
 
     // A relay that fails is not read again: the failure is yielded, and the next poll opens a new relay. A relay that
     // cannot be opened is a failed read too.
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aFailedReadOrOpenIsYieldedAndTheNextPollOpensANewRelay() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
@@ -347,7 +347,7 @@ import Testing
         #expect(try await log.count("iphone read delivered: T over network, relay held", awaiting: 1) == 1)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func endingTheStreamCancelsEveryPacer() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let harness = try Harness(snapshot: { [Self.wifi(6, "B"), Self.wifi(7, "C")] }) { _, _ throws(IPhoneReadError) in Self.reading }
@@ -362,7 +362,7 @@ import Testing
         #expect(try await log.logged("iphone pacer ended: C: monitor stopped"))
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aReadInFlightWhenTheStreamEndsIsDroppedAndItsPacerEnds() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
@@ -383,7 +383,7 @@ import Testing
         #expect(reads.withLock { $0 } == 1)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aDeviceSeenAfterTheMonitorEndedIsNeitherReadNorWrittenTo() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let reads = OSAllocatedUnfairLock(initialState: 0)
@@ -404,7 +404,7 @@ import Testing
         #expect(syncs.withLock { $0 } == 0)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aClosedListenConnectionEndsTheStream() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let harness = try Harness(snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }
@@ -415,7 +415,7 @@ import Testing
         #expect(try await log.logged("iphone monitor failed: closed"))
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aMalformedStartupSnapshotEndsTheStream() async throws {
         let harness = try Harness(snapshot: { try usbmuxDeviceList(["DeviceList": "not a list"]) }) { _, _ throws(IPhoneReadError) in
             Self.reading
@@ -426,7 +426,7 @@ import Testing
         #expect(events == [.failed(.usbmux(.missingKey("DeviceList")))])
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aConsumerThatStopsListeningStopsTheMonitor() async throws {
         let log = try BatteryLog(category: IPhoneMonitor.logCategory)
         let harness = try Harness(snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }

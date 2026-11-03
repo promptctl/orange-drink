@@ -73,7 +73,7 @@ import WidgetKit
 
     // [LAW:behavior-not-structure] Each callback reaches what it is for: a real signal is watched from the launch, and a
     // quit leaves its record. SIGUSR1 because the test host is the app, and TerminationTests has SIGUSR2.
-    @Test(.timeLimit(.minutes(1))) func quittingStillGoesThroughTheTerminationLog() async throws {
+    @Test func quittingStillGoesThroughTheTerminationLog() async throws {
         let quits = QuitRecords(url: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString), build: "test build")
         defer { try? FileManager.default.removeItem(at: quits.url) }
         let (asked, ask) = AsyncStream.makeStream(of: Void.self)

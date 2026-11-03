@@ -3,7 +3,7 @@ import Testing
 
 // [LAW:behavior-not-structure] The contract is which state each element of the readings
 // stream leaves the model in, checked from a stream the test feeds, with no powerd in the room.
-@Suite(.timeLimit(.minutes(1))) struct BatteryModelStates {
+@Suite struct BatteryModelStates {
     struct StreamEnded: Error {}
 
     @MainActor @Test func holdsEachReadingThenTheErrorThatEndedTheStream() async throws {

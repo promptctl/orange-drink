@@ -7,7 +7,7 @@ import WidgetKit
 
 // [LAW:behavior-not-structure] The contract is what the screen says, what its controls do to the preview, and what the
 // preview draws, from the app's own models fed stand-in readings and devices, with no window.
-@MainActor @Suite(.timeLimit(.minutes(1))) final class WidgetsScreenTests {
+@MainActor @Suite final class WidgetsScreenTests {
     /// The Mac at 80% charging and two simulated devices, as the models hold them.
     @MainActor struct Bed {
         let feed: AsyncThrowingStream<BatteryReading?, any Error>.Continuation

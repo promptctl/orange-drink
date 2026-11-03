@@ -90,7 +90,7 @@ import Testing
     }
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.
-    @MainActor @Test(.timeLimit(.minutes(1))) func appModelHoldsTheCurrentReading() async throws {
+    @MainActor @Test func appModelHoldsTheCurrentReading() async throws {
         let model = BatteryModel(readings: BatteryMonitor.readings())
         let direct = try #require(try IOKitBattery.read())
         switch await model.state(once: BatteryModel.isSettled) {
