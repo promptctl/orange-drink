@@ -14,17 +14,27 @@ struct AlertEngine: Equatable, Sendable {
         var armed: Bool
     }
     private var tracked: [Alert.ID: Tracked] = [:]
-    /// The reading before this one: plug, unplug, and temperature alerts are changes between two.
+    /// The reading before this one: plug and unplug alerts are changes between two.
     private var previous: BatteryReading?
+    /// Whether the next move out of Normal is announced. A fired warning, or a launch already out of
+    /// Normal, waits to be re-armed by `TemperatureState.isRearmed`, as a threshold alert does.
+    private var temperatureArmed = true
 
     /// Everything this reading sets off, thresholds first. The first reading has no change to
     /// announce, as a threshold already crossed at launch is not announced.
     ///
     /// [LAW:one-source-of-truth] Plug and unplug are `BatteryEvent`s and the hot state is the
     /// panel's `TemperatureState`; this only selects which of them the user asked to hear.
+    /// The temperature is followed with its switch off too, as thresholds are, so switching it on
+    /// while the battery is hot announces nothing until it has cooled and heated again.
     mutating func observe(_ reading: BatteryReading, alerts: [Alert], power: PowerSourceAlerts) -> [Firing] {
         let thresholds = observe(level: reading.chargePercent, alerts: alerts).map(Firing.threshold)
         defer { previous = reading }
+        // [LAW:one-source-of-truth] A `Heat` exists exactly when the reading is out of Normal.
+        let heat = TemperatureState.Heat(TemperatureState(reading.temperature))
+        // The first reading disarms a launch already out of Normal, but announces nothing.
+        let wasArmed = temperatureArmed
+        temperatureArmed = wasArmed ? heat == nil : TemperatureState.isRearmed(by: reading.temperature)
         guard let previous else { return thresholds }
         let adapter: [Firing] = BatteryEvent.changes(from: previous, to: reading).compactMap {
             switch $0 {
@@ -33,10 +43,11 @@ struct AlertEngine: Equatable, Sendable {
             case .levelChanged: nil
             }
         }
-        // [LAW:one-source-of-truth] A `Heat` exists exactly when the reading is out of Normal, so leaving it is `wasNormal` and a heat.
-        guard power.temperature, TemperatureState(previous.temperature) == .normal,
-              let heat = TemperatureState.Heat(TemperatureState(reading.temperature)) else { return thresholds + adapter }
-        return thresholds + adapter + [.temperatureWarning(heat, sound: power.sound)]
+        let temperature: [Firing] = switch (wasArmed && power.temperature, heat) {
+        case (true, let heat?): [.temperatureWarning(heat, sound: power.sound)]
+        default: []
+        }
+        return thresholds + adapter + temperature
     }
 
     /// The alerts this level crosses. An alert met for the first time, or whose kind or threshold
