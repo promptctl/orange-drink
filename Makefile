@@ -251,9 +251,8 @@ app-energy-check: generate
 	$(XCB) build-for-testing
 	@set -e; \
 	terminal=$$(swift scripts/hidden-terminal.swift 'yes > /dev/null'); \
-	status=0; $(XCB) -only-testing:OrangeDrinkTests/AppEnergyLive test-without-building || status=$$?; \
-	kill "$$terminal"; \
-	exit $$status
+	trap 'kill -KILL "$$terminal" 2>/dev/null || true' EXIT; \
+	$(XCB) -only-testing:OrangeDrinkTests/AppEnergyLive test-without-building
 
 # [LAW:verifiable-goals] PROJECT.md's 0.1% steady-state CPU bar, measured on the Release build
 # launched as a user runs it. Prints the percent and the power state; fails over the bar.

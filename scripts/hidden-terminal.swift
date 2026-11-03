@@ -17,12 +17,14 @@ configuration.createsNewApplicationInstance = true
 configuration.hides = true
 configuration.activates = false
 configuration.arguments = ["-ApplePersistenceIgnoreState", "YES"]
+// The handler runs on another queue; the semaphore both waits for it and publishes `opened` to this thread.
 var opened: Result<NSRunningApplication, Error>?
+let done = DispatchSemaphore(value: 0)
 NSWorkspace.shared.openApplication(at: terminal, configuration: configuration) { app, error in
     opened = app.map { .success($0) } ?? .failure(error ?? CocoaError(.featureUnsupported))
-    CFRunLoopStop(CFRunLoopGetMain())
+    done.signal()
 }
-CFRunLoopRun()
+done.wait()
 let app: NSRunningApplication
 do { app = try opened!.get() } catch { fail("Terminal did not open: \(error)") }
 
@@ -31,7 +33,13 @@ let doScript = NSAppleEventDescriptor(eventClass: AEEventClass(0x636F_7265), eve
                                       targetDescriptor: NSAppleEventDescriptor(processIdentifier: app.processIdentifier),
                                       returnID: AEReturnID(kAutoGenerateReturnID), transactionID: AETransactionID(kAnyTransactionID))
 doScript.setParam(NSAppleEventDescriptor(string: CommandLine.arguments[1]), forKeyword: AEKeyword(keyDirectObject))
-do { _ = try doScript.sendEvent(options: [.waitForReply], timeout: 30) } catch {
+// Terminal can answer with an error in its reply rather than fail the send.
+do {
+    let reply = try doScript.sendEvent(options: [.waitForReply], timeout: 30)
+    if let code = reply.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value, code != 0 {
+        throw NSError(domain: NSOSStatusErrorDomain, code: Int(code))
+    }
+} catch {
     app.forceTerminate()
     fail("Terminal did not run the command: \(error)")
 }
