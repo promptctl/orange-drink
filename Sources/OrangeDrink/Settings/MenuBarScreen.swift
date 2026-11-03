@@ -14,7 +14,19 @@ extension MenuBarIconConfig.Style {
         switch self {
         case .batteryIndicator: "Shows battery level and charging status – \(appName)'s opinionated design"
         case .minimal: "Minimalistic iPhone-style battery indicator"
-        case .logo: "Static \(appName) logo icon"
+        case .logo: "\(appName) logo that fills with your charge and glows while charging"
+        }
+    }
+}
+
+extension MenuBarIconConfig.Glyph {
+    var title: Phrase {
+        switch self {
+        case .bottle: "Bottle"
+        case .orange: "Orange"
+        case .jar: "Jar"
+        case .strawBolt: "Straw Bolt"
+        case .glassRing: "Glass"
         }
     }
 }
@@ -68,6 +80,11 @@ struct MenuBarScreen: View {
                         }
                     }
                     Group {
+                        if config.style == .logo {
+                            SettingRow(icon: ("drop.fill", .orange), title: "Logo", description: "Choose the drawing that fills with your charge") {
+                                PopUpButton(selection: edits.binding(\.glyph), options: MenuBarIconConfig.Glyph.allCases, title: { $0.title.text(in: language) })
+                            }
+                        }
                         SettingRow(icon: ("checklist", .purple), title: "Display", description: "Choose what to display in the menu bar icon") {
                             PopUpButton(selection: Binding(get: { edits.value.renderedDisplay }, set: { display in edits.perform { $0.display = display } }), options: config.style.displays, title: { $0.title.text(in: language) })
                         }
@@ -121,7 +138,10 @@ struct MenuBarPreview: View {
             HStack {
                 Image(systemName: "apple.logo").font(.system(size: 11)).foregroundStyle(.white)
                 Spacer()
-                Image(nsImage: Self.icon(config).image)
+                ZStack {
+                    Self.icon(config).halo.map { HaloView(halo: $0) }
+                    Image(nsImage: Self.icon(config).image)
+                }
             }
             .padding(.horizontal, 10).frame(height: 22)
             Arrow().stroke(.white, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
@@ -155,6 +175,23 @@ struct MenuBarPreview: View {
                 }
             }
         }
+    }
+}
+
+/// The preview's halo, breathing as the status item's does: same image, same `HaloBreath`.
+private struct HaloView: View {
+    let halo: Halo
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var high = false
+
+    var body: some View {
+        let breath = HaloBreath(reduceMotion: reduceMotion)
+        let (x1, y1, x2, y2) = HaloBreath.curve
+        Image(nsImage: halo.image)
+            .opacity(Double(breath == .steady ? HaloBreath.still : high ? HaloBreath.high : HaloBreath.low))
+            .animation(.timingCurve(x1, y1, x2, y2, duration: HaloBreath.duration).repeatForever(autoreverses: true), value: high)
+            .onAppear { high = true }
+            .accessibilityHidden(true)
     }
 }
 

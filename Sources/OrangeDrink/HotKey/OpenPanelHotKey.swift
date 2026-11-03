@@ -61,7 +61,8 @@ import OSLog
         button.performClick(nil)
     }
 
-    private static func itemButton() -> NSStatusBarButton? {
+    /// [LAW:one-source-of-truth] The app's own status item button, for everything that acts on it: this panel and the halo.
+    static func itemButton() -> NSStatusBarButton? {
         func buttons(in view: NSView) -> [NSStatusBarButton] {
             (view as? NSStatusBarButton).map { [$0] } ?? view.subviews.flatMap(buttons(in:))
         }

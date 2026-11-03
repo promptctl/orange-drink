@@ -1,0 +1,120 @@
+#!/usr/bin/env -S uv run --quiet --with numpy --with opencv-python-headless python -I
+"""Writes the app's mark from scripts/brand/originals: the AppIcon set, the menu bar glyph masks, and the README hero.
+
+The originals are Gemini art already run through deblock.py (Gemini leaves faint block artifacts in flat areas).
+Every output is committed; rerun this after changing an original.
+  outline  the glyph's ink.
+  liquid   what the outline encloses, minus a hairline gap around every ink line, so a same-colour fill never
+           swallows a detail. The app fills it bottom-up to the charge.
+  halo     the charging glow: the whole silhouette (outline and liquid) blurred outward, with the silhouette cut
+           away so nothing shows through the glyph. The app tints it and animates only its opacity.
+"""
+import json, pathlib, sys
+import cv2, numpy as np
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+ORIGINALS = ROOT / "scripts/brand/originals"
+CATALOG = ROOT / "Sources/OrangeDrink/Assets.xcassets"
+# Whether the glyph's enclosed area shows the charge. The straw bolt's is only its thin stripes, which read as
+# noise when filled, so its liquid mask is empty and the whole glyph carries the state colour instead.
+GLYPHS = {"bottle": True, "orange": True, "jar": True, "straw-bolt": False, "glass-ring": True}
+GLYPH_PX = 64   # 16pt at 4x: sharp at every menu bar scale
+HALO_PAD = GLYPH_PX // 4
+
+
+def read(name, flags=cv2.IMREAD_UNCHANGED):
+    image = cv2.imread(str(ORIGINALS / name), flags)
+    if image is None:
+        sys.exit(f"make-assets: cannot read {ORIGINALS / name}")
+    return image
+
+
+def imageset(name, png):
+    folder = CATALOG / f"{name}.imageset"
+    folder.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(folder / f"{name}.png"), png)
+    (folder / "Contents.json").write_text(json.dumps({
+        "images": [{"filename": f"{name}.png", "idiom": "universal"}],
+        "info": {"author": "xcode", "version": 1},
+        # The app tints these itself; the menu bar must not.
+        "properties": {"template-rendering-intent": "original"},
+    }, indent=2) + "\n")
+
+
+def app_icon():
+    art = read("app-icon.png", cv2.IMREAD_COLOR)
+    # The squircle is everything with colour; the art's grey drop shadow and the white page are not. The shape's
+    # interior highlights are filled back in as holes of the largest region.
+    hsv = cv2.cvtColor(art, cv2.COLOR_BGR2HSV)
+    coloured = ((hsv[..., 1] > 30) | (hsv[..., 2] < 150)).astype(np.uint8)
+    coloured = cv2.morphologyEx(coloured, cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
+    _, labels, stats, _ = cv2.connectedComponentsWithStats(coloured)
+    largest = (labels == 1 + int(np.argmax(stats[1:, 4]))).astype(np.uint8)
+    contours, _ = cv2.findContours(largest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    shape = cv2.drawContours(np.zeros_like(largest), contours, -1, 1, cv2.FILLED)
+    shape = cv2.erode(shape, np.ones((3, 3), np.uint8))
+    alpha = cv2.GaussianBlur(shape.astype(np.float32), (0, 0), 1.5)
+    x, y, bw, bh = cv2.boundingRect(shape)
+    rgba = np.dstack([art, (alpha * 255).astype(np.uint8)])[y:y + bh, x:x + bw]
+    # Apple's macOS icon grid: the shape spans 824 of 1024, centred.
+    side = 824
+    body = cv2.resize(rgba, (side, side), interpolation=cv2.INTER_AREA)
+    canvas = np.zeros((1024, 1024, 4), np.uint8)
+    canvas[100:100 + side, 100:100 + side] = body
+    folder = CATALOG / "AppIcon.appiconset"
+    folder.mkdir(parents=True, exist_ok=True)
+    images = []
+    for points in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            px = points * scale
+            name = f"icon_{points}x{points}{'@2x' if scale == 2 else ''}.png"
+            cv2.imwrite(str(folder / name), cv2.resize(canvas, (px, px), interpolation=cv2.INTER_AREA))
+            images.append({"filename": name, "idiom": "mac", "scale": f"{scale}x", "size": f"{points}x{points}"})
+    (folder / "Contents.json").write_text(json.dumps({"images": images, "info": {"author": "xcode", "version": 1}}, indent=2) + "\n")
+
+
+def glyph(name, shows_level):
+    outline = read(f"{name}-outline.png", cv2.IMREAD_GRAYSCALE) > 127
+    liquid = (read(f"{name}-liquid.png", cv2.IMREAD_GRAYSCALE) > 127) & shows_level
+    # The crop picks up slivers of the neighbouring glyphs on the sheet: keep the box of the largest shape.
+    joined = cv2.dilate(outline.astype(np.uint8), np.ones((25, 25), np.uint8))
+    _, _, stats, _ = cv2.connectedComponentsWithStats(joined)
+    x, y, w, h = stats[1 + int(np.argmax(stats[1:, 4]))][:4]
+    keep = np.zeros_like(outline)
+    keep[y:y + h, x:x + w] = True
+    outline &= keep
+    liquid &= keep & (cv2.dilate(outline.astype(np.uint8), np.ones((11, 11), np.uint8)) == 0)
+    # Square crop around the glyph, so every glyph sits in the same box at the same height.
+    side = max(w, h)
+    cx, cy = x + w // 2, y + h // 2
+    def square(mask):
+        padded = np.pad(mask.astype(np.float32), side)
+        return padded[cy + side - side // 2: cy + side + side - side // 2, cx + side - side // 2: cx + side + side - side // 2]
+    size = (GLYPH_PX, GLYPH_PX)
+    o = cv2.resize(square(outline), size, interpolation=cv2.INTER_AREA)
+    l = cv2.resize(square(liquid), size, interpolation=cv2.INTER_AREA)
+    silhouette = cv2.resize(square(outline | keep & (read(f"{name}-liquid.png", cv2.IMREAD_GRAYSCALE) > 127)), size, interpolation=cv2.INTER_AREA)
+    big = np.pad(silhouette, HALO_PAD)
+    halo = np.clip(cv2.GaussianBlur(big, (0, 0), GLYPH_PX * 0.085) * 2.2, 0, 1)
+    halo *= 1 - np.clip(cv2.dilate(big, np.ones((3, 3), np.uint8)), 0, 1)
+    def mask_png(alpha):
+        a = (np.clip(alpha, 0, 1) * 255 + 0.5).astype(np.uint8)
+        return np.dstack([np.zeros_like(a)] * 3 + [a])
+    imageset(f"glyph-{name}-outline", mask_png(o))
+    imageset(f"glyph-{name}-liquid", mask_png(l))
+    imageset(f"glyph-{name}-halo", mask_png(halo))
+
+
+def hero():
+    art = read("hero.png", cv2.IMREAD_COLOR)
+    out = ROOT / "docs/images/hero.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(out), cv2.resize(art, (1792, 592), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_PNG_COMPRESSION, 9])
+
+
+CATALOG.mkdir(parents=True, exist_ok=True)
+(CATALOG / "Contents.json").write_text(json.dumps({"info": {"author": "xcode", "version": 1}}, indent=2) + "\n")
+app_icon()
+for name, shows_level in GLYPHS.items():
+    glyph(name, shows_level)
+hero()

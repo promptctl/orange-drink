@@ -17,6 +17,7 @@ struct OrangeDrinkApp: App {
     @State private var alerts: AlertCenter
     @State private var appearance: NotificationAppearanceModel
     @State private var menuBarIcon: MenuBarIconModel
+    private let statusItemHalo = StatusItemHalo()
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
     @State private var launchAtLogin = LaunchAtLogin(effects: .live, center: .default)
@@ -151,7 +152,7 @@ struct OrangeDrinkApp: App {
         MenuBarExtra {
             PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, updates: updates, keyboard: keyboard, look: look, language: language)
         } label: {
-            StatusItemLabel(state: battery.state, icon: menuBarIcon, language: language)
+            StatusItemLabel(state: battery.state, icon: menuBarIcon, language: language, halo: statusItemHalo)
         }
         .menuBarExtraStyle(.window)
 

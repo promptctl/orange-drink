@@ -15,10 +15,11 @@ One large card. It opens with a three-option radio list. Each option row has a b
 | --- | --- | --- |
 | Battery Indicator | "Shows battery level and charging status – {App}'s opinionated design" | yes |
 | Minimal | "Minimalistic iPhone-style battery indicator" | no |
-| {App} Logo | "Static {App} logo icon" | no |
+| {App} Logo | "{App} logo that fills with your charge and glows while charging" | no |
 
-Below the radio list, still inside the card, four settings rows with icon tiles. They're indented slightly more than the radio rows:
+Below the radio list, still inside the card, four settings rows with icon tiles. They're indented slightly more than the radio rows. With the Logo style chosen, a fifth row comes first:
 
+0. **Logo.** Orange tile with a drop. Description "Choose the drawing that fills with your charge". Pop-up button: Bottle (default), Orange, Jar, Straw Bolt, Glass. The glyph is drawn in the bar's ink, filled from its bottom to 22% + 78% of the charge, orange when low and red when critical; while charging, a white-yellow glow breathes around it (steady under Reduce Motion). Art and masks: `scripts/brand/make-assets`.
 1. **Display.** Purple tile with a checklist glyph. Description "Choose what to display in the menu bar icon". Pop-up button, value "Percentage". Presumably the other values include time remaining and icon only.
 2. **Color.** Orange tile with a half-filled circle. Description "Match your menu bar style". Pop-up button, value "Light".
 3. **Size.** Blue tile with the glyph "AA" (small A, large A). Description "Make the icon and its text larger and easier to read". Pop-up button, value "Default".

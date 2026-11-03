@@ -134,6 +134,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_IDENTIFIER)
         INFOPLIST_KEY_LSUIElement: YES
+        # Sources/OrangeDrink/Assets.xcassets, written by scripts/brand/make-assets.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "Reads the battery levels of your paired Bluetooth devices."
     scheme:
       testTargets: [OrangeDrinkTests]

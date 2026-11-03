@@ -71,13 +71,51 @@ import Testing
         }
     }
 
-    @Test func minimalFillsDifferentlyAtDifferentChargesAndLogoDoesNot() throws {
+    @Test func minimalFillsDifferentlyAtDifferentCharges() throws {
         let (low, high) = (try Self.discharging(40), try Self.discharging(90))
         let minimal = { (reading: BatteryReading) in Self.pixels(Self.icon(reading) { $0.style = .minimal; $0.display = .iconOnly }) }
         #expect(minimal(low).bytes != minimal(high).bytes)
-        let logo = { (reading: BatteryReading) in Self.pixels(Self.icon(reading) { $0.style = .logo }) }
-        #expect(logo(low).bytes == logo(high).bytes)
-        #expect(Self.icon(low) { $0.style = .logo }.battery == nil)
+    }
+
+    /// The liquid rises with the charge, and even 5% shows; the straw bolt's level never shows, by design.
+    @Test(arguments: MenuBarIconConfig.Glyph.allCases)
+    func theLogoFillsWithTheCharge(glyph: MenuBarIconConfig.Glyph) throws {
+        func inked(_ percent: Int) throws -> Int {
+            Self.pixels(Self.icon(try Self.discharging(percent)) { $0.style = .logo; $0.glyph = glyph; $0.statusColors = false }).opaque
+        }
+        let empty = Self.pixels(MenuBarIcon(noBattery: { var c = MenuBarIconConfig(); c.style = .logo; c.glyph = glyph; return c }(), on: .dark)).opaque
+        let (four, fifty, full) = (try inked(4), try inked(50), try inked(100))
+        if glyph == .strawBolt {
+            #expect(Set([empty, four, fifty, full]).count == 1)
+        } else {
+            #expect(empty < four && four < fifty && fifty < full, "\(empty) \(four) \(fifty) \(full)")
+        }
+        #expect(empty > 0, "the outline is drawn")
+    }
+
+    @Test func theLogoIsOrangeWhenLowRedWhenCriticalAndNeverGreen() throws {
+        func hues(_ reading: BatteryReading) -> [Pixels.Hue] {
+            let pixels = Self.pixels(Self.icon(reading) { $0.style = .logo })
+            return [Pixels.Hue.green, .orange, .red].filter { pixels.count(of: $0) > 0 }
+        }
+        #expect(hues(try Self.discharging(15)) == [.orange])
+        #expect(hues(try Self.discharging(4)) == [.red])
+        #expect(hues(try Self.discharging(60)) == [])
+        #expect(hues(try Self.charging(60)) == [])
+    }
+
+    /// Charging is the halo, the same at every charge; status colours off turns it off with the colours.
+    @Test func theLogoGlowsWhileChargingAndOnlyThen() throws {
+        func halo(_ reading: BatteryReading, _ edit: (inout MenuBarIconConfig) -> Void = { _ in }) -> Halo? {
+            Self.icon(reading) { $0.style = .logo; $0.glyph = .jar; edit(&$0) }.halo
+        }
+        #expect(halo(try Self.charging(10)) != nil)
+        #expect(halo(try Self.charging(10)) == halo(try Self.charging(95)))
+        #expect(halo(try Self.discharging(50)) == nil)
+        #expect(halo(try Self.charging(50)) { $0.statusColors = false } == nil)
+        #expect(Self.icon(try Self.charging(50)).halo == nil, "the battery styles say charging in green")
+        let image = try #require(halo(try Self.charging(50))).image
+        #expect(Pixels(image).opaque > 0)
     }
 
     @Test(arguments: [MenuBarIconConfig.Style.batteryIndicator, .minimal])
@@ -147,6 +185,9 @@ struct Pixels {
 
     /// The pixel at (x, y) of the 2x bitmap, counted from the top left.
     func color(_ x: Int, _ y: Int) -> NSColor? { rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) }
+
+    /// How many pixels are mostly opaque.
+    var opaque: Int { (0..<width).reduce(0) { sum, x in sum + (0..<height).filter { (color(x, $0)?.alphaComponent ?? 0) > 0.5 }.count } }
 
     /// How many pixels are `hue`.
     func count(of hue: Hue) -> Int { (0..<width).reduce(0) { sum, x in sum + (0..<height).filter { matches(x, $0, hue) }.count } }
