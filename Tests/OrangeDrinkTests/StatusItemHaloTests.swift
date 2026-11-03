@@ -51,8 +51,32 @@ import Testing
         NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
         #expect(owner.layer.superlayer === button.layer)
         #expect(!owner.layer.isHidden && owner.layer.contents != nil)
-        #expect(owner.layer.frame == CGRect(x: 3, y: -1, width: 24, height: 24))
+        // 24pt asked for, held to the 22pt bar so the window never cuts the glow flat.
+        #expect(owner.layer.frame == CGRect(x: 4, y: 0, width: 22, height: 22))
         #expect(owner.layer.animation(forKey: HaloBreath.key) != nil)
+    }
+
+    @Test func aButtonThatResizesOrIsReplacedKeepsTheHaloCentredOnIt() {
+        var button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 40, height: 22))
+        let owner = StatusItemHalo(findButton: { button }, reduceMotion: { false })
+        owner.show(Self.halo)
+        button.frame.size.width = 22
+        NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
+        #expect(owner.layer.frame == CGRect(x: 0, y: 0, width: 22, height: 22))
+        button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
+        NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
+        #expect(owner.layer.superlayer === button.layer)
+        #expect(owner.layer.frame == CGRect(x: 4, y: 0, width: 22, height: 22))
+    }
+
+    @Test func updatesThatChangeNothingLeaveTheBreathRunning() throws {
+        let button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
+        let owner = StatusItemHalo(findButton: { button }, reduceMotion: { false })
+        owner.show(Self.halo)
+        let first = try #require(owner.layer.animation(forKey: HaloBreath.key))
+        owner.show(Self.halo)
+        NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
+        #expect(owner.layer.animation(forKey: HaloBreath.key) === first)
     }
 
     @Test func noHaloHidesTheLayer() {

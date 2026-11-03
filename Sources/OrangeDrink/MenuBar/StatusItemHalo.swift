@@ -5,14 +5,17 @@ import QuartzCore
 /// away, so it never covers the glyph. SwiftUI draws a `MenuBarExtra` label into the bar as a still
 /// image, so an animation can live only here, where Core Animation composites it.
 ///
-/// [LAW:no-ambient-temporal-coupling] The halo asked for is state: `show` keeps it, and it reaches the button
-/// whenever the button exists, whether the label asked before the status bar window was made or after.
+/// [LAW:no-ambient-temporal-coupling] The halo asked for is state: `show` keeps it, and every window update
+/// reconciles the layer with it and with whichever button exists now, so a button made late, replaced, or
+/// resized after the label changed still ends up carrying the halo, centred.
 @MainActor final class StatusItemHalo {
     let layer = CALayer()
     private var wanted: Halo?
-    private var button: NSStatusBarButton?
-    private var windowUpdates: (any NSObjectProtocol)?
-    private var motionChanges: (any NSObjectProtocol)?
+    private weak var button: NSStatusBarButton?
+    private var breath: HaloBreath?
+    // Removing an observer is thread-safe, so deinit may release these outside the main actor.
+    nonisolated(unsafe) private var windowUpdates: (any NSObjectProtocol)?
+    nonisolated(unsafe) private var motionChanges: (any NSObjectProtocol)?
     private let findButton: @MainActor () -> NSStatusBarButton?
     private let reduceMotion: @MainActor () -> Bool
 
@@ -21,39 +24,48 @@ import QuartzCore
         self.findButton = findButton
         self.reduceMotion = reduceMotion
         layer.contentsGravity = .resizeAspect
+        // A standalone layer animates every property change by default; the halo changes only by its breath.
+        layer.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull(), "hidden": NSNull(),
+                         "opacity": NSNull(), "contentsScale": NSNull()]
         motionChanges = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.apply() }
         }
-        // Each window update looks for the button until it exists; attaching stops the looking.
         windowUpdates = NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.attach() }
+            MainActor.assumeIsolated { self?.apply() }
         }
+    }
+
+    deinit {
+        windowUpdates.map(NotificationCenter.default.removeObserver)
+        motionChanges.map(NSWorkspace.shared.notificationCenter.removeObserver)
     }
 
     func show(_ halo: Halo?) {
         wanted = halo
-        attach()
         apply()
     }
 
-    private func attach() {
-        guard button == nil, let found = findButton() else { return }
-        button = found
-        found.wantsLayer = true
-        found.layer?.addSublayer(layer)
-        windowUpdates.map(NotificationCenter.default.removeObserver)
-        windowUpdates = nil
-        apply()
-    }
-
+    /// Writes only what differs, so the many window updates cost a comparison and never restart the breath.
     private func apply() {
-        layer.isHidden = wanted == nil
-        layer.contents = wanted?.image
-        let side = wanted?.side ?? 0
+        if let found = findButton(), found !== button {
+            button = found
+            found.wantsLayer = true
+            found.layer?.addSublayer(layer)
+        }
+        if layer.isHidden != (wanted == nil) { layer.isHidden = wanted == nil }
+        if layer.contents as AnyObject? !== wanted?.image { layer.contents = wanted?.image }
         let bounds = button?.bounds ?? .zero
-        layer.frame = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
-        layer.contentsScale = button?.window?.backingScaleFactor ?? 2
-        HaloBreath(reduceMotion: reduceMotion()).apply(to: layer)
+        // The bar is only so tall; a halo taller than the button would be cut flat at the window's edges.
+        let side = min(wanted?.side ?? 0, bounds.height)
+        let frame = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
+        if layer.frame != frame { layer.frame = frame }
+        let scale = button?.window?.backingScaleFactor ?? 2
+        if layer.contentsScale != scale { layer.contentsScale = scale }
+        let next = HaloBreath(reduceMotion: reduceMotion())
+        if next != breath {
+            breath = next
+            next.apply(to: layer)
+        }
     }
 }

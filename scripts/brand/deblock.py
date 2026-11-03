@@ -1,4 +1,6 @@
-import sys, cv2, numpy as np
+#!/usr/bin/env -S uv run --quiet --with numpy --with opencv-contrib-python-headless python -I
+# Usage: deblock.py SRC OUT. Writes OUT and OUT's stem + "-mask" beside it. guidedFilter is in opencv-contrib.
+import os, sys, cv2, numpy as np
 src, out = sys.argv[1], sys.argv[2]
 img = cv2.imread(src, cv2.IMREAD_COLOR).astype(np.float32) / 255
 # Edge map: where the art has real detail. Block seams are far weaker than these edges.
@@ -16,4 +18,5 @@ rng = np.random.default_rng(7)
 grain = cv2.GaussianBlur(rng.normal(0, 1, gray.shape).astype(np.float32), (0, 0), 0.7)[..., None]
 mixed = np.clip(mixed + grain * 0.012, 0, 1)
 cv2.imwrite(out, (mixed * 255 + 0.5).astype(np.uint8))
-cv2.imwrite(out.replace('.png', '-mask.png'), ((1 - detail[..., 0]) * 255).astype(np.uint8))
+stem, ext = os.path.splitext(out)
+cv2.imwrite(stem + '-mask' + ext, ((1 - detail[..., 0]) * 255).astype(np.uint8))

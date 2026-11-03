@@ -17,7 +17,7 @@ struct OrangeDrinkApp: App {
     @State private var alerts: AlertCenter
     @State private var appearance: NotificationAppearanceModel
     @State private var menuBarIcon: MenuBarIconModel
-    private let statusItemHalo = StatusItemHalo()
+    @State private var statusItemHalo = StatusItemHalo()
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
     @State private var launchAtLogin = LaunchAtLogin(effects: .live, center: .default)

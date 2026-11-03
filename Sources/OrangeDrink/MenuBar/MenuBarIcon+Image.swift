@@ -69,10 +69,9 @@ extension MenuBarIcon {
         }
     }
 
-    /// The glow behind the Logo glyph while it charges; nil otherwise. Charging is the indicator's green, which is
-    /// set only while charging with status colours on, so the halo follows the same switch the colours do.
+    /// The glow behind the Logo glyph while it charges with status colours on; nil otherwise.
     var halo: Halo? {
-        guard case .logo(let glyph, let battery?) = shape, battery.tint == .green else { return nil }
+        guard case .logo(let glyph, let battery?) = shape, battery.glows else { return nil }
         return Halo(glyph: glyph, ink: color, side: Self.logoSide * LogoGlyph.haloRatio * size.scale)
     }
 

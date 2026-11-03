@@ -190,7 +190,9 @@ private struct HaloView: View {
         Image(nsImage: halo.image)
             .opacity(Double(breath == .steady ? HaloBreath.still : high ? HaloBreath.high : HaloBreath.low))
             .animation(.timingCurve(x1, y1, x2, y2, duration: HaloBreath.duration).repeatForever(autoreverses: true), value: high)
+            // A repeating animation starts only on a change of `high`, so motion turned back on flips it again.
             .onAppear { high = true }
+            .onChange(of: reduceMotion) { high.toggle() }
             .accessibilityHidden(true)
     }
 }
