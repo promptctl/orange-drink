@@ -32,8 +32,14 @@ test: ci-test
 # The part of `test` that needs no trusted terminal, which the test workflow runs on a hosted runner and the release
 # refuses a commit without (scripts/release-tested). ax-check cannot run there: it fails loudly without an
 # Accessibility-trusted terminal, so it stays a developer's step in `test`.
+# The tests it leaves out are the ones that ask this Mac a question a hosted runner's VM cannot answer: BatteryLive reads
+# the Mac's battery, which the VM has none of; the two HelperBuildTests read the Developer ID team off the helper's
+# signature, which the ad-hoc build there lacks; and pmsetRunsToItsEndOrItsDeadline reads pmset's power mode, which the VM
+# does not list. `make test` on a developer's Mac runs them.
+CI_UNANSWERABLE := BatteryLive HelperBuildTests/helperIsSignedToServeOnlyThisApp() HelperBuildTests/releaseHelpersRefuseADebuggableApp() \
+  PowerModeKeyTests/pmsetRunsToItsEndOrItsDeadline()
 ci-test: generate
-	$(call gated,test)
+	$(call gated,test,$(foreach t,$(CI_UNANSWERABLE),'-skip-testing:$(APP)Tests/$(t)'))
 	$(MAKE) hardware-check-test
 	$(MAKE) release-test
 	$(MAKE) vm-check-test
