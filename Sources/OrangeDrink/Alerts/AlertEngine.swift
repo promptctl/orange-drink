@@ -16,9 +16,9 @@ struct AlertEngine: Equatable, Sendable {
     private var tracked: [Alert.ID: Tracked] = [:]
     /// The reading before this one: plug and unplug alerts are changes between two.
     private var previous: BatteryReading?
-    /// Whether the next move out of Normal is announced; nil until the first reading says which. A
-    /// fired warning waits to be re-armed by `TemperatureState.isRearmed`, as a threshold alert does.
-    private var temperatureArmed: Bool?
+    /// Whether the next move out of Normal is announced. A fired warning, or a launch already out of
+    /// Normal, waits to be re-armed by `TemperatureState.isRearmed`, as a threshold alert does.
+    private var temperatureArmed = true
 
     /// Everything this reading sets off, thresholds first. The first reading has no change to
     /// announce, as a threshold already crossed at launch is not announced.
@@ -32,19 +32,20 @@ struct AlertEngine: Equatable, Sendable {
         defer { previous = reading }
         // [LAW:one-source-of-truth] A `Heat` exists exactly when the reading is out of Normal.
         let heat = TemperatureState.Heat(TemperatureState(reading.temperature))
-        let wasArmed = temperatureArmed ?? (heat == nil)
+        // The first reading disarms a launch already out of Normal, but announces nothing.
+        let wasArmed = temperatureArmed
         temperatureArmed = wasArmed ? heat == nil : TemperatureState.isRearmed(by: reading.temperature)
-        let temperature: [Firing] = switch (wasArmed && power.temperature, heat) {
-        case (true, let heat?): [.temperatureWarning(heat, sound: power.sound)]
-        default: []
-        }
-        guard let previous else { return thresholds + temperature }
+        guard let previous else { return thresholds }
         let adapter: [Firing] = BatteryEvent.changes(from: previous, to: reading).compactMap {
             switch $0 {
             case .plugged: power.pluggedIn ? .pluggedIn(sound: power.sound) : nil
             case .unplugged: power.unplugged ? .unplugged(sound: power.sound) : nil
             case .levelChanged: nil
             }
+        }
+        let temperature: [Firing] = switch (wasArmed && power.temperature, heat) {
+        case (true, let heat?): [.temperatureWarning(heat, sound: power.sound)]
+        default: []
         }
         return thresholds + adapter + temperature
     }

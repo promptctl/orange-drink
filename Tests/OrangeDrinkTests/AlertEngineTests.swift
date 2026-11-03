@@ -243,6 +243,11 @@ import Testing
             == [.temperatureWarning(.warm, sound: true), .temperatureWarning(.hot, sound: true)])
     }
 
+    @Test func aWarmBatteryThatCoolsOnlyIntoTheDeadBandAndGoesHotIsNotWarnedAgain() throws {
+        let run = try [30, 36, 34, 41].map { try Self.battery(celsius: $0) }
+        #expect(Self.firings(run) == [.temperatureWarning(.warm, sound: true)])
+    }
+
     @Test func aMacLaunchedWarmIsWarnedAboutOnlyAfterCoolingPastTheRearmPoint() throws {
         let run = try [36, 34.9, 35.1, 32, 35.1].map { try Self.battery(celsius: $0) }
         #expect(Self.firings(run) == [.temperatureWarning(.warm, sound: true)])
