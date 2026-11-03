@@ -39,6 +39,7 @@ struct Device: Equatable, Sendable, Identifiable {
     let name: String
     let kind: DeviceKind
     let levels: DeviceLevels
+
     /// [LAW:parse-dont-validate] The one place a device's name is chosen: the user's alias, else the
     /// name the device broadcasts, else its address. IOBluetooth answers "" for a name it does not
     /// have yet (orange-devices-bue.suy), so a blank is no name, never a name.
@@ -205,17 +206,20 @@ private extension Array where Element == SourceDevice {
 
 private extension Device {
     /// One device from the source devices that share an identity: at most one claimer and the Bluetooth device at its address.
-    /// The claimer is read from the device itself, so it comes first, and its kind and levels stand: Bluetooth's level for a
-    /// phone the claimer lists is never shown, so a stale one cannot move the level an alert watches. The name is the first
-    /// that is one, else the identity's key, as `Device.name(alias:broadcast:address:)` falls back, so `hasName` reads a
-    /// presented phone as it reads any device and `SeenDevices` never stores a UDID as its name.
+    /// The claimer is read from the device itself, so its kind and levels stand: Bluetooth's level for a phone the claimer
+    /// lists is never shown, so a stale one cannot move the level an alert watches. The name is the Bluetooth twin's if it is
+    /// one, because that is the user's alias, the name System Settings shows and the one a pin or alert was set under, so it does
+    /// not change when a cable is plugged in; else the claimer's if it is one, else the identity's key, as
+    /// `Device.name(alias:broadcast:address:)` falls back, so `hasName` reads a presented phone as it reads any device and
+    /// `SeenDevices` never stores a UDID as its name.
     static func merged(_ members: [SourceDevice]) -> Device {
-        let ordered = members.sorted { $0.alsoBluetooth != nil && $1.alsoBluetooth == nil }
-        let survivor = ordered[0]
+        let claimer = members.claimers.first
+        let twin = members.first { $0.alsoBluetooth == nil }
+        let survivor = claimer ?? members[0]
         let identity = survivor.presentedID
         return Device(
-            id: identity, name: ordered.first(where: { $0.device.hasName })?.name ?? identity.key, kind: survivor.kind,
-            levels: survivor.levels)
+            id: identity, name: [twin, claimer].lazy.compactMap { $0 }.first { $0.device.hasName }?.name ?? identity.key,
+            kind: survivor.kind, levels: survivor.levels)
     }
 }
 

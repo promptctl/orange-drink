@@ -25,8 +25,8 @@ private enum Phone {
     }
 
     /// The phone as the list presents it once the iPhone source has listed it: under the address, which is the identity a
-    /// pin, a bell or a hide of it is stored under.
-    static func shown(_ levels: DeviceLevels, name: String = "Brandon's iPhone") -> Device {
+    /// pin, a bell or a hide of it is stored under, with the name Bluetooth gives it.
+    static func shown(_ levels: DeviceLevels, name: String = "Brandon’s iPhone") -> Device {
         Device(id: address, name: name, kind: .phone, levels: levels)
     }
 }
@@ -58,9 +58,20 @@ struct DeviceMergeListTests {
         #expect(merged.devices.map(\.id) == [Phone.address])
     }
 
-    @Test func theNameAndKindAreTheIPhonesOwn() {
-        let merged = list(bluetooth: [Phone.paired(Phone.level(80), name: "iPhone")], iPhone: [Phone.cabled(Phone.level(62), name: "Brandon's iPhone")])
-        #expect(merged.devices.map(\.name) == ["Brandon's iPhone"])
+    /// The Bluetooth name is the user's alias, the name System Settings shows, so plugging in the cable does not rename the phone;
+    /// the iPhone's own name stands only where Bluetooth has none.
+    @Test func theNameIsBluetoothsWhenItHasOneElseTheIPhones() {
+        let aliased = list(bluetooth: [Phone.paired(Phone.level(80), name: "My Phone")], iPhone: [Phone.cabled(Phone.level(62), name: "Brandon's iPhone")])
+        #expect(aliased.devices.map(\.name) == ["My Phone"])
+        let unnamed = list(bluetooth: [Phone.paired(Phone.level(80), name: Phone.address.key)], iPhone: [Phone.cabled(Phone.level(62), name: "Brandon's iPhone")])
+        #expect(unnamed.devices.map(\.name) == ["Brandon's iPhone"])
+        let cabledOnly = list(bluetooth: [], iPhone: [Phone.cabled(Phone.level(62), name: "Brandon's iPhone")])
+        #expect(cabledOnly.devices.map(\.name) == ["Brandon's iPhone"])
+    }
+
+    @Test func theKindIsTheIPhonesOwn() {
+        let merged = list(bluetooth: [SourceDevice(id: Phone.address, name: "iPhone", kind: .accessory, levels: Phone.level(80))], iPhone: [Phone.cabled(Phone.level(62))])
+        #expect(merged.devices.map(\.kind) == [.phone])
     }
 
     // [LAW:one-source-of-truth] What the user attached to the phone is stored under one identity, and whichever sources list
@@ -95,13 +106,13 @@ struct DeviceMergeListTests {
     @Test func whenBluetoothStopsListingThePhoneTheIPhoneIsStillPresentedUnderTheAddress() {
         var merged = list(bluetooth: [Phone.paired(Phone.level(80))], iPhone: [Phone.cabled(Phone.level(62))])
         merged.apply(.gone(Phone.address), from: .bluetooth)
-        #expect(merged.devices == [Phone.shown(Phone.level(62))])
+        #expect(merged.devices == [Phone.shown(Phone.level(62), name: "Brandon's iPhone")])
         merged.end(.bluetooth)
-        #expect(merged.devices == [Phone.shown(Phone.level(62))])
+        #expect(merged.devices == [Phone.shown(Phone.level(62), name: "Brandon's iPhone")])
     }
 
     @Test func aPhoneNamingAnAddressNobodyListsIsPresentedUnderIt() {
-        #expect(list(bluetooth: [], iPhone: [Phone.cabled(Phone.level(62))]).devices == [Phone.shown(Phone.level(62))])
+        #expect(list(bluetooth: [], iPhone: [Phone.cabled(Phone.level(62))]).devices == [Phone.shown(Phone.level(62), name: "Brandon's iPhone")])
     }
 
     @Test func otherDevicesAreUntouchedByAPhonesClaim() {
