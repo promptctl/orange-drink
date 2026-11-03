@@ -28,7 +28,7 @@ replaces one. A tag moved after its run began fails that run at publishing (`scr
 release never pairs one commit's DMG with another commit's tag.
 
 A tag runs the workflow in its own commit, so a commit off master can carry a copy with `preflight` removed, and
-that copy still asks for the same approval. The approval is what protects the Developer ID key, which is why step 4
+that copy still asks for the same approval. The approval is what protects the Developer ID key, which is why step 3
 checks the commit.
 
 ## The `release` environment's secrets
