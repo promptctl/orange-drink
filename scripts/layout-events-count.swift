@@ -130,5 +130,6 @@ guard voids.isEmpty else {
     exit(1)
 }
 
-summary(of: arrivals.filter { $0.at >= start }.map { ($0.at - start, $0.source) }, over: elapsed).forEach { print("layout-events-count: \($0)") }
+// The loop ends just past the requested seconds; counting that overshoot as a window of its own would add a sixth minute to 300 s.
+summary(of: arrivals.filter { $0.at >= start }.map { ($0.at - start, $0.source) }, over: min(elapsed, seconds)).forEach { print("layout-events-count: \($0)") }
 print("layout-events-count: at end \(after.line)")
