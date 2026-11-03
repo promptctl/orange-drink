@@ -125,8 +125,8 @@ import Testing
                     "\("50%") of your apps' total energy in the last \("24h"). If you're not actively using it, closing it could meaningfully extend battery life.",
                     "It's drawing about \("1.5")× more energy than its typical share. It may be stuck in a loop or doing background work. Restart it if you're not actively using it."]
         phrases += ["Close", "Plugged In", "On Battery", "Show Glow"]
-        phrases += try [TemperatureState.Heat.warm, .hot].flatMap {
-            let pill = PillContent.temperature($0, reading: try PowerAndTemperatureAlerts.battery(celsius: 41))
+        phrases += try [(TemperatureState.Heat.warm, 36.0), (.hot, 41)].flatMap { heat, celsius in
+            let pill = PillContent.temperature(heat, reading: try PowerAndTemperatureAlerts.battery(celsius: celsius))
             return [pill.headline, pill.subline!]
         }
         phrases += DevicesHelpLine.all.flatMap { [$0.text] + ($0.link.map { [$0.title] } ?? []) }
