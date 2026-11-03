@@ -1,7 +1,8 @@
 @testable import OrangeDrink
 
 // What NotificationCenter's accessibility tree showed on macOS 26.6.2, 15.7.7, and 14.8.7, in English, French, Japanese,
-// Simplified Chinese, Arabic, Brazilian Portuguese, and Polish, from spikes/orange-distribution-kg2.o9e/output.txt.
+// Simplified Chinese, Arabic, Brazilian Portuguese, and Polish, from the run committed
+// with orange-distribution-kg2.o9e (af7ee2c holds its scripts; orange-spikes-gbf.dz6 turns them into a make target).
 // ControlCenter's own code posted the low battery alerts, and Script Editor the others. Bidi marks are written as escapes.
 enum NotificationFixtures {
     static let lowBatteryAlerts = [

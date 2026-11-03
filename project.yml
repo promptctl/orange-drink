@@ -17,7 +17,7 @@ settings:
     # [LAW:one-source-of-truth] Every build is signed with the Developer ID identity and the Hardened
     # Runtime, so the app developed on runs under the rules the shipped one does. An ad-hoc build
     # cannot back the team-prefixed app group, and macOS 26.5 stops its first write to the group
-    # container behind a prompt (spikes/orange-widgets-5jo.tlr/output.txt §4). The team is written
+    # container behind a prompt (orange-widgets-5jo.tlr's output.txt §4, in git at af7ee2c). The team is written
     # here alone; scripts/developer-id reads it back.
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: Developer ID Application
