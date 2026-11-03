@@ -131,6 +131,27 @@ in_lib "$raised; list() { printf '%s\n' '$alert_a'; }; raise 3 '$alert_a'" || st
 expect_status 1 "only the baseline's alert showing"
 ok "raise withdraws the warning, raises it, and succeeds only for an alert beyond its baseline"
 
+# `withdrawn`, with `list` showing the alert until the warning has gone 3 then 1, as macOS 26's stuck alert did.
+withdraw() {
+  : >"$scratch/warns"
+  status=0
+  in_lib "$raised; $1; withdrawn" || status=$?
+}
+expect_warns() { [ "$(tr '\n' ' ' <"$scratch/warns")" = "$1" ] || broken "$2: the warning was sent as: $(tr '\n' ' ' <"$scratch/warns")"; }
+withdraw 'list() { :; }'
+expect_status 0 "nothing showing"
+expect_warns '' "nothing showing"
+withdraw "list() { [ \"\$(tr '\\n' ' ' <'$scratch/warns')\" = 'warn 3 warn 1 ' ] || printf '%s\\n' '$alert_a'; }"
+expect_status 0 "an alert that goes when the level changes"
+expect_warns 'warn 3 warn 1 ' "an alert that goes when the level changes"
+withdraw "list() { printf '%s\\n' '$alert_a'; }"
+expect_status 1 "an alert that stays"
+expect_warns 'warn 3 warn 1 ' "an alert that stays"
+withdraw 'list() { return 1; }'
+expect_status 1 "a tree that could not be read"
+expect_warns '' "a tree that could not be read"
+ok "withdrawn sends nothing for an empty or unreadable tree, changes the level 3 then 1 for one showing, and succeeds only once nothing shows"
+
 [ "$(in_lib "as_literal 'say \"hi\" \\ it’s'")" = 'say \"hi\" \\ it’s' ] || broken "as_literal did not escape a quote and a backslash"
 ok "as_literal escapes the quote and backslash that would end an AppleScript string"
 
