@@ -230,6 +230,24 @@ import Testing
         #expect(Self.firings([normal, hot, hot, normal, hot]) == [.temperatureWarning(.hot, sound: true), .temperatureWarning(.hot, sound: true)])
     }
 
+    @Test func aBatteryHoveringAtTheWarmBoundaryIsWarnedAboutOnce() throws {
+        let run = try [34.9, 35.1, 34.9, 35.2, 34.9, 35.1].map { try Self.battery(celsius: $0) }
+        #expect(Self.firings(run) == [.temperatureWarning(.warm, sound: true)])
+    }
+
+    @Test func theWarningIsRearmedExactlyTwoDegreesBackFromTheWarmBoundary() throws {
+        let (warm, hot) = (try Self.battery(celsius: 36), try Self.battery(celsius: 41))
+        let (justOver, justUnder) = (TemperatureState.rearmCelsius, TemperatureState.rearmCelsius - 0.01)
+        #expect(Self.firings([try Self.battery(), warm, try Self.battery(celsius: justOver), hot]) == [.temperatureWarning(.warm, sound: true)])
+        #expect(Self.firings([try Self.battery(), warm, try Self.battery(celsius: justUnder), hot])
+            == [.temperatureWarning(.warm, sound: true), .temperatureWarning(.hot, sound: true)])
+    }
+
+    @Test func aMacLaunchedWarmIsWarnedAboutOnlyAfterCoolingPastTheRearmPoint() throws {
+        let run = try [36, 34.9, 35.1, 32, 35.1].map { try Self.battery(celsius: $0) }
+        #expect(Self.firings(run) == [.temperatureWarning(.warm, sound: true)])
+    }
+
     @Test func warmIsAsFarAsNormalGoesAndStaysOneWarning() throws {
         let (normal, warm, hot) = (try Self.battery(), try Self.battery(celsius: 36), try Self.battery(celsius: 41))
         #expect(Self.firings([normal, warm, hot, warm]) == [.temperatureWarning(.warm, sound: true)])

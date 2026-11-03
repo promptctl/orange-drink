@@ -10,6 +10,16 @@ enum TemperatureState: Equatable, Sendable {
     /// Temperatures from which a battery is called warm and hot, in °C.
     static let warmCelsius = 35.0, hotCelsius = 40.0
 
+    /// A battery that has warned is warned about again only once it has cooled to under this, in °C:
+    /// the same dead band the threshold alerts keep (`Alert.hysteresis`), so a battery hovering at
+    /// `warmCelsius` is one warning, not one per upward crossing.
+    static let rearmCelsius = warmCelsius - 2
+
+    /// The battery has cooled far enough back from `warmCelsius` that heating up again is news.
+    static func isRearmed(by temperature: Measurement<UnitTemperature>) -> Bool {
+        temperature.converted(to: .celsius).value < rearmCelsius
+    }
+
     init(_ temperature: Measurement<UnitTemperature>) {
         switch temperature.converted(to: .celsius).value {
         case ..<Self.warmCelsius: self = .normal
