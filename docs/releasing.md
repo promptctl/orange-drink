@@ -17,9 +17,9 @@ Check for Updates… row is pressed. The release marked latest is the update eve
    exits 0 for a commit on master.
 
 The `preflight` job runs first, with no approval. It fails a tag that is not `v<MARKETING_VERSION>` or whose
-commit is not on master (`scripts/release-preflight`), and a tag whose commit has a job of the `test` workflow
-(`.github/workflows/test.yaml`) that did not succeed (`scripts/release-tested`). So a bad tag is read from a failed
-run (`gh run view <id> --log-failed`) and is never put up for approval.
+commit is not on master (`scripts/release-preflight`). The `tested` job follows it and fails a tag whose commit has a
+job of the `test` workflow (`.github/workflows/test.yaml`) that did not succeed (`scripts/release-tested`). So a bad tag
+is read from a failed run (`gh run view <id> --log-failed`) and is never put up for approval.
 
 The `test` workflow runs `make ci-test`, which is `make test` less the checks named in step 2 (the Makefile's
 `ci-test` comment says why each cannot run on a hosted runner). A commit's run starts when it reaches master, so a tag

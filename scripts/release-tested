@@ -18,7 +18,7 @@ fail() { echo "release-tested: $*" >&2; exit 1; }
 commit=${1:?usage: scripts/release-tested <commit>}
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
 workflow="$(dirname "$0")/../.github/workflows/test.yaml"
-checks=$(ruby -ryaml -e 'puts YAML.load_file(ARGV[0]).fetch("jobs").keys' "$workflow") || fail "cannot read the jobs of $workflow"
+checks=$(ruby -ryaml -e 'puts YAML.load_file(ARGV[0]).fetch("jobs").map { |id, job| job.fetch("name", id) }' "$workflow") || fail "cannot read the jobs of $workflow"
 [ -n "$checks" ] || fail "$workflow has no jobs, so no test run could vouch for $commit"
 
 interval=${RELEASE_TESTED_INTERVAL:-10}
@@ -27,10 +27,11 @@ attempts=$((1800 / interval)); appear=$((180 / interval))
 
 # One budget for every job, so the workflow's timeout holds however many jobs test.yaml has.
 polls=0
-for check in $checks; do
+while IFS= read -r -u 3 check; do
   verdict=none
+  query=$(jq -rn --arg name "$check" '$name | @uri')
   for attempt in $(seq "$attempts"); do
-    verdict=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/check-runs?check_name=$check" \
+    verdict=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/check-runs?check_name=$query" \
       --jq '[.check_runs[] | select(.app.slug == "github-actions")] | sort_by(.id) | last | if . == null then "none" else (.conclusion // .status) end')
     case $verdict in
       queued | in_progress | pending | waiting | requested) polls=$((polls + 1)); [ "$polls" -lt "$attempts" ] || break ;;
@@ -40,5 +41,5 @@ for check in $checks; do
     sleep "$interval"
   done
   [ "$verdict" = success ] || fail "check $check on $commit is $verdict, not success"
-done
+done 3<<<"$checks"
 echo "release-tested: $(echo $checks) passed on $commit"

@@ -264,6 +264,12 @@ expect "a job still running is waited for, and the commit passes when it succeed
 calls_reset
 runs lint "$(cr 1 in_progress null)" "$(cr 1 completed '"failure"')"
 expect "a job that fails after being waited for refuses the commit" 1 "check lint on abc is failure" -- "$t/scripts/release-tested" abc
+# A job's check run is named by its `name:` when it has one, not by its key, and the name is URL-encoded to ask for it.
+printf 'name: test\njobs:\n  unit:\n    name: Unit tests\n    runs-on: x\n' >"$t/.github/workflows/test.yaml"
+rm -f "$scratch"/runs.*; calls_reset
+runs "Unit%20tests" "$green"
+expect "a job with a name is read by that name" 0 "Unit tests passed on abc" -- "$t/scripts/release-tested" abc
+printf 'name: test\njobs:\n  test:\n    runs-on: x\n  lint:\n    runs-on: x\n' >"$t/.github/workflows/test.yaml"
 # The wait is one budget for all jobs: the first waits once, so the second has the rest of the 180 polls, not a fresh 180.
 calls_reset
 runs test "$(cr 1 in_progress null)" "$green"; runs lint "$(cr 1 in_progress null)"

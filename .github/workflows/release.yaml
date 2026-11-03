@@ -22,6 +22,21 @@ jobs:
   # naming the wrong version or sitting off master fails here at once, in a run nobody is asked to approve.
   preflight:
     runs-on: macos-26
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: scripts/release-preflight "$TAG"
+
+  # [LAW:single-enforcer] scripts/release-tested judges the commit's test run. It only polls the API, so it is not on
+  # a macOS runner for the up-to-half-hour it may wait, and it is after preflight so a bad tag never waits on a test run.
+  # Both jobs are before the release job, so a commit whose tests failed is never put up for approval.
+  tested:
+    needs: preflight
+    runs-on: ubuntu-24.04
     # release-tested waits up to half an hour for the test run, so this outlasts it.
     timeout-minutes: 40
     # checks: the test run's result is read from the commit's check runs.
@@ -30,13 +45,7 @@ jobs:
       checks: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - run: scripts/release-preflight "$TAG"
-      # After the tag's own checks, so a bad tag fails at once and never waits on a test run. It is here, before
-      # the release job, so a commit whose tests failed is never put up for approval.
-      - name: The tagged commit is tested
-        env:
+      - env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/release-tested "$GITHUB_SHA"
 
@@ -44,7 +53,7 @@ jobs:
   # them: a tag pushed from a branch runs that branch's copy of this file, so no check in it can be what
   # protects the Developer ID key.
   release:
-    needs: preflight
+    needs: [preflight, tested]
     runs-on: macos-26
     environment: release
     # The build, then two notary waits of at most 30 minutes each (scripts/notarize), so a stalled

@@ -1,6 +1,7 @@
 # Runs the tests on a GitHub-hosted Mac, so a commit is known to build and pass somewhere other than the machine
-# it was written on. The release workflow reads this file's job names and refuses a tag whose commit has any of
-# them not green (scripts/release-tested), so renaming or adding a job changes what a release requires.
+# it was written on. The release workflow reads this file's jobs, each by its `name:` or else its key, and refuses a
+# tag whose commit has any of them not green (scripts/release-tested), so renaming or adding a job changes what a
+# release requires.
 name: test
 
 on:
