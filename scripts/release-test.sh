@@ -29,6 +29,13 @@ case "$(basename "$0") $1 $2" in
   "security find-identity -v")
     [ ! -e "$SCRATCH/no-identity" ] || { echo "     0 valid identities found"; exit 0; }
     echo '  1) ABC123 "Developer ID Application: Brandon Fryslie (6R988MUU27)"' ;;
+  # The check-runs endpoint: each call answers the next line of $SCRATCH/runs.<check> (the last repeats), as the API's
+  # JSON, and runs the caller's --jq over it, so the filter is the one the script ships. No file: no run exists.
+  "gh api "*check-runs*)
+    check=${2##*check_name=}; file="$SCRATCH/runs.$check"; expr=
+    while [ $# -gt 0 ]; do [ "$1" != --jq ] || expr=$2; shift; done
+    if [ -e "$file" ]; then head -n 1 "$file"; else echo '{"check_runs":[]}'; fi | jq -r "$expr"
+    if [ -e "$file" ] && [ "$(wc -l <"$file")" -gt 1 ]; then tail -n +2 "$file" >"$file.next"; mv "$file.next" "$file"; fi ;;
   "gh api "*) cat "$SCRATCH/tag-commit" ;;
   "make --no-print-directory release") echo "$SCRATCH/built/OrangeDrink.app" ;;
   "make --no-print-directory sparkle-tools") echo "$SCRATCH/sparkle-tools" ;;
@@ -81,7 +88,7 @@ tree() {
   rm -rf "$dir"; mkdir -p "$dir/scripts"
   cp "$repo/scripts/version" "$repo/scripts/release-preflight" "$repo/scripts/release-keychain" \
      "$repo/scripts/release-publish" "$repo/scripts/notarize" "$repo/scripts/dmg" "$repo/scripts/developer-id" \
-     "$repo/scripts/appcast" "$dir/scripts/"
+     "$repo/scripts/appcast" "$repo/scripts/release-tested" "$dir/scripts/"
   sed "s/^\(  *\)MARKETING_VERSION:.*/\1$1/" "$repo/project.yml" >"$dir/project.yml"
   echo "$dir"
 }
@@ -222,6 +229,41 @@ echo moved-commit >"$scratch/tag-commit"
 calls_reset
 expect "a tag that moved stops the release, naming both commits" 1 "tag v1.2.3 now names moved-commit, and this run built built-commit" -- "$t/scripts/release-publish" v1.2.3 "$scratch/image.dmg" "$scratch/appcast.xml"
 called "gh release create" && fail "a moved tag was released" || pass "a moved tag makes no release"
+
+# --- scripts/release-tested: a commit goes out only if every job of the test workflow succeeded on it
+t=$(tree 'MARKETING_VERSION: "1.2.3"')
+mkdir -p "$t/.github/workflows"
+printf 'name: test\njobs:\n  test:\n    runs-on: x\n  lint:\n    runs-on: x\n' >"$t/.github/workflows/test.yaml"
+# cr <started_at> <status> <conclusion as JSON>: one check run. runs <check> <check runs>...: what each successive poll of that check reads.
+cr() { echo "{\"started_at\":\"$1\",\"status\":\"$2\",\"conclusion\":$3}"; }
+runs() { local check=$1; shift; : >"$scratch/runs.$check"; for body in "$@"; do printf '{"check_runs":[%s]}\n' "$body" >>"$scratch/runs.$check"; done; }
+green=$(cr 2026-01-01T00:00:00Z completed '"success"')
+rm -f "$scratch"/runs.*; calls_reset
+runs test "$green"; runs lint "$green"
+expect "a commit whose every test job succeeded passes, naming them" 0 "test lint passed on abc" -- "$t/scripts/release-tested" abc
+called "gh api repos/promptctl/orange-drink/commits/abc/check-runs?check_name=lint" \
+  && pass "each job of test.yaml is read from the commit's check runs" || fail "each job of test.yaml is read from the commit's check runs: $(cat "$scratch/calls")"
+runs lint "$(cr 2026-01-01T00:00:00Z completed '"failure"')"
+expect "a job that failed refuses the commit, naming the job and the commit" 1 "check lint on abc is failure, not success" -- "$t/scripts/release-tested" abc
+runs lint "$(cr 2026-01-01T00:00:00Z completed '"cancelled"')"
+expect "a job that was cancelled refuses it" 1 "check lint on abc is cancelled, not success" -- "$t/scripts/release-tested" abc
+rm "$scratch/runs.lint"
+expect "a job with no run on the commit refuses it" 1 "check lint on abc is none, not success" -- "$t/scripts/release-tested" abc
+# The latest run of a check decides, however the API orders them.
+runs lint "$(cr 2026-01-01T01:00:00Z completed '"success"'),$(cr 2026-01-01T00:00:00Z completed '"failure"')"
+expect "a failure that was re-run and passed is a pass" 0 "passed on abc" -- "$t/scripts/release-tested" abc
+runs lint "$(cr 2026-01-01T00:00:00Z completed '"success"'),$(cr 2026-01-01T01:00:00Z completed '"failure"')"
+expect "a pass that was re-run and failed is a failure" 1 "check lint on abc is failure" -- "$t/scripts/release-tested" abc
+# A run still going is waited for: two polls see it running, the third its result.
+calls_reset
+runs lint "$(cr 2026-01-01T00:00:00Z in_progress null)" "$(cr 2026-01-01T00:00:00Z in_progress null)" "$green"
+expect "a job still running is waited for, and the commit passes when it succeeds" 0 "passed on abc" -- "$t/scripts/release-tested" abc
+[ "$(grep -c '^sleep ' "$scratch/calls")" = 2 ] && pass "it waited once per poll that saw the job running" || fail "it waited once per poll that saw the job running: $(cat "$scratch/calls")"
+calls_reset
+runs lint "$(cr 2026-01-01T00:00:00Z in_progress null)" "$(cr 2026-01-01T00:00:00Z completed '"failure"')"
+expect "a job that fails after being waited for refuses the commit" 1 "check lint on abc is failure" -- "$t/scripts/release-tested" abc
+printf 'name: test\njobs: {}\n' >"$t/.github/workflows/test.yaml"
+expect "a test workflow with no jobs refuses, since nothing could vouch for the commit" 1 "has no jobs" -- "$t/scripts/release-tested" abc
 
 # --- scripts/appcast: a feed that installed copies would refuse never leaves here
 t=$(tree 'MARKETING_VERSION: "1.2.3"')

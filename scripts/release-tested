@@ -1,0 +1,42 @@
+#!/bin/bash
+# Refuses a commit whose tests did not pass, run in a checkout of that commit by the release workflow's
+# preflight job:
+#
+#   scripts/release-tested <commit>
+#
+# [LAW:single-enforcer] The tests are .github/workflows/test.yaml, and each of its jobs is a check run on the
+# commit. Every one must have succeeded on it. The job names are read from that file, so a job added there is
+# required here without a second edit. A run still going is waited for, because a tag is often pushed moments
+# after the merge that started it; a failed one is read with `gh run view --log-failed`.
+#
+# A check run absent for a few minutes means the workflow never ran on this commit, which is a refusal and not
+# something to wait out. Of several runs of one check on a commit, the latest decides: a failure that was re-run
+# and passed is a pass.
+set -euo pipefail
+
+fail() { echo "release-tested: $*" >&2; exit 1; }
+commit=${1:?usage: scripts/release-tested <commit>}
+: "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
+workflow="$(dirname "$0")/../.github/workflows/test.yaml"
+checks=$(ruby -ryaml -e 'puts YAML.load_file(ARGV[0]).fetch("jobs").keys' "$workflow") || fail "cannot read the jobs of $workflow"
+[ -n "$checks" ] || fail "$workflow has no jobs, so no test run could vouch for $commit"
+
+interval=${RELEASE_TESTED_INTERVAL:-10}
+# Half an hour for a run to finish; three minutes for one to appear.
+attempts=$((1800 / interval)); appear=$((180 / interval))
+
+for check in $checks; do
+  verdict=none
+  for attempt in $(seq "$attempts"); do
+    verdict=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/check-runs?check_name=$check" \
+      --jq '.check_runs | sort_by(.started_at) | last | if . == null then "none" else (.conclusion // .status) end')
+    case $verdict in
+      queued | in_progress | pending | waiting | requested) ;;
+      none) [ "$attempt" -lt "$appear" ] || break ;;
+      *) break ;;
+    esac
+    sleep "$interval"
+  done
+  [ "$verdict" = success ] || fail "check $check on $commit is $verdict, not success"
+done
+echo "release-tested: $(echo $checks) passed on $commit"

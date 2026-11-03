@@ -10,9 +10,12 @@ RELEASE_APP := $(PRODUCTS)/Release/$(APP).app
 # HELPER_LABEL): one per derived-data directory, so no two checkouts share a helper. scripts/dmg passes
 # it empty, which gives the app users install the one fixed label.
 HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c1-8)
-XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)'
+# Extra build settings for every xcodebuild, empty on a developer's Mac. A hosted CI runner holds no Developer ID
+# certificate, so the test workflow passes the ad-hoc identity here.
+XCB_SETTINGS ?=
+XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)' $(XCB_SETTINGS)
 
-.PHONY: generate build release sparkle-tools test hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
+.PHONY: generate build release sparkle-tools test ci-test hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
 
 generate:
 	xcodegen generate --use-cache
@@ -23,9 +26,14 @@ build: generate
 # The unit tests, then the accessibility-tree check of the shared settings components: SwiftUI builds
 # its tree only for a client of the running app, so that check is its own process (see ax-check).
 # It fails loudly, never skips, when the invoking terminal is not trusted for Accessibility.
-test: generate
-	$(call gated,test)
+test: ci-test
 	$(MAKE) ax-check
+
+# The part of `test` that needs no trusted terminal, which the test workflow runs on a hosted runner and the release
+# refuses a commit without (scripts/release-tested). ax-check cannot run there: it fails loudly without an
+# Accessibility-trusted terminal, so it stays a developer's step in `test`.
+ci-test: generate
+	$(call gated,test)
 	$(MAKE) hardware-check-test
 	$(MAKE) release-test
 	$(MAKE) vm-check-test
