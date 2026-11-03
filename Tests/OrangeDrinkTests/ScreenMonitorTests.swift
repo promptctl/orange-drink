@@ -69,7 +69,7 @@ import os
     }
 
     // An unlock the app never heard: at the next post of anything, the system says the lock is over.
-    @Test(.timeLimit(.minutes(1))) func aHiderWhoseEndWasNeverHeardEndsOnceTheSystemSaysSo() async {
+    @Test func aHiderWhoseEndWasNeverHeardEndsOnceTheSystemSaysSo() async {
         let workspace = NotificationCenter()
         let said = OSAllocatedUnfairLock<[ScreenHider: Bool]>(initialState: [.locked: true, .displayAsleep: false, .switchedOut: false])
         let lock = ScreenMonitor.Signal(hider: .locked, center: .workspace,
@@ -90,7 +90,7 @@ import os
 
     /// On the system's own distributed center, under a name only this test posts: NSApplication
     /// suspends that center while the app is inactive, and a lock must still arrive.
-    @MainActor @Test(.timeLimit(.minutes(1))) func aDistributedHiderArrivesWhileTheCenterIsSuspended() async throws {
+    @MainActor @Test func aDistributedHiderArrivesWhileTheCenterIsSuspended() async throws {
         let center = DistributedNotificationCenter.default()
         let id = UUID().uuidString
         let row = ScreenMonitor.Signal(hider: .locked, center: .distributed,

@@ -248,7 +248,7 @@ import ViewInspector
     }
 
     // The first set the system sends at launch may say what the controller already holds: nothing hides the screen.
-    @Test(.timeLimit(.minutes(1))) func theSameHidersAgainLeaveACountingPillsCountdownAsItWas() async throws {
+    @Test func theSameHidersAgainLeaveACountingPillsCountdownAsItWas() async throws {
         let clock = ManualTimekeeper()
         let pills = Self.countdown(clock)
         let log = try BatteryLog(category: "alerts")
@@ -347,7 +347,7 @@ import ViewInspector
 
     /// The pill's ×, pressed through the view the controller put in its panel (ViewInspector, no window): the pill and its
     /// glow come down at once. The clock never moves, so only the × can close it.
-    @Test(.timeLimit(.minutes(1))) func pressingThePillsCloseButtonTakesItAndItsGlowDown() async throws {
+    @Test func pressingThePillsCloseButtonTakesItAndItsGlowDown() async throws {
         let pills = Self.countdown(ManualTimekeeper())
         let log = try BatteryLog(category: "alerts")
         pills.show(PillContent(Alert(kind: .low, threshold: 16, position: .top, glow: true, sound: false), reading: try Self.reading(16)))

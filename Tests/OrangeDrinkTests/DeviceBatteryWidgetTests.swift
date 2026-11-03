@@ -15,7 +15,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     (.systemLarge, CGSize(width: 338, height: 354)),
 ]
 
-@MainActor @Suite(.timeLimit(.minutes(1))) final class DeviceBatteryWidgetTests {
+@MainActor @Suite final class DeviceBatteryWidgetTests {
     static let iPhone = Device(id: DeviceID(address: "AA"), name: "iPhone", kind: .phone,
                                levels: .single(BatteryLevel(percent: 95, approximate: false)))
     static func earbuds(_ percent: Int) -> Device {

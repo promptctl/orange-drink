@@ -48,7 +48,7 @@ import Testing
 
     @available(macOS 15.0, *)
     @available(macOS, deprecated: 10.15, message: "drives TLSChannel, which uses SecureTransport; see lm3.8pk")
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aPeerThatNeverAnswersTheClientHelloEndsAsATimeout() throws {
         let identity = try pairIdentity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM)
         let (socket, peer) = try TimedSocketDeadline.pair()

@@ -4,7 +4,7 @@ import Testing
 
 // [LAW:behavior-not-structure] The contract is what Edit Widget names and offers after the app has seen a device: through the
 // app's wiring to the shelf and the real entity query, from a shelf in a directory of the test's own and a defaults suite of its own.
-@MainActor @Suite(.timeLimit(.minutes(1))) final class SeenDevicesTests {
+@MainActor @Suite final class SeenDevicesTests {
     static let buds = device("BB", "Earbuds")
     static let phone = device("AA", "iPhone")
 

@@ -28,7 +28,8 @@ struct HelperLive {
         helperPath = Bundle.main.bundleURL.appending(path: daemon.program).resolvingSymlinksInPath().path
     }
 
-    @Test func acceptsOnlyTheApp() throws {
+    /// Its own time limit: two calls of up to 20 s each, then the log polls, can pass the plan's 60 s.
+    @Test(.timeLimit(.minutes(2))) func acceptsOnlyTheApp() throws {
         let status = SMAppService.daemon(plistName: "\(label).plist").status
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
 

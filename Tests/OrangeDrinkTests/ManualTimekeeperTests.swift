@@ -5,7 +5,7 @@ import Testing
 // a sleep whose time has already come returns without an advance, a sleep wakes when its whole duration has passed,
 // fractions of a second included, and only a live sleeper counts as asleep.
 @Suite struct ManualTimekeeperContract {
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aTaskCancelledBeforeItSleepsThrowsAndLeavesNoSleeper() async throws {
         let clock = ManualTimekeeper()
         let cancelled = Task {
@@ -20,14 +20,14 @@ import Testing
         try await live.value
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aSleepOfNoTimeReturnsWithoutAnAdvanceAndIsNeverASleeper() async throws {
         let clock = ManualTimekeeper()
         try await clock.sleep(for: .zero)
         #expect(clock.sleeping == 0)
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aSleepWakesOnlyOnceItsFractionalDurationHasPassed() async throws {
         let clock = ManualTimekeeper()
         let sleeper = Task { try await clock.sleep(for: .milliseconds(500)) }

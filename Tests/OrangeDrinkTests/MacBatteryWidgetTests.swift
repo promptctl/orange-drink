@@ -6,7 +6,7 @@ import ViewInspector
 
 // [LAW:behavior-not-structure] The contract is what the widget reads off the shelf after each state
 // the model takes, through the widget's own read path, from a shelf in a directory of the test's own.
-@MainActor @Suite(.timeLimit(.minutes(1))) final class MacBatteryWidgetTests {
+@MainActor @Suite final class MacBatteryWidgetTests {
     struct StreamEnded: Error {}
 
     final class Reloads {

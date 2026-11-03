@@ -101,7 +101,7 @@ import Testing
         func snapshot() throws -> [ProcessEnergy] { lock.withLock { snapshots.removeFirst() } }
     }
 
-    @Test(.timeLimit(.minutes(1))) func theLoopStoresAnIntervalPerCadenceAndCountsTheWrite() async throws {
+    @Test func theLoopStoresAnIntervalPerCadenceAndCountsTheWrite() async throws {
         let clock = ManualTimekeeper()
         let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
         let changes = HistoryChanges()

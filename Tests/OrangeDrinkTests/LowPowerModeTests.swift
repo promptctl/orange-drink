@@ -86,7 +86,7 @@ import Testing
     }
 }
 
-@MainActor @Suite(.timeLimit(.minutes(1))) struct LowPowerModeTests {
+@MainActor @Suite struct LowPowerModeTests {
     /// The system as the model sees it: a state, the center that posts its changes, what was asked of it, and
     /// how each ask goes.
     final class FakeSystem: @unchecked Sendable {

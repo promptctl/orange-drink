@@ -11,7 +11,7 @@ import Testing
         return (try TimedSocket(fd: fds[0]), fds[1])
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func silentPeerEndsAsATimeout() throws {
         let (socket, peer) = try Self.pair()
         defer { close(peer) }
@@ -20,7 +20,7 @@ import Testing
         }
     }
 
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func peerTricklingBytesCannotExtendThePastTheDeadline() throws {
         let (socket, peer) = try Self.pair()
         let stop = DispatchSemaphore(value: 0)

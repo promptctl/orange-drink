@@ -7,7 +7,7 @@ import WidgetKit
 
 // [LAW:behavior-not-structure] The contract is which devices a placed All Batteries widget lists for what Edit Widget holds and
 // what the menu bar has pinned, and what it says when that is none. Simulated devices, a shelf in a directory of the test's own.
-@MainActor @Suite(.timeLimit(.minutes(1))) final class WidgetDeviceSelectionTests {
+@MainActor @Suite final class WidgetDeviceSelectionTests {
     let shelf = FileManager.default.temporaryDirectory.appending(path: "selection-\(UUID().uuidString)")
 
     init() throws {

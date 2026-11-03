@@ -1,0 +1,28 @@
+{
+  "configurations" : [
+    {
+      "id" : "5C1D0E6A-1B2F-4C3D-9E8F-0A1B2C3D4E5F",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "defaultTestExecutionTimeAllowance" : 60,
+    "language" : "en",
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:OrangeDrink.xcodeproj",
+        "identifier" : "093D1CFF1E269E3CF7755E72",
+        "name" : "OrangeDrinkTests"
+      }
+    }
+  ],
+  "version" : 1
+}

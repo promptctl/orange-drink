@@ -90,7 +90,7 @@ import Testing
     }
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.
-    @MainActor @Test(.timeLimit(.minutes(1))) func appModelHoldsTheCurrentReading() async throws {
+    @MainActor @Test func appModelHoldsTheCurrentReading() async throws {
         let model = BatteryModel(readings: BatteryMonitor.readings())
         let direct = try #require(try IOKitBattery.read())
         switch await model.state(once: BatteryModel.isSettled) {
@@ -103,8 +103,9 @@ import Testing
 
     /// The ticket's step on a real Mac, run by `make unplug-check` with a person at the cable.
     /// Each event is checked against pmset at the moment it arrives, and against powerd's own
-    /// source-change post for the one-second bound.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["UNPLUG_CHECK"] != nil, "run by make unplug-check with a person at the cable"))
+    /// source-change post for the one-second bound. Its own time limit, past the plan's 60 s, covers the 120 s it gives the person.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["UNPLUG_CHECK"] != nil, "run by make unplug-check with a person at the cable"),
+          .timeLimit(.minutes(3)))
     func plugAndUnplug() async throws {
         struct Arrival {
             let reading: BatteryReading; let at: ContinuousClock.Instant; let pmset: PmsetBattery; let after: BatteryReading
