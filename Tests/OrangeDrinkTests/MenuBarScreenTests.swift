@@ -19,7 +19,7 @@ import ViewInspector
     static let reading = try! MenuBarIconDrawing.discharging(40)
 
     static func label(_ state: BatteryModel.State, _ model: MenuBarIconModel, _ language: AppLanguageModel? = nil) -> StatusItemLabel {
-        StatusItemLabel(state: state, icon: model, language: language ?? (try! AppLanguageModel(defaults: AlertSettingsPersistence.suite())))
+        StatusItemLabel(state: state, icon: model, language: language ?? (try! AppLanguageModel(defaults: AlertSettingsPersistence.suite())), halo: StatusItemHalo(findButton: { nil }))
     }
 
     /// The icon the status item shows for the model's current choices, on the given bar.
@@ -146,7 +146,7 @@ import ViewInspector
         #expect(try heard(.unknown) == "\(appName), Lecture de la batterie…")
     }
 
-    @Test func aStatusItemWithoutAReadingNamesWhyAndTheLogoNeedsNone() throws {
+    @Test func aStatusItemWithoutAReadingNamesWhyAndTheLogoOnAMacWithNoBatteryIsEmpty() throws {
         let model = Self.model()
         func symbol(_ state: BatteryModel.State) -> String? {
             if case .symbol(let name) = Self.label(state, model).content(on: .dark) { name } else { nil }
@@ -154,19 +154,20 @@ import ViewInspector
         #expect(symbol(.unknown) == "battery.0percent")
         #expect(symbol(.known(nil)) == "powerplug")
         #expect(symbol(.ended(nil)) == "exclamationmark.triangle")
-        try model.update { $0.style = .logo }
-        #expect(symbol(.ended(nil)) == nil)
-        #expect(try Self.statusIcon(model, state: .ended(nil)).shape == .logo)
+        try model.update { $0.style = .logo; $0.glyph = .jar }
+        #expect(symbol(.unknown) == "battery.0percent")
+        #expect(symbol(.ended(nil)) == "exclamationmark.triangle")
+        #expect(try Self.statusIcon(model, state: .known(nil)).shape == .logo(.jar, nil))
     }
 
     @Test func everyChoiceComesBackWhenLoadedAsARelaunchWould() throws {
         let defaults = AlertSettingsPersistence.suite()
         try Self.model(defaults).update {
-            $0.style = .minimal; $0.display = .timeRemaining; $0.color = .dark; $0.size = .extraLarge; $0.statusColors = false
+            $0.style = .minimal; $0.display = .timeRemaining; $0.color = .dark; $0.size = .extraLarge; $0.statusColors = false; $0.glyph = .glassRing
         }
         var expected = Config()
         expected.style = .minimal; expected.display = .timeRemaining; expected.color = .dark; expected.size = .extraLarge
-        expected.statusColors = false
+        expected.statusColors = false; expected.glyph = .glassRing
         #expect(Self.model(defaults).value == expected)
         #expect(Self.model().value == Config())
     }
@@ -194,7 +195,7 @@ import ViewInspector
 
     @Test func theStyleRowsCarryTheDesignDocsWords() {
         #expect(Config.Style.allCases.map { $0.title(appName: "Orange").english } == ["Battery Indicator", "Minimal", "Orange Logo"])
-        #expect(Config.Style.logo.description(appName: "Orange").english == "Static Orange logo icon")
+        #expect(Config.Style.logo.description(appName: "Orange").english == "Orange logo that fills with your charge and glows while charging")
         #expect(Config.Size.standard.title.english == "Default")
     }
 }

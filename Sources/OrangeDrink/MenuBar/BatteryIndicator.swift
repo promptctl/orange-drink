@@ -17,6 +17,8 @@ struct BatteryIndicator: Equatable {
     /// nil when the display is icon only.
     let text: String?
     let tint: Tint
+    /// Charging with status colours on: the Logo glyph's halo says so, as the green fill does for the battery.
+    let glows: Bool
 
     init(_ reading: BatteryReading, display: MenuBarIconConfig.Display = .percentage, statusColors: Bool = true) {
         self.init(percent: reading.chargePercent, power: reading.power, display: display, statusColors: statusColors)
@@ -31,6 +33,7 @@ struct BatteryIndicator: Equatable {
         case .timeRemaining: Self.clock(power.estimate)
         case .iconOnly: nil
         }
+        glows = statusColors && power.isCharging
         tint = switch (power, percent) {
         case (_, ...Self.criticalPercent) where !power.isCharging: .red
         case _ where !statusColors: .neutral

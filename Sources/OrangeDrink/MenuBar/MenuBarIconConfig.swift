@@ -33,6 +33,11 @@ struct MenuBarIconConfig: Stored {
             }
         }
     }
+    /// The Logo style's drawing. Each is an outline, the area it encloses that fills with the charge, and the
+    /// glow around it while charging: masks scripts/brand/make-assets writes into the asset catalog.
+    enum Glyph: String, Codable, Equatable, Sendable, CaseIterable {
+        case bottle, orange, jar, strawBolt, glassRing
+    }
     enum Size: String, Codable, Equatable, Sendable, CaseIterable {
         case standard, large, extraLarge
         var scale: Double { switch self { case .standard: 1; case .large: 1.25; case .extraLarge: 1.5 } }
@@ -42,6 +47,7 @@ struct MenuBarIconConfig: Stored {
     var display: Display = .percentage
     var color: Color = .automatic
     var size: Size = .standard
+    var glyph: Glyph = .bottle
     /// Off keeps the icon neutral and turns it red only when critical.
     var statusColors = true
 
@@ -55,6 +61,7 @@ struct MenuBarIconConfig: Stored {
         display = try values.decodeIfPresent(Display.self, forKey: .display) ?? display
         color = try values.decodeIfPresent(Color.self, forKey: .color) ?? color
         size = try values.decodeIfPresent(Size.self, forKey: .size) ?? size
+        glyph = try values.decodeIfPresent(Glyph.self, forKey: .glyph) ?? glyph
         statusColors = try values.decodeIfPresent(Bool.self, forKey: .statusColors) ?? statusColors
     }
 

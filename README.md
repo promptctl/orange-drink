@@ -1,5 +1,7 @@
 # Orange Drink
 
+![Orange Drink](docs/images/hero.png)
+
 Orange Drink is a battery monitor for your Mac. It lives in the menu bar and tells you about your battery at the moments you care about, so a laptop doesn't die in the middle of a video call.
 
 The battery indicator built into macOS warns you only at 10% and 5%, and those levels cannot be changed. On recent versions of macOS it also repeats the warning every minute. Orange Drink lets you pick the levels, and it warns you once per level.

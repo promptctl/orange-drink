@@ -4,6 +4,9 @@ extension MenuBarIcon {
     private static let height: CGFloat = 14
     private static let bodyWidth: CGFloat = 28
     private static let gap: CGFloat = 3
+    /// The Logo glyph's side, and the clear margin either side of it that keeps neighbours out of its glow.
+    private static let logoSide: CGFloat = 16
+    private static let logoMargin: CGFloat = 3
     /// The area inside the indicator's outline that the charge fills.
     static let interior = NSRect(x: 2, y: 3, width: 21, height: 8)
 
@@ -40,15 +43,23 @@ extension MenuBarIcon {
 
     private var canvas: NSSize {
         switch shape {
-        case .logo: NSSize(width: Self.height, height: Self.height)
+        case .logo: NSSize(width: Self.logoSide + 2 * Self.logoMargin, height: Self.logoSide)
         case .indicator, .minimal: NSSize(width: bodyOrigin + Self.bodyWidth, height: Self.height)
         }
     }
 
     /// The status item's image. It draws when shown, at the size chosen. The colour is the
     /// glyph's own, so it is never a template: the menu bar does not retint it.
+    /// The size chosen, except that the Logo glyph stops growing at the shortest menu bar's height. The halo
+    /// derives from the same scale, so its cut-out always matches the glyph it surrounds.
+    private var scale: CGFloat {
+        guard case .logo = shape else { return size.scale }
+        return min(size.scale, Self.shortestBar / Self.logoSide)
+    }
+    private static let shortestBar: CGFloat = 22
+
     var image: NSImage {
-        let scale = size.scale
+        let scale = scale
         return NSImage(size: NSSize(width: canvas.width * scale, height: canvas.height * scale), flipped: false) { _ in
             let transform = NSAffineTransform()
             transform.scale(by: scale)
@@ -60,16 +71,35 @@ extension MenuBarIcon {
 
     private func draw() {
         switch shape {
-        case .logo: drawLogo()
+        case .logo(let glyph, let battery): drawLogo(glyph, battery)
         case .indicator(let battery): drawBattery(battery, digitsInside: true)
         case .minimal(let battery): drawBattery(battery, digitsInside: false)
         }
     }
 
-    private func drawLogo() {
-        let symbol = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: nil)!
-            .withSymbolConfiguration(.init(paletteColors: [ink.glyph]))!
-        symbol.draw(in: NSRect(origin: .zero, size: canvas))
+    /// The glow behind the Logo glyph while it charges with status colours on; nil otherwise.
+    var halo: Halo? {
+        guard case .logo(let glyph, let battery?) = shape, battery.glows else { return nil }
+        return Halo(glyph: glyph, ink: color, side: Self.logoSide * LogoGlyph.of(glyph).haloRatio * scale)
+    }
+
+    /// The outline and the liquid in one colour: the bar's ink, or orange or red for low and critical. Charging
+    /// never tints the glyph; the halo says it. The liquid rises from its own bottom to 0.22 + 0.78 of its height
+    /// at the charge, so 5% still shows; with no battery it stays empty.
+    private func drawLogo(_ glyph: MenuBarIconConfig.Glyph, _ battery: BatteryIndicator?) {
+        let masks = LogoGlyph.of(glyph)
+        let colour: NSColor = switch battery?.tint {
+        case .orange: .systemOrange
+        case .red: .systemRed
+        case .neutral, .green, nil: ink.glyph
+        }
+        let level = battery.map { 0.22 + 0.78 * $0.fill } ?? 0
+        let span = masks.liquidSpan
+        let surface = span.lowerBound + (span.upperBound - span.lowerBound) * level
+        let box = NSRect(x: Self.logoMargin, y: 0, width: Self.logoSide, height: Self.logoSide)
+        let context = NSGraphicsContext.current!.cgContext
+        context.paint(masks.outline, colour, in: box)
+        context.paint(masks.liquid, colour, in: box, clip: NSRect(x: box.minX, y: box.minY, width: box.width, height: box.height * surface))
     }
 
     private func drawBattery(_ battery: BatteryIndicator, digitsInside: Bool) {
