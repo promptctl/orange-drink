@@ -1,6 +1,6 @@
 # Alerts
 
-Turns notifications on or off, and holds the list of alerts: low-battery thresholds, charged thresholds, and power-source events. Each threshold alert has its own position on screen, glow, and sound.
+Turns notifications on or off, and holds the list of alerts: low-battery thresholds, charged thresholds, power-source events, and a battery temperature warning. Each threshold alert has its own position on screen, glow, and sound.
 
 **Header:** green tile with a white bell, title "Alerts".
 **Subtitle:** "Configure battery notifications and visual effects"
