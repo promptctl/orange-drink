@@ -74,7 +74,7 @@ struct OrangeDrinkApp: App {
         let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, reload: reload)
         let deviceWidgets = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf, reload: reload)
         let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf, reload: reload)
-        let devices = DevicesModel(sources: [.bluetooth: BluetoothDevices.appEvents()], shelf: deviceWidgets, seenShelf: seenShelf, settings: deviceSettings, seen: seenDevices, language: language, pinnedItems: PinnedItemsController(), onChange: {
+        let devices = DevicesModel(sources: [.bluetooth: BluetoothDevices.appEvents()], shelf: deviceWidgets, seenShelf: seenShelf, settings: deviceSettings, seen: seenDevices, language: language, pinnedItems: PinnedItemsController(makeItem: { NSPinnedStatusItem(id: $0) }), onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
         })
         _devices = State(initialValue: devices)

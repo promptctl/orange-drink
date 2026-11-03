@@ -43,7 +43,7 @@ struct PinnedItem: Equatable, Identifiable {
     /// not redrawn.
     private var held: [(id: DeviceID, item: any PinnedStatusItem, shown: PinnedItem?)] = []
 
-    init(makeItem: @escaping @MainActor (DeviceID) -> any PinnedStatusItem = { NSPinnedStatusItem(id: $0) }) {
+    init(makeItem: @escaping @MainActor (DeviceID) -> any PinnedStatusItem) {
         self.makeItem = makeItem
     }
 
@@ -84,9 +84,6 @@ struct PinnedItem: Equatable, Identifiable {
         item.button?.identifier = Self.buttonID
     }
 
-    /// The text the item shows, for the check that it shows the device's level.
-    var title: String { item.button?.title ?? "" }
-
     /// Where the item sits on screen, for the check that the bar follows the list.
     var left: CGFloat? { item.button?.window?.frame.minX }
 
@@ -95,11 +92,18 @@ struct PinnedItem: Equatable, Identifiable {
             BluetoothDevices.log.error("a pinned device's status item has no button")
             return
         }
-        button.image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
-        button.imagePosition = .imageLeading
-        button.title = pinned.title
-        button.toolTip = pinned.row.name
+        pinned.draw(on: button)
     }
 
     func remove() { NSStatusBar.system.removeStatusItem(item) }
+}
+
+extension PinnedItem {
+    /// The type glyph beside the level, named for the device.
+    @MainActor func draw(on button: NSButton) {
+        button.image = NSImage(systemSymbolName: row.kind.symbol, accessibilityDescription: row.name)
+        button.imagePosition = .imageLeading
+        button.title = title
+        button.toolTip = row.name
+    }
 }

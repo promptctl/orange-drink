@@ -137,16 +137,19 @@ import Testing
         #expect(try DeviceSettingsModel(defaults: defaults).value.pinned == [Self.mouse])
     }
 
-    @Test func theMenuBarItemShowsTheLevelAndRemovesCleanly() {
-        let item = NSPinnedStatusItem(id: Self.mouse)
+    // A plain button, not a status item: AppKit saves a status item's place in the user's own defaults.
+    @Test func theMenuBarItemShowsTheLevel() {
+        let button = NSButton()
         func pinned(_ percent: Int) -> PinnedItem {
             PinnedItem.items(list([Self.mouse: level(percent)]), pinned: [Self.mouse])[0]
         }
-        item.show(pinned(37))
-        #expect(item.title == "37%")
-        item.show(pinned(30))
-        #expect(item.title == "30%")
-        item.remove()
+        pinned(37).draw(on: button)
+        #expect(button.image?.accessibilityDescription == "Magic Mouse")
+        #expect(button.imagePosition == .imageLeading)
+        #expect(button.title == "37%")
+        #expect(button.toolTip == "Magic Mouse")
+        pinned(30).draw(on: button)
+        #expect(button.title == "30%")
     }
 
     @Test func anUnchangedItemIsNotRedrawn() {
