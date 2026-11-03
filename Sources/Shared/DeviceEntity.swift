@@ -8,9 +8,24 @@ struct DeviceEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Device"
     static let defaultQuery = DeviceQuery()
 
-    /// The device's address: the one thing a rename cannot change.
+    /// The device's identity in its wire form (`DeviceID.wire`): the one thing a rename cannot change. A String because a
+    /// placed widget's settings hold it, including from releases before sources, when it was a bare Bluetooth address.
     let id: String
     let name: String
+
+    /// nil for an id this release cannot read: a setting naming a source it does not know.
+    var identity: DeviceID? { DeviceID(wire: id) }
+
+    /// The devices a widget's choices name, in the user's order, each once. [LAW:no-silent-failure] A choice this release
+    /// cannot read is left out and logged.
+    static func identities(of entities: [DeviceEntity]) -> [DeviceID] {
+        let read = entities.compactMap(\.identity)
+        if read.count < entities.count {
+            ShelfLog.log.error("widget choices unreadable: \(entities.count - read.count, privacy: .public)")
+        }
+        var seen = Set<DeviceID>()
+        return read.filter { seen.insert($0).inserted }
+    }
 
     var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
 }
@@ -25,12 +40,14 @@ struct DeviceQuery: EntityQuery {
     /// One result per id asked for, so a widget keeps its choice even of a device the app has never seen.
     func entities(for identifiers: [String]) async throws -> [DeviceEntity] {
         let names = seen().names
-        return identifiers.map { DeviceEntity(id: $0, name: names[$0] ?? Self.unavailable.resolve(in: .matchSystem)) }
+        return identifiers.map { id in
+            DeviceEntity(id: id, name: DeviceID(wire: id).flatMap { names[$0] } ?? Self.unavailable.resolve(in: .matchSystem))
+        }
     }
 
-    /// In a person's alphabetical order then by address, so the choices keep their places as devices come and go.
+    /// In a person's alphabetical order then by identity, so the choices keep their places as devices come and go.
     func suggestedEntities() async throws -> [DeviceEntity] {
-        seen().names.map { DeviceEntity(id: $0.key, name: $0.value) }
+        seen().names.map { DeviceEntity(id: $0.key.wire, name: $0.value) }
             .sorted(using: [KeyPathComparator(\.name, comparator: .localizedStandard), KeyPathComparator(\.id)])
     }
 

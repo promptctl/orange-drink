@@ -16,10 +16,10 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 ]
 
 @MainActor @Suite final class DeviceBatteryWidgetTests {
-    static let iPhone = Device(id: DeviceID(address: "AA"), name: "iPhone", kind: .phone,
+    static let iPhone = Device(id: DeviceID.bluetooth("AA"), name: "iPhone", kind: .phone,
                                levels: .single(BatteryLevel(percent: 95, approximate: false)))
     static func earbuds(_ percent: Int) -> Device {
-        Device(id: DeviceID(address: "BB"), name: "Earbuds", kind: .accessory,
+        Device(id: DeviceID.bluetooth("BB"), name: "Earbuds", kind: .accessory,
                levels: .earbuds(left: BatteryLevel(percent: percent, approximate: false), right: nil, case: BatteryLevel(percent: 80, approximate: false)))
     }
 
@@ -38,7 +38,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     /// What the widget reads for a device, through its own read path.
     func levelRead(_ address: String) throws -> Int? {
         guard case .running(.connected(let list)) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
-        return list.device(at: address)?.level?.percent
+        return list.device(.bluetooth(address))?.level?.percent
     }
 
     // MARK: the shelf
@@ -109,8 +109,8 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func theShelfLogsNeitherADevicesNameNorItsAddress() {
-        let device = WidgetDevice(address: "AA-BB", name: "Brandon's iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
-        let silent = WidgetDevice(address: "CC-DD", name: "Brandon's Keyboard", kind: .accessory, level: nil)
+        let device = WidgetDevice(id: .bluetooth("AA-BB"), name: "Brandon's iPhone", kind: .phone, level: BatteryLevel(percent: 80, approximate: false))
+        let silent = WidgetDevice(id: .bluetooth("CC-DD"), name: "Brandon's Keyboard", kind: .accessory, level: nil)
         let line = String(describing: Shelved.running(WidgetDevices.connected(WidgetDeviceList(ranked: [device], pinned: [], unlevelled: [silent]))))
         #expect(!line.contains("Brandon") && !line.contains("AA-BB") && !line.contains("CC-DD"))
         #expect(line.contains("80%"))
@@ -133,24 +133,24 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         var list = DeviceList()
         list.apply(.swept([
             Self.iPhone,
-            Device(id: DeviceID(address: "CC"), name: "iPad", kind: .tablet, levels: .single(BatteryLevel(percent: 40, approximate: true))),
-            Device(id: DeviceID(address: "DD"), name: "Speaker", kind: .accessory, levels: .unread),
-            Device(id: DeviceID(address: "EE"), name: "Mouse", kind: .accessory, levels: .none),
+            Device(id: DeviceID.bluetooth("CC"), name: "iPad", kind: .tablet, levels: .single(BatteryLevel(percent: 40, approximate: true))),
+            Device(id: DeviceID.bluetooth("DD"), name: "Speaker", kind: .accessory, levels: .unread),
+            Device(id: DeviceID.bluetooth("EE"), name: "Mouse", kind: .accessory, levels: .none),
             Self.earbuds(54),
         ]))
         // Ranked as the panel ranks them: lowest first, unread last, a device with no battery kept apart; the case is never the level.
         #expect(WidgetDevices(list, pinned: []) == .connected(WidgetDeviceList(ranked: [
-            WidgetDevice(address: "CC", name: "iPad", kind: .tablet, level: BatteryLevel(percent: 40, approximate: true)),
-            WidgetDevice(address: "BB", name: "Earbuds", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
-            WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 95, approximate: false)),
-            WidgetDevice(address: "DD", name: "Speaker", kind: .accessory, level: nil),
-        ], pinned: [], unlevelled: [WidgetDevice(address: "EE", name: "Mouse", kind: .accessory, level: nil)])))
+            WidgetDevice(id: .bluetooth("CC"), name: "iPad", kind: .tablet, level: BatteryLevel(percent: 40, approximate: true)),
+            WidgetDevice(id: .bluetooth("BB"), name: "Earbuds", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
+            WidgetDevice(id: .bluetooth("AA"), name: "iPhone", kind: .phone, level: BatteryLevel(percent: 95, approximate: false)),
+            WidgetDevice(id: .bluetooth("DD"), name: "Speaker", kind: .accessory, level: nil),
+        ], pinned: [], unlevelled: [WidgetDevice(id: .bluetooth("EE"), name: "Mouse", kind: .accessory, level: nil)])))
     }
 
     // MARK: the drawing
 
     static func entry(_ shelf: Result<Shelved<WidgetDevices>, any Error>, chosen: String?) -> DeviceBatteryEntry {
-        DeviceBatteryEntry(date: .now, shelf: shelf, chosen: chosen)
+        DeviceBatteryEntry(date: .now, shelf: shelf, chosen: chosen.map(DeviceID.bluetooth))
     }
 
     @Test func theWidgetDeclaresSmallMediumAndLarge() {
@@ -169,7 +169,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func aDeviceThatIsGoneTheAppNotRunningAndAnUnreadDeviceDrawWhatTheySay() throws {
-        let unread = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: nil)
+        let unread = WidgetDevice(id: .bluetooth("AA"), name: "iPhone", kind: .phone, level: nil)
         func texts(_ shelf: Result<Shelved<WidgetDevices>, any Error>, chosen: String?) throws -> [String] {
             try DeviceBatteryView(entry: Self.entry(shelf, chosen: chosen), appName: "Orange Drink", family: .systemSmall).inspect().findAll(ViewType.Text.self).map { try $0.string() }
         }
@@ -178,7 +178,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         #expect(try texts(.failure(ShelfError.noGroupEntitlement), chosen: "AA") == ["Open Orange Drink"])
         #expect(try texts(.success(.running(.connected([unread], pinned: []))), chosen: nil) == ["Choose a device: right-click → Edit Widget"])
         #expect(try texts(.success(.running(.connected([unread], pinned: []))), chosen: "AA") == ["–"])
-        let estimate = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: BatteryLevel(percent: 40, approximate: true))
+        let estimate = WidgetDevice(id: .bluetooth("AA"), name: "iPhone", kind: .phone, level: BatteryLevel(percent: 40, approximate: true))
         #expect(try texts(.success(.running(.connected([estimate], pinned: []))), chosen: "AA") == ["~40%"])
     }
 }

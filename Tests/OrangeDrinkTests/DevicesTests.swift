@@ -5,9 +5,9 @@ import Testing
 
 // [LAW:verifiable-goals] The list from simulated reports: no Bluetooth in the room.
 struct DeviceListTests {
-    static let mouse = Device(id: DeviceID(address: "AA"), name: "Magic Mouse", kind: .accessory,
+    static let mouse = Device(id: DeviceID.bluetooth("AA"), name: "Magic Mouse", kind: .accessory,
                               levels: .single(BatteryLevel(percent: 37, approximate: false)))
-    static let pods = Device(id: DeviceID(address: "BB"), name: "AirPods", kind: .accessory,
+    static let pods = Device(id: DeviceID.bluetooth("BB"), name: "AirPods", kind: .accessory,
                              levels: .earbuds(left: BatteryLevel(percent: 50, approximate: true), right: nil,
                                               case: BatteryLevel(percent: 80, approximate: false)))
 
@@ -71,8 +71,8 @@ struct DeviceListTests {
     }
 
     @Test func aConnectedDeviceWithNoLevelIsLeftOutOfTheRankingAndAnUnreadOneIsNot() {
-        let keyboard = Device(id: DeviceID(address: "EE"), name: "Keyboard", kind: .accessory, levels: .none)
-        let speaker = Device(id: DeviceID(address: "DD"), name: "Speaker", kind: .accessory, levels: .unread)
+        let keyboard = Device(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let speaker = Device(id: DeviceID.bluetooth("DD"), name: "Speaker", kind: .accessory, levels: .unread)
         var list = DeviceList()
         list.apply(.swept([Self.mouse, keyboard, speaker]))
         #expect(DeviceRanking.rows(list).map(\.id) == [Self.mouse.id, speaker.id])

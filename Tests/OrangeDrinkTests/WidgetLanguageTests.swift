@@ -38,9 +38,9 @@ import WidgetKit
         let mac = try [Shelved.running(MacBattery.noBattery), .running(.ended), .appNotRunning].map {
             try MacBatteryView(entry: MacBatteryEntry(date: .now, battery: .success($0)), appName: "App").inspect().find(Message.self).actualView().text
         }
-        let device = WidgetDevice(address: "AA", name: "iPhone", kind: .phone, level: nil)
+        let device = WidgetDevice(id: .bluetooth("AA"), name: "iPhone", kind: .phone, level: nil)
         let single = try [(WidgetDevices.connected([], pinned: []), nil), (.connected([], pinned: []), "AA"), (.connected([device], pinned: []), nil)].map { (list, chosen: String?) in
-            try DeviceBatteryView(entry: DeviceBatteryEntry(date: .now, shelf: .success(.running(list)), chosen: chosen), appName: "App", family: .systemSmall)
+            try DeviceBatteryView(entry: DeviceBatteryEntry(date: .now, shelf: .success(.running(list)), chosen: chosen.map(DeviceID.bluetooth)), appName: "App", family: .systemSmall)
                 .inspect().find(Message.self).actualView().text
         }
         return mac + single + WidgetDeviceStatesTests.reasons.map(\.text)
@@ -68,7 +68,7 @@ import WidgetKit
     @Test func theMacIsNamedInEachLanguageAndADeviceKeepsItsOwnName() throws {
         #expect(try Self.translation(MacBattery.name, AppLanguage(code: "fr")) == "Ce Mac")
         #expect(try Self.translation(MacBattery.name, AppLanguage(code: "es")) == "Este Mac")
-        let device = WidgetDevice(address: "AA", name: "Rings", kind: .phone, level: nil)
+        let device = WidgetDevice(id: .bluetooth("AA"), name: "Rings", kind: .phone, level: nil)
         let drawn = AllBatteries(mac: .noBattery, devices: .connected([device], pinned: []), settings: AllBatteriesWidgetTests.settings { $0.showNames = true })
         guard case .listed(let batteries) = drawn, let name = batteries.first?.name else {
             Issue.record("a named device")
@@ -174,10 +174,10 @@ import WidgetKit
     }
 
     @Test func aPanelRowAndAPlacedWidgetSayALevelInTheLanguageTheySpeak() throws {
-        let device = WidgetDevice(address: "A", name: "Mouse", kind: .accessory, level: Self.exact)
-        let row = DeviceRow(id: DeviceID(address: "A"), name: "Mouse", kind: .accessory, level: Self.exact)
+        let device = WidgetDevice(id: .bluetooth("A"), name: "Mouse", kind: .accessory, level: Self.exact)
+        let row = DeviceRow(id: DeviceID.bluetooth("A"), name: "Mouse", kind: .accessory, level: Self.exact)
         let entry = AllBatteriesWidgetTests.entry(.noBattery, [device], style: .list)
-        let ring = DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected([device], pinned: []))), chosen: "A")
+        let ring = DeviceBatteryEntry(date: .now, shelf: .success(.running(.connected([device], pinned: []))), chosen: .bluetooth("A"))
         let views = [
             AnyView(DeviceRowView(row: row)), AnyView(AllBatteriesWidgetTests.view(entry)),
             AnyView(DeviceBatteryView(entry: ring, appName: "Orange Drink", family: .systemSmall)),

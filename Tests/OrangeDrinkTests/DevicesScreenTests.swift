@@ -9,7 +9,7 @@ import Testing
     private let defaults = scratchDefaults()
 
     private func device(_ address: String, _ percent: Int) -> Device {
-        Device(id: DeviceID(address: address), name: "Device \(address)", kind: .accessory,
+        Device(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory,
                levels: .single(BatteryLevel(percent: percent, approximate: false)))
     }
     /// 95, 37, 54, and 49 percent, in that arrival order.
@@ -26,7 +26,7 @@ import Testing
 
     @Test func hidingADeviceRemovesItFromThePanelButNotFromDetectedDevices() throws {
         let settings = try model()
-        try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
+        try settings.update { $0.toggleHidden(DeviceID.bluetooth("c")) }
         #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent.english) == ["37%", "49%", "95%"])
         let detected = DetectedDevices(list, settings: settings.value).entries
         #expect(detected.map(\.row.percent.english) == ["37%", "49%", "54%", "95%"])
@@ -35,8 +35,8 @@ import Testing
 
     @Test func showingAHiddenDeviceAgainRestoresItsPanelRow() throws {
         let settings = try model()
-        try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
-        try settings.update { $0.toggleHidden(DeviceID(address: "c")) }
+        try settings.update { $0.toggleHidden(DeviceID.bluetooth("c")) }
+        try settings.update { $0.toggleHidden(DeviceID.bluetooth("c")) }
         #expect(ConnectedDevices(list, settings: settings.value).rows.map(\.percent.english) == ["37%", "49%", "54%", "95%"])
     }
 
@@ -65,10 +65,10 @@ import Testing
 
     @Test func settingsSurviveARelaunch() throws {
         let first = try DeviceSettingsModel(defaults: defaults)
-        try first.update { $0.showConnectedDevices = false; $0.toggleHidden(DeviceID(address: "c")) }
+        try first.update { $0.showConnectedDevices = false; $0.toggleHidden(DeviceID.bluetooth("c")) }
         let second = try DeviceSettingsModel(defaults: defaults)
         #expect(second.value == first.value)
-        #expect(second.value.hidden == [DeviceID(address: "c")])
+        #expect(second.value.hidden == [DeviceID.bluetooth("c")])
     }
 
     @Test func storedSettingsThatDoNotDecodeFailTheLoad() {
@@ -96,13 +96,13 @@ import Testing
 
     @Test func aHiddenDeviceThatIsNotConnectedChangesNothing() throws {
         let settings = try model()
-        try settings.update { $0.toggleHidden(DeviceID(address: "gone")) }
+        try settings.update { $0.toggleHidden(DeviceID.bluetooth("gone")) }
         #expect(ConnectedDevices(list, settings: settings.value).rows.count == 4)
     }
 
     @Test func hidingEveryDeviceSaysSo() throws {
         let settings = try model()
-        try settings.update { for id in ["a", "b", "c", "d"] { $0.toggleHidden(DeviceID(address: id)) } }
+        try settings.update { for id in ["a", "b", "c", "d"] { $0.toggleHidden(DeviceID.bluetooth(id)) } }
         let card = ConnectedDevices(list, settings: settings.value)
         #expect(card.rows.isEmpty)
         #expect(card.emptyNote == "Every device is hidden. Show them again in Settings → Devices.")

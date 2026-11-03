@@ -227,7 +227,7 @@ struct BluetoothPermissionTests {
 /// A watcher with no IOBluetooth: each sweep is the list it is given, and its stop an event of its own, so a test reads the order.
 final class StandInWatcher: DeviceWatcher {
     static let sweep = DeviceEvent.swept([DeviceListTests.mouse])
-    static let stop = DeviceEvent.gone(DeviceID(address: "stand-in watcher stopped"))
+    static let stop = DeviceEvent.gone(DeviceID.bluetooth("stand-in watcher stopped"))
 
     private let continuation: BluetoothDevices.Events
     private let swept: DeviceEvent

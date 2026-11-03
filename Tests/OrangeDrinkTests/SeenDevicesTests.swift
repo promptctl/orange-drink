@@ -9,7 +9,7 @@ import Testing
     static let phone = device("AA", "iPhone")
 
     static func device(_ address: String, _ name: String, levels: DeviceLevels = .single(BatteryLevel(percent: 50, approximate: false))) -> Device {
-        Device(id: DeviceID(address: address), name: name, kind: .accessory, levels: levels)
+        Device(id: DeviceID.bluetooth(address), name: name, kind: .accessory, levels: levels)
     }
 
     static func unavailable() -> String { DeviceQuery.unavailable.resolve(in: .matchSystem) }
@@ -59,7 +59,7 @@ import Testing
     func sweep(_ devices: [Device], on send: AsyncThrowingStream<DeviceEvent, any Error>.Continuation, seen addresses: [String]) async throws {
         send.yield(.swept(devices))
         #expect(try await eventually {
-            try connected() == devices.count && Set(WidgetShelf.read(.seenDevices, from: shelf).get().names.keys) == Set(addresses)
+            try connected() == devices.count && Set(WidgetShelf.read(.seenDevices, from: shelf).get().names.keys) == Set(addresses.map(DeviceID.bluetooth))
         })
     }
 
@@ -110,7 +110,7 @@ import Testing
         #expect(try await named(["BB"]) == [Self.unavailable()])
 
         send.yield(.swept([Self.phone]))
-        #expect(await eventually { (try? WidgetShelf.read(.seenDevices, from: shelf).get().names) == ["AA": "iPhone", "BB": "Earbuds"] })
+        #expect(await eventually { (try? WidgetShelf.read(.seenDevices, from: shelf).get().names) == [.bluetooth("AA"): "iPhone", .bluetooth("BB"): "Earbuds"] })
         _ = model
     }
 
@@ -120,9 +120,9 @@ import Testing
     func names(knowing known: [String: String], after devices: [Device]) -> [String: String] {
         var list = DeviceList()
         list.apply(.swept(devices))
-        var seen = SeenDevices(names: known)
+        var seen = SeenDevices(names: Dictionary(uniqueKeysWithValues: known.map { (DeviceID.bluetooth($0.key), $0.value) }))
         seen.see(list)
-        return seen.names
+        return Dictionary(uniqueKeysWithValues: seen.names.map { ($0.key.key, $0.value) })
     }
 
     /// orange-devices-bue.suy: a connected device swept with a blank name, so its name read as its address.
@@ -141,9 +141,9 @@ import Testing
     /// A sweep a minute that adds nothing leaves the preferences file alone.
     @Test func anUpdateThatChangesNothingWritesNothing() throws {
         let seen = try SeenDevicesModel(defaults: defaults)
-        try seen.update { $0.names = ["BB": "Earbuds"] }
+        try seen.update { $0.names = [.bluetooth("BB"): "Earbuds"] }
         defaults.removeObject(forKey: SeenDevices.storageKey)
-        try seen.update { $0.names = ["BB": "Earbuds"] }
+        try seen.update { $0.names = [.bluetooth("BB"): "Earbuds"] }
         #expect(defaults.data(forKey: SeenDevices.storageKey) == nil)
     }
 
@@ -161,7 +161,7 @@ import Testing
     @Test func theOffersRunByNameThenAddress() async throws {
         let (model, send) = try launch()
         try await sweep([Self.device("B", "Same"), Self.device("A", "Same"), Self.device("C", "Another")], on: send, seen: ["A", "B", "C"])
-        #expect(try await query.suggestedEntities().map(\.id) == ["C", "A", "B"])
+        #expect(try await query.suggestedEntities().map(\.id) == ["bluetooth:C", "bluetooth:A", "bluetooth:B"])
         _ = model
     }
 
@@ -183,7 +183,7 @@ import Testing
     // MARK: the log
 
     @Test func theLogsCarryHowManyAndNeverANameOrAnAddress() {
-        let line = String(describing: SeenDevices(names: ["AA-BB": "Sam's Earbuds"]))
+        let line = String(describing: SeenDevices(names: [.bluetooth("AA-BB"): "Sam's Earbuds"]))
         #expect(line == "1 seen")
     }
 }

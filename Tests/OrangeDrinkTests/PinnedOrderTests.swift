@@ -6,7 +6,7 @@ import Testing
 // [LAW:verifiable-goals] The order the user arranges on the Menu Bar screen, from the stored list
 // to the menu bar's items, with simulated devices: no Bluetooth, no menu bar.
 @MainActor struct PinnedOrderTests {
-    static let a = DeviceID(address: "a"), b = DeviceID(address: "b"), c = DeviceID(address: "c")
+    static let a = DeviceID.bluetooth("a"), b = DeviceID.bluetooth("b"), c = DeviceID.bluetooth("c")
 
     static func list(_ names: [DeviceID: String], percent: Int = 50) -> DeviceList {
         var list = DeviceList()
@@ -23,7 +23,7 @@ import Testing
         #expect(order.ids == [Self.a, Self.b, Self.c])
         order.swap(Self.a, with: Self.c)
         #expect(order.ids == [Self.c, Self.b, Self.a])
-        order.swap(Self.a, with: DeviceID(address: "not pinned"))
+        order.swap(Self.a, with: DeviceID.bluetooth("not pinned"))
         #expect(order.ids == [Self.c, Self.b, Self.a])
         order.toggle(Self.b)
         #expect(order.ids == [Self.c, Self.a])
@@ -105,13 +105,13 @@ import Testing
 @MainActor struct PinnedPositionCheck {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["POSITION_CHECK"] != nil, "run by make position-check"))
     func theBarFollowsTheListEvenOverASavedPosition() async throws {
-        let ids = ["a", "b", "c"].map { DeviceID(address: "position-check-\($0)") }
+        let ids = ["a", "b", "c"].map { DeviceID.bluetooth("position-check-\($0)") }
         let devices = PinnedOrderTests.list(Dictionary(uniqueKeysWithValues: zip(ids, ["Keyboard", "Mouse", "AirPods"])))
         var made: [DeviceID: NSPinnedStatusItem] = [:]
         let controller = PinnedItemsController(makeItem: { let item = NSPinnedStatusItem(id: $0); made[$0] = item; return item })
         defer { controller.apply([]) }
         // What a ⌘-drag of the middle device to the far right leaves behind, in the settings AppKit reads.
-        let key = "NSStatusItem Preferred Position pinned-device-\(ids[1].address)"
+        let key = "NSStatusItem Preferred Position pinned-device-\(ids[1].wire)"
         defer { UserDefaults.standard.removeObject(forKey: key) }
 
         for order in [ids, [ids[2], ids[0], ids[1]], [ids[1], ids[2], ids[0]]] {
@@ -126,7 +126,7 @@ import Testing
             }
             let deadline = ContinuousClock.now + .seconds(5)
             while leftToRight() != order, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(50)) }
-            #expect(leftToRight() == order, "bar, left to right: \(String(describing: leftToRight()?.map(\.address))), wanted \(order.map(\.address))")
+            #expect(leftToRight() == order, "bar, left to right: \(String(describing: leftToRight()?.map(\.key))), wanted \(order.map(\.key))")
         }
     }
 }

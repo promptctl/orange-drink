@@ -251,8 +251,8 @@ struct DeviceBatteryEntry: TimelineEntry {
     let date: Date
     /// What the app put on the shelf, or why there is nothing to read.
     let shelf: Result<Shelved<WidgetDevices>, any Error>
-    /// The device the widget is set to, by address; nil until one is chosen.
-    let chosen: String?
+    /// The device the widget is set to; nil until one is chosen.
+    let chosen: DeviceID?
 }
 
 /// One device's ring at the widget's size: the ring alone at Small, with the name beside it at Medium
@@ -276,8 +276,8 @@ struct DeviceBatteryView: View {
     }
 
     @ViewBuilder private func chosen(from list: WidgetDeviceList) -> some View {
-        if let address = entry.chosen {
-            if let device = list.device(at: address) {
+        if let id = entry.chosen {
+            if let device = list.device(id) {
                 ring(device)
             } else {
                 Message(glyph: DeviceKind.accessory.symbol, text: "Not connected")

@@ -66,7 +66,7 @@ private let unreadStates = [
     }
 
     func deviceBatterySays(chosen: String?, family: WidgetFamily = .systemSmall) throws -> [String] {
-        let entry = DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: .success(shelf), log: ShelfLog.log), chosen: chosen)
+        let entry = DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: .success(shelf), log: ShelfLog.log), chosen: chosen.map(DeviceID.bluetooth))
         return try DeviceBatteryView(entry: entry, appName: "Orange Drink", family: family).inspect().findAll(ViewType.Text.self).map { try $0.string() }
     }
 
@@ -98,7 +98,7 @@ private let unreadStates = [
     /// Right after a reconnect, or for as long as power management has no source under its name, a connected device has
     /// no level. It is still there, so it keeps its ring.
     @Test func aChosenDeviceWithNoLevelIsConnected() async throws {
-        let silent = Device(id: DeviceID(address: "EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let silent = Device(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
         let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
         let model = try await publish(read, mac: .noBattery)
         #expect(try deviceBatterySays(chosen: "EE") == ["–"])
@@ -111,7 +111,7 @@ private let unreadStates = [
 
     /// The ranking leaves out a connected device that reports no battery, so these words have to hold beside one, on any Mac.
     @Test(arguments: [MacBattery.noBattery, .level(percent: 79, charging: false)]) func withNothingToListTheWidgetSaysNoDeviceBatteries(mac: MacBattery) async throws {
-        let silent = Device(id: DeviceID(address: "EE"), name: "Keyboard", kind: .accessory, levels: .none)
+        let silent = Device(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
         let read = DeviceState(name: "read", events: [.permission(.allowed), .swept([silent])], reason: nil)
         let model = try await publish(read, mac: mac)
         let intent = AllBatteriesIntent()
@@ -128,7 +128,7 @@ private let unreadStates = [
         _ = model
     }
 
-    @Test(arguments: [#"{"running":{"_0":[]}}"#, #"{"running":{"_0":{"connected":{"_0":[]}}}}"#, #"{"running":{"_0":{"connected":{"_0":[],"pinned":{"addresses":[]}}}}}"#])
+    @Test(arguments: [#"{"running":{"_0":[]}}"#, #"{"running":{"_0":{"connected":{"_0":[]}}}}"#, #"{"running":{"_0":{"connected":{"_0":[],"pinned":{"ids":[]}}}}}"#])
     func aFileInTheOldShapeDrawsOpenTheAppAndIsWrittenOver(old: String) throws {
         try Data(old.utf8).write(to: shelf.appending(path: WidgetShelf.Item<Shelved<WidgetDevices>>.devices.file))
         #expect(try deviceBatterySays(chosen: "AA") == ["Open Orange Drink"])
@@ -154,7 +154,7 @@ private let unreadStates = [
         case .unread(let unread): (.unread(unread), .automatic)
         case .noneChosen: (.connected(AllBatteriesWidgetTests.three, pinned: []), .custom)
         case .nonePinned: (.connected(AllBatteriesWidgetTests.three, pinned: []), .sameAsMenuBar)
-        case .noneReporting: (.connected(AllBatteriesWidgetTests.three, pinned: ["gone"]), .sameAsMenuBar)
+        case .noneReporting: (.connected(AllBatteriesWidgetTests.three, pinned: [.bluetooth("gone")]), .sameAsMenuBar)
         }
         return AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(devices)), settings: AllBatteriesWidgetTests.settings(style: style) { $0.devices = choice })
     }

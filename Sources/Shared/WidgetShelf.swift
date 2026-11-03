@@ -46,15 +46,13 @@ extension MacBattery {
 /// One connected device, as the widgets draw it. [LAW:one-source-of-truth] The kind and
 /// level are the app's own types (`DeviceKind`, `BatteryLevel`), derived from the one ranking the panel reads.
 struct WidgetDevice: Codable, Equatable, Sendable, Identifiable, CustomDebugStringConvertible {
-    let address: String
+    let id: DeviceID
     let name: String
     let kind: DeviceKind
     /// nil while the device has no level to show: unknown this read, or none reported.
     let level: BatteryLevel?
 
-    var id: String { address }
-
-    /// What the shelf's logs carry, which are public: the kind and level, never the name or address.
+    /// What the shelf's logs carry, which are public: the kind and level, never the name or identity.
     var debugDescription: String { "\(kind) \(BatteryLevel.text(level).english)" }
 }
 
@@ -112,20 +110,43 @@ extension UnreadDevices {
 
 /// The devices pinned to the menu bar, in the order their items sit there, connected or not.
 struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, CustomDebugStringConvertible {
-    let addresses: [String]
+    let ids: [DeviceID]
 
-    init(addresses: [String]) { self.addresses = addresses }
-    init(arrayLiteral addresses: String...) { self.init(addresses: addresses) }
+    init(ids: [DeviceID]) { self.ids = ids }
+    init(arrayLiteral ids: DeviceID...) { self.init(ids: ids) }
 
-    /// What the shelf's logs carry, which are public: how many, never an address.
-    var debugDescription: String { "\(addresses.count) pinned" }
+    /// What the shelf's logs carry, which are public: how many, never which.
+    var debugDescription: String { "\(ids.count) pinned" }
 }
 
 /// Every device the app has seen, connected now or not: what Edit Widget names and offers. [LAW:types-are-the-program] Not
 /// `Shelved`: a device's name stays true after the app quits, and Edit Widget needs it then.
 struct SeenDevices: Codable, Equatable, Sendable, CustomDebugStringConvertible {
-    /// Each device's name, by address.
-    var names: [String: String] = [:]
+    /// Each device's name.
+    var names: [DeviceID: String] = [:]
+
+    init() {}
+    init(names: [DeviceID: String]) { self.names = names }
+
+    private enum CodingKeys: CodingKey { case names }
+
+    /// The file keys each name by the device's wire form. [LAW:parse-dont-validate] A key with no source is a Bluetooth address
+    /// from before sources, and one this release cannot read fails the file loudly rather than lose a device's name.
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let wired = try values.decode([String: String].self, forKey: .names)
+        names = try Dictionary(wired.map { wire, name in
+            guard let id = DeviceID(wire: wire) else {
+                throw DecodingError.dataCorruptedError(forKey: .names, in: values, debugDescription: "not a device identity: \(wire)")
+            }
+            return (id, name)
+        }, uniquingKeysWith: { _, later in later })
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(Dictionary(uniqueKeysWithValues: names.map { ($0.key.wire, $0.value) }), forKey: .names)
+    }
 
     /// What the shelf's logs carry, which are public: how many, never a name or an address.
     var debugDescription: String { "\(names.count) seen" }
@@ -144,8 +165,8 @@ struct WidgetDeviceList: Codable, Equatable, Sendable {
     let unlevelled: [WidgetDevice]
 
     /// [LAW:one-source-of-truth] Where Device Battery finds its device: nil only for a device that is not connected.
-    func device(at address: String) -> WidgetDevice? {
-        (ranked + unlevelled).first { $0.address == address }
+    func device(_ id: DeviceID) -> WidgetDevice? {
+        (ranked + unlevelled).first { $0.id == id }
     }
 }
 
@@ -299,19 +320,19 @@ extension WidgetShelf.Item where Contents == SeenDevices {
 
 extension WidgetDevices {
     /// The devices a widget's selection lists, or why it lists none. [LAW:one-type-per-behavior] Custom and Same as menu
-    /// bar differ only in where their addresses come from.
+    /// bar differ only in where their devices come from.
     func listed(by selection: WidgetDeviceSelection) -> Result<[WidgetDevice], NoDevicesListed> {
         switch (self, selection) {
         case (.unread(let reason), _): .failure(.unread(reason))
         case (.connected(let list), .automatic): .success(list.ranked)
-        case (.connected(let list), .custom(let addresses)): Self.picked(addresses, from: list.ranked, unset: .noneChosen)
-        case (.connected(let list), .sameAsMenuBar): Self.picked(list.pinned.addresses, from: list.ranked, unset: .nonePinned)
+        case (.connected(let list), .custom(let ids)): Self.picked(ids, from: list.ranked, unset: .noneChosen)
+        case (.connected(let list), .sameAsMenuBar): Self.picked(list.pinned.ids, from: list.ranked, unset: .nonePinned)
         }
     }
 
-    /// As the pinned menu bar items do, an address not on the list is left out and the rest keep their order.
-    private static func picked(_ addresses: [String], from list: [WidgetDevice], unset: NoDevicesListed) -> Result<[WidgetDevice], NoDevicesListed> {
-        let devices = addresses.compactMap { address in list.first { $0.address == address } }
-        return devices.isEmpty ? .failure(addresses.isEmpty ? unset : .noneReporting) : .success(devices)
+    /// As the pinned menu bar items do, a device not on the list is left out and the rest keep their order.
+    private static func picked(_ ids: [DeviceID], from list: [WidgetDevice], unset: NoDevicesListed) -> Result<[WidgetDevice], NoDevicesListed> {
+        let devices = ids.compactMap { id in list.first { $0.id == id } }
+        return devices.isEmpty ? .failure(ids.isEmpty ? unset : .noneReporting) : .success(devices)
     }
 }

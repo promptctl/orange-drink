@@ -34,7 +34,7 @@ import WidgetKit
         }
 
         static func device(_ address: String, _ percent: Int, _ kind: DeviceKind) -> Device {
-            Device(id: DeviceID(address: address), name: "Device \(address)", kind: kind, levels: .single(BatteryLevel(percent: percent, approximate: false)))
+            Device(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: kind, levels: .single(BatteryLevel(percent: percent, approximate: false)))
         }
 
         func preview() throws -> WidgetPreview { try screen.inspect().find(WidgetPreview.self).actualView() }
@@ -147,7 +147,7 @@ import WidgetKit
     /// Hiding takes a device off the panel, as its label says. A placed All Batteries keeps it, so its preview does.
     @Test func aDeviceHiddenFromThePanelStaysInAllBatteries() async throws {
         let bed = try await Bed()
-        try bed.settings.update { $0.toggleHidden(DeviceID(address: "B")) }
+        try bed.settings.update { $0.toggleHidden(DeviceID.bluetooth("B")) }
         #expect(ConnectedDevices(bed.devices.list, settings: bed.settings.value).rows.map(\.percent.english) == ["95%"])
         #expect(try bed.screen.inspect().find(AllBatteriesView.self).findAll(ViewType.Text.self).map { try $0.string() } == ["80%", "54%", "95%"])
     }
@@ -162,7 +162,7 @@ import WidgetKit
     /// A placed Device Battery shows a device someone chose. Nobody chose this one, so a hidden one doesn't stand in.
     @Test func deviceBatteryPreviewsNoDeviceThePanelHides() async throws {
         let bed = try await Bed()
-        try bed.settings.update { $0.toggleHidden(DeviceID(address: "B")) }
+        try bed.settings.update { $0.toggleHidden(DeviceID.bluetooth("B")) }
         try bed.press("Device Battery")
         #expect(try bed.screen.inspect().find(DeviceBatteryView.self).findAll(ViewType.Text.self).map { try $0.string() } == ["95%"])
     }
