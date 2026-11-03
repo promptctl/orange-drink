@@ -3,9 +3,9 @@ import Foundation
 
 /// A throwaway defaults suite, empty, that no other test shares. Its name is an absolute path, which makes macOS keep
 /// it in `<path>.plist` and nowhere else: a bare name puts a plist in ~/Library/Preferences that no removal deletes
-/// (an emptied domain keeps a 42-byte file). Each test process keeps its suites in a directory of its own, so runs in
-/// other worktrees at the same time (they share the temporary folder) never touch each other's. The first use removes
-/// the directories no run has written to for an hour, which no run lasts.
+/// (an emptied domain keeps a 42-byte file). Each test process keeps its suites in a directory of its own in the
+/// temporary folder and removes nothing: runs in other worktrees share that folder, and macOS clears it of what no one
+/// has used for days.
 func scratchDefaults() -> UserDefaults {
     UserDefaults(suiteName: scratchSuitePath())!
 }
@@ -24,19 +24,9 @@ func scratchSuitePath() -> String {
 
 private enum ScratchRoot {
     static let path: URL = {
-        let files = FileManager.default
-        let root = files.temporaryDirectory.appendingPathComponent("OrangeDrinkTests-defaults")
-        try! files.createDirectory(at: root, withIntermediateDirectories: true)
-        let stale = Date().addingTimeInterval(-3600)
-        for run in try! files.contentsOfDirectory(at: root, includingPropertiesForKeys: [.contentModificationDateKey]) {
-            // Another run sweeping at the same moment may have removed it, or it may be gone before it can be read.
-            guard let written = try? run.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-                  written < stale else { continue }
-            do { try files.removeItem(at: run) } catch CocoaError.fileNoSuchFile {}
-            catch { fatalError("can't remove the stale scratch defaults at \(run.path): \(error)") }
-        }
-        let mine = root.appendingPathComponent(UUID().uuidString)
-        try! files.createDirectory(at: mine, withIntermediateDirectories: false)
+        let mine = FileManager.default.temporaryDirectory.appendingPathComponent("OrangeDrinkTests-defaults")
+            .appendingPathComponent(UUID().uuidString)
+        try! FileManager.default.createDirectory(at: mine, withIntermediateDirectories: true)
         return mine
     }()
 }
