@@ -276,7 +276,7 @@ import Testing
 // reads the helper's approval once and keeps it beside the call's own error, and only requiresApproval is a failure
 // the user fixes by allowing the helper.
 @Suite struct HelperAccessTests {
-    final class Reads: @unchecked Sendable { var count = 0 }
+    final class Reads: @unchecked Sendable { var status = 0, file = 0, heard = 0 }
 
     /// The app's path end to end, short of a helper: a real call to a service launchd has no job for fails at once
     /// as 4099, and the failure carries the status SMAppService reads for that plist, which this bundle lacks.
@@ -290,9 +290,9 @@ import Testing
 
     @Test func aCallThatSucceedsReadsNoStatus() throws {
         let reads = Reads()
-        let value = try HelperAccess.explained({ () throws(HelperCallError) in 7 }, status: { reads.count += 1; return .requiresApproval },
-                                               helperFile: { reads.count += 1; return .readable }, reconcile: { _ in reads.count += 1 })
-        #expect(value == 7 && reads.count == 0)
+        let value = try HelperAccess.explained({ () throws(HelperCallError) in 7 }, status: { reads.status += 1; return .requiresApproval },
+                                               helperFile: { reads.file += 1; return .readable }, reconcile: { _ in reads.heard += 1 })
+        #expect(value == 7 && (reads.status, reads.file, reads.heard) == (0, 0, 0))
     }
 
     @Test(arguments: [SMAppService.Status.requiresApproval, .enabled, .notRegistered, .notFound], [HelperFile.readable, .unreadable("gone")])
@@ -301,10 +301,10 @@ import Testing
         let error = HelperCallError.connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x")
         var heard: [HelperUseFailure] = []
         #expect {
-            try HelperAccess.explained({ () throws(HelperCallError) in throw error }, status: { reads.count += 1; return status },
-                                       helperFile: { reads.count += 1; return file }, reconcile: { heard.append($0) })
+            try HelperAccess.explained({ () throws(HelperCallError) in throw error }, status: { reads.status += 1; return status },
+                                       helperFile: { reads.file += 1; return file }, reconcile: { heard.append($0) })
         } throws: { ($0 as? HelperUseFailure) == HelperUseFailure(call: error, status: status, helperFile: file) }
-        #expect(reads.count == 2)
+        #expect((reads.status, reads.file) == (1, 1))
         #expect(heard == [HelperUseFailure(call: error, status: status, helperFile: file)])
     }
 
