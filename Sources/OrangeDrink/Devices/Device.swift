@@ -269,4 +269,9 @@ extension UnreadSource {
 struct ListNotes: Equatable {
     let empty: Phrase?
     let unread: [Phrase]
+
+    /// The lines a card says: why it has no rows if it has none, then each unread source. Empty for a fully read list with rows.
+    func lines(rowsAreEmpty: Bool) -> [Phrase] {
+        (rowsAreEmpty ? empty.map { [$0] } ?? [] : []) + unread
+    }
 }

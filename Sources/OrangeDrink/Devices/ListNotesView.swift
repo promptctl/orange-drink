@@ -8,13 +8,16 @@ struct ListNotesView: View {
     let notes: ListNotes
     var font: Font = .body
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if rowsAreEmpty, let empty = notes.empty { PhraseText(empty) }
-            ForEach(Array(notes.unread.enumerated()), id: \.offset) { _, note in PhraseText(note) }
+    /// With no line to say the view is absent, not an empty stack: the parent stack spaces an empty child as it spaces a full one.
+    @ViewBuilder var body: some View {
+        let lines = notes.lines(rowsAreEmpty: rowsAreEmpty)
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in PhraseText(line) }
+            }
+            .font(font)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .font(font)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

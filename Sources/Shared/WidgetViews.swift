@@ -283,9 +283,10 @@ struct DeviceBatteryView: View {
         }
     }
 
-    /// [LAW:one-source-of-truth] The same precedence as `WidgetDeviceList.listed(by:)`: a device not yet chosen is said first;
-    /// with nothing listed and a source unread, that source alone; with devices listed, a missing one is not connected, and the
-    /// reason is said beneath it, since the list is incomplete. The reason belongs to the list and not to the missing device:
+    /// The precedence of `WidgetDeviceList.listed(by:)`: a device not yet chosen is said first; with nothing listed and a source
+    /// unread, that source alone; with devices listed, a missing one is not connected, and the reason is said beneath it, since
+    /// the list is incomplete. A device that reports no level still counts as listed here (`device(_:)` finds it, and its source
+    /// delivered), where `listed(by:)` draws batteries and so counts only those that report one. The reason belongs to the list and not to the missing device:
     /// a device's id does not name the source that reads it.
     @ViewBuilder private func chosen(from list: WidgetDeviceList) -> some View {
         let unread = list.unreadSources.headline
