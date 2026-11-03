@@ -51,8 +51,7 @@ struct IPhoneDevices {
     }
 
     private mutating func update(_ udid: String, over transport: Transport, levels: DeviceLevels) -> DeviceEvent {
-        let device = Device(id: DeviceID(source: .iPhone, key: udid), name: Device.name(alias: nil, broadcast: nil, address: udid),
-                            kind: .phone, levels: levels)
+        let device = Device(id: DeviceID(source: .iPhone, key: udid), name: udid, kind: .phone, levels: levels)
         held[udid] = Held(device: device, over: transport)
         return .reported(device)
     }
