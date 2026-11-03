@@ -74,7 +74,7 @@ import Testing
     @Test func twoDevicesWithEqualNamesFromDifferentSourcesStayDistinct() throws {
         let bluetooth = DeviceID.bluetooth("AA-01")
         let cabled = DeviceID(source: .iPhone, key: "AA-01")
-        var list = DeviceList()
+        var list = DeviceList(sources: DeviceSource.allCases)
         list.apply(.swept([Self.device(bluetooth, "Brandon's iPhone")]), from: .bluetooth)
         list.apply(.swept([Self.device(cabled, "Brandon's iPhone")]), from: .iPhone)
 
@@ -93,7 +93,7 @@ import Testing
     }
 
     @Test func aDeviceGoneIsGoneOnlyFromItsOwnSource() {
-        var list = DeviceList()
+        var list = DeviceList(sources: DeviceSource.allCases)
         let bluetooth = DeviceID.bluetooth("AA-01")
         let cabled = DeviceID(source: .iPhone, key: "AA-01")
         list.apply(.swept([Self.device(bluetooth, "Phone")]), from: .bluetooth)

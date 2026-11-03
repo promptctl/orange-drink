@@ -35,7 +35,7 @@ import Testing
     func launch() throws -> (model: DevicesModel, send: AsyncThrowingStream<DeviceEvent, any Error>.Continuation) {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(
-            events: events, shelf: devicesShelf, seenShelf: seenShelf, settings: try DeviceSettingsModel(defaults: defaults),
+            sources: [.bluetooth: events], shelf: devicesShelf, seenShelf: seenShelf, settings: try DeviceSettingsModel(defaults: defaults),
             seen: try SeenDevicesModel(defaults: defaults), language: try AppLanguageModel(defaults: defaults), pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }))
         return (model, send)
     }
@@ -118,7 +118,7 @@ import Testing
 
     /// The names after the app knows `known` and sweeps `devices`.
     func names(knowing known: [String: String], after devices: [Device]) -> [String: String] {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(devices), from: .bluetooth)
         var seen = SeenDevices(names: Dictionary(uniqueKeysWithValues: known.map { (DeviceID.bluetooth($0.key), $0.value) }))
         seen.see(list)

@@ -9,7 +9,7 @@ import Testing
     static let a = DeviceID.bluetooth("a"), b = DeviceID.bluetooth("b"), c = DeviceID.bluetooth("c")
 
     static func list(_ names: [DeviceID: String], percent: Int = 50) -> DeviceList {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(names.map { id, name in
             Device(id: id, name: name, kind: .accessory, levels: .single(BatteryLevel(percent: percent, approximate: false)))
         }), from: .bluetooth)
@@ -75,7 +75,7 @@ import Testing
     }
 
     @Test func anEmptyCardSaysWhy() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         let note = { PinnedDevicesList(list, pinned: [Self.a]).emptyNote }
         #expect(note() == UnreadDevices.waiting.explanation)
         list.apply(.permission(.notDetermined), from: .bluetooth)

@@ -17,14 +17,14 @@ private enum Fleet {
 @Suite(.timeLimit(.minutes(1)))
 struct DeviceSourcesListTests {
     private func both() -> DeviceList {
-        var list = DeviceList()
+        var list = DeviceList(sources: DeviceSource.allCases)
         list.apply(.swept([Fleet.mouse, Fleet.pods]), from: .bluetooth)
         list.apply(.swept([Fleet.phone, Fleet.tablet]), from: .iPhone)
         return list
     }
 
     @Test func aSourceThatHasNotSpokenIsWaitingNotRead() {
-        var list = DeviceList()
+        var list = DeviceList(sources: DeviceSource.allCases)
         #expect(list.unread(of: .iPhone) == .waiting)
         list.apply(.swept([Fleet.mouse]), from: .bluetooth)
         #expect(list.unread(of: .bluetooth) == nil)
@@ -64,22 +64,23 @@ struct DeviceSourcesListTests {
         #expect(list.unread(of: .bluetooth) == nil)
     }
 
-    // The list-wide reason: nil once any source has swept, else the first source in `DeviceSource.allCases` order that is not
-    // merely waiting, else waiting.
+    // The list-wide reason, for a list with no device to show: nil when every source has swept, else the first source in
+    // `DeviceSource.allCases` order that is not merely waiting, else waiting.
     static let reasons: [(bluetooth: UnreadDevices?, iPhone: UnreadDevices?, expected: UnreadDevices?)] = [
         (nil, nil, nil),
-        (nil, .ended, nil),
-        (.denied, nil, nil),
+        (nil, .ended, .ended),
+        (.denied, nil, .denied),
         (.waiting, .denied, .denied),
         (.waiting, .ended, .ended),
         (.denied, .ended, .denied),
         (.ended, .waiting, .ended),
         (.waiting, .waiting, .waiting),
+        (nil, .waiting, .waiting),
     ]
 
     @Test(arguments: reasons)
-    func theListWideReasonIsNilOnceAnySourceHasSweptElseTheFirstSettledOne(bluetooth: UnreadDevices?, iPhone: UnreadDevices?, expected: UnreadDevices?) {
-        var list = DeviceList()
+    func anEmptyListsReasonIsTheFirstSettledOneOfTheSourcesNotYetSwept(bluetooth: UnreadDevices?, iPhone: UnreadDevices?, expected: UnreadDevices?) {
+        var list = DeviceList(sources: DeviceSource.allCases)
         for (source, state) in [(DeviceSource.bluetooth, bluetooth), (.iPhone, iPhone)] {
             switch state {
             case nil: list.apply(.swept([]), from: source)
@@ -90,6 +91,28 @@ struct DeviceSourcesListTests {
             }
         }
         #expect(list.unread == expected)
+    }
+
+    /// A device of a source that has swept is something to show, so the list is no longer a reason; one reported ahead of its
+    /// source's first sweep is not the list yet. The reason a listed device hides is orange-device-sources-rec.k69's.
+    @Test func aListedDeviceOfASweptSourceIsNotAnEmptyListButOneAheadOfItsSweepIs() {
+        var list = DeviceList(sources: DeviceSource.allCases)
+        list.apply(.permission(.denied), from: .bluetooth)
+        list.apply(.reported(Fleet.mouse), from: .bluetooth)
+        #expect(list.unread == .denied)
+
+        list.apply(.swept([Fleet.phone]), from: .iPhone)
+        #expect(list.unread == nil)
+        list.apply(.swept([]), from: .iPhone)
+        #expect(list.unread == .denied)
+    }
+
+    @Test func aSourceTheListWasNotBuiltForIsNotWaitingForEver() {
+        var list = DeviceList(sources: [.bluetooth])
+        #expect(list.unread == .waiting)
+        #expect(list.unread(of: .iPhone) == nil)
+        list.apply(.swept([]), from: .bluetooth)
+        #expect(list.unread == nil)
     }
 }
 

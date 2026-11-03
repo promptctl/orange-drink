@@ -12,14 +12,14 @@ struct DeviceListTests {
                                               case: BatteryLevel(percent: 80, approximate: false)))
 
     @Test func holdsEveryReportedDevice() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.reported(Self.pods), from: .bluetooth)
         list.apply(.reported(Self.mouse), from: .bluetooth)
         #expect(list.devices == [Self.pods, Self.mouse])
     }
 
     @Test func aLevelChangeReplacesTheDevice() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.reported(Self.mouse), from: .bluetooth)
         let drained = Device(id: Self.mouse.id, name: Self.mouse.name, kind: .accessory,
                              levels: .single(BatteryLevel(percent: 36, approximate: false)))
@@ -28,7 +28,7 @@ struct DeviceListTests {
     }
 
     @Test func aDisconnectRemovesTheDevice() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.reported(Self.mouse), from: .bluetooth)
         list.apply(.reported(Self.pods), from: .bluetooth)
         list.apply(.gone(Self.mouse.id), from: .bluetooth)
@@ -36,7 +36,7 @@ struct DeviceListTests {
     }
 
     @Test func aSweepReplacesTheListSoALateReportLeavesNoGhost() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.reported(Self.mouse), from: .bluetooth)
         list.apply(.reported(Self.pods), from: .bluetooth)
         // The mouse disconnected, but a sweep that had read it as connected reported it afterwards.
@@ -47,14 +47,14 @@ struct DeviceListTests {
     }
 
     @Test func aSweepNamingADeviceTwiceKeepsTheLaterOne() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         let renamed = Device(id: Self.mouse.id, name: "Renamed", kind: .accessory, levels: .none)
         list.apply(.swept([Self.mouse, renamed]), from: .bluetooth)
         #expect(list.devices == [renamed])
     }
 
     @Test func aReplayedReportChangesNothing() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.reported(Self.mouse), from: .bluetooth)
         let once = list
         list.apply(.reported(Self.mouse), from: .bluetooth)
@@ -73,7 +73,7 @@ struct DeviceListTests {
     @Test func aConnectedDeviceWithNoLevelIsLeftOutOfTheRankingAndAnUnreadOneIsNot() {
         let keyboard = Device(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
         let speaker = Device(id: DeviceID.bluetooth("DD"), name: "Speaker", kind: .accessory, levels: .unread)
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([Self.mouse, keyboard, speaker]), from: .bluetooth)
         #expect(DeviceRanking.rows(list).map(\.id) == [Self.mouse.id, speaker.id])
         #expect(DeviceRanking.unlevelled(list) == [DeviceRow(id: keyboard.id, name: "Keyboard", kind: .accessory, level: nil)])
@@ -103,7 +103,7 @@ struct DeviceListTests {
 
     @Test func followsReportsLevelChangesAndDisconnects() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events)
+        let model = DevicesModel(sources: [.bluetooth: events])
         send.yield(.reported(DeviceListTests.mouse))
         send.yield(.reported(DeviceListTests.pods))
         #expect(await list(of: model) { $0.devices.count == 2 }.devices == [DeviceListTests.pods, DeviceListTests.mouse])
@@ -113,7 +113,7 @@ struct DeviceListTests {
 
     @Test func powerdGoingSilentIsNoFailureAndItsNextAnswerRestoresTheRow() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events)
+        let model = DevicesModel(sources: [.bluetooth: events])
         let sources = DeviceReaderTests.Sources(unanswered: .unanswered(call: "the model's outage"))
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let silent = await list(of: model) { !$0.devices.isEmpty }
@@ -127,7 +127,7 @@ struct DeviceListTests {
 
     @Test func aFinishedStreamIsAFailureNotAFrozenList() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events)
+        let model = DevicesModel(sources: [.bluetooth: events])
         send.yield(.reported(DeviceListTests.mouse))
         _ = await list(of: model) { $0.devices.count == 1 }
         send.finish()
@@ -137,7 +137,7 @@ struct DeviceListTests {
 
     @Test func aFailedSubscriptionIsOnTheModel() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(events: events)
+        let model = DevicesModel(sources: [.bluetooth: events])
         send.finish(throwing: BluetoothDevicesError.registration)
         _ = await list(of: model) { $0.unread == .ended }
     }
@@ -145,7 +145,7 @@ struct DeviceListTests {
     @Test func onChangeIsToldOfTheEndedList() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (told, tell) = AsyncStream.makeStream(of: DeviceList.self)
-        let model = DevicesModel(events: events, onChange: { tell.yield($0) })
+        let model = DevicesModel(sources: [.bluetooth: events], onChange: { tell.yield($0) })
         send.finish()
         var lists = told.makeAsyncIterator()
         #expect(await lists.next()?.unread == .ended)
@@ -168,7 +168,7 @@ struct DeviceListTests {
         let accessories = try Self.accessoryLevels()
         let log = try await BatteryLog(category: "devices")
         // The first sweep is the whole connected set, and a refused host never sweeps, so the refusal ends the wait for it.
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         let (seen, see) = AsyncThrowingStream.makeStream(of: Seen.self)
         let subscription = Self.subscribe(see)
         defer { subscription.cancel() }

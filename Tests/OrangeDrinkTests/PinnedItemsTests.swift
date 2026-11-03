@@ -9,7 +9,7 @@ import Testing
     static let pods = DeviceID.bluetooth("p")
 
     private func list(_ levels: [DeviceID: BatteryLevel?]) -> DeviceList {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(levels.map { id, level in
             Device(id: id, name: id == Self.mouse ? "Magic Mouse" : "AirPods", kind: .accessory,
                    levels: level.map { .single($0) } ?? .none)
@@ -46,7 +46,7 @@ import Testing
         let items = Items()
         let controller = controller(items)
         controller.apply(PinnedItem.items(list([Self.mouse: level(37)]), pinned: [Self.mouse]))
-        var unread = DeviceList()
+        var unread = DeviceList(sources: [.bluetooth])
         unread.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .unread)]), from: .bluetooth)
         controller.apply(PinnedItem.items(unread, pinned: [Self.mouse]))
         #expect(items.made.count == 1 && !items.made[0].removed)
@@ -64,7 +64,7 @@ import Testing
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
-        let model = try DevicesModel(events: events, shelf: publisher, settings: settings, language: language, pinnedItems: controller(items))
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, language: language, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices))
         #expect(await eventually { items.made.first?.shown?.title == "37%" })
@@ -94,7 +94,7 @@ import Testing
         controller.apply(PinnedItem.items(devices, pinned: []))
         #expect(items.made[0].removed)
         controller.apply(PinnedItem.items(devices, pinned: [Self.mouse]))
-        controller.apply(PinnedItem.items(DeviceList(), pinned: [Self.mouse]))
+        controller.apply(PinnedItem.items(DeviceList(sources: [.bluetooth]), pinned: [Self.mouse]))
         #expect(items.made.count == 2)
         #expect(items.made[1].removed)
     }
@@ -116,7 +116,7 @@ import Testing
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
-        let model = try DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: controller(items))
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices))
         #expect(await eventually { items.made.first?.shown?.row.percent.english == "37%" })

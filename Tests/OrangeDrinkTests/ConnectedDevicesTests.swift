@@ -11,7 +11,7 @@ struct ConnectedDevicesTests {
         .single(BatteryLevel(percent: percent, approximate: approximate))
     }
     private func rows(_ devices: [Device]) -> [DeviceRow] {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(devices), from: .bluetooth)
         return ConnectedDevices(list, settings: DeviceSettings()).rows
     }
@@ -22,7 +22,7 @@ struct ConnectedDevicesTests {
     }
 
     @Test func anEmptyCardSaysWhy() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         let note = { ConnectedDevices(list, settings: DeviceSettings()).emptyNote }
         #expect(note() == UnreadDevices.waiting.explanation)
         list.apply(.permission(.notDetermined), from: .bluetooth)

@@ -6,7 +6,7 @@ import Observation
 /// [LAW:one-source-of-truth] One subscription per process, held from launch: views derive from
 /// this and never read IOBluetooth themselves.
 @Observable @MainActor final class DevicesModel {
-    private(set) var list = DeviceList()
+    private(set) var list: DeviceList
     /// [LAW:types-are-the-program] exception: see BatteryModel.subscription; same reason.
     @ObservationIgnored nonisolated(unsafe) private var subscriptions: [Task<Void, Never>] = []
 
@@ -19,16 +19,12 @@ import Observation
     /// ending leaves the others' devices listed.
     init(sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }) {
         precondition(!sources.isEmpty, "a device list of no sources would read waiting for ever")
+        list = DeviceList(sources: sources.keys)
         // The weak reference is re-taken per event: a strong one held across a stream would keep the model alive for good.
         let model: @Sendable () -> DevicesModel? = { [weak self] in self }
         subscriptions = sources.map { source, events in
             Task { await DevicesModel.follow(source, events, model: model, onChange: onChange) }
         }
-    }
-
-    /// The one source of the app today, Bluetooth.
-    convenience init(events: AsyncThrowingStream<DeviceEvent, any Error>, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }) {
-        self.init(sources: [.bluetooth: events], onChange: onChange)
     }
 
     private static func follow(
