@@ -47,7 +47,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         let reloads = Reloads()
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { if $0 == .deviceBattery { reloads.count += 1 } }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = try DevicesModel(events: events, shelf: publisher)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
 
         send.yield(.swept([Self.iPhone]))
         #expect(try await eventually { try levelRead("AA") == 95 })
@@ -66,7 +66,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     @Test func anEndedDeviceStreamTakesItsLevelsOffTheShelfInsteadOfFreezingThem() async throws {
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = try DevicesModel(events: events, shelf: publisher)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
         send.yield(.swept([Self.iPhone]))
         #expect(try await eventually { try levelRead("AA") == 95 })
 
@@ -84,7 +84,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _ in
             StandInWatcher(continuation, swept: swept)
         })
-        let model = try DevicesModel(events: events, shelf: publisher)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
         ask.yield(.heard(.allowed))
         #expect(try await eventually { try levelRead("AA") == 95 })
 
@@ -100,7 +100,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     @Test func aDevicesModelTornDownIsNotAnEndedStreamAndLeavesTheShelfAlone() async throws {
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        var model: DevicesModel? = try DevicesModel(events: events, shelf: publisher)
+        var model: DevicesModel? = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
         model = nil
         send.finish()
         try await Task.sleep(for: .milliseconds(100))
@@ -118,7 +118,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     @Test func aDeviceThatDisconnectsLeavesTheShelfAndTheAppQuittingSaysSo() async throws {
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([Self.iPhone]), from: .bluetooth)
         publisher.publish(.running(WidgetDevices(list, pinned: [])))
         #expect(try levelRead("AA") == 95)
@@ -130,7 +130,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func eachRowBecomesItsWidgetDeviceWithTheLevelThePanelShows() throws {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([
             Self.iPhone,
             Device(id: DeviceID.bluetooth("CC"), name: "iPad", kind: .tablet, levels: .single(BatteryLevel(percent: 40, approximate: true))),
@@ -158,7 +158,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test(arguments: widgetSizes) func eachWidgetFillsItsArcClockwiseFromTheTopAsFarAsItsOwnDevicesLevel(family: WidgetFamily, size: CGSize) throws {
-        let devices = WidgetDevices({ var list = DeviceList(); list.apply(.swept([Self.iPhone, Self.earbuds(54)]), from: .bluetooth); return list }(), pinned: [])
+        let devices = WidgetDevices({ var list = DeviceList(sources: [.bluetooth]); list.apply(.swept([Self.iPhone, Self.earbuds(54)]), from: .bluetooth); return list }(), pinned: [])
         func filled(_ address: String) throws -> Double {
             let view = DeviceBatteryView(entry: Self.entry(.success(.running(devices)), chosen: address), appName: "Orange Drink", family: family)
             return try RingPixels(widgetImage(view, size: size, scheme: .light, scale: 1)).filledFraction

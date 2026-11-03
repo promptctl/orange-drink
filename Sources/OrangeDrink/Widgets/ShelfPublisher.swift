@@ -37,11 +37,11 @@ extension DevicesModel {
     /// list it starts from reaches the shelf before this returns, so a file a crashed run left behind is not drawn as current
     /// while the first Bluetooth sweep is still out.
     convenience init(
-        events: AsyncThrowingStream<DeviceEvent, any Error>, shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>,
+        sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>,
         settings: DeviceSettingsModel, seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) {
-        self.init(events: events, onChange: { list in
+        self.init(sources: sources, onChange: { list in
             do {
                 try seen.update { $0.see(list) }
             } catch {

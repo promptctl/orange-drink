@@ -47,7 +47,7 @@ private let unreadStates = [
         let (changed, signal) = AsyncStream.makeStream(of: Void.self)
         var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = try DevicesModel(events: events, shelf: publisher, onChange: { _ in signal.yield() })
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, onChange: { _ in signal.yield() })
         for event in state.events {
             send.yield(event)
             _ = await next.next()

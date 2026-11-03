@@ -140,6 +140,10 @@ enum IPhoneEvent: Equatable {
     case wifiSyncOn(udid: String)
     /// Non-terminal: switching on Wi-Fi sync failed; it is tried again on the next plug-in.
     case wifiSyncFailed(udid: String, IPhoneReadError)
+    /// usbmuxd's ListDevices snapshot has been applied: every device it lists has had its `reachable` event, all ahead of this
+    /// one. Yielded once, so a consumer that wants to know what is attached, rather than what has attached since, has it here
+    /// even when nothing is.
+    case listed
     /// Terminal: the stream ends after this event.
     case failed(IPhoneReadError)
 }
@@ -226,7 +230,7 @@ private final class MonitorState: @unchecked Sendable {
             try typedReadErrors {
                 let socket = try inputs.listen()
                 let snapshot = try inputs.snapshot()
-                receive("listed \(snapshot)") { $0.listed(snapshot) }
+                receive("listed \(snapshot)", then: .listed) { $0.listed(snapshot) }
                 var reader = UsbmuxFrameReader()
                 while !isStopped() {
                     guard let bytes = try socket.receiveSome(max: 4096) else { continue }
@@ -251,7 +255,9 @@ private final class MonitorState: @unchecked Sendable {
     }
 
     /// One decision of the map, a Listen message's or the snapshot's, and the steps it returns, in one turn of the queue.
-    private func receive(_ said: String, _ decide: (inout DeviceMap) -> [DeviceMap.Step]) {
+    /// `then` is yielded after the steps, in the same turn, so nothing a step starts can deliver ahead of it; a stopped
+    /// monitor performs nothing, and says nothing.
+    private func receive(_ said: String, then marker: IPhoneEvent? = nil, _ decide: (inout DeviceMap) -> [DeviceMap.Step]) {
         queue.sync {
             let steps = decide(&map)
             IPhoneMonitor.log.info("iphone \(said, privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
@@ -259,6 +265,7 @@ private final class MonitorState: @unchecked Sendable {
             case .running(var pacers):
                 for step in steps { perform(step, pacers: &pacers) }
                 lifecycle = .running(pacers: pacers)
+                if let marker { continuation.yield(marker) }
             case .stopped:
                 IPhoneMonitor.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
             }

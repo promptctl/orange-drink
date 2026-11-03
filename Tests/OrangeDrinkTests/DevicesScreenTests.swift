@@ -14,7 +14,7 @@ import Testing
     }
     /// 95, 37, 54, and 49 percent, in that arrival order.
     private var list: DeviceList {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([device("a", 95), device("b", 37), device("c", 54), device("d", 49)]), from: .bluetooth)
         return list
     }
@@ -41,7 +41,7 @@ import Testing
     }
 
     @Test func anEmptyDetectedCardSaysWhy() throws {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         let note = { DetectedDevices(list, settings: DeviceSettings()).emptyNote }
         #expect(note() == UnreadDevices.waiting.explanation)
         list.apply(.permission(.notDetermined), from: .bluetooth)

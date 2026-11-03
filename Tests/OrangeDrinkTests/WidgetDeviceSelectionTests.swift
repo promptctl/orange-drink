@@ -130,7 +130,7 @@ import WidgetKit
     }
 
     @Test func aPinnedDeviceReachesTheShelfWhetherOrNotItIsConnected() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([]), from: .bluetooth)
         let pinned = PinnedOrder([DeviceID.bluetooth("gone"), DeviceID.bluetooth("here")])
         #expect(WidgetDevices(list, pinned: pinned) == .connected([], pinned: [.bluetooth("gone"), .bluetooth("here")]))
@@ -162,7 +162,7 @@ import WidgetKit
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
-        let model = try DevicesModel(events: events, shelf: publisher, settings: settings, pinnedItems: pinnedItems)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: pinnedItems)
         send.yield(.swept(Self.addresses.enumerated().map { index, address in
             Device(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory, levels: .single(BatteryLevel(percent: 30 + 10 * index, approximate: false)))
         }))

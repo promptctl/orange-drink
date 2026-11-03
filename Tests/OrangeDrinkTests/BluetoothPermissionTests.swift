@@ -27,7 +27,7 @@ struct BluetoothPermissionTests {
     }
 
     @Test func aListIsUnreadUntilASweepAndSaysWhy() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         #expect(list.unread == .waiting)
         list.apply(.permission(.notDetermined), from: .bluetooth)
         #expect(list.unread == .unanswered)
@@ -46,7 +46,7 @@ struct BluetoothPermissionTests {
     }
 
     @Test func aRefusalHeardAfterASweepKeepsNoneOfItsRows() {
-        var list = DeviceList()
+        var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([DeviceListTests.mouse]), from: .bluetooth)
         list.apply(.permission(.denied), from: .bluetooth)
         #expect(list.unread == .denied)

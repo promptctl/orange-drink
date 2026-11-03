@@ -50,11 +50,12 @@ import Testing
         init(snapshot: @escaping @Sendable () throws -> [AttachedDevice],
              enableWifiSync: @escaping MonitorInputs.EnableWifiSync = { _, _ throws(IPhoneReadError) in },
              connect: @escaping @Sendable (_ handle: Int) throws(IPhoneReadError) -> Void = { _ throws(IPhoneReadError) in },
+             listing: Bool = false,
              read: @escaping Read) throws {
             let (socket, peer) = try TimedSocketDeadline.pair()
             self.peer = peer
             let opened = opened
-            events = IPhoneMonitor.events(from: MonitorInputs(
+            let all = IPhoneMonitor.events(from: MonitorInputs(
                 listen: { socket }, snapshot: snapshot,
                 connect: { handle, udid throws(IPhoneReadError) in
                     opened.withLock { $0.append(handle) }
@@ -62,6 +63,19 @@ import Testing
                     return StandInRelay(handle: handle, udid: udid, read: read)
                 },
                 enableWifiSync: enableWifiSync, timekeeper: clock))
+            events = listing ? all : Self.withoutListing(all)
+        }
+
+        /// The stream without its `.listed` marker, which every test but the one about it leaves out of the sequence it is
+        /// asserting. Ending the returned stream ends `all`, and with it the monitor.
+        private static func withoutListing(_ all: AsyncStream<IPhoneEvent>) -> AsyncStream<IPhoneEvent> {
+            AsyncStream { continuation in
+                let pump = Task {
+                    for await event in all where event != .listed { continuation.yield(event) }
+                    continuation.finish()
+                }
+                continuation.onTermination = { _ in pump.cancel() }
+            }
         }
 
         func send(_ body: [String: Any]) throws {
@@ -401,6 +415,28 @@ import Testing
         #expect(try await log.logged("iphone monitor stopped, not performed: \(DeviceMap.describe([.reachability(udid: "D", over: .usb), .enableWifiSync(handle: 6, udid: "D")]))"))
         #expect(reads.withLock { $0 } == 0)
         #expect(syncs.withLock { $0 } == 0)
+    }
+
+    /// The listing is the snapshot's own end: every device it lists has been announced, and no read of one can come before it.
+    @Test
+    func theListingFollowsTheSnapshotsReachabilityAndPrecedesEveryRead() async throws {
+        let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "C")] }, listing: true) { _, _ throws(IPhoneReadError) in
+            Self.reading
+        }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await Self.next(2, of: &events) == Self.described([.reachable(udid: "B", over: .usb), .reachable(udid: "C", over: .network)]))
+        #expect(await events.next() == .listed)
+    }
+
+    @Test
+    func anEmptySnapshotIsStillListed() async throws {
+        let harness = try Harness(snapshot: { [] }, listing: true) { _, _ throws(IPhoneReadError) in Self.reading }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .listed)
     }
 
     @Test

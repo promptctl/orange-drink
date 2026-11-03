@@ -82,10 +82,16 @@ struct DeviceList: Equatable, Sendable {
     }
 
     private var byID: [DeviceID: Device] = [:]
-    /// Total over the sources, so a source that has not spoken is waiting and cannot be mistaken for read.
-    private var readings = Dictionary(uniqueKeysWithValues: DeviceSource.allCases.map { ($0, Reading.unheard) })
+    /// Total over the sources the list was built for, so a source that has not spoken is waiting and cannot be mistaken
+    /// for read. A source nothing subscribed to is not in it: it is no source of this list, not one waiting for ever.
+    private var readings: [DeviceSource: Reading]
+
+    init(sources: some Collection<DeviceSource>) {
+        readings = Dictionary(uniqueKeysWithValues: sources.map { ($0, Reading.unheard) })
+    }
 
     mutating func apply(_ event: DeviceEvent, from source: DeviceSource) {
+        precondition(readings[source] != nil, "an event from \(source.rawValue), which this list was not built for")
         switch event {
         case .reported(let device) where device.id.source == source: byID[device.id] = device
         case .gone(let id) where id.source == source: byID[id] = nil
@@ -103,6 +109,7 @@ struct DeviceList: Equatable, Sendable {
 
     /// The source's stream ended: no event will follow from it, so nothing of its is kept to go stale.
     mutating func end(_ source: DeviceSource) {
+        precondition(readings[source] != nil, "the end of \(source.rawValue), which this list was not built for")
         removeDevices(of: source)
         readings[source] = .unread(.ended)
     }
@@ -111,23 +118,29 @@ struct DeviceList: Equatable, Sendable {
         byID = byID.filter { $0.key.source != source }
     }
 
-    /// Why this source's devices are no list of what it has connected, or nil once it has swept. [LAW:types-are-the-program]
+    /// Why this source's devices are no list of what it has connected, or nil once it has swept; nil too for a source this
+    /// list was not built for, which has nothing to say. [LAW:types-are-the-program]
     /// A device reported before the first sweep leaves it unread: one device is not what is connected, and the connect a
     /// registration replays has no order with that sweep.
     func unread(of source: DeviceSource) -> UnreadDevices? {
-        switch readings[source, default: .unheard] {
-        case .read: nil
-        case .unread(let reason): reason
+        switch readings[source] {
+        case nil, .read?: nil
+        case .unread(let reason)?: reason
         }
     }
 
-    /// Why this is no list of what is connected, or nil once any source has swept: a function of the readings, so there is no
-    /// second copy of them. A source nothing subscribed to stays waiting, so the reason shown is the first source, in
+    /// Why a screen with no device to show has no list of what is connected, or nil when it has one to show or nothing is unread:
+    /// a function of the readings, so there is no second copy of them. A device of a source that has swept is something to show;
+    /// one reported ahead of its source's first sweep is not, as it is not the list. Otherwise the reason is the first source, in
     /// `DeviceSource.allCases` order, that was denied or ended; waiting only when none was.
+    ///
+    /// A source unread beside listed devices is shown nowhere yet: orange-device-sources-rec.k69.
     var unread: UnreadDevices? {
-        let reasons = DeviceSource.allCases.map(unread(of:))
-        guard !reasons.contains(where: { $0 == nil }) else { return nil }
-        return reasons.lazy.compactMap { $0 }.first { $0 != .waiting } ?? .waiting
+        let reasons = DeviceSource.allCases.filter { readings[$0] != nil }.map { ($0, unread(of: $0)) }
+        guard reasons.contains(where: { $0.1 != nil }) else { return nil }
+        let showsDevice = reasons.contains { source, reason in reason == nil && byID.keys.contains { $0.source == source } }
+        guard !showsDevice else { return nil }
+        return reasons.lazy.compactMap(\.1).first { $0 != .waiting } ?? .waiting
     }
 
     /// In a stable order, by name then identity, so a view never reshuffles equal rows.
