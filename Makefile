@@ -15,7 +15,7 @@ HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c
 XCB_SETTINGS ?=
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)' $(XCB_SETTINGS)
 
-.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
+.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check iphone-list iphone-capture iphone-devices-test
 
 generate:
 	xcodegen generate --use-cache
@@ -49,6 +49,7 @@ script-tests:
 	$(MAKE) vm-check-test
 	$(MAKE) place-widgets-test
 	$(MAKE) layout-events-count-test
+	$(MAKE) iphone-devices-test
 
 # The recorder behind the hardware checks, run against stand-ins for lit and xcrun: it needs no person and no device.
 hardware-check-test:
@@ -240,6 +241,20 @@ layout-events-count:
 # The figures that run prints, held against recorded events: no Accessibility trust, no NotificationCenter.
 layout-events-count-test:
 	scripts/layout-events-count-test.sh
+
+# The iPhones and iPads usbmuxd lists, cable and Wi-Fi: an empty list is a Mac with none attached, not an error.
+iphone-list:
+	python3 -I scripts/iphone-devices list
+
+# Every listed device's IOPMPowerSource reply, one plist per listing, into DIR: the source of the fixtures in
+# Tests/OrangeDrinkTests/IPhoneFixtures.swift. The files hold serial numbers, so DIR belongs outside the repo.
+iphone-capture:
+	@test -n "$(DIR)" || { echo "usage: make iphone-capture DIR=<directory outside the repo>" >&2; exit 2; }
+	python3 -I scripts/iphone-devices capture "$(DIR)"
+
+# Both subcommands against a stand-in for usbmuxd: no device, no pairing.
+iphone-devices-test:
+	python3 -I scripts/iphone-devices-test.py
 
 # The Release app. The last line printed is the app's path, so scripts/dmg spells neither the
 # configuration's directory nor the app's name.

@@ -1,10 +1,10 @@
 import Foundation
 
 // IORegistry battery replies cut to the keys parseIPhoneBattery reads, from captures by
-// spikes/orange-iphone-watch-lm3.8pk/capture_ioreg.py or a public dump. Serial numbers and the rest of each entry are
+// `make iphone-capture` (scripts/iphone-devices) or a public dump. Serial numbers and the rest of each entry are
 // not copied here. Each header names the device, OS and source, and the values the parse must give.
 
-// iPhone16,2 (iPhone 15 Pro Max), iOS 27.2, captured over Wi-Fi 2026-10-22 by capture_ioreg.py (IOPMPowerSource).
+// iPhone16,2 (iPhone 15 Pro Max), iOS 27.2, captured over Wi-Fi 2026-10-22 by capture_ioreg.py, now scripts/iphone-devices capture (IOPMPowerSource).
 // Capacities only in BatteryData. Expected: level 25, design 4395 and nominal 3761 from BatteryData, cycles 584,
 // max capacity 86 (Settings showed 86%, cmt-a2f429b6).
 let iPhone16_2_iOS27ReplyXML = """
@@ -40,7 +40,7 @@ let iPhone16_2_iOS27ReplyXML = """
 
 """
 
-// iPhone17,1 (iPhone 16 Pro), iOS 18.2, captured over Wi-Fi 2026-10-22 by capture_ioreg.py (IOPMPowerSource).
+// iPhone17,1 (iPhone 16 Pro), iOS 18.2, captured over Wi-Fi 2026-10-22 by capture_ioreg.py, now scripts/iphone-devices capture (IOPMPowerSource).
 // Capacities at the top level; DesignCapacity in both places. Expected: level 8, design 3544 and nominal 3637 from the
 // top level, cycles 16, max capacity 100 (the ratio is 102.6%; Settings showed 100%, cmt-04c5ee7d).
 let iPhone17_1_iOS18ReplyXML = """
@@ -144,7 +144,7 @@ let iPad13_4_iPadOS27ReplyXML = """
 
 """
 
-// RealityDevice14,1 (Apple Vision Pro), visionOS 27.2, captured by cable 2026-10-22 by capture_ioreg.py (IOPMPowerSource;
+// RealityDevice14,1 (Apple Vision Pro), visionOS 27.2, captured by cable 2026-10-22 by capture_ioreg.py, now scripts/iphone-devices capture (IOPMPowerSource;
 // the AppleSmartBattery request returns no entry). BatteryData.CurrentCapacity is mAh (2730) where the top level is
 // percent (100). Expected: level 100, design 3060 and nominal 2700 from the top level, cycles 209, stored max capacity 93,
 // shown over the 88% the capacities give.
