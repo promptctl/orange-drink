@@ -229,7 +229,7 @@ struct HelperRepairLive {
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
         try #require(Self.reply(client) == nil, "the helper does not answer before the check starts")
 
-        let log = try await TestLog(category: LaunchStep.category)
+        let log = try await TestLog(following: LaunchStep.category)
         let scratch = FileManager.default.temporaryDirectory.appending(path: "helper-repair-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         let good = scratch.appending(path: helper.lastPathComponent)
