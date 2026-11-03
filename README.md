@@ -18,9 +18,21 @@ The battery indicator built into macOS warns you only at 10% and 5%, and those l
 
 By default, press ⌃⌥J from anywhere to open the Orange Drink panel.
 
-## Getting it
+<img src="docs/images/panel.png" alt="The Orange Drink panel: charge, battery health, temperature, power flow, and connected devices" width="330">
 
-There is no downloadable app yet. To build it from source, see [For developers](#for-developers).
+## Download
+
+[Download the latest Orange Drink](https://github.com/promptctl/orange-drink/releases/latest), open the disk image, and drag Orange Drink to Applications. It needs a Mac with Apple Silicon running macOS 14 or later. The app is signed and notarized by Apple, so it opens without warnings.
+
+To update, choose **Check for Updates…** in the panel. Orange Drink installs the new version and reopens.
+
+## Permissions
+
+macOS may ask you to allow Orange Drink these, each for one purpose:
+
+- **Charge limit and Low Power Mode:** macOS asks you to allow a small helper in System Settings > General > Login Items & Extensions. Changing how a Mac charges needs privileges an ordinary app doesn't have, and the helper does only that.
+- **Bluetooth:** reads the battery levels of your paired Bluetooth devices.
+- **Accessibility:** closes macOS's own low battery notifications, so you see Orange Drink's alerts instead. This is used only when that option is on in the General settings.
 
 ## For developers
 
