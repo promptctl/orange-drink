@@ -1,0 +1,17 @@
+macos	26.6.2
+banner	AXNotificationCenterBanner	First	A banner	Script Editor, First, A banner	AXPress	Name:Show Details	Name:Show	Name:Close
+final-warning	AXNotificationCenterAlert	Low Battery	Your Mac will sleep soon unless plugged into a power outlet.	Low Battery, Your Mac will sleep soon unless plugged into a power outlet.	AXPress	Name:Show Details	Name:Close
+final-warning	AXNotificationCenterBanner	Low Battery	Your Mac will sleep soon unless plugged into a power outlet.	Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet.	AXPress	Name:Show Details	Name:Show	Name:Close
+panel	AXNotificationCenterBannerStack	Low Battery	Your Mac will sleep soon unless plugged into a power outlet.	Script Editor, Low Battery, Your Mac will sleep soon unless plugged into a power outlet., stacked	AXPress	Name:Show Details	Name:Show	Name:Clear All
+language-fr-FR	AXNotificationCenterAlert	Batterie faible	Branchez le Mac sur secteur pour ne pas suspendre l’activité.	Batterie faible, Branchez le Mac sur secteur pour ne pas suspendre l’activité.	AXPress	Name:Afficher les détails	Name:Fermer
+language-fr-FR	AXNotificationCenterBanner	Batterie faible	Branchez le Mac sur secteur pour ne pas suspendre l’activité.	Éditeur de script, Batterie faible, Branchez le Mac sur secteur pour ne pas suspendre l’activité.	AXPress	Name:Afficher les détails	Name:Afficher	Name:Fermer
+language-ja	AXNotificationCenterAlert	バッテリー残量低下	電源コンセントに接続しなければ、このMacは間もなくスリープ状態に入ります。	バッテリー残量低下、電源コンセントに接続しなければ、このMacは間もなくスリープ状態に入ります。	AXPress	Name:詳細を表示	Name:閉じる
+language-ja	AXNotificationCenterBanner	バッテリー残量低下	電源コンセントに接続しなければ、このMacは間もなくスリープ状態に入ります。	スクリプトエディタ、バッテリー残量低下, 電源コンセントに接続しなければ、このMacは間もなくスリープ状態に入ります。	AXPress	Name:詳細を表示	Name:表示	Name:閉じる
+language-zh-Hans	AXNotificationCenterAlert	电池电量不足	请插入电源插座，否则Mac将很快进入睡眠。	电池电量不足 请插入电源插座，否则Mac将很快进入睡眠。	AXPress	Name:显示详细信息	Name:关闭
+language-zh-Hans	AXNotificationCenterBanner	电池电量不足	请插入电源插座，否则Mac将很快进入睡眠。	脚本编辑器 电池电量不足, 请插入电源插座，否则Mac将很快进入睡眠。	AXPress	Name:显示详细信息	Name:显示	Name:关闭
+language-ar	AXNotificationCenterAlert	شحن البطارية منخفض	سيتم إسبات الـ Mac قريبًا إذا لم تقم بتوصيله بمنفذ طاقة.	‏⁨شحن البطارية منخفض⁩، ⁨سيتم إسبات الـ Mac قريبًا إذا لم تقم بتوصيله بمنفذ طاقة.⁩	AXPress	Name:إظهار التفاصيل	Name:إغلاق
+language-ar	AXNotificationCenterBanner	شحن البطارية منخفض	سيتم إسبات الـ Mac قريبًا إذا لم تقم بتوصيله بمنفذ طاقة.	‏⁨محرر البرامج النصية⁩، ⁨شحن البطارية منخفض, سيتم إسبات الـ Mac قريبًا إذا لم تقم بتوصيله بمنفذ طاقة.⁩	AXPress	Name:إظهار التفاصيل	Name:إظهار	Name:إغلاق
+language-pt-BR	AXNotificationCenterAlert	Pouca Bateria	O Mac entrará em repouso em breve se não for conectado a uma tomada.	Pouca Bateria, O Mac entrará em repouso em breve se não for conectado a uma tomada.	AXPress	Name:Mostrar Detalhes	Name:Fechar
+language-pt-BR	AXNotificationCenterBanner	Pouca Bateria	O Mac entrará em repouso em breve se não for conectado a uma tomada.	Editor de Scripts, Pouca Bateria, O Mac entrará em repouso em breve se não for conectado a uma tomada.	AXPress	Name:Mostrar Detalhes	Name:Mostrar	Name:Fechar
+language-pl	AXNotificationCenterAlert	Niski poziom baterii	Jeśli nie podłączysz Maca do zasilania, zostanie uśpiony.	Niski poziom baterii, Jeśli nie podłączysz Maca do zasilania, zostanie uśpiony.	AXPress	Name:Pokaż szczegóły	Name:Zamknij
+language-pl	AXNotificationCenterBanner	Niski poziom baterii	Jeśli nie podłączysz Maca do zasilania, zostanie uśpiony.	Edytor skryptów, Niski poziom baterii, Jeśli nie podłączysz Maca do zasilania, zostanie uśpiony.	AXPress	Name:Pokaż szczegóły	Name:Pokaż	Name:Zamknij

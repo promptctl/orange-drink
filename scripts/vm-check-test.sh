@@ -98,6 +98,39 @@ grep -q 'tart clone' "$scratch/calls" || broken "vm_boot did not clone"
 [ "$(grep -c 'tart exec' "$scratch/calls")" -eq 1 ] || broken "vm_boot asked more of the guest than whether it is up"
 ok "a check can name its image, and vm_boot needs no Xcode in it"
 
+# scripts/notification-vm-lib's reading of the tree's alerts, with the tree and the warning stood in: which alerts are new, and what
+# `raise` asks of powerd before it says one showed.
+tab=$'\t'
+alert_a="AXNotificationCenterAlert${tab}Low Battery${tab}b${tab}d"
+alert_b="AXNotificationCenterAlert${tab}Login Items${tab}b${tab}d"
+banner="AXNotificationCenterBanner${tab}Low Battery${tab}b${tab}Mail, d"
+in_lib() {
+  TMPDIR=$scratch /bin/bash -c "set -euo pipefail
+    . '$repo/scripts/vm-check-lib'
+    . '$repo/scripts/notification-vm-lib'
+    $1" 2>/dev/null
+}
+[ "$(in_lib "new_alerts '$alert_a
+$banner
+$alert_b' ''")" = "$alert_a
+$alert_b" ] || broken "with no baseline, every alert and no banner is new"
+[ "$(in_lib "new_alerts '$alert_a
+$banner
+$alert_b' '$alert_b'")" = "$alert_a" ] || broken "an alert in the baseline is not new"
+[ -z "$(in_lib "new_alerts '$banner' ''")" ] || broken "a banner is not an alert"
+ok "new_alerts lists the alerts beyond its baseline, and none when only a banner or the baseline shows"
+
+: >"$scratch/warns"
+raised="warn() { echo \"warn \$1\" >>'$scratch/warns'; }; sleep() { :; }"
+status=0
+in_lib "$raised; list() { printf '%s\n' '$alert_a'; }; raise 3 ''" || status=$?
+expect_status 0 "an alert showing after the warning"
+[ "$(tr '\n' ' ' <"$scratch/warns")" = 'warn 1 warn 3 ' ] || broken "raise did not withdraw the warning, then raise it: $(cat "$scratch/warns")"
+status=0
+in_lib "$raised; list() { printf '%s\n' '$alert_a'; }; raise 3 '$alert_a'" || status=$?
+expect_status 1 "only the baseline's alert showing"
+ok "raise withdraws the warning, raises it, and succeeds only for an alert beyond its baseline"
+
 sed -i '' 's/^exit 0$/[ "$1" != get ]/' "$scratch/bin/tart"
 run_check "$listed" ':'
 expect_status 1 "no image"

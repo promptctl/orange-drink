@@ -1,6 +1,9 @@
 // What scripts/battery-notification-check reads and presses in a VM, through the accessibility API. It needs Accessibility
 // trust, which a process `tart exec` starts has.
 //   notification-tree list    one line per notification: subrole, title, body, and description, tab-separated
+//   notification-tree values  the same notifications with their actions, one more tab-separated field each, named in the Mac's
+//                             language and cut to the line that names them: the form scripts/notification-capture records
+//   notification-tree panel   presses the clock in the menu bar, which opens the Notification Center panel, or closes it if open
 //   notification-tree answer <button>
 //                             presses that button in the Bluetooth prompt, and fails if none is showing
 //   notification-tree closes <line> <seconds>
@@ -40,30 +43,53 @@ func walk(_ element: AXUIElement, depth: Int = 0, visit: (AXUIElement) -> Void) 
 
 guard AXIsProcessTrusted() else { fail("this process is not trusted for Accessibility") }
 
-func notifications() -> [String] {
+struct ShownNotification {
+    let subrole: String, title: String, body: String, description: String, actions: [String]
+    var list: String { [subrole, title, body, description].joined(separator: "\t") }
+    var values: String { ([subrole, title, body, description] + actions).joined(separator: "\t") }
+}
+
+func actions(_ element: AXUIElement) -> [String] {
+    var names: CFArray?
+    guard AXUIElementCopyActionNames(element, &names) == .success else { return [] }
+    // A custom action's name is the first line of what the tree gives: the rest names its target and selector.
+    return (names as? [String] ?? []).map { $0.components(separatedBy: "\n")[0] }
+}
+
+func notifications() -> [ShownNotification] {
     guard let center = application("com.apple.notificationcenterui") else { fail("NotificationCenter is not running") }
-    var lines: [String] = []
+    var found: [ShownNotification] = []
     for window in windows(center) where string(window, kAXSubroleAttribute) == "AXSystemDialog" {
         walk(window) { element in
             guard let subrole = string(element, kAXSubroleAttribute), subrole.hasPrefix("AXNotificationCenter") else { return }
             func text(_ identifier: String) -> String {
                 children(element).first { string($0, kAXIdentifierAttribute) == identifier }.flatMap { string($0, kAXValueAttribute) } ?? ""
             }
-            lines.append([subrole, text("title"), text("body"), string(element, kAXDescriptionAttribute) ?? ""].joined(separator: "\t"))
+            found.append(ShownNotification(subrole: subrole, title: text("title"), body: text("body"),
+                                      description: string(element, kAXDescriptionAttribute) ?? "", actions: actions(element)))
         }
     }
-    return lines
+    return found
 }
 
 switch CommandLine.arguments.dropFirst().first {
 case "list":
-    notifications().forEach { print($0) }
+    notifications().forEach { print($0.list) }
+case "values":
+    notifications().forEach { print($0.values) }
+case "panel":
+    guard let control = application("com.apple.controlcenter"),
+          let extras = attribute(control, "AXExtrasMenuBar").map({ $0 as! AXUIElement }),
+          let clock = children(extras).first(where: { string($0, kAXIdentifierAttribute) == "com.apple.menuextra.clock" })
+    else { fail("the clock is not in the menu bar") }
+    let pressed = AXUIElementPerformAction(clock, kAXPressAction as CFString)
+    guard pressed == .success else { fail("pressing the clock failed with AXError \(pressed.rawValue)") }
 case "closes":
     let line = CommandLine.arguments[2], deadline = Date().addingTimeInterval(TimeInterval(CommandLine.arguments[3])!)
     let words = line.split(separator: "\t", omittingEmptySubsequences: false)[1...2].joined(separator: "\t")
     var seen = false
     while Date() < deadline {
-        let showing = notifications()
+        let showing = notifications().map(\.list)
         if showing.contains(line) {
             seen = true
         } else if seen, let other = showing.first(where: { $0.contains(words) }) {
@@ -78,7 +104,7 @@ case "goes":
     var shown: Date?
     var deadline = Date().addingTimeInterval(30)
     while Date() < deadline {
-        if notifications().contains(line) {
+        if notifications().map(\.list).contains(line) {
             if shown == nil {
                 shown = Date()
                 deadline = Date().addingTimeInterval(limit)
@@ -98,5 +124,5 @@ case "answer":
     let pressed = AXUIElementPerformAction(button, kAXPressAction as CFString)
     guard pressed == .success else { fail("pressing \(title) failed with AXError \(pressed.rawValue)") }
 default:
-    fail("usage: notification-tree list | answer <button> | closes <line> <seconds> | goes <line> <seconds>")
+    fail("usage: notification-tree list | values | panel | answer <button> | closes <line> <seconds> | goes <line> <seconds>")
 }
