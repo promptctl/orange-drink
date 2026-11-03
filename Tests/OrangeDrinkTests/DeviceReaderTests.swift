@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Testing
 @testable import OrangeDrink
 
@@ -7,12 +8,13 @@ struct DeviceReaderTests {
     /// Sources that fail with `unanswered`'s error until it is cleared, then answer with FluffPods at 47%.
     final class Sources {
         var unanswered: PowerSourcesError?
-        init(unanswered: PowerSourcesError?) { self.unanswered = unanswered }
+        let log: Logger
+        init(unanswered: PowerSourcesError?, log: Logger = BluetoothDevices.log) { self.unanswered = unanswered; self.log = log }
         var reader: DeviceReader {
-            DeviceReader { () throws(PowerSourcesError) in
+            DeviceReader(sources: { () throws(PowerSourcesError) in
                 if let unanswered = self.unanswered { throw unanswered }
                 return [AccessoryPowerTests.source("FluffPods", "Single", 47)]
-            }
+            }, log: log)
         }
     }
 
@@ -44,14 +46,14 @@ struct DeviceReaderTests {
 
     // Each logged line stands alone: a connect's read can be the only one powerd misses, with the settle sweep answered.
     @Test func anUnansweredSweepNamesTheCallInTheLog() async throws {
-        let log = try await BatteryLog(category: "devices")
-        _ = Sources(unanswered: .unanswered(call: "logged by a sweep")).reader.sweep([Self.peer])
+        let log = try await BatteryLog()
+        _ = Sources(unanswered: .unanswered(call: "logged by a sweep"), log: log.logger).reader.sweep([Self.peer])
         #expect(try await log.logged("device levels unread: unanswered(call: \"logged by a sweep\")"))
     }
 
     @Test func anUnansweredReportNamesTheCallInTheLog() async throws {
-        let log = try await BatteryLog(category: "devices")
-        _ = Sources(unanswered: .unanswered(call: "logged by a report")).reader.report(Self.peer)
+        let log = try await BatteryLog()
+        _ = Sources(unanswered: .unanswered(call: "logged by a report"), log: log.logger).reader.report(Self.peer)
         #expect(try await log.logged("device levels unread: unanswered(call: \"logged by a report\")"))
     }
 

@@ -51,23 +51,22 @@ import ViewInspector
     }
 
     @Test func aValueTheShelfHoldsCostsNoWriteAndNoReload() async throws {
-        let log = try await BatteryLog(category: ShelfLog.category)
+        let log = try await BatteryLog()
         let reloads = Reloads()
-        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }
+        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: log.logger) { if $0 == .macBattery { reloads.count += 1 } }
 
         widgets.publish(.running(.level(percent: 50, charging: false)))
         widgets.publish(.running(.level(percent: 50, charging: false)))
         #expect(reloads.count == 1)
-        // The host app publishes into the same log category; the shelf's path makes each line this test's own.
         #expect(try await log.logged("widget shelf written: level(percent: 50, charging: false) in \(shelf.path), reload asked of: MacBattery, AllBatteries"))
         #expect(try await log.logged("widget shelf unchanged: level(percent: 50, charging: false) in \(shelf.path)"))
     }
 
     @Test func aShelfThatCannotBeWrittenIsLoggedAndAsksNoReload() async throws {
-        let log = try await BatteryLog(category: ShelfLog.category)
+        let log = try await BatteryLog()
         let reloads = Reloads()
         let missing = shelf.appending(path: "missing")
-        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: missing) { _ in reloads.count += 1 }
+        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: missing, log: log.logger) { _ in reloads.count += 1 }
 
         widgets.publish(.running(.level(percent: 50, charging: false)))
         #expect(reloads.count == 0)
@@ -76,12 +75,12 @@ import ViewInspector
 
     /// The widget's own read, logged either way.
     @Test func theWidgetLogsWhatItReadsAndWhyItCouldNot() async throws {
-        let log = try await BatteryLog(category: ShelfLog.category)
-        #expect(throws: (any Error).self) { try WidgetShelf.load(.macBattery, from: .success(shelf), log: ShelfLog.log).get() }
+        let log = try await BatteryLog()
+        #expect(throws: (any Error).self) { try WidgetShelf.load(.macBattery, from: .success(shelf), log: log.logger).get() }
         #expect(try await log.logged("widget shelf unreadable: "))
 
         try WidgetShelf.write(.running(.level(percent: 42, charging: true)), as: .macBattery, to: shelf)
-        #expect(try WidgetShelf.load(.macBattery, from: .success(shelf), log: ShelfLog.log).get() == .running(.level(percent: 42, charging: true)))
+        #expect(try WidgetShelf.load(.macBattery, from: .success(shelf), log: log.logger).get() == .running(.level(percent: 42, charging: true)))
         #expect(try await log.logged("widget shelf read: level(percent: 42, charging: true)"))
     }
 
@@ -89,7 +88,7 @@ import ViewInspector
     /// running app's next state, though unchanged for it, puts the level back.
     @Test func anotherCopysMarkIsCorrectedByTheNextState() throws {
         let reloads = Reloads()
-        let running = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }
+        let running = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: ShelfLog.log) { if $0 == .macBattery { reloads.count += 1 } }
         let quitting = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }
 
         running.publish(.running(.level(percent: 50, charging: false)))
@@ -123,7 +122,7 @@ import ViewInspector
         try JSONEncoder().encode(MacBattery.level(percent: 50, charging: false)).write(to: shelf.appending(path: "mac.json"))
         #expect(throws: (any Error).self) { try WidgetShelf.read(.macBattery, from: shelf).get() as Shelved<MacBattery> }
         let reloads = Reloads()
-        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }.publish(.running(.level(percent: 50, charging: false)))
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: ShelfLog.log) { if $0 == .macBattery { reloads.count += 1 } }.publish(.running(.level(percent: 50, charging: false)))
         #expect(try WidgetShelf.read(.macBattery, from: shelf).get() == .running(.level(percent: 50, charging: false)))
         #expect(reloads.count == 1)
     }

@@ -168,7 +168,10 @@ struct HelperRegistration: Sendable {
     static var embeddedHelper: URL { Bundle.main.bundleURL.appending(path: daemon.program) }
 
     /// The app's registration, on the plist this build embeds.
-    static let app: HelperRegistration = {
+    static let app = onThisBuild(log: log)
+
+    /// A registration on the plist this build embeds, recording each event to `log`.
+    static func onThisBuild(log: Logger) -> HelperRegistration {
         let plistName = daemon.plistName, label = daemon.label, helper = embeddedHelper
         // Made at each step, since it is not Sendable.
         let service: @Sendable () -> SMAppService = { SMAppService.daemon(plistName: plistName) }
@@ -182,7 +185,7 @@ struct HelperRegistration: Sendable {
             now: { .now },
             pause: { Thread.sleep(forTimeInterval: $0 / .seconds(1)) }
         ), record: { event in log.notice("\(event.line, privacy: .public)") })
-    }()
+    }
 
     let effects: Effects
     let record: @Sendable (Event) -> Void

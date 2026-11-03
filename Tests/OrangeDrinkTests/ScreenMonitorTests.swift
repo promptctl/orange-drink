@@ -57,15 +57,15 @@ import os
     }
 
     @Test func theSystemIsAskedWhetherTheSessionIsLockedOrAwayAndTheMainDisplayAsleep() async throws {
-        let log = try await BatteryLog(category: "screen")
-        #expect(ScreenMonitor.asked(session: ["CGSSessionScreenIsLocked": true, kCGSessionOnConsoleKey: true], mainDisplayAsleep: false)
+        let log = try await BatteryLog()
+        #expect(ScreenMonitor.asked(session: ["CGSSessionScreenIsLocked": true, kCGSessionOnConsoleKey: true], mainDisplayAsleep: false, log: log.logger)
             == [.locked: true, .switchedOut: false, .displayAsleep: false])
-        #expect(ScreenMonitor.asked(session: [kCGSessionOnConsoleKey: false], mainDisplayAsleep: true)
+        #expect(ScreenMonitor.asked(session: [kCGSessionOnConsoleKey: false], mainDisplayAsleep: true, log: log.logger)
             == [.locked: false, .switchedOut: true, .displayAsleep: true])
         #expect(try !log.messages().contains("no window-server session to ask whether the screen is locked"))
         // With no session the system has no word on the lock or the console.
-        #expect(ScreenMonitor.asked(session: nil, mainDisplayAsleep: false) == [.displayAsleep: false])
-        #expect(try log.messages().contains("no window-server session to ask whether the screen is locked"))
+        #expect(ScreenMonitor.asked(session: nil, mainDisplayAsleep: false, log: log.logger) == [.displayAsleep: false])
+        #expect(try await log.logged("no window-server session to ask whether the screen is locked"))
     }
 
     // An unlock the app never heard: at the next post of anything, the system says the lock is over.

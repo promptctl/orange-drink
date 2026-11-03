@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// A connected device before its levels: what IOBluetooth says about it, as a value.
 struct BluetoothPeer: Equatable, Sendable {
@@ -14,6 +15,7 @@ struct BluetoothPeer: Equatable, Sendable {
 /// until then a device it could not read is `.unread`.
 struct DeviceReader {
     let sources: () throws(PowerSourcesError) -> [[String: Any]]
+    var log = BluetoothDevices.log
 
     func sweep(_ peers: [BluetoothPeer]) -> DeviceEvent {
         let reading = reading()
@@ -21,7 +23,7 @@ struct DeviceReader {
         if case .answered(let levels) = reading {
             let attribution = levels.attribution(of: devices.map(\.name))
             // The counts are public and the names, the user's own, private.
-            BluetoothDevices.log.info("""
+            log.info("""
                 device sweep: \(devices.count, privacy: .public) connected, \(levels.byName.count, privacy: .public) \
                 accessory batteries; no battery for \(attribution.unlevelled.count, privacy: .public) \
                 \(attribution.unlevelled, privacy: .private), unclaimed \(attribution.unclaimed.count, privacy: .public) \
@@ -34,7 +36,7 @@ struct DeviceReader {
 
     func report(_ peer: BluetoothPeer) -> DeviceEvent {
         let reported = device(peer, reading())
-        BluetoothDevices.log.info("device reported: \(String(describing: reported), privacy: .private)")
+        log.info("device reported: \(String(describing: reported), privacy: .private)")
         return .reported(reported)
     }
 
@@ -46,7 +48,7 @@ struct DeviceReader {
         do {
             return .answered(AccessoryPower.levels(from: try sources()))
         } catch {
-            BluetoothDevices.log.error("device levels unread: \(String(describing: error), privacy: .public)")
+            log.error("device levels unread: \(String(describing: error), privacy: .public)")
             return .unanswered
         }
     }

@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Testing
 @testable import OrangeDrink
 
@@ -12,6 +13,9 @@ import Testing
         var value = ChargeLimit()
         var refuses = false
         let events = SettingEvents()
+        let log: Logger
+
+        init(log: Logger = SettingEvent.log) { self.log = log }
 
         func update(_ edit: (inout ChargeLimit) -> Void) throws {
             if refuses { throw Refused() }
@@ -19,7 +23,7 @@ import Testing
         }
 
         var edits: SettingEdits<ChargeLimit> {
-            SettingEdits(setting: "charging.limit", read: { self.value }, update: update, record: events.record)
+            SettingEdits(setting: "charging.limit", read: { self.value }, update: update, record: events.record, log: log)
         }
     }
 
@@ -45,8 +49,8 @@ import Testing
 
     /// The process reads its own private arguments back unredacted, so this sees the value the log hides.
     @Test func everyEditIsLoggedWithWhichSettingAndWhatCameOfIt() async throws {
-        let log = try await BatteryLog(category: SettingEvent.logCategory)
-        let kept = Kept()
+        let log = try await BatteryLog()
+        let kept = Kept(log: log.logger)
         kept.refuses = true
         kept.edits.perform { $0.isOn = true }
         kept.refuses = false

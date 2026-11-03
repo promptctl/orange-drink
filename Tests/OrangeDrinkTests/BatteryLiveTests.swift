@@ -74,13 +74,13 @@ import Testing
 
     @Test func everyReadIsLogged() async throws {
         let log = try await BatteryLog()
-        let reading = try #require(try IOKitBattery.read())
+        let reading = try #require(try IOKitBattery.read(log: log.logger))
         #expect(try log.messages().contains("battery read: \(String(describing: reading))"))
     }
 
     @Test func subscriptionStartsWithTheCurrentReading() async throws {
         let log = try await BatteryLog()
-        var readings = BatteryMonitor.readings().makeAsyncIterator()
+        var readings = BatteryMonitor.readings(log: log.logger).makeAsyncIterator()
         let published = try #require(try await readings.next(), "the stream ended before its first reading")
         let first = try #require(published, "this check needs a Mac with a battery")
         let direct = try #require(try IOKitBattery.read())
@@ -125,10 +125,11 @@ import Testing
         }
         try #require(status == NOTIFY_STATUS_OK)
         defer { notify_cancel(token) }
+        let logger = log.logger
         let run = Task { () -> (unplugged: Arrival, plugged: Arrival)? in
             var unplugged: Arrival?
             FileHandle.standardError.write(Data("\n>>> Unplug the adapter now.\n".utf8))
-            for try await event in BatteryMonitor.events() {
+            for try await event in BatteryMonitor.events(from: BatteryMonitor.readings(), log: logger) {
                 switch (event, unplugged) {
                 case (.unplugged(let reading), nil):
                     unplugged = try Arrival(reading, pmset: pmsetBattery, read: readBattery)

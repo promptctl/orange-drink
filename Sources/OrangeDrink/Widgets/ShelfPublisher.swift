@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 extension MacBattery {
     /// What the widget draws for the model's state. [LAW:one-source-of-truth] The widget derives from
@@ -73,10 +74,12 @@ extension DevicesModel {
     private let item: WidgetShelf.Item<Contents>
     let directory: URL
     private let reload: @MainActor (WidgetKind) -> Void
+    private let log: Logger
 
     /// [LAW:effects-at-boundaries] `reload` is the app's call into WidgetKit, asked once per reader of
     /// the file; a test passes a recorder.
-    init(item: WidgetShelf.Item<Contents>, directory: URL, reload: @escaping @MainActor (WidgetKind) -> Void) {
+    init(item: WidgetShelf.Item<Contents>, directory: URL, log: Logger = ShelfLog.log, reload: @escaping @MainActor (WidgetKind) -> Void) {
+        self.log = log
         self.item = item
         self.directory = directory
         self.reload = reload
@@ -90,17 +93,17 @@ extension DevicesModel {
         let value = String(describing: contents)
         let shelf = directory.path
         guard (try? WidgetShelf.read(item, from: directory).get()) != contents else {
-            ShelfLog.log.info("widget shelf unchanged: \(value, privacy: .public) in \(shelf, privacy: .public)")
+            log.info("widget shelf unchanged: \(value, privacy: .public) in \(shelf, privacy: .public)")
             return
         }
         do {
             try WidgetShelf.write(contents, as: item, to: directory)
             item.readers.forEach(reload)
             let readers = item.readers.map(\.rawValue).joined(separator: ", ")
-            ShelfLog.log.info("widget shelf written: \(value, privacy: .public) in \(shelf, privacy: .public), reload asked of: \(readers, privacy: .public)")
+            log.info("widget shelf written: \(value, privacy: .public) in \(shelf, privacy: .public), reload asked of: \(readers, privacy: .public)")
         } catch {
             // [LAW:no-silent-failure] Logged; the shelf still differs, so the next state retries.
-            ShelfLog.log.error("widget shelf write failed: \(value, privacy: .public) in \(shelf, privacy: .public): \(String(describing: error), privacy: .public)")
+            log.error("widget shelf write failed: \(value, privacy: .public) in \(shelf, privacy: .public): \(String(describing: error), privacy: .public)")
         }
     }
 }

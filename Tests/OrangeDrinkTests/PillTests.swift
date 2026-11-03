@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import os
 import class SwiftUI.ImageRenderer
 import Testing
 import ViewInspector
@@ -91,20 +92,14 @@ import ViewInspector
         #expect(released)
     }
 
-    static func countdown(_ clock: ManualTimekeeper) -> PillController {
-        PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, timekeeper: clock)
-    }
-
-    /// The `alerts` log lines that name this headline: other suites log in the same category at
-    /// the same time, so each countdown test shows a headline no other test shows and reads only its own pill's lines.
-    static func lines(_ log: BatteryLog, about headline: String) throws -> [String] {
-        try log.messages().filter { $0.hasSuffix(": \(headline)") }
+    static func countdown(_ clock: ManualTimekeeper, log: Logger) -> PillController {
+        PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, timekeeper: clock, log: log)
     }
 
     @Test func aPillAndItsGlowLeaveByThemselvesOnceShownForHasPassed() async throws {
         let clock = ManualTimekeeper()
-        let pills = Self.countdown(clock)
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 31, position: .center, glow: true, sound: false),
                                reading: try Self.reading(31)))
         let waiter = Task { await pills.untilClosed() }
@@ -116,14 +111,14 @@ import ViewInspector
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil && pills.shownGlowFrame == nil)
-        #expect(try Self.lines(log, about: "31% Remaining") == [
+        #expect(try log.messages() == [
             "pill shown at center for \(PillController.shownFor): 31% Remaining", "pill closed: timed out after \(PillController.shownFor): 31% Remaining"])
     }
 
     @Test func aReplacementGetsItsOwnFullTimeOnScreen() async throws {
         let clock = ManualTimekeeper()
-        let pills = Self.countdown(clock)
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = Self.countdown(clock, log: log.logger)
         let low = Alert(kind: .low, threshold: 30, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(29)))
         await clock.asleep()
@@ -140,15 +135,15 @@ import ViewInspector
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil)
-        #expect(try Self.lines(log, about: "29% Remaining") == ["pill shown at top for \(PillController.shownFor): 29% Remaining", "pill replaced: 29% Remaining"])
-        #expect(try Self.lines(log, about: "28% Remaining") == [
+        #expect(try log.messages() == [
+            "pill shown at top for \(PillController.shownFor): 29% Remaining", "pill replaced: 29% Remaining",
             "pill shown at top for \(PillController.shownFor): 28% Remaining", "pill closed: timed out after \(PillController.shownFor): 28% Remaining"])
     }
 
     @Test func closingAPillEndsItsCountdown() async throws {
         let clock = ManualTimekeeper()
-        let pills = Self.countdown(clock)
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 27, position: .top, glow: false, sound: false),
                                reading: try Self.reading(26)))
         await clock.asleep()
@@ -156,15 +151,15 @@ import ViewInspector
         pills.close(.closeButton)
         // Nothing is left counting down to take down whichever pill comes up next.
         #expect(clock.sleeping == 0)
-        #expect(try Self.lines(log, about: "26% Remaining") == ["pill shown at top for \(PillController.shownFor): 26% Remaining", "pill closed: ×: 26% Remaining"])
+        #expect(try log.messages() == ["pill shown at top for \(PillController.shownFor): 26% Remaining", "pill closed: ×: 26% Remaining"])
     }
 
     // orange-alerts-cjt.3ns: an alert fires once per crossing, so its pill's time is time the screen
     // can be seen. A pill held through a sleep gets all of it once someone is back.
     @Test func aPillHeldWhileNoOneCanSeeTheScreenGetsItsFullTimeOnceSeen() async throws {
         let clock = ManualTimekeeper()
-        let pills = Self.countdown(clock)
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 25, position: .center, glow: true, sound: false),
                                reading: try Self.reading(24)))
         await clock.asleep()
@@ -182,16 +177,16 @@ import ViewInspector
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil && pills.shownGlowFrame == nil)
-        #expect(try Self.lines(log, about: "24% Remaining") == [
-            "pill shown at center for \(PillController.shownFor): 24% Remaining", "pill held: 24% Remaining",
-            "pill counting \(PillController.shownFor) again: 24% Remaining", "pill closed: timed out after \(PillController.shownFor): 24% Remaining"])
-        #expect(try log.messages().contains("screen hidden by displayAsleep") && log.messages().contains("screen seen"))
+        #expect(try log.messages() == [
+            "pill shown at center for \(PillController.shownFor): 24% Remaining", "screen hidden by displayAsleep", "pill held: 24% Remaining",
+            "screen seen", "pill counting \(PillController.shownFor) again: 24% Remaining",
+            "pill closed: timed out after \(PillController.shownFor): 24% Remaining"])
     }
 
     @Test func aPillShownWhileTheScreenIsHiddenWaitsUntilEveryHiderHasEnded() async throws {
         let clock = ManualTimekeeper()
-        let pills = Self.countdown(clock)
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = Self.countdown(clock, log: log.logger)
         pills.screen(hidden: [.locked])
         pills.show(PillContent(Alert(kind: .charged, threshold: 83, position: .top, glow: false, sound: false),
                                reading: try Self.reading(83)))
@@ -207,10 +202,11 @@ import ViewInspector
         await clock.asleep()
         clock.advance(by: PillController.shownFor)
         await waiter.value
-        #expect(try Self.lines(log, about: "83% Charged") == [
-            "pill shown at top, held: 83% Charged", "pill held: 83% Charged", "pill held: 83% Charged",
-            "pill counting \(PillController.shownFor) again: 83% Charged", "pill closed: timed out after \(PillController.shownFor): 83% Charged"])
-        #expect(try log.messages().contains("screen hidden by displayAsleep, locked"))
+        #expect(try log.messages() == [
+            "screen hidden by locked", "pill shown at top, held: 83% Charged",
+            "screen hidden by displayAsleep, locked", "pill held: 83% Charged", "screen hidden by locked", "pill held: 83% Charged",
+            "screen seen", "pill counting \(PillController.shownFor) again: 83% Charged",
+            "pill closed: timed out after \(PillController.shownFor): 83% Charged"])
     }
 
     @Test func aChangeOfDisplaysPlacesThePillOnTheMainScreenAndKeepsItsCountdownAndLanguage() async throws {
@@ -219,8 +215,8 @@ import ViewInspector
         let laptop = ScreenArea(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 944))
         let external = ScreenArea(frame: CGRect(x: 1512, y: 0, width: 2560, height: 1440), visibleFrame: CGRect(x: 1512, y: 70, width: 2560, height: 1345))
         let screens = Screens(laptop)
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in }, timekeeper: clock, screen: { screens.main })
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in }, timekeeper: clock, screen: { screens.main }, log: log.logger)
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(PillContent(Alert(kind: .low, threshold: 22, position: .top, glow: true, sound: false),
                                reading: try Self.reading(21)))
@@ -242,7 +238,7 @@ import ViewInspector
         let waiter = Task { await pills.untilClosed() }
         clock.advance(by: PillController.shownFor - .seconds(5))
         await waiter.value
-        #expect(try Self.lines(log, about: "21% Remaining") == [
+        #expect(try log.messages() == [
             "pill shown at top for \(PillController.shownFor): 21% Remaining", "pill placed in \(external.visibleFrame): 21% Remaining",
             "no screen to place the pill on: 21% Remaining", "pill closed: timed out after \(PillController.shownFor): 21% Remaining"])
     }
@@ -250,8 +246,8 @@ import ViewInspector
     // The first set the system sends at launch may say what the controller already holds: nothing hides the screen.
     @Test func theSameHidersAgainLeaveACountingPillsCountdownAsItWas() async throws {
         let clock = ManualTimekeeper()
-        let pills = Self.countdown(clock)
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 19, position: .top, glow: false, sound: false),
                                reading: try Self.reading(18)))
         await clock.asleep()
@@ -261,8 +257,20 @@ import ViewInspector
         let waiter = Task { await pills.untilClosed() }
         clock.advance(by: PillController.shownFor - .seconds(6))
         await waiter.value
-        #expect(try Self.lines(log, about: "18% Remaining") == [
+        #expect(try log.messages() == [
             "pill shown at top for \(PillController.shownFor): 18% Remaining", "pill closed: timed out after \(PillController.shownFor): 18% Remaining"])
+    }
+
+    @Test func twoPillsWithOneHeadlineEachLogOnlyToTheirOwnLog() async throws {
+        let shown = try await BatteryLog(), closed = try await BatteryLog()
+        let alert = Alert(kind: .low, threshold: 17, position: .top, glow: false, sound: false)
+        let first = Self.countdown(ManualTimekeeper(), log: shown.logger), second = Self.countdown(ManualTimekeeper(), log: closed.logger)
+        first.show(PillContent(alert, reading: try Self.reading(17)))
+        second.show(PillContent(alert, reading: try Self.reading(17)))
+        second.close(.closeButton)
+        #expect(try await closed.count("17% Remaining", awaiting: 2) == 2)
+        #expect(try shown.messages() == ["pill shown at top for \(PillController.shownFor): 17% Remaining"])
+        #expect(try closed.messages() == ["pill shown at top for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"])
     }
 
     /// The screen a test's pills go on, moved by the test.
@@ -348,8 +356,8 @@ import ViewInspector
     /// The pill's ×, pressed through the view the controller put in its panel (ViewInspector, no window): the pill and its
     /// glow come down at once. The clock never moves, so only the × can close it.
     @Test func pressingThePillsCloseButtonTakesItAndItsGlowDown() async throws {
-        let pills = Self.countdown(ManualTimekeeper())
-        let log = try await BatteryLog(category: "alerts")
+        let log = try await BatteryLog()
+        let pills = Self.countdown(ManualTimekeeper(), log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 16, position: .top, glow: true, sound: false), reading: try Self.reading(16)))
         let view = try #require(pills.shownView)
         try view.inspect().find(ViewType.Button.self, where: { try $0.accessibilityLabel().string() == "Close" }).tap()

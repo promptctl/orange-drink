@@ -222,7 +222,8 @@ struct HelperRepairLive {
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
         try #require(Self.reply(client) == nil, "the helper does not answer before the check starts")
 
-        let log = try await BatteryLog(category: "helper")
+        let log = try await BatteryLog()
+        let registration = HelperRegistration.onThisBuild(log: log.logger)
         let scratch = FileManager.default.temporaryDirectory.appending(path: "helper-repair-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         let good = scratch.appending(path: helper.lastPathComponent)
@@ -263,10 +264,10 @@ struct HelperRepairLive {
         // The good helper is back and launchd still will not run it: this is the wedge, with the status as it was.
         #expect(SMAppService.daemon(plistName: daemon.plistName).status == .enabled)
         var failure: HelperUseFailure?
-        do throws(HelperUseFailure) { try HelperAccess(daemon: daemon).resumeCharging() } catch { failure = error }
+        do throws(HelperUseFailure) { try HelperAccess(service: daemon.label, plistName: daemon.plistName, registration: registration).resumeCharging() } catch { failure = error }
         try #require(failure?.cause == .notAnswering, "the call ended in \(String(describing: failure))")
 
-        HelperRegistration.app.waitForSteps()
+        registration.waitForSteps()
         let identity = try client.identity()
         #expect(identity.euid == 0)
         #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath() == helper)

@@ -42,7 +42,7 @@ enum BluetoothDevices {
     static func events(
         timekeeper: any Timekeeper = SystemTimekeeper(),
         asks: @escaping @Sendable (any Timekeeper) -> AsyncStream<BluetoothPermission.Ask> = BluetoothPermission.asks(timekeeper:),
-        watcher: @escaping @Sendable (Events, any Timekeeper) throws -> any DeviceWatcher = liveWatcher
+        watcher: @escaping @Sendable (Events, any Timekeeper) throws -> any DeviceWatcher = { try liveWatcher($0, timekeeper: $1) }
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -103,8 +103,8 @@ enum BluetoothDevices {
         }
     }
 
-    static func liveWatcher(_ continuation: Events, timekeeper: any Timekeeper) throws -> any DeviceWatcher {
-        Watcher(continuation: continuation, timekeeper: timekeeper, reader: DeviceReader(sources: try AccessoryPower().read))
+    static func liveWatcher(_ continuation: Events, timekeeper: any Timekeeper, log: Logger = BluetoothDevices.log) throws -> any DeviceWatcher {
+        Watcher(continuation: continuation, timekeeper: timekeeper, reader: DeviceReader(sources: try AccessoryPower().read, log: log))
     }
 
     /// [LAW:single-enforcer] The private selectors the edge reads, checked once at the border:

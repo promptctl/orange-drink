@@ -28,7 +28,7 @@ import Testing
     @Test(.enabled(if: ProcessInfo.processInfo.environment["IPHONE_CHECK"] != nil, "run by make iphone-check with a cabled iPhone"),
           .timeLimit(.minutes(IPhoneLive.timeLimitMinutes)))
     func switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await BatteryLog()
         // The one cabled device's Wi-Fi sync is switched off before the monitor starts, so the monitor is what switches it on.
         let cabled = try usbmuxListDevices().compactMap { device -> (handle: Int, udid: String)? in
             guard case .device(let udid, .usb) = device.connection else { return nil }
@@ -42,7 +42,8 @@ import Testing
         let listing = try Listing(udid: udid)
         defer { listing.stop() }
         let arrivals = Arrivals()
-        let consumer = Task { for await event in IPhoneMonitor.events() { arrivals.append(event) } }
+        let logger = log.logger
+        let consumer = Task { for await event in IPhoneMonitor.events(log: logger) { arrivals.append(event) } }
         defer { consumer.cancel() }
         var cursor = 0
         var reachability: [Transport?] = []
