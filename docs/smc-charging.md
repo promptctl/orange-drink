@@ -60,7 +60,7 @@ never moved the limit):
 ## The Charge Limit's own level cannot be read
 
 macOS publishes no number for the Charge Limit a person set (checked on macOS 26.5.2 with the limit at 80%, spike
-orange-alerts-cjt.c2g). `PowerUISmartChargeClient`, which System Settings uses, answers an unentitled caller with no
+orange-alerts-cjt.c2g, whose probe and README are in git at `af7ee2c`). `PowerUISmartChargeClient`, which System Settings uses, answers an unentitled caller with no
 available limits and a limit of 100, and no IOPS, registry, SMC or preference key holds it. What the app can see is that
 a limit is in force: bit 24 of `NotChargingReason` is set from the moment the percent reaches the limit, while IOPS still
 says charging with a time to full that counts to 100% (`Sources/OrangeDrink/Battery/BatteryReading.swift` reads the bit).
@@ -70,5 +70,13 @@ says charging with a time to full that counts to 100% (`Sources/OrangeDrink/Batt
 The measurements above were taken with a throwaway command-line client for the AppleSMC user client (`list`, `read KEY`,
 `write KEY HEX`, and `observe`, which prints the registry fields beside `CHNC`). It is not in the tree: the app's own
 client is `ChargingPause.swift`. Its source, the spike's run script and the rest of the folder are in git at `af7ee2c`
-(`git ls-tree -r --name-only af7ee2c | grep b2q.16g`). A Mac left paused is resumed by the helper itself: its exit
-writes `00000000` back (`ChargingInhibit.reconcile`, `[.write(.allowed), .unmark]`).
+(`git ls-tree -r --name-only af7ee2c | grep b2q.16g`).
+
+## A Mac left paused
+
+The helper gives charging back itself: when no connection holds a pause and its marker file exists,
+`ChargingInhibit.reconcile` writes `00000000` and clears the marker. That runs as the helper exits and again at its next
+start, because the marker outlives a helper that was killed. So a SIGKILL, a crash or a power loss leaves the Mac paused
+until the helper next starts, and a helper that never starts again (unregistered, say) leaves it paused for good. That
+case has no tool in the tree; the spike's client at `af7ee2c`, built and run as root with `write CHTE 00000000`, ends it.
+That command was run in the spike on the Mac named at the top.
