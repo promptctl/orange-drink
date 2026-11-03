@@ -125,7 +125,7 @@ import Testing
     }
 
     private func center(_ delivered: Box) throws -> AlertCenter {
-        let defaults = UserDefaults(suiteName: "DeviceAlertTests.\(UUID())")!
+        let defaults = scratchDefaults()
         let center = try AlertCenter(defaults: defaults, deliver: { _, _ in },
                                      deliverDevice: { delivered.firings.append($0) })
         try center.model.update { $0.alerts = [alert] }
@@ -162,7 +162,7 @@ import Testing
     }
 
     @Test func theBellPersistsAndAnOlderStoredValueWithoutItStillLoads() throws {
-        let defaults = UserDefaults(suiteName: "DeviceAlertTests.\(UUID())")!
+        let defaults = scratchDefaults()
         defaults.set(Data(#"{"showConnectedDevices":true,"hidden":[]}"#.utf8), forKey: DeviceSettings.storageKey)
         let first = try DeviceSettingsModel(defaults: defaults)
         #expect(first.value.alerting.isEmpty)

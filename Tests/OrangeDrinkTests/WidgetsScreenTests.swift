@@ -22,7 +22,7 @@ import WidgetKit
             let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
             let battery = BatteryModel(readings: readings)
             let devices = DevicesModel(events: events)
-            let settings = try DeviceSettingsModel(defaults: UserDefaults(suiteName: "WidgetsScreenTests.\(UUID())")!)
+            let settings = try DeviceSettingsModel(defaults: scratchDefaults())
             (self.feed, self.send, self.battery, self.devices, self.settings) = (feed, send, battery, devices, settings)
             screen = WidgetsScreen(battery: battery, devices: devices, settings: settings)
             let charging = try BatteryHistoryTests.charging(80)

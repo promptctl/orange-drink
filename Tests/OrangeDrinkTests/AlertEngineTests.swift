@@ -80,15 +80,8 @@ import Testing
 }
 
 @Suite struct AlertSettingsPersistence {
-    static func suite() -> UserDefaults {
-        let name = "AlertSettingsPersistence.\(UUID())"
-        let defaults = UserDefaults(suiteName: name)!
-        defaults.removePersistentDomain(forName: name)
-        return defaults
-    }
-
     @MainActor @Test func aRelaunchGetsTheSameAlertsAndSwitchBack() throws {
-        let defaults = Self.suite()
+        let defaults = scratchDefaults()
         let saved = AlertSettings(enabled: false, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: false, sound: false), alerts: [
             Alert(kind: .low, threshold: 7, position: .center, glow: true, sound: false),
             Alert(kind: .charged, threshold: 90, position: .top, glow: false, sound: true),
@@ -98,11 +91,11 @@ import Testing
     }
 
     @MainActor @Test func aFirstLaunchStartsFromTheReferenceSetup() throws {
-        #expect(try AlertSettingsModel(defaults: Self.suite()).value == .initial)
+        #expect(try AlertSettingsModel(defaults: scratchDefaults()).value == .initial)
     }
 
     @MainActor @Test func storedBytesThatDoNotDecodeFailLoudly() {
-        let defaults = Self.suite()
+        let defaults = scratchDefaults()
         defaults.set(Data("nonsense".utf8), forKey: "alerts.settings")
         #expect(throws: DecodingError.self) { try AlertSettingsModel(defaults: defaults) }
     }
@@ -114,7 +107,7 @@ import Testing
         var power = try #require(json["power"] as? [String: Any])
         edit(&power)
         json["power"] = power
-        let defaults = suite()
+        let defaults = scratchDefaults()
         defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: AlertSettings.storageKey)
         return defaults
     }
@@ -139,7 +132,7 @@ import Testing
     }
 
     @Test func aReadingCrossingAThresholdDeliversItsAlertAndAnEditSurvivesARelaunch() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         var delivered: [Firing] = []
         let center = try AlertCenter(defaults: defaults, deliver: { firing, _ in delivered.append(firing) })
         let alert = AlertEngineTests.low(20)
@@ -153,7 +146,7 @@ import Testing
 
     @Test func nothingIsDeliveredWithTheMasterSwitchOffAndNothingFiresLateWhenItComesOn() throws {
         var delivered: [Firing] = []
-        let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { firing, _ in delivered.append(firing) })
+        let center = try AlertCenter(defaults: scratchDefaults(), deliver: { firing, _ in delivered.append(firing) })
         try center.model.update { $0 = AlertSettings(enabled: false, power: $0.power, alerts: [AlertEngineTests.low(20)]) }
         center.observe(try Self.reading(21))
         center.observe(try Self.reading(19))
@@ -219,7 +212,7 @@ import Testing
     @Test func theMasterSwitchSilencesEveryPowerAndTemperatureAlert() throws {
         var delivered: [Firing] = []
         let center = try AlertCenter(
-            defaults: AlertSettingsPersistence.suite(), deliver: { firing, _ in delivered.append(firing) })
+            defaults: scratchDefaults(), deliver: { firing, _ in delivered.append(firing) })
         try center.model.update { $0.enabled = false }
         for reading in [try Self.battery(), try Self.adapter(), try Self.battery(celsius: 41)] { center.observe(reading) }
         #expect(delivered == [])
@@ -288,7 +281,7 @@ import Testing
     }
 
     @Test func theSwitchesAndSoundComeBackFromARelaunch() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         let power = PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: false, sound: false)
         let center = try AlertCenter(defaults: defaults, deliver: { _, _ in })
         try center.model.update { $0.power = power }

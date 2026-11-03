@@ -6,7 +6,7 @@ import Testing
 // settings suite: no Bluetooth in the room.
 @MainActor final class DevicesScreenTests {
     /// One throwaway suite for each test: the runner makes a fresh instance per test.
-    private let defaults = UserDefaults(suiteName: "DevicesScreenTests.\(UUID().uuidString)")!
+    private let defaults = scratchDefaults()
 
     private func device(_ address: String, _ percent: Int) -> Device {
         Device(id: DeviceID(address: address), name: "Device \(address)", kind: .accessory,

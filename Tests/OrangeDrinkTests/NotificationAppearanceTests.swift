@@ -41,7 +41,7 @@ import Testing
     }
 
     @Test func bothSettingsComeBackUnchangedWhenLoadedAsARelaunchWould() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         try NotificationAppearanceModel.scratch(defaults).update { $0.bubbleSize = .large; $0.glowStrength = .subtle }
         let relaunched = NotificationAppearanceModel.scratch(defaults)
         #expect(relaunched.value == NotificationAppearance(bubbleSize: .large, glowStrength: .subtle))
@@ -49,7 +49,7 @@ import Testing
     }
 
     @Test func storedAppearanceThatDoesNotDecodeFailsLoudly() {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         defaults.set(Data("not json".utf8), forKey: NotificationAppearance.storageKey)
         #expect(throws: DecodingError.self) { try NotificationAppearanceModel(defaults: defaults) }
     }

@@ -40,25 +40,18 @@ import Testing
 
 /// A "relaunch" is a second instance over the same defaults.
 @Suite @MainActor struct PanelSectionMemory {
-    func defaults() -> UserDefaults {
-        let name = "PanelSectionMemory.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defaults.removePersistentDomain(forName: name)
-        return defaults
-    }
-
     @Test func sectionsStartCollapsed() {
-        #expect(PanelSections(defaults: defaults()).isOpen(.batteryInformation) == false)
+        #expect(PanelSections(defaults: scratchDefaults()).isOpen(.batteryInformation) == false)
     }
 
     @Test func anOpenSectionIsStillOpenAfterARelaunch() {
-        let store = defaults()
+        let store = scratchDefaults()
         PanelSections(defaults: store).toggle(.batteryInformation)
         #expect(PanelSections(defaults: store).isOpen(.batteryInformation))
     }
 
     @Test func aSectionClosedAgainIsStillClosedAfterARelaunch() {
-        let store = defaults()
+        let store = scratchDefaults()
         let sections = PanelSections(defaults: store)
         sections.toggle(.batteryInformation)
         sections.toggle(.batteryInformation)

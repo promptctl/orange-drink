@@ -9,7 +9,7 @@ import Testing
     static let app = Bundle(for: BatteryModel.self)
     static let title = "App Language"
 
-    static func scratch(_ defaults: UserDefaults = AlertSettingsPersistence.suite()) -> AppLanguageModel {
+    static func scratch(_ defaults: UserDefaults = scratchDefaults()) -> AppLanguageModel {
         try! AppLanguageModel(defaults: defaults)
     }
 
@@ -28,7 +28,7 @@ import Testing
     }
 
     @Test func theLastChoiceComesBackWhenLoadedAsARelaunchWould() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         try Self.scratch(defaults).update { $0 = AppLanguage(code: "fr") }
         #expect(Self.scratch(defaults).value == AppLanguage(code: "fr"))
         #expect(Self.scratch().value == .matchSystem)

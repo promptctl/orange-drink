@@ -21,10 +21,8 @@ import ViewInspector
         private var waiter: CheckedContinuation<BatteryNotificationDismissal.Event, Never>?
         private(set) var model: BatteryNotificationDismissal!
 
-        init(_ test: String = #function, on: Bool = true) throws {
-            let defaults = UserDefaults(suiteName: "BatteryNotificationDismissalTests.\(test)")!
-            defaults.removePersistentDomain(forName: "BatteryNotificationDismissalTests.\(test)")
-            settings = try SystemNotificationSettingsModel(defaults: defaults)
+        init(on: Bool = true) throws {
+            settings = try SystemNotificationSettingsModel(defaults: scratchDefaults())
             try settings.update { $0.dismissBatteryNotifications = on }
         }
 
@@ -78,7 +76,7 @@ import ViewInspector
                           batteryNotifications: model)
         }
 
-        private static var scratch: UserDefaults { UserDefaults(suiteName: "BatteryNotificationDismissalTests")! }
+        private static var scratch: UserDefaults { scratchDefaults() }
 
         func theSwitch() throws -> InspectableView<ViewType.Toggle> {
             try screen().inspect().find(ViewType.Toggle.self, where: { try $0.labelView().text().string() == "Dismiss macOS Battery Notifications" })

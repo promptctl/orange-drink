@@ -54,9 +54,3 @@ import Foundation
     func type(_ key: PlainKey, repeating: Bool = false) -> Bool { handler?(KeyPress(key: key, isRepeat: repeating)) ?? false }
 }
 
-func scratchDefaults() -> UserDefaults {
-    let name = "shortcuts-\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: name)!
-    defaults.removePersistentDomain(forName: name)
-    return defaults
-}

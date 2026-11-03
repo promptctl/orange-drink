@@ -14,7 +14,7 @@ import ViewInspector
 
     static func center(_ pills: PillController, alerts: [Alert]) throws -> AlertCenter {
         let center = try AlertCenter(
-            defaults: AlertSettingsPersistence.suite(),
+            defaults: scratchDefaults(),
             deliver: { pills.deliver($0, reading: $1) })
         try center.model.update { $0.alerts = alerts }
         return center
@@ -387,7 +387,7 @@ import ViewInspector
 
 extension NotificationAppearanceModel {
     /// An appearance over a throwaway suite, starting from the defaults.
-    static func scratch(_ defaults: UserDefaults = AlertSettingsPersistence.suite()) -> NotificationAppearanceModel {
+    static func scratch(_ defaults: UserDefaults = scratchDefaults()) -> NotificationAppearanceModel {
         try! NotificationAppearanceModel(defaults: defaults)
     }
 }

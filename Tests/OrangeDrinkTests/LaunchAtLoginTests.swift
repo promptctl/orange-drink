@@ -67,7 +67,7 @@ import ViewInspector
                                                                          warningChanges: AsyncThrowingStream { _ in }, center: system.center))
     }
 
-    private static func defaults() -> UserDefaults { UserDefaults(suiteName: "LaunchAtLoginTests")! }
+    private static func defaults() -> UserDefaults { scratchDefaults() }
 
     private func theSwitch(_ login: LaunchAtLogin) throws -> InspectableView<ViewType.Toggle> {
         try screen(login).inspect().find(ViewType.Toggle.self, where: { try $0.labelView().text().string() == "Launch at Login" })

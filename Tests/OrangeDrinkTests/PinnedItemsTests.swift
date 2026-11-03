@@ -109,7 +109,7 @@ import Testing
 
     @Test func theControllerFollowsTheModelAndThePinsThroughObservation() async throws {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let defaults = UserDefaults(suiteName: "PinnedItemsTests.\(UUID())")!
+        let defaults = scratchDefaults()
         let settings = try DeviceSettingsModel(defaults: defaults)
         let items = Items()
         let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
@@ -129,7 +129,7 @@ import Testing
     }
 
     @Test func thePinPersistsAndAnOlderStoredValueWithoutItStillLoads() throws {
-        let defaults = UserDefaults(suiteName: "PinnedItemsTests.\(UUID())")!
+        let defaults = scratchDefaults()
         defaults.set(Data(#"{"showConnectedDevices":true}"#.utf8), forKey: DeviceSettings.storageKey)
         let first = try DeviceSettingsModel(defaults: defaults)
         #expect(first.value.pinned.ids.isEmpty)
