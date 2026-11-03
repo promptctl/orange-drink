@@ -26,6 +26,20 @@ import Testing
         #expect(chimes == 2)
     }
 
+    @Test func aBatteryGoingHotChimesOnceWhenTheCardsSoundIsOnAndNeverWhenItIsOff() throws {
+        for (sound, expected) in [(true, 1), (false, 0)] {
+            var chimes = 0
+            let sounds = AlertSounds(play: { chimes += 1 })
+            let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { firing, _ in sounds.deliver(firing) })
+            try center.model.update {
+                $0.alerts = []
+                $0.power = PowerSourceAlerts(pluggedIn: false, unplugged: false, sound: sound)
+            }
+            for celsius in [30.0, 41, 42] { center.observe(try PowerAndTemperatureAlerts.battery(celsius: celsius)) }
+            #expect(chimes == expected)
+        }
+    }
+
     @Test func aPowerAlertOrTemperatureWarningChimesExactlyWhenTheCardsSoundIsOn() {
         #expect(Firing.pluggedIn(sound: false).sound == false)
         #expect(Firing.unplugged(sound: true).sound)
