@@ -15,7 +15,7 @@ import XCTest
     }
 
     private func checkForUpdates(in app: XCUIApplication) {
-        press(app.statusItems["OrangeDrink"])
+        press(statusItem(of: app))
         press(app.buttons["Check for Updates…"])
     }
 
@@ -35,7 +35,7 @@ import XCTest
         let quit = "Quit OrangeDrink, v\(try XCTUnwrap(ProcessInfo.processInfo.environment["UPDATE_CHECK_VERSION"]))"
         XCTAssertTrue(app.wait(for: .notRunning, timeout: Self.installedAppTimeout), "the older copy never quit")
         let relaunched = try installedApp()
-        press(relaunched.statusItems["OrangeDrink"])
+        press(statusItem(of: relaunched))
         XCTAssertTrue(relaunched.buttons[quit].waitForExistence(timeout: Self.installedAppTimeout), "the panel never showed \(quit)")
     }
 }

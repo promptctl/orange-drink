@@ -18,9 +18,13 @@ import ViewInspector
     /// 40% discharging with 3:12 to go.
     static let reading = try! MenuBarIconDrawing.discharging(40)
 
+    static func label(_ state: BatteryModel.State, _ model: MenuBarIconModel, _ language: AppLanguageModel? = nil) -> StatusItemLabel {
+        StatusItemLabel(state: state, icon: model, language: language ?? (try! AppLanguageModel(defaults: AlertSettingsPersistence.suite())))
+    }
+
     /// The icon the status item shows for the model's current choices, on the given bar.
     static func statusIcon(_ model: MenuBarIconModel, on bar: MenuBarIcon.Bar = .dark, state: BatteryModel.State = .known(reading)) throws -> MenuBarIcon {
-        guard case .icon(let icon) = StatusItemLabel(state: state, icon: model).content(on: bar) else {
+        guard case .icon(let icon) = Self.label(state, model).content(on: bar) else {
             throw Failure.notAnIcon
         }
         return icon
@@ -101,16 +105,40 @@ import ViewInspector
         #expect(MenuBarPreview.icon(model.value).battery?.tint == .neutral)
     }
 
-    /// VoiceOver names the item by this, and it is how a client tells it from a pinned device's item.
-    @Test func theStatusItemIsLabelledWithTheAppsName() throws {
-        let label = StatusItemLabel(state: .known(Self.reading), icon: Self.model())
-        #expect(try label.inspect().find(ViewType.Group.self).accessibilityLabel().string() == appName)
+    /// VoiceOver names the item by this, its AXTitle being the only channel a menu bar item has. A client tells
+    /// the item from a pinned device's by the app's name it begins with.
+    @Test func theStatusItemNamesTheAppAndTheBatterysState() throws {
+        func said(_ state: BatteryModel.State, in code: String = "en") -> String {
+            StatusItemName(state, appName: "App").phrase.resolve(in: AppLanguage(code: code), bundle: PhraseTests.app)
+        }
+        let charging = try MenuBarIconDrawing.charging(75)
+        #expect(said(.known(Self.reading)) == "App, 40%, On Battery")
+        #expect(said(.known(charging)) == "App, 75%, Charging")
+        #expect(said(.unknown) == "App, Reading the battery…")
+        #expect(said(.known(nil)) == "App, This Mac has no battery.")
+        #expect(said(.ended(nil)) == "App, Battery readings stopped. Quit and reopen the app.")
+        #expect(said(.known(charging), in: "fr").hasSuffix(", En charge"))
+        #expect(said(.unknown, in: "fr") == "App, Lecture de la batterie…")
+    }
+
+    /// The same words reach the item through the view, in the chosen language, whatever icon the bar shows.
+    @Test func theLabelSpeaksTheChosenLanguageForEveryIcon() throws {
+        let model = Self.model()
+        let language = try AppLanguageModel(defaults: AlertSettingsPersistence.suite())
+        func heard(_ state: BatteryModel.State) throws -> String {
+            try Self.label(state, model, language).inspect().find(ViewType.Group.self).accessibilityLabel().string()
+        }
+        #expect(try heard(.known(Self.reading)) == "\(appName), 40%, On Battery")
+        try model.update { $0.style = .logo }
+        #expect(try heard(.known(Self.reading)) == "\(appName), 40%, On Battery")
+        try language.update { $0 = AppLanguage(code: "fr") }
+        #expect(try heard(.unknown) == "\(appName), Lecture de la batterie…")
     }
 
     @Test func aStatusItemWithoutAReadingNamesWhyAndTheLogoNeedsNone() throws {
         let model = Self.model()
         func symbol(_ state: BatteryModel.State) -> String? {
-            if case .symbol(let name) = StatusItemLabel(state: state, icon: model).content(on: .dark) { name } else { nil }
+            if case .symbol(let name) = Self.label(state, model).content(on: .dark) { name } else { nil }
         }
         #expect(symbol(.unknown) == "battery.0percent")
         #expect(symbol(.known(nil)) == "powerplug")

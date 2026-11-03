@@ -151,7 +151,7 @@ struct OrangeDrinkApp: App {
         MenuBarExtra {
             PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, updates: updates, keyboard: keyboard, look: look, language: language)
         } label: {
-            StatusItemLabel(state: battery.state, icon: menuBarIcon)
+            StatusItemLabel(state: battery.state, icon: menuBarIcon, language: language)
         }
         .menuBarExtraStyle(.window)
 

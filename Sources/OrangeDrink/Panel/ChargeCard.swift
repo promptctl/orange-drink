@@ -15,6 +15,20 @@ struct ChargeCard: Equatable {
             case .charged: "Charged"
             }
         }
+
+        /// [LAW:one-source-of-truth] The one mapping from a power source to what the panel and the status
+        /// item's accessibility label call it.
+        init(_ power: PowerSource) {
+            self = switch power {
+            case .battery: .onBattery
+            case .adapter(_, .charging): .charging
+            case .adapter(_, .notCharging): .notCharging
+            case .adapter(_, .full): .charged
+            }
+        }
+
+        /// Names the estimate under the percentage: time until full while on an adapter, until empty on battery.
+        var estimateCaption: Phrase { self == .onBattery ? "UNTIL EMPTY" : "UNTIL FULL" }
     }
 
     let percent: String
@@ -30,12 +44,8 @@ struct ChargeCard: Equatable {
     init(_ reading: BatteryReading) {
         percent = String(reading.chargePercent)
         progress = Double(reading.chargePercent) / 100
-        (status, estimateCaption) = switch reading.power {
-        case .battery: (.onBattery, "UNTIL EMPTY")
-        case .adapter(_, .charging): (.charging, "UNTIL FULL")
-        case .adapter(_, .notCharging): (.notCharging, "UNTIL FULL")
-        case .adapter(_, .full): (.charged, "UNTIL FULL")
-        }
+        status = Status(reading.power)
+        estimateCaption = status.estimateCaption
         estimate = reading.power.estimate?.hoursAndMinutes ?? "–"
         tint = BatteryIndicator(reading).tint
     }

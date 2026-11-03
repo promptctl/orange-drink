@@ -19,6 +19,12 @@ import XCTest
         press(settings.sheets.firstMatch.buttons["Modify Settings"])
     }
 
+    /// The app's menu bar item. Its title is the app's name and then the battery's state, which changes
+    /// as the battery does, so it is found by the name it begins with.
+    func statusItem(of app: XCUIApplication) -> XCUIElement {
+        app.statusItems.matching(NSPredicate(format: "label BEGINSWITH %@", "OrangeDrink")).firstMatch
+    }
+
     /// The first match, because an alert's buttons are in the tree again on the Touch Bar a VM reports.
     func press(_ query: XCUIElement) {
         let control = query.firstMatch

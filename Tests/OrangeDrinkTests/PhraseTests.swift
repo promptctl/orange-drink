@@ -102,8 +102,9 @@ import Testing
         phrases += HistoryRange.allCases.map(\.title) + ["HEALTH", "TEMPERATURE", "CYCLES", "of \(1000) rated", "Today, \("2:00 AM")", "Yesterday, \("2:00 AM")",
                     "\("Jan 1"), \("2:00 AM")", "Last charged to \(79)%", "Battery Level", "Battery level over the last \("24h")",
                     "Building your battery-level history — your charge timeline fills in as you use your Mac.",
-                    "The battery history could not be read. Quit and reopen the app.", "This Mac has no battery.", "Reading the battery…",
-                    "Battery readings stopped. Quit and reopen the app."]
+                    "The battery history could not be read. Quit and reopen the app.",
+                    BatteryStateNote.unknown, BatteryStateNote.noBattery, BatteryStateNote.ended]
+        phrases += try [BatteryModel.State.known(MenuBarIconDrawing.charging(75)), .unknown].map { StatusItemName($0, appName: "App").phrase }
         phrases += ["DAILY USAGE", BatteryOverview.age(0), BatteryOverview.age(120), BatteryOverview.age(7200), BatteryOverview.age(200_000),
                     "Building your daily usage", "\("App") tracks battery discharge and screen-on time across each day. Come back in a couple of days to see your charts fill in.",
                     "\(1) day collected so far", "\(2) days collected so far", "Battery used", "Screen on", "Battery Health",

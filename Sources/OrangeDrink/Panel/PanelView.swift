@@ -17,9 +17,9 @@ struct PanelView: View {
         VStack(spacing: 10) {
             switch battery.state {
             case .known(let reading?): ChargeCardView(card: ChargeCard(reading))
-            case .unknown: PanelNote("Reading the battery…")
-            case .known(nil): PanelNote("This Mac has no battery.")
-            case .ended: PanelNote("Battery readings stopped. Quit and reopen the app.")
+            case .unknown: PanelNote(BatteryStateNote.unknown)
+            case .known(nil): PanelNote(BatteryStateNote.noBattery)
+            case .ended: PanelNote(BatteryStateNote.ended)
             }
             CollapsibleCard(title: "Battery Information", symbol: "info.circle.fill", symbolColor: .blue,
                             section: .batteryInformation, sections: sections) {
@@ -56,9 +56,9 @@ struct PanelView: View {
 }
 
 private struct PanelNote: View {
-    let text: LocalizedStringKey
-    init(_ text: LocalizedStringKey) { self.text = text }
-    var body: some View { Text(text).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).card() }
+    let text: Phrase
+    init(_ text: Phrase) { self.text = text }
+    var body: some View { PhraseText(text).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).card() }
 }
 
 extension View {
