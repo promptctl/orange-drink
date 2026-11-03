@@ -13,51 +13,51 @@ struct DeviceListTests {
 
     @Test func holdsEveryReportedDevice() {
         var list = DeviceList()
-        list.apply(.reported(Self.pods))
-        list.apply(.reported(Self.mouse))
+        list.apply(.reported(Self.pods), from: .bluetooth)
+        list.apply(.reported(Self.mouse), from: .bluetooth)
         #expect(list.devices == [Self.pods, Self.mouse])
     }
 
     @Test func aLevelChangeReplacesTheDevice() {
         var list = DeviceList()
-        list.apply(.reported(Self.mouse))
+        list.apply(.reported(Self.mouse), from: .bluetooth)
         let drained = Device(id: Self.mouse.id, name: Self.mouse.name, kind: .accessory,
                              levels: .single(BatteryLevel(percent: 36, approximate: false)))
-        list.apply(.reported(drained))
+        list.apply(.reported(drained), from: .bluetooth)
         #expect(list.devices == [drained])
     }
 
     @Test func aDisconnectRemovesTheDevice() {
         var list = DeviceList()
-        list.apply(.reported(Self.mouse))
-        list.apply(.reported(Self.pods))
-        list.apply(.gone(Self.mouse.id))
+        list.apply(.reported(Self.mouse), from: .bluetooth)
+        list.apply(.reported(Self.pods), from: .bluetooth)
+        list.apply(.gone(Self.mouse.id), from: .bluetooth)
         #expect(list.devices == [Self.pods])
     }
 
     @Test func aSweepReplacesTheListSoALateReportLeavesNoGhost() {
         var list = DeviceList()
-        list.apply(.reported(Self.mouse))
-        list.apply(.reported(Self.pods))
+        list.apply(.reported(Self.mouse), from: .bluetooth)
+        list.apply(.reported(Self.pods), from: .bluetooth)
         // The mouse disconnected, but a sweep that had read it as connected reported it afterwards.
-        list.apply(.gone(Self.mouse.id))
-        list.apply(.reported(Self.mouse))
-        list.apply(.swept([Self.pods]))
+        list.apply(.gone(Self.mouse.id), from: .bluetooth)
+        list.apply(.reported(Self.mouse), from: .bluetooth)
+        list.apply(.swept([Self.pods]), from: .bluetooth)
         #expect(list.devices == [Self.pods])
     }
 
     @Test func aSweepNamingADeviceTwiceKeepsTheLaterOne() {
         var list = DeviceList()
         let renamed = Device(id: Self.mouse.id, name: "Renamed", kind: .accessory, levels: .none)
-        list.apply(.swept([Self.mouse, renamed]))
+        list.apply(.swept([Self.mouse, renamed]), from: .bluetooth)
         #expect(list.devices == [renamed])
     }
 
     @Test func aReplayedReportChangesNothing() {
         var list = DeviceList()
-        list.apply(.reported(Self.mouse))
+        list.apply(.reported(Self.mouse), from: .bluetooth)
         let once = list
-        list.apply(.reported(Self.mouse))
+        list.apply(.reported(Self.mouse), from: .bluetooth)
         #expect(list == once)
     }
 
@@ -74,7 +74,7 @@ struct DeviceListTests {
         let keyboard = Device(id: DeviceID.bluetooth("EE"), name: "Keyboard", kind: .accessory, levels: .none)
         let speaker = Device(id: DeviceID.bluetooth("DD"), name: "Speaker", kind: .accessory, levels: .unread)
         var list = DeviceList()
-        list.apply(.swept([Self.mouse, keyboard, speaker]))
+        list.apply(.swept([Self.mouse, keyboard, speaker]), from: .bluetooth)
         #expect(DeviceRanking.rows(list).map(\.id) == [Self.mouse.id, speaker.id])
         #expect(DeviceRanking.unlevelled(list) == [DeviceRow(id: keyboard.id, name: "Keyboard", kind: .accessory, level: nil)])
     }
@@ -174,7 +174,7 @@ struct DeviceListTests {
         defer { subscription.cancel() }
         sweep: for try await next in seen {
             guard case .event(let event) = next else { continue }
-            list.apply(event)
+            list.apply(event, from: .bluetooth)
             switch event {
             case .permission(.notDetermined): print("answer the Bluetooth prompt: Allow the test host")
             case .permission(.denied), .swept: break sweep

@@ -12,7 +12,7 @@ struct ConnectedDevicesTests {
     }
     private func rows(_ devices: [Device]) -> [DeviceRow] {
         var list = DeviceList()
-        list.apply(.swept(devices))
+        list.apply(.swept(devices), from: .bluetooth)
         return ConnectedDevices(list, settings: DeviceSettings()).rows
     }
 
@@ -25,17 +25,17 @@ struct ConnectedDevicesTests {
         var list = DeviceList()
         let note = { ConnectedDevices(list, settings: DeviceSettings()).emptyNote }
         #expect(note() == UnreadDevices.waiting.explanation)
-        list.apply(.permission(.notDetermined))
+        list.apply(.permission(.notDetermined), from: .bluetooth)
         #expect(note() == UnreadDevices.unanswered.explanation)
-        list.apply(.permission(.denied))
+        list.apply(.permission(.denied), from: .bluetooth)
         #expect(note() == UnreadDevices.denied.explanation)
-        list.apply(.permission(.allowed))
+        list.apply(.permission(.allowed), from: .bluetooth)
         #expect(note() == UnreadDevices.waiting.explanation)
-        list.apply(.swept([]))
+        list.apply(.swept([]), from: .bluetooth)
         #expect(note() == "No connected Bluetooth devices to show.")
-        list.end()
+        list.end(.bluetooth)
         #expect(note() == UnreadDevices.ended.explanation)
-        list.apply(.swept(fleet))
+        list.apply(.swept(fleet), from: .bluetooth)
         var hidden = DeviceSettings()
         hidden.hidden = Set(fleet.map(\.id))
         #expect(ConnectedDevices(list, settings: hidden).emptyNote == "Every device is hidden. Show them again in Settings → Devices.")

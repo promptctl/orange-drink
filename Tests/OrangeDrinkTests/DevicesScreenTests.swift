@@ -15,7 +15,7 @@ import Testing
     /// 95, 37, 54, and 49 percent, in that arrival order.
     private var list: DeviceList {
         var list = DeviceList()
-        list.apply(.swept([device("a", 95), device("b", 37), device("c", 54), device("d", 49)]))
+        list.apply(.swept([device("a", 95), device("b", 37), device("c", 54), device("d", 49)]), from: .bluetooth)
         return list
     }
     private func model() throws -> DeviceSettingsModel { try DeviceSettingsModel(defaults: defaults) }
@@ -44,13 +44,13 @@ import Testing
         var list = DeviceList()
         let note = { DetectedDevices(list, settings: DeviceSettings()).emptyNote }
         #expect(note() == UnreadDevices.waiting.explanation)
-        list.apply(.permission(.notDetermined))
+        list.apply(.permission(.notDetermined), from: .bluetooth)
         #expect(note() == UnreadDevices.unanswered.explanation)
-        list.apply(.permission(.denied))
+        list.apply(.permission(.denied), from: .bluetooth)
         #expect(note() == UnreadDevices.denied.explanation)
-        list.apply(.swept([]))
+        list.apply(.swept([]), from: .bluetooth)
         #expect(note() == "No connected Bluetooth devices report a battery.")
-        list.end()
+        list.end(.bluetooth)
         #expect(note() == UnreadDevices.ended.explanation)
     }
 

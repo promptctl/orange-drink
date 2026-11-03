@@ -12,7 +12,7 @@ import Testing
         var list = DeviceList()
         list.apply(.swept(names.map { id, name in
             Device(id: id, name: name, kind: .accessory, levels: .single(BatteryLevel(percent: percent, approximate: false)))
-        }))
+        }), from: .bluetooth)
         return list
     }
     static let devices = list([a: "Keyboard", b: "Mouse", c: "AirPods"])
@@ -78,13 +78,13 @@ import Testing
         var list = DeviceList()
         let note = { PinnedDevicesList(list, pinned: [Self.a]).emptyNote }
         #expect(note() == UnreadDevices.waiting.explanation)
-        list.apply(.permission(.notDetermined))
+        list.apply(.permission(.notDetermined), from: .bluetooth)
         #expect(note() == UnreadDevices.unanswered.explanation)
-        list.apply(.permission(.denied))
+        list.apply(.permission(.denied), from: .bluetooth)
         #expect(note() == UnreadDevices.denied.explanation)
-        list.apply(.swept([]))
+        list.apply(.swept([]), from: .bluetooth)
         #expect(note() == "Pin a connected device from the Devices screen to arrange it here.")
-        list.end()
+        list.end(.bluetooth)
         #expect(note() == UnreadDevices.ended.explanation)
     }
 

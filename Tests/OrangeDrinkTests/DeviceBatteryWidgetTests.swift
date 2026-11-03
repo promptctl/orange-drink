@@ -119,10 +119,10 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     @Test func aDeviceThatDisconnectsLeavesTheShelfAndTheAppQuittingSaysSo() async throws {
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         var list = DeviceList()
-        list.apply(.swept([Self.iPhone]))
+        list.apply(.swept([Self.iPhone]), from: .bluetooth)
         publisher.publish(.running(WidgetDevices(list, pinned: [])))
         #expect(try levelRead("AA") == 95)
-        list.apply(.gone(Self.iPhone.id))
+        list.apply(.gone(Self.iPhone.id), from: .bluetooth)
         publisher.publish(.running(WidgetDevices(list, pinned: [])))
         #expect(try WidgetShelf.read(.devices, from: shelf).get() == .running(.connected([], pinned: [])))
         publisher.publish(.appNotRunning)
@@ -137,7 +137,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
             Device(id: DeviceID.bluetooth("DD"), name: "Speaker", kind: .accessory, levels: .unread),
             Device(id: DeviceID.bluetooth("EE"), name: "Mouse", kind: .accessory, levels: .none),
             Self.earbuds(54),
-        ]))
+        ]), from: .bluetooth)
         // Ranked as the panel ranks them: lowest first, unread last, a device with no battery kept apart; the case is never the level.
         #expect(WidgetDevices(list, pinned: []) == .connected(WidgetDeviceList(ranked: [
             WidgetDevice(id: .bluetooth("CC"), name: "iPad", kind: .tablet, level: BatteryLevel(percent: 40, approximate: true)),
@@ -158,7 +158,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test(arguments: widgetSizes) func eachWidgetFillsItsArcClockwiseFromTheTopAsFarAsItsOwnDevicesLevel(family: WidgetFamily, size: CGSize) throws {
-        let devices = WidgetDevices({ var list = DeviceList(); list.apply(.swept([Self.iPhone, Self.earbuds(54)])); return list }(), pinned: [])
+        let devices = WidgetDevices({ var list = DeviceList(); list.apply(.swept([Self.iPhone, Self.earbuds(54)]), from: .bluetooth); return list }(), pinned: [])
         func filled(_ address: String) throws -> Double {
             let view = DeviceBatteryView(entry: Self.entry(.success(.running(devices)), chosen: address), appName: "Orange Drink", family: family)
             return try RingPixels(widgetImage(view, size: size, scheme: .light, scale: 1)).filledFraction

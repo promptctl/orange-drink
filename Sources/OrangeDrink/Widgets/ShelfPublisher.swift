@@ -36,11 +36,11 @@ extension DevicesModel {
     /// The one wiring of the list, the pins, the language and what has been seen to what mirrors them: the pinned menu bar items and the widgets' shelf. The
     /// list it starts from reaches the shelf before this returns, so a file a crashed run left behind is not drawn as current
     /// while the first Bluetooth sweep is still out.
-    convenience init<Events: AsyncSequence & Sendable>(
-        events: Events, shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>,
+    convenience init(
+        events: AsyncThrowingStream<DeviceEvent, any Error>, shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>,
         settings: DeviceSettingsModel, seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
-    ) where Events.Element == DeviceEvent {
+    ) {
         self.init(events: events, onChange: { list in
             do {
                 try seen.update { $0.see(list) }

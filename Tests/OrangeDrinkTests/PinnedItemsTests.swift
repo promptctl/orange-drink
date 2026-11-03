@@ -13,7 +13,7 @@ import Testing
         list.apply(.swept(levels.map { id, level in
             Device(id: id, name: id == Self.mouse ? "Magic Mouse" : "AirPods", kind: .accessory,
                    levels: level.map { .single($0) } ?? .none)
-        }))
+        }), from: .bluetooth)
         return list
     }
     private func level(_ percent: Int, approximate: Bool = false) -> BatteryLevel { BatteryLevel(percent: percent, approximate: approximate) }
@@ -47,7 +47,7 @@ import Testing
         let controller = controller(items)
         controller.apply(PinnedItem.items(list([Self.mouse: level(37)]), pinned: [Self.mouse]))
         var unread = DeviceList()
-        unread.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .unread)]))
+        unread.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .unread)]), from: .bluetooth)
         controller.apply(PinnedItem.items(unread, pinned: [Self.mouse]))
         #expect(items.made.count == 1 && !items.made[0].removed)
         #expect(items.made[0].shown?.title == "–")
