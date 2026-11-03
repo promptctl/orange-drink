@@ -26,10 +26,11 @@ import XCTest
     }
 
     /// Allows the app in System Settings' Login Items & Extensions as a person does, with the pane already open. The app's
-    /// login item and its helper share this switch.
+    /// login item and its helper share this switch, which a press turns off when it already reads 1, so it must read 0.
     func allowInTheBackground() {
         let settings = XCUIApplication(bundleIdentifier: "com.apple.systempreferences")
         let allowed = settings.switches["background-switch-OrangeDrink"]
+        expect(allowed, toRead: 0)
         press(allowed)
         confirmWithThePassword(in: settings)
         expect(allowed, toRead: 1)

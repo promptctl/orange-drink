@@ -32,12 +32,14 @@ on_failure() {
   log_lines updates >&2
   log_lines helper >&2
 }
-# Whether the running copy's launch logged its helper's handshake answering, which settles the job as the last step of a
-# launch. A copy not yet running has not.
+# Whether a running copy's launch logged its helper's handshake answering, which settles the job as the last step of a
+# launch. A copy not yet running has not, and each pid gets a predicate of its own, because several in one is no predicate.
 running_copys_helper_answers() {
   local pid
-  pid=$(pids)
-  [ -n "$pid" ] && grep -qF 'the helper answered' <<<"$(log_matching "processID == $pid AND category == \"helper\"")"
+  for pid in $(pids); do
+    grep -qF 'the helper answered' <<<"$(log_matching "processID == $pid AND category == \"helper\"")" && return 0
+  done
+  return 1
 }
 
 newer_version=$(basename "$newer" .dmg)
@@ -71,13 +73,11 @@ first_launch
 # that does not answer after the update is the update's doing. Its handshake is the only proof: a status reads enabled
 # through a job nothing runs.
 uitest HelperApprovalUITests/testAllowing
-guest pkill -x OrangeDrink || true
-wait_for "the app did not quit after the helper was allowed" 30 stopped
+quit_app "after the helper was allowed"
 guest open "$app"
 wait_for "the older copy's helper never answered once allowed" 60 running_copys_helper_answers
 echo "update-check: allowed: the helper answers from the older copy $older_version" >&2
-guest pkill -x OrangeDrink
-wait_for "the app did not quit after the helper answered" 30 stopped
+quit_app "after the helper answered"
 
 uitest UpdateInPlaceUITests/testNothingNewerIsReported
 [ "$(installed_version)" = "$older_version" ] || fail "the installed version moved to $(installed_version) with nothing newer on the feed"

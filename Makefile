@@ -157,7 +157,7 @@ release-helper-check: release
 # uncached: the generated files are under build/, which is not copied, and `--use-cache` would call a second run's copy
 # unchanged and leave them missing.
 update-check.covers := Sources/OrangeDrink/Updates Sources/OrangeDrink/Helper Sources/HelperInterface Sources/OrangeDrinkHelper \
-  Sources/OrangeDrink/Panel/PanelView.swift project.yml Tests/OrangeDrinkUITests \
+  Sources/OrangeDrink/OrangeDrinkApp.swift Sources/OrangeDrink/Panel/PanelView.swift project.yml Tests/OrangeDrinkUITests \
   scripts/update-check scripts/appcast scripts/dmg scripts/vm-check-lib
 update-check: generate
 	@set -e; out='$(CURDIR)/build/update-check'; rm -rf "$$out"; mkdir -p "$$out/tree"; \
