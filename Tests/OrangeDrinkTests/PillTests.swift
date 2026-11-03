@@ -96,7 +96,7 @@ import ViewInspector
     }
 
     /// The `alerts` log lines that name this headline: other suites log in the same category at
-    /// the same time, so each countdown test reads only its own pill's lines.
+    /// the same time, so each countdown test shows a headline no other test shows and reads only its own pill's lines.
     static func lines(_ log: BatteryLog, about headline: String) throws -> [String] {
         try log.messages().filter { $0.hasSuffix(": \(headline)") }
     }
@@ -104,7 +104,7 @@ import ViewInspector
     @Test func aPillAndItsGlowLeaveByThemselvesOnceShownForHasPassed() async throws {
         let clock = ManualTimekeeper()
         let pills = Self.countdown(clock)
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         pills.show(PillContent(Alert(kind: .low, threshold: 31, position: .center, glow: true, sound: false),
                                reading: try Self.reading(31)))
         let waiter = Task { await pills.untilClosed() }
@@ -123,7 +123,7 @@ import ViewInspector
     @Test func aReplacementGetsItsOwnFullTimeOnScreen() async throws {
         let clock = ManualTimekeeper()
         let pills = Self.countdown(clock)
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         let low = Alert(kind: .low, threshold: 30, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(29)))
         await clock.asleep()
@@ -148,7 +148,7 @@ import ViewInspector
     @Test func closingAPillEndsItsCountdown() async throws {
         let clock = ManualTimekeeper()
         let pills = Self.countdown(clock)
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         pills.show(PillContent(Alert(kind: .low, threshold: 27, position: .top, glow: false, sound: false),
                                reading: try Self.reading(26)))
         await clock.asleep()
@@ -164,7 +164,7 @@ import ViewInspector
     @Test func aPillHeldWhileNoOneCanSeeTheScreenGetsItsFullTimeOnceSeen() async throws {
         let clock = ManualTimekeeper()
         let pills = Self.countdown(clock)
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         pills.show(PillContent(Alert(kind: .low, threshold: 25, position: .center, glow: true, sound: false),
                                reading: try Self.reading(24)))
         await clock.asleep()
@@ -191,10 +191,10 @@ import ViewInspector
     @Test func aPillShownWhileTheScreenIsHiddenWaitsUntilEveryHiderHasEnded() async throws {
         let clock = ManualTimekeeper()
         let pills = Self.countdown(clock)
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         pills.screen(hidden: [.locked])
-        pills.show(PillContent(Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false),
-                               reading: try Self.reading(80)))
+        pills.show(PillContent(Alert(kind: .charged, threshold: 83, position: .top, glow: false, sound: false),
+                               reading: try Self.reading(83)))
         await Task.yield()
         #expect(pills.shownCounting == false && clock.sleeping == 0)
         // The display sleeps and wakes again on the lock screen: still no one can see the pill.
@@ -207,9 +207,9 @@ import ViewInspector
         await clock.asleep()
         clock.advance(by: PillController.shownFor)
         await waiter.value
-        #expect(try Self.lines(log, about: "80% Charged") == [
-            "pill shown at top, held: 80% Charged", "pill held: 80% Charged", "pill held: 80% Charged",
-            "pill counting \(PillController.shownFor) again: 80% Charged", "pill closed: timed out after \(PillController.shownFor): 80% Charged"])
+        #expect(try Self.lines(log, about: "83% Charged") == [
+            "pill shown at top, held: 83% Charged", "pill held: 83% Charged", "pill held: 83% Charged",
+            "pill counting \(PillController.shownFor) again: 83% Charged", "pill closed: timed out after \(PillController.shownFor): 83% Charged"])
         #expect(try log.messages().contains("screen hidden by displayAsleep, locked"))
     }
 
@@ -220,7 +220,7 @@ import ViewInspector
         let external = ScreenArea(frame: CGRect(x: 1512, y: 0, width: 2560, height: 1440), visibleFrame: CGRect(x: 1512, y: 70, width: 2560, height: 1345))
         let screens = Screens(laptop)
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in }, timekeeper: clock, screen: { screens.main })
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(PillContent(Alert(kind: .low, threshold: 22, position: .top, glow: true, sound: false),
                                reading: try Self.reading(21)))
@@ -251,7 +251,7 @@ import ViewInspector
     @Test func theSameHidersAgainLeaveACountingPillsCountdownAsItWas() async throws {
         let clock = ManualTimekeeper()
         let pills = Self.countdown(clock)
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         pills.show(PillContent(Alert(kind: .low, threshold: 19, position: .top, glow: false, sound: false),
                                reading: try Self.reading(18)))
         await clock.asleep()
@@ -349,7 +349,7 @@ import ViewInspector
     /// glow come down at once. The clock never moves, so only the × can close it.
     @Test func pressingThePillsCloseButtonTakesItAndItsGlowDown() async throws {
         let pills = Self.countdown(ManualTimekeeper())
-        let log = try BatteryLog(category: "alerts")
+        let log = try await BatteryLog(category: "alerts")
         pills.show(PillContent(Alert(kind: .low, threshold: 16, position: .top, glow: true, sound: false), reading: try Self.reading(16)))
         let view = try #require(pills.shownView)
         try view.inspect().find(ViewType.Button.self, where: { try $0.accessibilityLabel().string() == "Close" }).tap()

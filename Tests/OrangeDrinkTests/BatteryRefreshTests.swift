@@ -30,7 +30,7 @@ final class Reads: @unchecked Sendable {
     }
 
     @Test func aFreshReadingIsTakenTwoMinutesAfterTheLast() async throws {
-        let log = try BatteryLog()
+        let log = try await BatteryLog()
         let (model, clock, reads, _) = try await model()
         #expect(reads.taken == 0)
         clock.advance(by: .seconds(119))

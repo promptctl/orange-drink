@@ -60,7 +60,7 @@ import Testing
     /// states to compare, and every event it yields is also the log's.
     @Test func eventsDiffConsecutiveReadingsAndLogEach() async throws {
         let battery = try Self.onBattery, adapter = try Self.onAdapter
-        let log = try BatteryLog()
+        let log = try await BatteryLog()
         let recorded = AsyncStream<BatteryReading?> { continuation in
             for reading in [nil, battery, battery, adapter] { continuation.yield(reading) }
             continuation.finish()

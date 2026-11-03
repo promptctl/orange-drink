@@ -364,7 +364,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     @Test(arguments: [WidgetStyle.list, .bars]) func eachTimelineLogsItsStyle(style: WidgetStyle) async throws {
         // A category of the test's own, because the host app publishes into the shelf's.
         let category = "style-\(UUID().uuidString)"
-        let log = try BatteryLog(category: category)
+        let log = try await BatteryLog(category: category)
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
         _ = Self.configured(style, in: shelf, log: Logger(subsystem: IOKitBattery.logSubsystem, category: category))

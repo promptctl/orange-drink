@@ -44,13 +44,13 @@ struct DeviceReaderTests {
 
     // Each logged line stands alone: a connect's read can be the only one powerd misses, with the settle sweep answered.
     @Test func anUnansweredSweepNamesTheCallInTheLog() async throws {
-        let log = try BatteryLog(category: "devices")
+        let log = try await BatteryLog(category: "devices")
         _ = Sources(unanswered: .unanswered(call: "logged by a sweep")).reader.sweep([Self.peer])
         #expect(try await log.logged("device levels unread: unanswered(call: \"logged by a sweep\")"))
     }
 
     @Test func anUnansweredReportNamesTheCallInTheLog() async throws {
-        let log = try BatteryLog(category: "devices")
+        let log = try await BatteryLog(category: "devices")
         _ = Sources(unanswered: .unanswered(call: "logged by a report")).reader.report(Self.peer)
         #expect(try await log.logged("device levels unread: unanswered(call: \"logged by a report\")"))
     }
