@@ -32,6 +32,10 @@ struct HelperLive {
     @Test(.timeLimit(.minutes(2))) func acceptsOnlyTheApp() throws {
         let status = SMAppService.daemon(plistName: "\(label).plist").status
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
+        // The app's launch step, which the bare test host never takes (Main.swift): it replaces a helper not this
+        // copy's, and logs the registration read back below.
+        HelperRegistration.holdUntilExit()
+        HelperRegistration.app.waitForSteps()
 
         // The app: this test host. The label is this copy's alone, so only a byte copy of this build at
         // another path could answer instead, and the path says so.
@@ -76,7 +80,7 @@ struct HelperLive {
         #expect(helperLog.components(separatedBy: Self.refusalLine).count - 1 >= refused.count, "helper log:\n\(helperLog)")
         #expect(helperLog.contains("accepted pid \(controlPid)"), "helper log:\n\(helperLog)")
 
-        // This launch's registration, as the app logged it. It runs off the main thread, so it is waited for.
+        // This launch's registration, as the launch step above logged it.
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         var lines: [String] = []
         for _ in 0..<50 {

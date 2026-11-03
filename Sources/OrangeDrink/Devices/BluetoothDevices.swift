@@ -13,8 +13,8 @@ enum BluetoothDevices {
     static let settleInterval = Duration.seconds(5)
 
     /// The events the app subscribes to at launch. Every build is ad-hoc signed anew, so any launch
-    /// that touches Bluetooth makes macOS ask for permission again, so the component gallery that
-    /// ax-check launches hears no devices (and never finishes). A test host never builds the app (Main.swift).
+    /// that touches Bluetooth makes macOS ask for permission again, so the component gallery the
+    /// UI tests launch hears no devices (and never finishes). A test host never builds the app (Main.swift).
     static func appEvents() -> AsyncThrowingStream<DeviceEvent, any Error> {
         #if DEBUG
         let forGallery = ProcessInfo.processInfo.arguments.contains(ComponentGallery.launchArgument)

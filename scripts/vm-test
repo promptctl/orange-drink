@@ -5,7 +5,7 @@
 #
 #   scripts/vm-test <xctestrun of the OrangeDrink scheme> <Suite/function() under OrangeDrinkTests> [TEST_RUNNER_NAME=value...]
 #
-# Prints the result bundle's summary, and exits as xcodebuild did.
+# Prints the result bundle's summary, and exits 0 only when the test ran and passed: a skip, or no test matched, fails.
 set -euo pipefail
 
 usage='usage: scripts/vm-test <xctestrun> <test> [TEST_RUNNER_NAME=value...]'
@@ -21,5 +21,8 @@ guest sudo -n sh -c "mkdir -p '$PWD' && tar -C '$PWD' -xf '$shared/tree.tar'"
 
 status=0
 xctest vm-test "OrangeDrinkTests/$only" "$@" || status=$?
-guest xcrun xcresulttool get test-results summary --path /tmp/vm-test.xcresult --compact
+summary=$(guest xcrun xcresulttool get test-results summary --path /tmp/vm-test.xcresult --compact)
+echo "$summary"
 [ "$status" -eq 0 ] || fail "$only failed in the VM"
+python3 -c 'import json, sys; s = json.load(sys.stdin); sys.exit(not (s["passedTests"] >= 1 and s["skippedTests"] == 0 and s["failedTests"] == 0))' <<<"$summary" ||
+  fail "$only did not run and pass in the VM; the summary above says what ran"

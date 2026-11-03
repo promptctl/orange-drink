@@ -146,7 +146,7 @@ targets:
           defaultPlan: true
       # Xcode's Run action in English on any Mac; a build from make is not touched.
       language: en
-  # Its own scheme, so `make test` never runs it: scripts/vm-check-lib runs it in a VM, because a UI test takes the screen.
+  # Its own scheme, so the unit tests never run it: `make test` runs it in a VM (scripts/ui-test), because a UI test takes the screen.
   OrangeDrinkUITests:
     type: bundle.ui-testing
     platform: macOS

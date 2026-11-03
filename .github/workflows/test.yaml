@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # `make ci-test` is `make test` without ax-check, which needs a terminal trusted for Accessibility. A hosted runner
+  # `make ci-test` is `make test` without ui-test, whose Tart VM a hosted runner cannot boot. A hosted runner
   # holds no Developer ID certificate, so the build is ad-hoc signed; the tests run the code, not the signature.
   test:
     runs-on: macos-26

@@ -69,9 +69,9 @@ place-widgets-test:
 # The UI tests that open the app's windows, in a VM with no window: the Debug build's component gallery, through the
 # accessibility tree SwiftUI builds only for a client of the running app, and what the app wires up as it launches.
 # It needs Tart and the VM image scripts/vm-check-lib names.
-ui-test: generate
-	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) build-for-testing
-	scripts/ui-test $(PRODUCTS)/Debug/$(APP).app "$$(ls -t $(PRODUCTS)/$(APP)UITests*.xctestrun | head -n 1)"
+ui-test: build
+	$(call gated,build-for-testing,,$(subst -scheme $(APP) ,-scheme $(APP)UITests ,$(XCB)))
+	scripts/ui-test "$$(ls -t $(PRODUCTS)/$(APP)UITests*.xctestrun | head -n 1)"
 
 # [LAW:one-type-per-behavior] The checks that need a real Mac are one list, and each is only data declared beside its
 # target: the source paths it covers, and either its test (Suite/function()) or a recipe whose last command is a script.
@@ -129,7 +129,8 @@ position-check: generate
 # Login Items & Extensions › Allow in the Background: the helper, running as root from this build, accepts
 # the app and refuses other code, including a copy re-signed with the app's identifier. Same TEST_RUNNER_ shape.
 helper-check: export TEST_RUNNER_HELPER_CHECK = 1
-helper-check: test
+helper-check: generate
+	$(call gated,test)
 
 # The helper's repair on a real Mac, approved as above: wedges this build's job by re-signing its helper for a moment,
 # then holds the app's own reconcile to a helper that answers as root, through background task management's refusal of
@@ -302,8 +303,9 @@ sparkle-tools: generate
 # [LAW:verifiable-goals] "Zero warnings" is read from the result bundle, which counts every
 # build issue. Grepping xcodebuild's output would count tool chatter (appintentsmetadataprocessor
 # prints a "warning:" line whenever no target links AppIntents) and is not the compiler's map.
+# $(3), when given, is the xcodebuild command in place of $(XCB), such as another scheme's.
 define gated
 rm -rf $(DERIVED_DATA)/$(1).xcresult
-$(XCB) -resultBundlePath $(DERIVED_DATA)/$(1).xcresult $(1) $(2)
+$(or $(3),$(XCB)) -resultBundlePath $(DERIVED_DATA)/$(1).xcresult $(1) $(2)
 xcrun xcresulttool get build-results --path $(DERIVED_DATA)/$(1).xcresult | python3 -c 'import json, sys; n = json.load(sys.stdin)["warningCount"]; print(f"build warnings: {n}"); sys.exit(n != 0)'
 endef
