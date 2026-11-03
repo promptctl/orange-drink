@@ -1,13 +1,13 @@
 #!/bin/bash
 # Refuses a commit whose tests did not pass, run in a checkout of that commit by the release workflow's
-# preflight job:
+# tested job:
 #
 #   scripts/release-tested <commit>
 #
 # [LAW:single-enforcer] The tests are .github/workflows/test.yaml, and each of its jobs is a check run on the
 # commit. Every one must have succeeded on it. The job names are read from that file, so a job added there is
 # required here without a second edit. A run still going is waited for, because a tag is often pushed moments
-# after the merge that started it; a failed one is read with `gh run view --log-failed`.
+# after the merge that started it; a failed one is refused, and its log is for a person to read with `gh run view --log-failed`.
 #
 # A check run absent for a few minutes means the workflow never ran on this commit, which is a refusal and not
 # something to wait out. Of several runs of one check on a commit, the latest decides: a failure that was re-run
