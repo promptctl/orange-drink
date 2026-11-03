@@ -4,13 +4,19 @@
 // Makefile says why). `status` says, for that ticket, whether each check's latest result still holds for HEAD, so a
 // person is needed again only when the code changed.
 //
-// usage: hardware-check run <check> --test <id> --bundle <xcresult> --covers <path>... -- <command>...
+// usage: hardware-check run <check> [--test <id> --bundle <xcresult>] --covers <path>... -- <command>...
 //        hardware-check status (--check <check> <path>...)...
-// run exits 0 only when the test passed and its result is on the ticket.
+// A check with a --test is an xcodebuild run whose result bundle holds the test's outcome. One without is a script: it
+// exits 0 when every reading held, and anything else is a fail, with the reason on the lines it prints as
+// `» failure: <reason>`.
+// run exits 0 only when the check passed and its result is on the ticket.
 import Foundation
 
 /// [LAW:one-source-of-truth] exception: printForTheRecord in Tests/OrangeDrinkTests/PrintForTheRecord.swift prints it.
 let recordMark = "» "
+/// [LAW:one-source-of-truth] exception: `fail` in scripts/vm-check-lib and scripts/release-helper-check.swift print it.
+/// What follows a marked line's `» ` is the reason a script's reading did not hold, recorded as a failure.
+let failureMark = "failure: "
 
 enum CheckError: Error, CustomStringConvertible {
     case usage(String)
@@ -24,7 +30,7 @@ enum CheckError: Error, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .usage(let detail): "\(detail)\nusage: hardware-check run <check> --test <id> --bundle <xcresult> --covers <path>... -- <command>...\n       hardware-check status (--check <check> <path>...)..."
+        case .usage(let detail): "\(detail)\nusage: hardware-check run <check> [--test <id> --bundle <xcresult>] --covers <path>... -- <command>...\n       hardware-check status (--check <check> <path>...)..."
         case .failed(let command, let status): "\(command.joined(separator: " ")) exited \(status)"
         case .noResult(let test, let bundle): "\(bundle) holds no result for \(test): the build failed or the test never ran; nothing was posted"
         case .skipped(let test): "\(test) was skipped, so it checked nothing: its TEST_RUNNER_ variable did not reach it; nothing was posted"
@@ -57,8 +63,9 @@ func capture(_ command: [String], environment: [String: String] = [:]) throws ->
 }
 
 /// Runs the check's command with its output shown as it arrives, and returns its exit status and the lines marked
-/// for the record. Its stdin is /dev/null: a check takes nothing from the person but their hands.
-func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
+/// for the record: the failure reasons a script gave, and the rest. Its stdin is /dev/null: a check takes nothing from
+/// the person but their hands.
+func stream(_ command: [String]) throws -> (status: Int32, printed: [String], said: [String]) {
     let process = Process()
     process.executableURL = URL(filePath: "/usr/bin/env")
     process.arguments = command
@@ -71,9 +78,14 @@ func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
     try process.run()
     var pending = Data()
     var printed: [String] = []
+    var said: [String] = []
     func take(_ line: Data) {
         let text = String(decoding: line, as: UTF8.self)
-        if text.hasPrefix(recordMark) { printed.append(String(text.dropFirst(recordMark.count)).trimmingCharacters(in: .whitespacesAndNewlines)) }
+        guard text.hasPrefix(recordMark) else { return }
+        // Told apart before trimming, so a reason of only whitespace is still a reason.
+        let marked = String(text.dropFirst(recordMark.count))
+        if marked.hasPrefix(failureMark) { said.append(String(marked.dropFirst(failureMark.count)).trimmingCharacters(in: .whitespacesAndNewlines)) }
+        else { printed.append(marked.trimmingCharacters(in: .whitespacesAndNewlines)) }
     }
     while case let chunk = output.fileHandleForReading.availableData, !chunk.isEmpty {
         FileHandle.standardOutput.write(chunk)
@@ -85,7 +97,7 @@ func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
     }
     take(pending)
     process.waitUntilExit()
-    return (process.terminationStatus, printed)
+    return (process.terminationStatus, printed, said)
 }
 
 // MARK: - What a run covered
@@ -213,7 +225,13 @@ struct Comment: Decodable {
 
 // MARK: - Commands
 
-func run(check: String, test: String, bundle: String, covers paths: [String], command: [String]) throws -> Int32 {
+/// How a check's outcome is read: from a test's result bundle, or, for a script, from its exit status.
+enum Judge {
+    case test(String, bundle: String)
+    case exitStatus
+}
+
+func run(check: String, judge: Judge, covers paths: [String], command: [String]) throws -> Int32 {
     // Everything the post needs that can fail is settled before the person is asked to do anything.
     let ticket = try ticket()
     let commit = try capture(["git", "rev-parse", "HEAD"])
@@ -225,21 +243,30 @@ func run(check: String, test: String, bundle: String, covers paths: [String], co
     // A covered path HEAD does not hold is new on disk: uncommitted, like any other path whose code is not HEAD's.
     let committed = try objectIDs(of: paths, in: "HEAD")
 
-    let (status, printed) = try stream(command)
-    let (tested, testFailures) = try outcome(of: test, in: bundle)
-    // A passing test under a failing run is a failed check, so the ticket and make's exit status say the same thing.
-    let exited = status == 0 ? [] : ["\(command[0]) exited \(status)"]
-    let outcome = exited.isEmpty ? tested : .fail
-    let record = Record(check: check, outcome: outcome, commit: commit, covers: covers,
-                        uncommitted: paths.filter { built[$0] != committed[$0] }, printed: printed,
-                        failures: testFailures + exited)
+    let (status, marked, said) = try stream(command)
+    // A script says why a reading failed on a marked line that starts `failure: `. Those lines are a reason only under
+    // a non-zero exit; from a command that exited 0 they are printed like the rest.
+    let exited = status == 0 ? [] : said + ["\(command[0]) exited \(status)"]
+    let printed = status == 0 ? marked + said.map { failureMark + $0 } : marked
+    let (result, failures): (Outcome, [String])
+    switch judge {
+    case .test(let id, let bundle):
+        let (tested, testFailures) = try outcome(of: id, in: bundle)
+        // A passing test under a failing run is a failed check, so the ticket and make's exit status say the same thing.
+        (result, failures) = (exited.isEmpty ? tested : .fail, testFailures + exited)
+    case .exitStatus:
+        // Any other status is a fail too, with the setup its reason names (a VM image that is missing), as `status` says.
+        (result, failures) = (status == 0 ? .pass : .fail, exited)
+    }
+    let record = Record(check: check, outcome: result, commit: commit, covers: covers,
+                        uncommitted: paths.filter { built[$0] != committed[$0] }, printed: printed, failures: failures)
     // Posted from a file, so a failed post leaves the person's run on disk, and the error names the command that
     // posts it.
     let file = "build/\(check).record"
     try record.body.write(toFile: file, atomically: true, encoding: .utf8)
     try capture(["lit", "comment", "add", ticket, "--by", "make \(check)", "--body-file", file])
-    print("\n\(check): \(outcome.rawValue), posted on \(ticket)")
-    return outcome == .pass ? 0 : 1
+    print("\n\(check): \(result.rawValue), posted on \(ticket)")
+    return result == .pass ? 0 : 1
 }
 
 func status(checks: [(name: String, paths: [String])]) throws {
@@ -309,8 +336,12 @@ do {
         guard positional.count == 1, !values("covers").isEmpty, !command.isEmpty else {
             throw CheckError.usage("run takes one check name, at least one --covers path, and a command after --")
         }
-        exit(try run(check: positional[0], test: try one("test"), bundle: try one("bundle"), covers: values("covers"),
-                     command: command))
+        // A bundle with no test, or a test with no bundle, leaves it unsaid which result to read.
+        guard values("test").isEmpty == values("bundle").isEmpty else {
+            throw CheckError.usage("--test and --bundle are given together or not at all")
+        }
+        let judge: Judge = values("test").isEmpty ? .exitStatus : .test(try one("test"), bundle: try one("bundle"))
+        exit(try run(check: positional[0], judge: judge, covers: values("covers"), command: command))
     case "status":
         try refuseFlags(except: ["check"])
         let checks = flags.filter { $0.0 == "check" }.map { (name: $0.1.first ?? "", paths: Array($0.1.dropFirst())) }

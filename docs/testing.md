@@ -22,7 +22,7 @@ Whether a window shows over a full-screen app, follows the user across Spaces, o
 
 ## Live checks
 
-A live check exists only where the fact can't be recorded once and replayed: what a real iPhone, a real Bluetooth device, or a real power adapter reports right now. The live checks are the `HARDWARE_CHECKS` in the Makefile. Each one runs on a branch named after its ticket and posts its record there.
+A live check exists only where the fact can't be recorded once and replayed: what a real iPhone, a real Bluetooth device, or a real power adapter reports right now. Each check in the Makefile's `HARDWARE_CHECKS` is a test, or a script whose exit status is the result. It runs on a branch named after its ticket and posts its record there, and `make hardware-status` says which records still hold.
 
 A live check observes every fact it asserts or records itself. It never asks a person what a device or macOS shows:
 

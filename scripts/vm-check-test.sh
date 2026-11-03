@@ -30,7 +30,7 @@ run_check() {
     . '$repo/scripts/vm-check-lib'
     $cleanup
     on_failure() { touch '$scratch/failure-logs'; }
-    $body" 2>/dev/null || status=$?
+    $body" 2>"$scratch/stderr" || status=$?
 }
 ok() { echo "ok: $1"; }
 broken() { echo "FAILED: $1" >&2; exit 1; }
@@ -59,6 +59,16 @@ expect_removed "a failure in the VM"
 grep -q 'tart stop' "$scratch/calls" || broken "a failure in the VM left it running"
 grep -q 'tart delete' "$scratch/calls" || broken "a failure in the VM left it on disk"
 ok "a failure in the VM prints its logs, stops and deletes it, and removes the listed directories"
+
+for image_name in orange-drink-xcode ghcr.io/cirruslabs/macos-sonoma-base:latest; do
+  # A reading that failed through `fail` says why; a command that failed under errexit says its status.
+  for ending in "fail 'nope'|nope" "false|exited 1"; do
+    run_check "$listed" "image=$image_name; $started; ${ending%%|*}"
+    grep -qxF "» failure: bash on $image_name: ${ending##*|}" "$scratch/stderr" ||
+      broken "the marked line for \"${ending%%|*}\" on $image_name was not 'bash on $image_name: ${ending##*|}': $(cat "$scratch/stderr")"
+  done
+done
+ok "a failed run's marked line names the image it ran on, and why when it said"
 
 run_check "$listed" "$started; on_failure() { false; }; exit 4"
 expect_status 4 "a failing on_failure"

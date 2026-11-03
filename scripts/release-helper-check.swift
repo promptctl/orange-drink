@@ -2,7 +2,7 @@
 // and reads the same at the next launch; then quits it and reads that launchd holds no job. Then it crashes the app
 // again and launches a copy running other code, and reads that the copy replaced the helper left running. Run by
 // `make release-helper-check`; usage: release-helper-check <path to the app>.
-// Exits 0 when every reading holds, 1 when one does not, and 2 when no reading could be made.
+// Exits 0 when every reading holds and 1 otherwise, with the reason on lines marked `» failure: ` for the recorder.
 import Foundation
 
 let answerSeconds = 30.0
@@ -31,13 +31,6 @@ enum CheckError: Error, CustomStringConvertible {
         case .notReplaced(let pid, let log): "pid \(pid): the helper left running was not replaced within \(Int(answerSeconds)) s. Its log:\n\(log)"
         case .noSigner(let app): "\(app) names no signing authority"
         case .jobLeft(let label): "launchd still holds \(label) after the app quit"
-        }
-    }
-
-    var exitCode: Int32 {
-        switch self {
-        case .noAnswer, .notReplaced, .jobLeft, .didNotExit: 1
-        default: 2
         }
     }
 }
@@ -204,6 +197,7 @@ func check() throws {
 do {
     try check()
 } catch {
-    FileHandle.standardError.write(Data("release-helper-check: \(error)\n".utf8))
-    exit((error as? CheckError)?.exitCode ?? 2)
+    // Each line of the reason is marked for scripts/hardware-check.swift to record.
+    FileHandle.standardError.write(Data("release-helper-check: \(error)".split(separator: "\n").map { "» failure: \($0)\n" }.joined().utf8))
+    exit(1)
 }

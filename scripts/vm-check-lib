@@ -17,14 +17,19 @@ tests=/tmp/tests
 cloned=
 vm_cleanup=()
 uitest_env=()
+failed_because=
 on_failure() { :; }
 
 # Stops and deletes the VM, with everything that happened in it, and removes what the run left on this Mac, whether or
 # not a VM came up: a check's secrets are in those directories before the clone. Every step runs whatever the last one
 # did, and the run keeps its own status, so errexit ends here.
+# A run that fails says so on one marked line, which is what scripts/hardware-check.swift records as the check's reason.
+# It is here, where every way a run ends passes, so a command that failed under errexit is recorded too, and it names the
+# image, because a check run on several macOS versions records them as one result.
 vm_finish() {
   status=$?
   set +e
+  [ "$status" -eq 0 ] || echo "» failure: $(basename "$0") on $image: ${failed_because:-exited $status}" >&2
   if [ -n "$cloned" ]; then
     [ "$status" -eq 0 ] || on_failure
     tart stop "$vm" >&2
@@ -36,7 +41,7 @@ vm_finish() {
 }
 trap vm_finish EXIT
 
-fail() { echo "$(basename "$0"): $*" >&2; exit 1; }
+fail() { failed_because=$*; echo "$(basename "$0"): $*" >&2; exit 1; }
 guest() { tart exec "$vm" "$@"; }
 pids() { guest pgrep -f "^$app/Contents/MacOS/OrangeDrink( |\$)" || true; }
 # [LAW:no-ambient-temporal-coupling] Each wait is on the fact it needs, polled to a deadline.

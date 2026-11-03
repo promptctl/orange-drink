@@ -114,6 +114,41 @@ body=$(latest)
 expect "a passing test under a failing command posts fail, naming the exit" \
   eval '[ $status = 1 ] && has "result: fail" "$body" && has "failure: sh exited 3" "$body"'
 
+# A script check has no --test and no bundle: its exit status is the result.
+before=$(posts)
+run --covers src -- sh -c 'echo "» 3 readings held"'
+body=$(latest)
+expect "a script that exits 0 posts a pass with its printed lines and exits 0" \
+  eval '[ $status = 0 ] && [ $(posts) = $((before + 1)) ] && has "result: pass" "$body" && has "printed: 3 readings held" "$body" &&
+        ! grep -q "^failure:" <<<"$body"'
+
+recorder run c --covers src -- sh -c 'echo "» reading 1 held"; echo "» failure: the version is 1.0, not 1.1"; exit 1'
+body=$(latest)
+expect "a script that exits 1 posts a fail with the reason it printed and the exit, and the reason is not a printed line" \
+  eval '[ $status = 1 ] && has "result: fail" "$body" && has "failure: the version is 1.0, not 1.1" "$body" &&
+        has "failure: sh exited 1" "$body" && has "printed: reading 1 held" "$body" && ! grep -q "^printed: failure" <<<"$body"'
+
+recorder run c --covers src -- sh -c 'echo "» failure: said, then exited 0"'
+body=$(latest)
+expect "a script that exits 0 posts a pass even if it printed a failure line, which is then only printed" \
+  eval '[ $status = 0 ] && has "result: pass" "$body" && has "printed: failure: said, then exited 0" "$body" && ! grep -q "^failure:" <<<"$body"'
+
+recorder run c --covers src -- sh -c 'echo "» failure:   "; exit 1'
+body=$(latest)
+expect "a failure line with only whitespace after its mark is still a failure, not a printed line" \
+  eval '[ $status = 1 ] && has "failure: sh exited 1" "$body" && ! grep -q "^printed:" <<<"$body" && ! grep -qE "^failure: *$" <<<"$body"'
+
+recorder run c --covers src -- sh -c 'exit 2'
+body=$(latest)
+expect "a script that exits any other non-zero status posts a fail naming it" \
+  eval '[ $status = 1 ] && has "result: fail" "$body" && has "failure: sh exited 2" "$body"'
+
+before=$(posts)
+
+recorder run c --test 'Suite/check()' --covers src -- true
+expect "a --test without a --bundle stops the run before the command, saying so" \
+  eval '[ $status = 1 ] && grep -qF -e "--test and --bundle are given together" <<<"$out" && [ $(posts) = $before ]'
+
 touch "$scratch/lit-down"
 bundle Passed
 before=$(posts)
@@ -160,5 +195,21 @@ comments r1 $'hardware check: c\nresult: maybe\ncommit: 1234567890\ncovers: '"$s
 status_of src
 expect "a record that does not parse fails status, naming the comment" \
   eval '[ $status = 1 ] && grep -qF "comment r1 starts as a hardware check record but has no result" <<<"$out"'
+
+# The Makefile's own checks, read the way make would run them (-n prints each command and runs none).
+
+root=$(cd "$(dirname "$script")/.." && pwd)
+makefile=$root/Makefile
+status_command=$(make -n -f "$makefile" hardware-status)
+# Each argument is a path in the real tree; says the first that is not.
+all_exist() { local path; for path; do [ -e "$root/$path" ] || { out="no such path: $path"; return 1; }; done; }
+for check in $(grep -oE -- '--check [^ ]+' <<<"$status_command" | cut -d' ' -f2); do
+  expect "make hardware-status lists $check with covered paths that exist" \
+    eval 'covers=$(grep -oE -- "--check $check( [^ -][^ ]*)+" <<<"$status_command" | cut -d" " -f3-); [ -n "$covers" ] && all_exist $covers'
+done
+for check in release-helper-check update-check login-item-check battery-notification-check; do
+  expect "make $check runs its script through the recorder, under its own name" \
+    eval 'make -n -f "$makefile" $check | grep -qF -- "scripts/hardware-check.swift run $check --covers"'
+done
 
 [ $failures = 0 ] || { echo "$failures hardware-check case(s) failed"; exit 1; }
