@@ -6,7 +6,7 @@ import Testing
 // [LAW:behavior-not-structure] The contract is what the window and the panel are told to look
 // like for each choice, and what a relaunch loads back.
 @MainActor @Suite(.serialized) struct AppAppearanceTests {
-    static func scratch(_ defaults: UserDefaults = AlertSettingsPersistence.suite()) -> AppAppearanceModel {
+    static func scratch(_ defaults: UserDefaults = scratchDefaults()) -> AppAppearanceModel {
         try! AppAppearanceModel(defaults: defaults)
     }
 
@@ -41,7 +41,7 @@ import Testing
     }
 
     @Test func theLastChoiceComesBackWhenLoadedAsARelaunchWould() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         try Self.scratch(defaults).update { $0 = .light }
         #expect(Self.scratch(defaults).value == .light)
         #expect(Self.scratch().value == .auto)

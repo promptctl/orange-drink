@@ -153,7 +153,7 @@ import WidgetKit
 
     @Test func pinningFromTheDevicesScreenChangesASameAsMenuBarWidgetAndAsksItToRedraw() async throws {
         ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(.noBattery))
-        let settings = try DeviceSettingsModel(defaults: UserDefaults(suiteName: "WidgetDeviceSelectionTests.\(UUID())")!)
+        let settings = try DeviceSettingsModel(defaults: scratchDefaults())
         try settings.update {
             $0.togglePinned(DeviceID(address: "B"))
             $0.togglePinned(DeviceID(address: "D"))

@@ -61,13 +61,10 @@ import ViewInspector
     private let system = System()
 
     private func screen(_ login: LaunchAtLogin) throws -> GeneralScreen {
-        GeneralScreen(appearance: try NotificationAppearanceModel(defaults: Self.defaults()), look: try AppAppearanceModel(defaults: Self.defaults()),
-                      language: try AppLanguageModel(defaults: Self.defaults()), launchAtLogin: login,
-                      batteryNotifications: BatteryNotificationDismissal(settings: try SystemNotificationSettingsModel(defaults: Self.defaults()), effects: FakeMac().effects,
-                                                                         warningChanges: AsyncThrowingStream { _ in }, center: system.center))
+        try scratchGeneralScreen(launchAtLogin: login,
+                                 batteryNotifications: BatteryNotificationDismissal(settings: try SystemNotificationSettingsModel(defaults: scratchDefaults()), effects: FakeMac().effects,
+                                                                                    warningChanges: AsyncThrowingStream { _ in }, center: system.center))
     }
-
-    private static func defaults() -> UserDefaults { UserDefaults(suiteName: "LaunchAtLoginTests")! }
 
     private func theSwitch(_ login: LaunchAtLogin) throws -> InspectableView<ViewType.Toggle> {
         try screen(login).inspect().find(ViewType.Toggle.self, where: { try $0.labelView().text().string() == "Launch at Login" })

@@ -28,7 +28,7 @@ import ViewInspector
     }
 
     @Test func editsAndTheirSwitchesSurviveARelaunch() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         let first = try AlertCenter(defaults: defaults, deliver: { _, _ in })
         try first.model.update { $0.add(.charged); $0.power.pluggedIn = false; $0.enabled = false }
 
@@ -42,7 +42,7 @@ import ViewInspector
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
         let center = try AlertCenter(
-            defaults: AlertSettingsPersistence.suite(),
+            defaults: scratchDefaults(),
             deliver: { pills.deliver($0, reading: $1) })
         try center.model.update { $0.alerts = [] }
         center.observe(try PowerAndTemperatureAlerts.battery())
@@ -71,7 +71,7 @@ import ViewInspector
 
     /// An `AlertCenter` delivering to a `PillController`, with no threshold alerts to confuse the pills.
     private func temperatureCenter(_ pills: PillController) throws -> AlertCenter {
-        let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { pills.deliver($0, reading: $1) })
+        let center = try AlertCenter(defaults: scratchDefaults(), deliver: { pills.deliver($0, reading: $1) })
         try center.model.update { $0.alerts = [] }
         return center
     }
@@ -141,7 +141,7 @@ import ViewInspector
     }
 
     @Test func theTemperatureRowSitsBetweenUnpluggedAndSoundWithItsWordsAndReadsOnByDefault() throws {
-        let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { _, _ in })
+        let center = try AlertCenter(defaults: scratchDefaults(), deliver: { _, _ in })
         let view = try screen(center)
         _ = try view.find(text: "Notify when the battery runs warm or hot")
         #expect(try view.findAll(ViewType.Toggle.self).map { try $0.labelView().text().string() }
@@ -152,7 +152,7 @@ import ViewInspector
     @Test func turningTheTemperatureSwitchOffSilencesAHotBatteryAndSurvivesARelaunch() throws {
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
         defer { pills.close(.closeButton) }
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         let center = try AlertCenter(defaults: defaults, deliver: { pills.deliver($0, reading: $1) })
         try center.model.update { $0.alerts = [] }
 
@@ -168,7 +168,7 @@ import ViewInspector
 
     @Test func anAlertEditedFrom20To12FiresOnceAt11AndItsCardFollowsTheEdit() throws {
         var fired: [Int] = []
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         let center = try AlertCenter(
             defaults: defaults,
             deliver: { firing, reading in
@@ -203,7 +203,7 @@ import ViewInspector
     @Test func editingAFiredAlertsThresholdMakesItNewAndEditingAGoneAlertChangesNothing() throws {
         var fired: [Int] = []
         let center = try AlertCenter(
-            defaults: AlertSettingsPersistence.suite(),
+            defaults: scratchDefaults(),
             deliver: { firing, reading in
                 if case .threshold = firing { fired.append(reading.chargePercent) }
             })

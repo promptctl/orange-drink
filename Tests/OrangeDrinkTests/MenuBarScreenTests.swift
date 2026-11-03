@@ -11,7 +11,7 @@ import ViewInspector
 @MainActor @Suite(.serialized) struct MenuBarScreenTests {
     typealias Config = MenuBarIconConfig
 
-    static func model(_ defaults: UserDefaults = AlertSettingsPersistence.suite()) -> MenuBarIconModel {
+    static func model(_ defaults: UserDefaults = scratchDefaults()) -> MenuBarIconModel {
         try! MenuBarIconModel(defaults: defaults)
     }
 
@@ -19,7 +19,7 @@ import ViewInspector
     static let reading = try! MenuBarIconDrawing.discharging(40)
 
     static func label(_ state: BatteryModel.State, _ model: MenuBarIconModel, _ language: AppLanguageModel? = nil) -> StatusItemLabel {
-        StatusItemLabel(state: state, icon: model, language: language ?? (try! AppLanguageModel(defaults: AlertSettingsPersistence.suite())), halo: StatusItemHalo(findButton: { nil }))
+        StatusItemLabel(state: state, icon: model, language: language ?? (try! AppLanguageModel(defaults: scratchDefaults())), halo: StatusItemHalo(findButton: { nil }))
     }
 
     /// The icon the status item shows for the model's current choices, on the given bar.
@@ -135,7 +135,7 @@ import ViewInspector
     /// The same words reach the item through the view, in the chosen language, whatever icon the bar shows.
     @Test func theLabelSpeaksTheChosenLanguageForEveryIcon() throws {
         let model = Self.model()
-        let language = try AppLanguageModel(defaults: AlertSettingsPersistence.suite())
+        let language = try AppLanguageModel(defaults: scratchDefaults())
         func heard(_ state: BatteryModel.State) throws -> String {
             try Self.label(state, model, language).inspect().find(ViewType.Group.self).accessibilityLabel().string()
         }
@@ -161,7 +161,7 @@ import ViewInspector
     }
 
     @Test func everyChoiceComesBackWhenLoadedAsARelaunchWould() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         try Self.model(defaults).update {
             $0.style = .minimal; $0.display = .timeRemaining; $0.color = .dark; $0.size = .extraLarge; $0.statusColors = false; $0.glyph = .glassRing
         }
@@ -173,14 +173,14 @@ import ViewInspector
     }
 
     @Test func choicesAreKeptByCaseNameSoRetitlingTheScreenLeavesThemValid() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         try Self.model(defaults).update { $0.display = .timeRemaining; $0.size = .extraLarge }
         let stored = try #require(defaults.data(forKey: Config.storageKey).flatMap { String(data: $0, encoding: .utf8) })
         #expect(stored.contains("\"timeRemaining\"") && stored.contains("\"extraLarge\""))
     }
 
     @Test func aFieldAReleaseAddsIsAbsentFromWhatAnEarlierOneStoredAndTakesItsDefault() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         defaults.set(Data(#"{"style":"minimal"}"#.utf8), forKey: Config.storageKey)
         var expected = Config()
         expected.style = .minimal
@@ -188,7 +188,7 @@ import ViewInspector
     }
 
     @Test func storedChoicesThatDoNotDecodeFailLoudly() {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         defaults.set(Data(#"{"style":"hologram"}"#.utf8), forKey: Config.storageKey)
         #expect(throws: DecodingError.self) { try MenuBarIconModel(defaults: defaults) }
     }

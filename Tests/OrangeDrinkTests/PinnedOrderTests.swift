@@ -31,7 +31,7 @@ import Testing
     }
 
     @Test func whatOlderInstallsStoredLoadsAsAnOrderWithRepeatsDropped() throws {
-        let defaults = AlertSettingsPersistence.suite()
+        let defaults = scratchDefaults()
         defaults.set(Data(#"{"pinned":[{"address":"b"},{"address":"a"},{"address":"b"}]}"#.utf8), forKey: DeviceSettings.storageKey)
         let first = try DeviceSettingsModel(defaults: defaults)
         #expect(first.value.pinned.ids == [Self.b, Self.a])
@@ -53,7 +53,7 @@ import Testing
     /// Pins three devices, reorders them through the Menu Bar screen's list, and reads the bar:
     /// the first item made sits rightmost, so the bar left to right is the items made, reversed.
     @Test func reorderingThePinnedListReordersTheMenuBarItems() throws {
-        let settings = try DeviceSettingsModel(defaults: AlertSettingsPersistence.suite())
+        let settings = try DeviceSettingsModel(defaults: scratchDefaults())
         for id in [Self.a, Self.b, Self.c] { try settings.update { $0.pinned.toggle(id) } }
         var made: [Recording] = []
         let controller = PinnedItemsController(makeItem: { _ in let item = Recording(); made.append(item); return item })
