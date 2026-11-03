@@ -24,17 +24,26 @@ struct IPhoneIdentityLive {
         let paired = try Self.pairedBluetooth()
         let models = try Self.recordedModels()
         let identities = PairIdentities()
+        var modelsCompared = 0
         for (udid, handle) in handles.sorted(by: { $0.key < $1.key }) {
             let identity = try readIPhoneIdentity(handle: handle, udid: udid, identities: identities)
             let name = paired[identity.bluetooth]
+            // The Mac records a model only for a device it has synced (a Vision Pro it never has gets none), so a device with
+            // no record is left out of the model comparison, and the check needs one device that is in it.
             let model = udid.split(separator: "-").last.flatMap { models[String($0)] }
-            printForTheRecord("identity: \(identity); system_profiler lists its address: \(name != nil); "
+            // The record is posted on a ticket in a public repo, so it states what the comparisons found and not the device's
+            // address or name.
+            printForTheRecord("identity: \(identity.productType) (\(identity.kind)); system_profiler lists its address: \(name != nil); "
                               + "its name there is the one lockdown gave: \(name == identity.name); "
-                              + "com.apple.iPod's Product Type is the one lockdown gave: \(model == identity.productType)")
+                              + "com.apple.iPod's Product Type is " + (model.map { "\($0 == identity.productType ? "the" : "not the") one lockdown gave" } ?? "not recorded: not compared"))
             #expect(name != nil, "system_profiler lists no paired device at lockdown's address for \(udid): \(identity.bluetooth.key)")
             #expect(name == identity.name, "system_profiler names the device at \(identity.bluetooth.key) differently from lockdown's DeviceName")
-            #expect(model == identity.productType, "com.apple.iPod records Product Type \(model ?? "nothing") for \(udid), lockdown says \(identity.productType)")
+            if let model {
+                modelsCompared += 1
+                #expect(model == identity.productType, "com.apple.iPod records Product Type \(model) for \(udid), lockdown says \(identity.productType)")
+            }
         }
+        #expect(modelsCompared > 0, "com.apple.iPod records none of \(handles.count) reachable devices, so no model was compared")
     }
 
     /// Every device System Settings lists as paired with this Mac, connected or not: its address, in IOBluetooth's form → its name.
