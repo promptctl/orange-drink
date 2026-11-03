@@ -100,7 +100,7 @@ import Testing
         let icon = MenuBarIcon(noBattery: config, on: .dark)
         #expect(icon.image.size.height == 22)
         let charging = Self.icon(try Self.charging(50)) { $0.style = .logo; $0.size = .extraLarge }
-        #expect(charging.halo?.side == 22 * LogoGlyph.haloRatio)
+        #expect(charging.halo?.side == 22 * 1.5)
     }
 
     @Test func theLogoIsOrangeWhenLowRedWhenCriticalAndNeverGreen() throws {

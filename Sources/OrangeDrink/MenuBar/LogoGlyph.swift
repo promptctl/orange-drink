@@ -12,8 +12,8 @@ struct LogoGlyph {
     /// liquid (the straw bolt's) spans nothing, so no level shows in it.
     let liquidSpan: ClosedRange<CGFloat>
 
-    /// The halo mask's side over the glyph's: make-assets pads it by a quarter on every side.
-    static let haloRatio: CGFloat = 1.5
+    /// The halo mask's side over the glyph's, read off the masks make-assets wrote, so the two never drift.
+    var haloRatio: CGFloat { CGFloat(halo.width) / CGFloat(outline.width) }
 
     private static let loaded: [MenuBarIconConfig.Glyph: LogoGlyph] = Dictionary(uniqueKeysWithValues:
         MenuBarIconConfig.Glyph.allCases.map { ($0, LogoGlyph($0)) })

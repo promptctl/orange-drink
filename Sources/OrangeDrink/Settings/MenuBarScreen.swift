@@ -115,6 +115,7 @@ struct MenuBarScreen: View {
 struct MenuBarPreview: View {
     let config: MenuBarIconConfig
     @Environment(\.appLanguage) private var language
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The sample the preview shows: 75% and charging with 1:22 to go, so every Display value has
     /// something to print and the Status colors switch has a colour to turn on and off.
@@ -140,7 +141,8 @@ struct MenuBarPreview: View {
                 Image(systemName: "apple.logo").font(.system(size: 11)).foregroundStyle(.white)
                 Spacer()
                 ZStack {
-                    icon.halo.map { HaloView(halo: $0) }
+                    // A repeating animation can't be retargeted, so a Reduce Motion change starts the halo afresh.
+                    icon.halo.map { HaloView(halo: $0).id(reduceMotion) }
                     Image(nsImage: icon.image)
                 }
             }
@@ -191,9 +193,7 @@ private struct HaloView: View {
         Image(nsImage: halo.image)
             .opacity(Double(breath == .steady ? HaloBreath.still : high ? HaloBreath.high : HaloBreath.low))
             .animation(.timingCurve(x1, y1, x2, y2, duration: HaloBreath.duration).repeatForever(autoreverses: true), value: high)
-            // A repeating animation starts only on a change of `high`, so motion turned back on flips it again.
             .onAppear { high = true }
-            .onChange(of: reduceMotion) { high.toggle() }
             .accessibilityHidden(true)
     }
 }

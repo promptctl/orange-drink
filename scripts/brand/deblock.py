@@ -2,7 +2,10 @@
 # Usage: deblock.py SRC OUT. Writes OUT and OUT's stem + "-mask" beside it. guidedFilter is in opencv-contrib.
 import os, sys, cv2, numpy as np
 src, out = sys.argv[1], sys.argv[2]
-img = cv2.imread(src, cv2.IMREAD_COLOR).astype(np.float32) / 255
+raw = cv2.imread(src, cv2.IMREAD_COLOR)
+if raw is None:
+    sys.exit(f"deblock: cannot read {src}")
+img = raw.astype(np.float32) / 255
 # Edge map: where the art has real detail. Block seams are far weaker than these edges.
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3); gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)

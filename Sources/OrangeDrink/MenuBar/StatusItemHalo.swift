@@ -13,11 +13,12 @@ import QuartzCore
     private var wanted: Halo?
     private weak var button: NSStatusBarButton?
     /// What the layer's contents were drawn from; `Halo.image` draws anew on every read.
-    private var drawn: Halo?
+    private var drawn: (halo: Halo, scale: CGFloat)?
     private var breath: HaloBreath?
     // Removing an observer is thread-safe, so deinit may release these outside the main actor.
     nonisolated(unsafe) private var windowUpdates: (any NSObjectProtocol)?
     nonisolated(unsafe) private var motionChanges: (any NSObjectProtocol)?
+    nonisolated(unsafe) private var frameChanges: (any NSObjectProtocol)?
     private let findButton: @MainActor () -> NSStatusBarButton?
     private let reduceMotion: @MainActor () -> Bool
 
@@ -36,10 +37,19 @@ import QuartzCore
         windowUpdates = NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.apply() }
         }
+        // SwiftUI resizes the button after the label's onChange has run, so a resize re-centres the halo itself.
+        frameChanges = NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: nil, queue: .main) { [weak self] note in
+            let view = (note.object as AnyObject?).map(ObjectIdentifier.init)
+            MainActor.assumeIsolated {
+                guard let self, let button = self.button, view == ObjectIdentifier(button) else { return }
+                self.apply()
+            }
+        }
     }
 
     deinit {
         windowUpdates.map(NotificationCenter.default.removeObserver)
+        frameChanges.map(NotificationCenter.default.removeObserver)
         motionChanges.map(NSWorkspace.shared.notificationCenter.removeObserver)
     }
 
@@ -57,22 +67,27 @@ import QuartzCore
             layer.contents = nil
             return
         }
-        if let found = findButton(), found !== button {
-            button = found
+        // The tree walk runs only while there is no button in a window to hold: at launch, or once the bar replaced it.
+        if button?.window == nil, let found = findButton(), found !== button {
             found.wantsLayer = true
-            found.layer?.addSublayer(layer)
-            breath = nil
+            if let host = found.layer {
+                host.addSublayer(layer)
+                button = found
+                found.postsFrameChangedNotifications = true
+                breath = nil
+            }
         }
-        if wanted != drawn {
-            drawn = wanted
+        let scale = button?.window?.backingScaleFactor ?? 2
+        // The scale goes first and is part of what was drawn, so a move to another display redraws at its density.
+        if layer.contentsScale != scale { layer.contentsScale = scale }
+        if wanted != drawn?.halo || scale != drawn?.scale {
+            drawn = (wanted, scale)
             layer.contents = wanted.image
         }
         let bounds = button?.bounds ?? .zero
         let side = wanted.side
         let frame = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
         if layer.frame != frame { layer.frame = frame }
-        let scale = button?.window?.backingScaleFactor ?? 2
-        if layer.contentsScale != scale { layer.contentsScale = scale }
         let next = HaloBreath(reduceMotion: reduceMotion())
         if next != breath {
             breath = next

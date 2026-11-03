@@ -80,7 +80,7 @@ extension MenuBarIcon {
     /// The glow behind the Logo glyph while it charges with status colours on; nil otherwise.
     var halo: Halo? {
         guard case .logo(let glyph, let battery?) = shape, battery.glows else { return nil }
-        return Halo(glyph: glyph, ink: color, side: Self.logoSide * LogoGlyph.haloRatio * scale)
+        return Halo(glyph: glyph, ink: color, side: Self.logoSide * LogoGlyph.of(glyph).haloRatio * scale)
     }
 
     /// The outline and the liquid in one colour: the bar's ink, or orange or red for low and critical. Charging

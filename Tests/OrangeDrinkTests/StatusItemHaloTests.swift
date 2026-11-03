@@ -47,8 +47,8 @@ import Testing
         var button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 40, height: 22))
         let owner = StatusItemHalo(findButton: { button }, reduceMotion: { false })
         owner.show(Self.halo)
+        // No window update follows SwiftUI's resize of the button; its own frame change has to be enough.
         button.frame.size.width = 22
-        NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
         #expect(owner.layer.frame == CGRect(x: -1, y: -1, width: 24, height: 24))
         button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
         NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
