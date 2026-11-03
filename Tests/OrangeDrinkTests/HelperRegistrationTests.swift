@@ -61,10 +61,19 @@ final class FakeRegistrationSystem: @unchecked Sendable {
     ), record: { [self] event in state.withLock { $0.events.append(event) } })
 }
 
+extension HelperUseFailure {
+    /// A failure on a copy that has its helper file, which is what most tests are about.
+    init(call: HelperCallError, status: SMAppService.Status) {
+        self.init(call: call, status: status, helperFile: .readable)
+    }
+}
+
 @Suite struct HelperRegistrationTests {
     static let noReply = HelperCallError.noReply(seconds: 10, service: "x")
     static let notAnswering = HelperUseFailure(call: noReply, status: .enabled)
     static let noJob = HelperUseFailure(call: .connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x"), status: .notRegistered)
+    /// What a call that fails after its copy was moved or deleted carries: `.notFound` is what the status reads then.
+    static let copyGone = HelperUseFailure(call: .connection(domain: "NSCocoaErrorDomain", code: 4099, description: "x"), status: .notFound, helperFile: .unreadable("gone"))
     /// A refused `register`, as the outcome reads it.
     static let refusal = HelperRegistration.describe(FakeRegistrationSystem.refusal)
     static let older = HelperRegistration.Handshake.otherCode(executable: "/Applications/OrangeDrink.app/Contents/MacOS/OrangeDrinkHelper", cdhash: Data([2]))
@@ -129,6 +138,17 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.registration.waitForSteps()
         #expect(system.calls == ["register", "handshake", "holders", "unregister", "register", "handshake"])
         #expect(system.events == [.reregistered(Self.registered), .repaired(found: .failed(Self.noReply), .unregistered(error: nil), Self.registered, handshake: .own)])
+    }
+
+    /// The file is what `register` would run and what approval is for, so a failure that carries it gone asks neither:
+    /// the handshake's look at the job is all that follows.
+    @Test func aFailureOnACopyWithNoHelperFileAsksNothingToBeRegistered() {
+        let system = FakeRegistrationSystem()
+        system.state.withLock { $0.status = .notFound; $0.fileOutlasts = 0 }
+        system.registration.reconcile(after: Self.copyGone)
+        system.registration.waitForSteps()
+        #expect(system.calls == ["handshake"])
+        #expect(system.events == [.leftAlone(.embeddedUnreadable("gone"))])
     }
 
     @Test func aHandshakeReadsTheCDHashNotThePath() {
@@ -331,7 +351,7 @@ final class FakeRegistrationSystem: @unchecked Sendable {
         system.usesGate = true
         let registration = system.registration
         #expect(throws: Self.notAnswering) {
-            try HelperAccess.explained({ () throws(HelperCallError) in throw Self.noReply }, status: { .enabled }, reconcile: registration.reconcile(after:))
+            try HelperAccess.explained({ () throws(HelperCallError) in throw Self.noReply }, status: { .enabled }, helperFile: { .readable }, reconcile: registration.reconcile(after:))
         }
         #expect(system.events.isEmpty)
         system.gate.signal()

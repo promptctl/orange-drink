@@ -13,6 +13,7 @@ struct ChargingScreen: View {
     /// test reads it: how to fix one the user can fix, what went wrong otherwise.
     static func explanation(of failure: HelperUseFailure, appName: String) -> Phrase {
         switch failure.cause {
+        case .helperFileUnreadable: "\(appName) lost its helper. Reopen \(appName) to hold the charge limit."
         case .needsApproval: "Allow \(appName) in the background to hold the charge limit."
         case .notRegistered, .notAnswering: "\(appName)'s helper isn't answering, so the charge limit isn't held."
         case .other: "Couldn't hold the charge limit: \(failure.call.description)"

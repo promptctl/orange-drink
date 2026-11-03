@@ -5942,6 +5942,50 @@
         }
       }
     },
+    "%@ lost its helper. Reopen %@ to hold the charge limit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ lost its helper. Reopen %@ to hold the charge limit."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a perdu son assistant. Rouvrez %@ pour maintenir la limite de charge."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ perdió su asistente. Vuelve a abrir %@ para mantener el límite de carga."
+          }
+        }
+      }
+    },
+    "%@ lost its helper. Reopen %@ to change Low Power Mode.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ lost its helper. Reopen %@ to change Low Power Mode."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a perdu son assistant. Rouvrez %@ pour modifier le mode économie d’énergie."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ perdió su asistente. Vuelve a abrir %@ para cambiar el modo de bajo consumo."
+          }
+        }
+      }
+    },
     "System Integration": {
       "localizations": {
         "en": {

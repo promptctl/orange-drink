@@ -75,7 +75,8 @@ import Testing
         phrases += SettingsScreen.allCases.map(\.comingSoon)
         phrases += PanelAction.allCases.map { $0.title(appName: "App") }
         let helperFailures = [HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .requiresApproval), HelperUseFailure(call: .failed("x"), status: .enabled),
-                              HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .enabled)]
+                              HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .enabled),
+                              HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .notFound, helperFile: .unreadable("gone"))]
         phrases += helperFailures.map { LowPowerMode.explanation(of: $0, appName: "App") } + [SystemSettingFailureLine.Fix.loginItemsTitle, SystemSettingFailureLine.Fix.accessibilityTitle, BatteryNotificationDismissal.accessibilityExplanation(appName: "App")]
         phrases += helperFailures.map { ChargingScreen.explanation(of: $0, appName: "App") }
         phrases += [LaunchAtLogin.Refusal.needsApproval, .failed("x"), .failed(nil)].map { $0.explanation(appName: "App") }
