@@ -98,7 +98,7 @@ import ViewInspector
 
     @Test func aPillAndItsGlowLeaveByThemselvesOnceShownForHasPassed() async throws {
         let clock = ManualTimekeeper()
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 31, position: .center, glow: true, sound: false),
                                reading: try Self.reading(31)))
@@ -117,7 +117,7 @@ import ViewInspector
 
     @Test func aReplacementGetsItsOwnFullTimeOnScreen() async throws {
         let clock = ManualTimekeeper()
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = Self.countdown(clock, log: log.logger)
         let low = Alert(kind: .low, threshold: 30, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(29)))
@@ -142,7 +142,7 @@ import ViewInspector
 
     @Test func closingAPillEndsItsCountdown() async throws {
         let clock = ManualTimekeeper()
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 27, position: .top, glow: false, sound: false),
                                reading: try Self.reading(26)))
@@ -158,7 +158,7 @@ import ViewInspector
     // can be seen. A pill held through a sleep gets all of it once someone is back.
     @Test func aPillHeldWhileNoOneCanSeeTheScreenGetsItsFullTimeOnceSeen() async throws {
         let clock = ManualTimekeeper()
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 25, position: .center, glow: true, sound: false),
                                reading: try Self.reading(24)))
@@ -185,7 +185,7 @@ import ViewInspector
 
     @Test func aPillShownWhileTheScreenIsHiddenWaitsUntilEveryHiderHasEnded() async throws {
         let clock = ManualTimekeeper()
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = Self.countdown(clock, log: log.logger)
         pills.screen(hidden: [.locked])
         pills.show(PillContent(Alert(kind: .charged, threshold: 83, position: .top, glow: false, sound: false),
@@ -215,7 +215,7 @@ import ViewInspector
         let laptop = ScreenArea(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 944))
         let external = ScreenArea(frame: CGRect(x: 1512, y: 0, width: 2560, height: 1440), visibleFrame: CGRect(x: 1512, y: 70, width: 2560, height: 1345))
         let screens = Screens(laptop)
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in }, timekeeper: clock, screen: { screens.main }, log: log.logger)
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(PillContent(Alert(kind: .low, threshold: 22, position: .top, glow: true, sound: false),
@@ -246,7 +246,7 @@ import ViewInspector
     // The first set the system sends at launch may say what the controller already holds: nothing hides the screen.
     @Test func theSameHidersAgainLeaveACountingPillsCountdownAsItWas() async throws {
         let clock = ManualTimekeeper()
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = Self.countdown(clock, log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 19, position: .top, glow: false, sound: false),
                                reading: try Self.reading(18)))
@@ -262,7 +262,7 @@ import ViewInspector
     }
 
     @Test func twoPillsWithOneHeadlineEachLogOnlyToTheirOwnLog() async throws {
-        let shown = try await BatteryLog(), closed = try await BatteryLog()
+        let shown = try await TestLog(), closed = try await TestLog()
         let alert = Alert(kind: .low, threshold: 17, position: .top, glow: false, sound: false)
         let first = Self.countdown(ManualTimekeeper(), log: shown.logger), second = Self.countdown(ManualTimekeeper(), log: closed.logger)
         first.show(PillContent(alert, reading: try Self.reading(17)))
@@ -358,7 +358,7 @@ import ViewInspector
     /// The pill's ×, pressed through the view the controller put in its panel (ViewInspector, no window): the pill and its
     /// glow come down at once. The clock never moves, so only the × can close it.
     @Test func pressingThePillsCloseButtonTakesItAndItsGlowDown() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let pills = Self.countdown(ManualTimekeeper(), log: log.logger)
         pills.show(PillContent(Alert(kind: .low, threshold: 16, position: .top, glow: true, sound: false), reading: try Self.reading(16)))
         let view = try #require(pills.shownView)

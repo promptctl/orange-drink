@@ -15,7 +15,7 @@ struct BluetoothPeer: Equatable, Sendable {
 /// until then a device it could not read is `.unread`.
 struct DeviceReader {
     let sources: () throws(PowerSourcesError) -> [[String: Any]]
-    var log = BluetoothDevices.log
+    let log: Logger
 
     func sweep(_ peers: [BluetoothPeer]) -> DeviceEvent {
         let reading = reading()

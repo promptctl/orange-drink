@@ -167,7 +167,7 @@ struct DeviceListTests {
         let connected = try Self.profilerConnected()
         try #require(!connected.isEmpty, "this check needs paired devices connected")
         let accessories = try Self.accessoryLevels()
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         // The first sweep is the whole connected set, and a refused host never sweeps, so the refusal ends the wait for it.
         var list = DeviceList(sources: [.bluetooth])
         let (seen, see) = AsyncThrowingStream.makeStream(of: Seen.self)

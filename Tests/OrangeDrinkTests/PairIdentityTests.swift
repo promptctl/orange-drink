@@ -20,14 +20,13 @@ import Testing
     /// different record, as a device paired again brings, gets its own.
     @available(macOS 15.0, *)
     @Test func aPairRecordIsBuiltIntoAnIdentityOnce() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let identities = PairIdentities(log: log.logger)
         let first = try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM)
         let again = try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM)
         #expect(first === again)
         let repaired = try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM + Data("\n".utf8))
         #expect(repaired !== first)
-        #expect(try await log.count("iphone host identity built: ", awaiting: 2) == 2)
         #expect(try await log.messages().filter { $0.hasPrefix("iphone host identity built: ") } == [
             "iphone host identity built: 1 pair records", "iphone host identity built: 2 pair records"])
     }

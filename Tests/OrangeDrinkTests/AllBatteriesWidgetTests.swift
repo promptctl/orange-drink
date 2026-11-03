@@ -362,12 +362,11 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     }
 
     @Test(arguments: [WidgetStyle.list, .bars]) func eachTimelineLogsItsStyle(style: WidgetStyle) async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
         _ = Self.configured(style, in: shelf, log: log.logger)
         let line = "widget devices automatic style \(style.rawValue) names false mac true appearance color"
-        #expect(try await log.logged(line))
         #expect(try await log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
     }
 

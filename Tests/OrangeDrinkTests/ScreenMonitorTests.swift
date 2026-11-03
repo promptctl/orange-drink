@@ -57,7 +57,7 @@ import os
     }
 
     @Test func theSystemIsAskedWhetherTheSessionIsLockedOrAwayAndTheMainDisplayAsleep() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         #expect(ScreenMonitor.asked(session: ["CGSSessionScreenIsLocked": true, kCGSessionOnConsoleKey: true], mainDisplayAsleep: false, log: log.logger)
             == [.locked: true, .switchedOut: false, .displayAsleep: false])
         #expect(ScreenMonitor.asked(session: [kCGSessionOnConsoleKey: false], mainDisplayAsleep: true, log: log.logger)

@@ -13,7 +13,7 @@ private final class TestBundle {}
 /// [LAW:single-enforcer] `registration` is this process's one registration, as `HelperRegistration.app` is the app's: a
 /// second on the same service would step on a queue of its own, unordered against the first's.
 private enum LaunchStep {
-    /// The category `registration` records to, this process's alone; a `BatteryLog` on it reads from where it begins.
+    /// The category `registration` records to, this process's alone; a `TestLog` on it reads from where it begins.
     static let category = "test-helper-\(UUID().uuidString)"
     static let registration = HelperRegistration.onThisBuild(log: Logger(subsystem: IOKitBattery.logSubsystem, category: category))
 
@@ -229,7 +229,7 @@ struct HelperRepairLive {
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
         try #require(Self.reply(client) == nil, "the helper does not answer before the check starts")
 
-        let log = try await BatteryLog(category: LaunchStep.category)
+        let log = try await TestLog(category: LaunchStep.category)
         let scratch = FileManager.default.temporaryDirectory.appending(path: "helper-repair-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         let good = scratch.appending(path: helper.lastPathComponent)
@@ -278,11 +278,9 @@ struct HelperRepairLive {
         #expect(identity.euid == 0)
         #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath() == helper)
         // [LAW:verifiable-goals] Cleared, or a running copy with this label kept the job, which only a `helper check:` line says.
-        let repaired = try await log.logged("helper repair: ")
-        let checks = try await log.messages().filter { $0.hasPrefix("helper check: ") }
-        #expect(repaired, "\(checks)")
+        let lines = try await log.messages()
         // A second attempt or later, or `register` was never refused and the refusal window this exists to cross was not met.
-        let repair = try #require(try await log.messages().first { $0.hasPrefix("helper repair: ") })
+        let repair = try #require(lines.first { $0.hasPrefix("helper repair: ") }, "\(lines.filter { $0.hasPrefix("helper check: ") })")
         let match = try #require(repair.firstMatch(of: #/^helper repair: handshake no reply .*; cleared ok; registered; status enabled; attempt (\d+) after \d+ ms; the helper answered$/#), "\(repair)")
         #expect(try #require(Int(match.1)) > 1, "\(repair)")
     }

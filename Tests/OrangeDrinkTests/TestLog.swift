@@ -6,13 +6,15 @@ import OSLog
 /// capture every log assertion reads; Logger.info lines are memory-only, so `log show` cannot
 /// replace it and OSLogStore in-process can.
 /// [LAW:types-are-the-program] It reads only lines written through `logger`, which the test hands to its subject.
-struct BatteryLog {
+struct TestLog {
     let logger: Logger
     private let store: OSLogStore
     private let since: OSLogPosition
     private let category: String
-    private let begins = "test log begins \(UUID().uuidString)"
-    private static let mark = "test log read to "
+    private let begins = Self.own + "begins \(UUID().uuidString)"
+    private static let mark = Self.own + "read to "
+    /// The prefix of every line a log writes itself, this one's and those of another log on the same category.
+    private static let own = "test log "
 
     /// A log on a category of its own, so no other test, and not the hosted app, writes a line it reads.
     init() async throws {
@@ -58,11 +60,11 @@ struct BatteryLog {
             .map(\.composedMessage)
     }
 
-    /// The lines after this log's own first line, other than its own.
+    /// The lines after this log's own first line, other than those a log writes itself.
     private func written() throws -> [String] {
         let all = try entries()
         guard let first = all.firstIndex(of: begins) else { throw Missing(line: begins) }
-        return all[(first + 1)...].filter { !$0.hasPrefix(Self.mark) }
+        return all[(first + 1)...].filter { !$0.hasPrefix(Self.own) }
     }
 
     /// [LAW:no-ambient-temporal-coupling] Every line written before this call: it writes a mark and reads once the mark

@@ -123,7 +123,7 @@ import Testing
 
     @Test
     func pluggingInSwitchesOnWifiSyncOnceAndReadsOverTheCableEachPollInterval() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let syncs = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(log: log.logger, snapshot: { [Self.usb(5, "B")] },
                                   enableWifiSync: { _, _ throws(IPhoneReadError) in syncs.withLock { $0 += 1 } }) { _, _ throws(IPhoneReadError) in
@@ -145,7 +145,7 @@ import Testing
 
     @Test
     func aSnapshotEntryAndItsListenAttachReadOnceAndFailuresAreYielded() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(log: log.logger, snapshot: { [Self.usb(5, "B")] },
                                   enableWifiSync: { _, _ throws(IPhoneReadError) in throw .usbmux(.noPairRecord) }) { _, _ throws(IPhoneReadError) in
@@ -167,7 +167,7 @@ import Testing
 
     @Test
     func aDeviceThatDropsOffWifiAndReturnsDuringItsRestIsReadAtThePollAndNotBefore() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "E")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
@@ -192,7 +192,7 @@ import Testing
 
     @Test
     func aDeviceGoneAtThePollIsReadOnItsNextAttach() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "F")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
@@ -262,7 +262,7 @@ import Testing
 
     @Test
     func pairingAfterAFailedReadAddsNoReadAndTheNextComesAtThePoll() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "G")] }) { _, _ throws(IPhoneReadError) in
             if reads.withLock({ $0 += 1; return $0 }) == 1 { throw .usbmux(.noPairRecord) }
@@ -307,7 +307,7 @@ import Testing
     // ahead of the cable, and drop it a moment later (lm3.1tt cmt-d1c4f03c). The first read goes over the cable.
     @Test
     func aDeviceTheSnapshotListsOverWifiThenTheCableIsFirstReadOverTheCable() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let snapshot = [Self.wifi(6, "P"), Self.usb(5, "P")]
         let harness = try Harness(log: log.logger, snapshot: { snapshot }) { handle, _ throws(IPhoneReadError) in
             guard handle == 5 else { throw .closed }
@@ -346,7 +346,7 @@ import Testing
     // cannot be opened is a failed read too.
     @Test
     func aFailedReadOrOpenIsYieldedAndTheNextPollOpensANewRelay() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let opens = OSAllocatedUnfairLock(initialState: 0)
         let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "T")] },
@@ -445,7 +445,7 @@ import Testing
 
     @Test
     func endingTheStreamCancelsEveryPacer() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "B"), Self.wifi(7, "C")] }) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
         let seen = OSAllocatedUnfairLock(initialState: 0)
@@ -460,7 +460,7 @@ import Testing
 
     @Test
     func aReadInFlightWhenTheStreamEndsIsDroppedAndItsPacerEnds() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let readMayFinish = DispatchSemaphore(value: 0)
         let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "H")] }) { _, _ throws(IPhoneReadError) in
@@ -481,7 +481,7 @@ import Testing
 
     @Test
     func aDeviceSeenAfterTheMonitorEndedIsNeitherReadNorWrittenTo() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let syncs = OSAllocatedUnfairLock(initialState: 0)
         let ended = DispatchSemaphore(value: 0)
@@ -524,7 +524,7 @@ import Testing
 
     @Test
     func aClosedListenConnectionEndsTheStream() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let harness = try Harness(log: log.logger, snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }
         close(harness.peer)
         var events: [IPhoneEvent] = []
@@ -546,7 +546,7 @@ import Testing
 
     @Test
     func aConsumerThatStopsListeningStopsTheMonitor() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let harness = try Harness(log: log.logger, snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
         let consumer = Task { for await _ in harness.events {} }
@@ -559,7 +559,7 @@ import Testing
     @available(macOS 15.0, *)
     @available(macOS, deprecated: 10.15, message: "opens DiagnosticsRelay, which uses SecureTransport; see lm3.8pk")
     @Test func anUntrustedDeviceFailsAsNoPairRecordAndIsLogged() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let udid = "00000000-0000000000000000"  // UDID-shaped, so usbmuxd answers ENOENT rather than EINVAL
         let identities = PairIdentities()
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try DiagnosticsRelay(handle: 1, udid: udid, identities: identities, log: log.logger) }

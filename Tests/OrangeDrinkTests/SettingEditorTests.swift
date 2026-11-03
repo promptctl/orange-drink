@@ -49,7 +49,7 @@ import Testing
 
     /// The process reads its own private arguments back unredacted, so this sees the value the log hides.
     @Test func everyEditIsLoggedWithWhichSettingAndWhatCameOfIt() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let kept = Kept(log: log.logger)
         kept.refuses = true
         kept.edits.perform { $0.isOn = true }

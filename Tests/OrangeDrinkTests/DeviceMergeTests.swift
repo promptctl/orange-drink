@@ -231,7 +231,7 @@ struct DeviceMergeListTests {
     }
 
     @Test(.timeLimit(.minutes(1))) func twoDevicesClaimingOneAddressAreLoggedAndNotMerged() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(sources: [.bluetooth: bluetooth, .iPhone: iPhone], log: log.logger)

@@ -158,7 +158,7 @@ struct DeviceSourcesListTests {
     }
 
     @Test func aSourceFailingLeavesTheOthersDevicesListedAndLogsWhichEnded() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = model(bluetooth, iPhone, log: log.logger)
@@ -180,7 +180,7 @@ struct DeviceSourcesListTests {
     }
 
     @Test func theOtherSourceFailingLikewiseLeavesBluetoothListed() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = model(bluetooth, iPhone, log: log.logger)
@@ -210,7 +210,7 @@ struct DeviceSourcesListTests {
     }
 
     @Test func aStreamReportingAnotherSourcesDeviceIsIgnoredAndLoggedNamingBothSources() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, _) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = model(bluetooth, iPhone, log: log.logger)
