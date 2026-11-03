@@ -12,7 +12,7 @@ import Testing
         list.apply(.swept(levels.map { id, percent in
             Device(id: id, name: id == Self.mouse ? "Magic Mouse" : "AirPods", kind: .accessory,
                    levels: .single(BatteryLevel(percent: percent, approximate: false)))
-        }))
+        }), from: .bluetooth)
         return list
     }
 
@@ -66,7 +66,7 @@ import Testing
             func level(_ percent: Int?) -> BatteryLevel? { percent.map { BatteryLevel(percent: $0, approximate: false) } }
             var list = DeviceList()
             list.apply(.swept([Device(id: Self.pods, name: "AirPods", kind: .accessory,
-                                      levels: .earbuds(left: level(left), right: level(right), case: level(`case`)))]))
+                                      levels: .earbuds(left: level(left), right: level(right), case: level(`case`)))]), from: .bluetooth)
             return list
         }
         var engine = DeviceAlertEngine()
@@ -99,14 +99,14 @@ import Testing
         var settings = DeviceSettings()
         settings.toggleAlerting(DeviceListTests.mouse.id)
         var devices = DeviceList()
-        devices.apply(.swept([DeviceListTests.mouse, DeviceListTests.pods]))
+        devices.apply(.swept([DeviceListTests.mouse, DeviceListTests.pods]), from: .bluetooth)
         #expect(DetectedDevices(devices, settings: settings).entries.map(\.isAlerting) == [true, false])
     }
 
     @Test func aDeviceReportingNoLevelIsNotObserved() {
         var engine = DeviceAlertEngine()
         var silent = DeviceList()
-        silent.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .none)]))
+        silent.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: .none)]), from: .bluetooth)
         #expect(engine.observe(silent, watching: [Self.mouse], alerts: [alert]).isEmpty)
     }
 
@@ -114,7 +114,7 @@ import Testing
         var engine = DeviceAlertEngine()
         func list(_ levels: DeviceLevels) -> DeviceList {
             var list = DeviceList()
-            list.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: levels)]))
+            list.apply(.swept([Device(id: Self.mouse, name: "Magic Mouse", kind: .accessory, levels: levels)]), from: .bluetooth)
             return list
         }
         let low = DeviceLevels.single(BatteryLevel(percent: 19, approximate: false))

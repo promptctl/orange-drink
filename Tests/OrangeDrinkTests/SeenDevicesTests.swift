@@ -119,7 +119,7 @@ import Testing
     /// The names after the app knows `known` and sweeps `devices`.
     func names(knowing known: [String: String], after devices: [Device]) -> [String: String] {
         var list = DeviceList()
-        list.apply(.swept(devices))
+        list.apply(.swept(devices), from: .bluetooth)
         var seen = SeenDevices(names: Dictionary(uniqueKeysWithValues: known.map { (DeviceID.bluetooth($0.key), $0.value) }))
         seen.see(list)
         return Dictionary(uniqueKeysWithValues: seen.names.map { ($0.key.key, $0.value) })

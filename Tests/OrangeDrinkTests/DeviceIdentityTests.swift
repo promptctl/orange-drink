@@ -75,7 +75,8 @@ import Testing
         let bluetooth = DeviceID.bluetooth("AA-01")
         let cabled = DeviceID(source: .iPhone, key: "AA-01")
         var list = DeviceList()
-        list.apply(.swept([Self.device(bluetooth, "Brandon's iPhone"), Self.device(cabled, "Brandon's iPhone")]))
+        list.apply(.swept([Self.device(bluetooth, "Brandon's iPhone")]), from: .bluetooth)
+        list.apply(.swept([Self.device(cabled, "Brandon's iPhone")]), from: .iPhone)
 
         #expect(list.devices.map(\.id).sorted() == [bluetooth, cabled])
         #expect(DeviceID(source: .iPhone, key: "A") < DeviceID(source: .iPhone, key: "B"))
@@ -95,9 +96,10 @@ import Testing
         var list = DeviceList()
         let bluetooth = DeviceID.bluetooth("AA-01")
         let cabled = DeviceID(source: .iPhone, key: "AA-01")
-        list.apply(.swept([Self.device(bluetooth, "Phone"), Self.device(cabled, "Phone")]))
+        list.apply(.swept([Self.device(bluetooth, "Phone")]), from: .bluetooth)
+        list.apply(.swept([Self.device(cabled, "Phone")]), from: .iPhone)
 
-        list.apply(.gone(bluetooth))
+        list.apply(.gone(bluetooth), from: .bluetooth)
 
         #expect(list.devices.map(\.id) == [cabled])
     }

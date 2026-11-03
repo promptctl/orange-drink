@@ -64,38 +64,86 @@ enum DeviceEvent: Equatable, Sendable {
     case permission(BluetoothPermission)
 }
 
-/// Every connected device the app knows of. [LAW:one-source-of-truth] The one reduction from
-/// events to the list; nothing else holds a device.
+/// Every connected device the app knows of, from every source. [LAW:one-source-of-truth] The one
+/// reduction from events to the list; nothing else holds a device.
+///
+/// A device is stored once, by its identity, and an identity names its source: which source a device
+/// belongs to is read from it and never held a second time. What a source has told the list is its
+/// reading; an event is applied *from* a source, and that source's sweep, permission or end replaces
+/// only the devices whose identity names it.
 struct DeviceList: Equatable, Sendable {
-    private var byID: [DeviceID: Device] = [:]
-    /// Why this is no list of what is connected, or nil once a sweep has read one. [LAW:types-are-the-program] A device
-    /// reported before the first sweep leaves it unread: one device is not what is connected, and the connect a registration
-    /// replays has no order with that sweep.
-    private(set) var unread: UnreadDevices? = .waiting
+    /// [LAW:types-are-the-program] What one source has told the list: it swept, or why it did not.
+    private enum Reading: Equatable, Sendable {
+        case read
+        case unread(UnreadDevices)
 
-    mutating func apply(_ event: DeviceEvent) {
+        /// A source that has not spoken: waiting, never read.
+        static let unheard = Reading.unread(.waiting)
+    }
+
+    private var byID: [DeviceID: Device] = [:]
+    /// Total over the sources, so a source that has not spoken is waiting and cannot be mistaken for read.
+    private var readings = Dictionary(uniqueKeysWithValues: DeviceSource.allCases.map { ($0, Reading.unheard) })
+
+    mutating func apply(_ event: DeviceEvent, from source: DeviceSource) {
         switch event {
         case .reported(let device): byID[device.id] = device
         case .gone(let id): byID[id] = nil
         case .swept(let devices):
-            byID = Dictionary(devices.map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
-            unread = nil
+            removeDevices(of: source)
+            for device in devices { byID[device.id] = device }
+            readings[source] = .read
         case .permission(let permission):
-            // Heard after a sweep, this is the end of what that sweep read, so nothing is kept to go stale, as in `end()`.
-            byID = [:]
-            unread = UnreadDevices(permission)
+            // Heard after a sweep, this is the end of what that sweep read, so nothing is kept to go stale, as in `end(_:)`.
+            removeDevices(of: source)
+            readings[source] = .unread(UnreadDevices(permission))
         }
     }
 
-    /// The stream ended: no event will follow, so nothing is kept to go stale.
-    mutating func end() {
-        byID = [:]
-        unread = .ended
+    /// The source's stream ended: no event will follow from it, so nothing of its is kept to go stale.
+    mutating func end(_ source: DeviceSource) {
+        removeDevices(of: source)
+        readings[source] = .unread(.ended)
+    }
+
+    private mutating func removeDevices(of source: DeviceSource) {
+        byID = byID.filter { $0.key.source != source }
+    }
+
+    /// Why this source's devices are no list of what it has connected, or nil once it has swept. [LAW:types-are-the-program]
+    /// A device reported before the first sweep leaves it unread: one device is not what is connected, and the connect a
+    /// registration replays has no order with that sweep.
+    func unread(of source: DeviceSource) -> UnreadDevices? {
+        switch readings[source, default: .unheard] {
+        case .read: nil
+        case .unread(let reason): reason
+        }
+    }
+
+    /// Why this is no list of what is connected, or nil once any source has swept: a function of the readings, so there is no
+    /// second copy of them. A source nothing subscribed to stays waiting, so the reason shown is the first source, in
+    /// `DeviceSource.allCases` order, that was denied or ended; waiting only when none was.
+    var unread: UnreadDevices? {
+        let reasons = DeviceSource.allCases.map(unread(of:))
+        guard !reasons.contains(where: { $0 == nil }) else { return nil }
+        return reasons.lazy.compactMap { $0 }.first { $0 != .waiting } ?? .waiting
     }
 
     /// In a stable order, by name then identity, so a view never reshuffles equal rows.
     var devices: [Device] {
         byID.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+}
+
+extension DeviceEvent {
+    /// The identity of every device the event names.
+    var ids: [DeviceID] {
+        switch self {
+        case .reported(let device): [device.id]
+        case .gone(let id): [id]
+        case .swept(let devices): devices.map(\.id)
+        case .permission: []
+        }
     }
 }
 

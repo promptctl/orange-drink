@@ -131,7 +131,7 @@ import WidgetKit
 
     @Test func aPinnedDeviceReachesTheShelfWhetherOrNotItIsConnected() {
         var list = DeviceList()
-        list.apply(.swept([]))
+        list.apply(.swept([]), from: .bluetooth)
         let pinned = PinnedOrder([DeviceID.bluetooth("gone"), DeviceID.bluetooth("here")])
         #expect(WidgetDevices(list, pinned: pinned) == .connected([], pinned: [.bluetooth("gone"), .bluetooth("here")]))
     }
