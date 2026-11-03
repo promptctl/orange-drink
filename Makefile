@@ -241,22 +241,18 @@ WIDGET_CLICK_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:
 widget-click-check: release
 	@set -e; for image in $(WIDGET_CLICK_IMAGES); do scripts/widget-click-check "$(RELEASE_APP)" "$$image"; done
 
-# The app energy ticket's step on a real Mac: starts `yes > /dev/null` in Terminal, samples app energy for a minute,
+# The app energy ticket's step on a real Mac: starts `yes > /dev/null` in a hidden Terminal, samples app energy for a minute,
 # and asserts Terminal holds the most stored energy, as it leads Activity Monitor's Energy tab on an otherwise idle
 # Mac (another busy app, such as a terminal hosting builds and agents, outranks it there too). Same TEST_RUNNER_ shape.
 app-energy-check: export TEST_RUNNER_APP_ENERGY_CHECK = 1
-# The window is kept quiet: the app and tests are built first, since a compiler running under the invoking terminal
+# The `yes` is kept leading: the app and tests are built first, since a compiler running under the invoking terminal
 # would out-draw the `yes` in Terminal, and only the live test runs while it samples.
 app-energy-check: generate
 	$(XCB) build-for-testing
 	@set -e; \
-	started=$$(osascript -e 'tell application "Terminal" to set started to do script "yes > /dev/null"' \
-	  -e 'tell application "Terminal" to return ((id of (first window whose tabs contains started)) as text) & " " & (tty of started)'); \
-	window=$${started%% *}; tty=$${started##*/dev/}; \
-	status=0; $(XCB) -only-testing:OrangeDrinkTests/AppEnergyLive test-without-building || status=$$?; \
-	yes_pids=$$(ps -t "$$tty" -o pid=,comm= | awk '$$2 == "yes" { print $$1 }'); [ -z "$$yes_pids" ] || kill $$yes_pids; \
-	osascript -e "tell application \"Terminal\" to close (first window whose id is $$window) saving no"; \
-	exit $$status
+	terminal=$$(swift scripts/hidden-terminal.swift 'yes > /dev/null'); \
+	trap 'kill -KILL "$$terminal" 2>/dev/null || true' EXIT; \
+	$(XCB) -only-testing:OrangeDrinkTests/AppEnergyLive test-without-building
 
 # [LAW:verifiable-goals] PROJECT.md's 0.1% steady-state CPU bar, measured on the Release build
 # launched as a user runs it. Prints the percent and the power state; fails over the bar.
