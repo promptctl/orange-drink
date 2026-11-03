@@ -188,19 +188,19 @@ import Testing
 
     @Test func theTemperatureWarningFiresOncePerMoveOutOfNormal() throws {
         let (normal, hot) = (try Self.battery(), try Self.battery(celsius: 41))
-        #expect(Self.firings([normal, hot, hot, normal, hot]) == [.temperatureWarning, .temperatureWarning])
+        #expect(Self.firings([normal, hot, hot, normal, hot]) == [.temperatureWarning(.hot, sound: true), .temperatureWarning(.hot, sound: true)])
     }
 
     @Test func warmIsAsFarAsNormalGoesAndStaysOneWarning() throws {
         let (normal, warm, hot) = (try Self.battery(), try Self.battery(celsius: 36), try Self.battery(celsius: 41))
-        #expect(Self.firings([normal, warm, hot, warm]) == [.temperatureWarning])
+        #expect(Self.firings([normal, warm, hot, warm]) == [.temperatureWarning(.warm, sound: true)])
     }
 
     @Test func theWarningFiresAtExactlyTheWarmBoundaryAndNotJustBelowIt() throws {
         let below = try Self.battery(celsius: TemperatureState.warmCelsius - 0.01)
         let boundary = try Self.battery(celsius: TemperatureState.warmCelsius)
         #expect(Self.firings([try Self.battery(), below]) == [])
-        #expect(Self.firings([try Self.battery(), boundary]) == [.temperatureWarning])
+        #expect(Self.firings([try Self.battery(), boundary]) == [.temperatureWarning(.warm, sound: true)])
     }
 
     @Test func oneReadingCanSetOffThresholdPowerAndTemperatureTogetherInThatOrder() throws {
@@ -210,7 +210,7 @@ import Testing
         var engine = AlertEngine()
         _ = engine.observe(try Self.battery(), alerts: [alert], power: Self.both)
         #expect(engine.observe(try Self.reading(plugged, celsius: 41), alerts: [alert], power: Self.both)
-            == [.threshold(alert), .pluggedIn(sound: true), .temperatureWarning])
+            == [.threshold(alert), .pluggedIn(sound: true), .temperatureWarning(.hot, sound: true)])
     }
 
     @Test func theLogWordsEveryFiringByItsFacts() {
@@ -218,7 +218,7 @@ import Testing
         #expect(Firing.threshold(alert).description == "low 5% position center glow true sound false")
         #expect(Firing.pluggedIn(sound: true).description == "plugged in sound true")
         #expect(Firing.unplugged(sound: false).description == "unplugged sound false")
-        #expect(Firing.temperatureWarning.description == "temperature warning")
+        #expect(Firing.temperatureWarning(.hot, sound: true).description == "temperature warning hot sound true")
     }
 
     @Test func aMacLaunchedHotIsNotWarnedAboutAtLaunch() throws {

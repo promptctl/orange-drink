@@ -10,7 +10,7 @@ enum Firing: Equatable, Sendable, CustomStringConvertible {
     case pluggedIn(sound: Bool)
     case unplugged(sound: Bool)
     /// The battery left "Normal" for a warm or hot reading.
-    case temperatureWarning
+    case temperatureWarning(TemperatureState.Heat, sound: Bool)
 
     /// The log's wording for a firing: stable, and carrying every fact the subscribers present it by.
     var description: String {
@@ -19,7 +19,7 @@ enum Firing: Equatable, Sendable, CustomStringConvertible {
             "\(alert.kind.rawValue) \(alert.threshold)% position \(alert.position.rawValue) glow \(alert.glow) sound \(alert.sound)"
         case .pluggedIn(let sound): "plugged in sound \(sound)"
         case .unplugged(let sound): "unplugged sound \(sound)"
-        case .temperatureWarning: "temperature warning"
+        case .temperatureWarning(let heat, let sound): "temperature warning \(heat) sound \(sound)"
         }
     }
 }
@@ -29,8 +29,7 @@ extension Firing {
     var sound: Bool {
         switch self {
         case .threshold(let alert): alert.sound
-        case .pluggedIn(let sound), .unplugged(let sound): sound
-        case .temperatureWarning: false
+        case .pluggedIn(let sound), .unplugged(let sound), .temperatureWarning(_, let sound): sound
         }
     }
 }

@@ -17,4 +17,18 @@ enum TemperatureState: Equatable, Sendable {
         default: self = .hot
         }
     }
+
+    /// A state a battery is warned about: every one but Normal.
+    enum Heat: Equatable, Sendable {
+        case warm, hot
+
+        /// nil for Normal, which has nothing to warn of.
+        init?(_ state: TemperatureState) {
+            switch state {
+            case .normal: return nil
+            case .warm: self = .warm
+            case .hot: self = .hot
+            }
+        }
+    }
 }

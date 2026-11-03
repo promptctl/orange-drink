@@ -33,9 +33,10 @@ struct AlertEngine: Equatable, Sendable {
             case .levelChanged: nil
             }
         }
-        let wasNormal = TemperatureState(previous.temperature) == .normal
-        let isNormal = TemperatureState(reading.temperature) == .normal
-        return thresholds + adapter + (wasNormal && !isNormal ? [.temperatureWarning] : [])
+        // [LAW:one-source-of-truth] A `Heat` exists exactly when the reading is out of Normal, so leaving it is `wasNormal` and a heat.
+        guard TemperatureState(previous.temperature) == .normal,
+              let heat = TemperatureState.Heat(TemperatureState(reading.temperature)) else { return thresholds + adapter }
+        return thresholds + adapter + [.temperatureWarning(heat, sound: power.sound)]
     }
 
     /// The alerts this level crosses. An alert met for the first time, or whose kind or threshold

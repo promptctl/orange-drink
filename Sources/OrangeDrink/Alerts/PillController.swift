@@ -134,13 +134,13 @@ enum PillEnd {
     /// Whether the shown pill's `shownFor` is running: not while the screen is hidden.
     var shownCounting: Bool? { up.map { $0.countdown != nil } }
 
-    /// The sink an `AlertCenter` delivers to. The temperature warning has no pill so far.
+    /// The sink an `AlertCenter` delivers to.
     func deliver(_ firing: Firing, reading: BatteryReading) {
         switch firing {
         case .threshold(let alert): show(PillContent(alert, reading: reading))
         case .pluggedIn: show(.power("Plugged In", severity: .green, reading: reading))
         case .unplugged: show(.power("On Battery", severity: .orange, reading: reading))
-        case .temperatureWarning: break
+        case .temperatureWarning(let heat, _): show(.temperature(heat, reading: reading))
         }
     }
 

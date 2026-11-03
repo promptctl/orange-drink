@@ -62,6 +62,19 @@ struct PillContent: Equatable, Sendable {
                     progress: Double(reading.chargePercent) / 100, position: .top, glow: false)
     }
 
+    /// The pill for a temperature warning: at the top like the power pills, with the reading in the
+    /// panel's words where they carry the time estimate. `heat` and `reading` are the same reading's
+    /// state and value, which the engine's firing and `deliver` hand over together.
+    static func temperature(_ heat: TemperatureState.Heat, reading: BatteryReading) -> PillContent {
+        let words = BatteryInformation(reading).temperature
+        let (headline, severity): (Phrase, Alert.Severity) = switch heat {
+        case .warm: ("Battery Warm", .orange)
+        case .hot: ("Battery Hot", .red)
+        }
+        return PillContent(headline: headline, subline: "\(words.celsius) / \(words.fahrenheit)", severity: severity,
+                           progress: Double(reading.chargePercent) / 100, position: .top, glow: false)
+    }
+
     // [LAW:one-source-of-truth] The pill's sentences are said here once; the real pill and the
     // General screen's sample both build theirs from these, so the sample is translated as the pill is.
     static func remaining(_ percent: Int) -> Phrase { "\(percent)% Remaining" }
