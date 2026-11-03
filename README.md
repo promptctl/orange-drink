@@ -43,7 +43,7 @@ make generate
 make build
 ```
 
-The Xcode project is generated from `project.yml`, so change that file and never edit the project by hand. Run `make test` to run the unit tests.
+The Xcode project is generated from `project.yml`, so change that file and never edit the project by hand. Run `make test` to run the unit tests, the script tests, and the UI tests. The UI tests run in a Tart VM cloned from the image `scripts/vm-check-lib` names, so nothing opens on your screen.
 
 Run `scripts/dmg build/dmg` to build the downloadable disk image in `build/dmg`. The script builds the Release app, signs it with the Developer ID certificate and the hardened runtime, notarizes it with Apple, and staples the ticket. It then packs the app into a disk image with a link to Applications, signs, notarizes, and staples the image too, and prints its path, such as `build/dmg/OrangeDrink-0.1.0.dmg`. Expect it to take several minutes, mostly waiting on Apple's notary service. Before the first run, store the notary credentials once, under the profile name that file gives, with `xcrun notarytool store-credentials <profile>`.
 

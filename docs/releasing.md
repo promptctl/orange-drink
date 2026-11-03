@@ -10,7 +10,7 @@ Check for Updates… row is pressed. The release marked latest is the update eve
 
 1. Raise `MARKETING_VERSION` in a PR and merge it. The build number follows it.
 2. Run `make test` on that commit. The release gate below is the hosted run, which leaves out what only a developer's
-   Mac answers: the accessibility-tree check, the battery, the helper's Developer ID signature and pmset's power mode.
+   Mac answers: the UI tests in a Tart VM (scripts/ui-test), the battery, the helper's Developer ID signature and pmset's power mode.
 3. `git fetch origin && git tag v<version> origin/master && git push origin v<version>`
 4. Check that the run's commit is on master, then approve it when GitHub asks: the `release` environment holds the
    signing secrets and has a required reviewer. `git fetch origin && git merge-base --is-ancestor <commit> origin/master`

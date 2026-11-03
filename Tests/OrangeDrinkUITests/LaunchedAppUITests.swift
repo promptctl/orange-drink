@@ -14,6 +14,19 @@ import XCTest
         return app
     }
 
+    /// The app as macOS runs it, which the runner can signal and ask about but cannot read the files of.
+    private func running() throws -> NSRunningApplication {
+        let appURL = URL(filePath: try XCTUnwrap(ProcessInfo.processInfo.environment["INSTALLED_APP"]))
+        let identifier = try XCTUnwrap(Bundle(url: appURL)?.bundleIdentifier)
+        return try XCTUnwrap(NSRunningApplication.runningApplications(withBundleIdentifier: identifier).first)
+    }
+
+    // [LAW:behavior-not-structure] Menu-bar-only: the running app has no Dock presence, whichever plist key or scene does it.
+    func testTheAppRunsWithNoDockPresence() throws {
+        _ = try launched()
+        XCTAssertEqual(try running().activationPolicy, .accessory)
+    }
+
     func testTheDefaultCombinationOpensThePanel() throws {
         let app = try launched()
         app.typeKey("j", modifierFlags: [.control, .option])
@@ -24,10 +37,8 @@ import XCTest
     /// sandboxed runner cannot read.
     func testASIGTERMQuitsTheApp() throws {
         let app = try launched()
-        let appURL = URL(filePath: try XCTUnwrap(ProcessInfo.processInfo.environment["INSTALLED_APP"]))
-        let identifier = try XCTUnwrap(Bundle(url: appURL)?.bundleIdentifier)
-        let running = try XCTUnwrap(NSRunningApplication.runningApplications(withBundleIdentifier: identifier).first)
-        XCTAssertEqual(kill(running.processIdentifier, SIGTERM), 0, "kill: \(String(cString: strerror(errno)))")
+        let sent = kill(try running().processIdentifier, SIGTERM), error = errno
+        XCTAssertEqual(sent, 0, "kill: \(String(cString: strerror(error)))")
         XCTAssertTrue(app.wait(for: .notRunning, timeout: Self.installedAppTimeout), "the app did not quit on SIGTERM")
     }
 }

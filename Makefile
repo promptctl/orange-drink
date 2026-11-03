@@ -119,7 +119,7 @@ devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/
 # checks the bar follows the list, including over a position left by a ⌘-drag.
 position-check.covers := Sources/OrangeDrink/MenuBar/PinnedItems.swift Sources/OrangeDrink/Devices/PinnedOrder.swift \
   Sources/OrangeDrink/Devices/Device.swift Sources/OrangeDrink/Devices/DeviceRanking.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift \
-  scripts/vm-test scripts/vm-check-lib
+  Sources/OrangeDrink/Main.swift scripts/vm-test scripts/vm-check-lib
 position-check: generate
 	$(call gated,build-for-testing)
 	$(record) scripts/vm-test "$$(ls -t $(PRODUCTS)/$(APP)_*.xctestrun | head -n 1)" \

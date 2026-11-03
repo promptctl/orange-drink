@@ -21,6 +21,7 @@ first_launch
 
 uitest ComponentGalleryUITests
 uitest LaunchedAppUITests/testTheDefaultCombinationOpensThePanel
+uitest LaunchedAppUITests/testTheAppRunsWithNoDockPresence
 # Its own session and the last, so its SIGTERM is the quit log's last record: a session's teardown quits what it launched.
 uitest LaunchedAppUITests/testASIGTERMQuitsTheApp
 identifier=$(guest /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
