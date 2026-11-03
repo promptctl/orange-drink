@@ -234,34 +234,41 @@ called "gh release create" && fail "a moved tag was released" || pass "a moved t
 t=$(tree 'MARKETING_VERSION: "1.2.3"')
 mkdir -p "$t/.github/workflows"
 printf 'name: test\njobs:\n  test:\n    runs-on: x\n  lint:\n    runs-on: x\n' >"$t/.github/workflows/test.yaml"
-# cr <started_at> <status> <conclusion as JSON>: one check run. runs <check> <check runs>...: what each successive poll of that check reads.
-cr() { echo "{\"started_at\":\"$1\",\"status\":\"$2\",\"conclusion\":$3}"; }
+# cr <id> <status> <conclusion as JSON> [app]: one check run, Actions' own unless an app is named. runs <check> <check runs>...: what each successive poll of that check reads.
+cr() { echo "{\"id\":$1,\"app\":{\"slug\":\"${4:-github-actions}\"},\"status\":\"$2\",\"conclusion\":$3}"; }
 runs() { local check=$1; shift; : >"$scratch/runs.$check"; for body in "$@"; do printf '{"check_runs":[%s]}\n' "$body" >>"$scratch/runs.$check"; done; }
-green=$(cr 2026-01-01T00:00:00Z completed '"success"')
+green=$(cr 1 completed '"success"')
 rm -f "$scratch"/runs.*; calls_reset
 runs test "$green"; runs lint "$green"
 expect "a commit whose every test job succeeded passes, naming them" 0 "test lint passed on abc" -- "$t/scripts/release-tested" abc
 called "gh api repos/promptctl/orange-drink/commits/abc/check-runs?check_name=lint" \
   && pass "each job of test.yaml is read from the commit's check runs" || fail "each job of test.yaml is read from the commit's check runs: $(cat "$scratch/calls")"
-runs lint "$(cr 2026-01-01T00:00:00Z completed '"failure"')"
+runs lint "$(cr 1 completed '"failure"')"
 expect "a job that failed refuses the commit, naming the job and the commit" 1 "check lint on abc is failure, not success" -- "$t/scripts/release-tested" abc
-runs lint "$(cr 2026-01-01T00:00:00Z completed '"cancelled"')"
+runs lint "$(cr 1 completed '"cancelled"')"
 expect "a job that was cancelled refuses it" 1 "check lint on abc is cancelled, not success" -- "$t/scripts/release-tested" abc
 rm "$scratch/runs.lint"
 expect "a job with no run on the commit refuses it" 1 "check lint on abc is none, not success" -- "$t/scripts/release-tested" abc
-# The latest run of a check decides, however the API orders them.
-runs lint "$(cr 2026-01-01T01:00:00Z completed '"success"'),$(cr 2026-01-01T00:00:00Z completed '"failure"')"
+# The latest run of a check, the highest id, decides, however the API orders them.
+runs lint "$(cr 2 completed '"success"'),$(cr 1 completed '"failure"')"
 expect "a failure that was re-run and passed is a pass" 0 "passed on abc" -- "$t/scripts/release-tested" abc
-runs lint "$(cr 2026-01-01T00:00:00Z completed '"success"'),$(cr 2026-01-01T01:00:00Z completed '"failure"')"
+runs lint "$(cr 1 completed '"success"'),$(cr 2 completed '"failure"')"
 expect "a pass that was re-run and failed is a failure" 1 "check lint on abc is failure" -- "$t/scripts/release-tested" abc
+runs lint "$(cr 1 completed '"failure"'),$(cr 2 completed '"success"' some-other-ci)"
+expect "another app's check of the same name cannot vouch for the commit" 1 "check lint on abc is failure" -- "$t/scripts/release-tested" abc
 # A run still going is waited for: two polls see it running, the third its result.
 calls_reset
-runs lint "$(cr 2026-01-01T00:00:00Z in_progress null)" "$(cr 2026-01-01T00:00:00Z in_progress null)" "$green"
+runs lint "$(cr 1 in_progress null)" "$(cr 1 in_progress null)" "$green"
 expect "a job still running is waited for, and the commit passes when it succeeds" 0 "passed on abc" -- "$t/scripts/release-tested" abc
 [ "$(grep -c '^sleep ' "$scratch/calls")" = 2 ] && pass "it waited once per poll that saw the job running" || fail "it waited once per poll that saw the job running: $(cat "$scratch/calls")"
 calls_reset
-runs lint "$(cr 2026-01-01T00:00:00Z in_progress null)" "$(cr 2026-01-01T00:00:00Z completed '"failure"')"
+runs lint "$(cr 1 in_progress null)" "$(cr 1 completed '"failure"')"
 expect "a job that fails after being waited for refuses the commit" 1 "check lint on abc is failure" -- "$t/scripts/release-tested" abc
+# The wait is one budget for all jobs: the first waits once, so the second has the rest of the 180 polls, not a fresh 180.
+calls_reset
+runs test "$(cr 1 in_progress null)" "$green"; runs lint "$(cr 1 in_progress null)"
+expect "a job that never finishes refuses the commit when the wait runs out" 1 "check lint on abc is in_progress" -- "$t/scripts/release-tested" abc
+[ "$(grep -c '^sleep ' "$scratch/calls")" = 179 ] && pass "the wait is one budget across jobs" || fail "the wait is one budget across jobs: $(grep -c '^sleep ' "$scratch/calls") sleeps"
 printf 'name: test\njobs: {}\n' >"$t/.github/workflows/test.yaml"
 expect "a test workflow with no jobs refuses, since nothing could vouch for the commit" 1 "has no jobs" -- "$t/scripts/release-tested" abc
 
