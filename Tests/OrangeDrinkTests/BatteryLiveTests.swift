@@ -72,14 +72,14 @@ import Testing
         #expect(abs(reading.current.value - Double(registry["Amperage"] as! Int)) <= 1500)
     }
 
-    @Test func everyReadIsLogged() throws {
-        let log = try BatteryLog()
+    @Test func everyReadIsLogged() async throws {
+        let log = try await BatteryLog()
         let reading = try #require(try IOKitBattery.read())
         #expect(try log.messages().contains("battery read: \(String(describing: reading))"))
     }
 
     @Test func subscriptionStartsWithTheCurrentReading() async throws {
-        let log = try BatteryLog()
+        let log = try await BatteryLog()
         var readings = BatteryMonitor.readings().makeAsyncIterator()
         let published = try #require(try await readings.next(), "the stream ended before its first reading")
         let first = try #require(published, "this check needs a Mac with a battery")
@@ -117,7 +117,7 @@ import Testing
         }
         let start = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
         guard case .adapter = start.power else { Issue.record("start with the adapter plugged in"); return }
-        let log = try BatteryLog()
+        let log = try await BatteryLog()
         let posts = OSAllocatedUnfairLock<[ContinuousClock.Instant]>(initialState: [])
         var token: Int32 = 0
         let status = notify_register_dispatch(kIOPSNotifyPowerSource, &token, DispatchQueue(label: "posts")) { _ in

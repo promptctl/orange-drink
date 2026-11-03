@@ -8,7 +8,7 @@ import Testing
 
     @MainActor @Test func holdsEachReadingThenTheErrorThatEndedTheStream() async throws {
         let reading = try BatteryEvents.onBattery
-        let log = try BatteryLog()
+        let log = try await BatteryLog()
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
         let model = BatteryModel(readings: readings)
 
@@ -29,7 +29,7 @@ import Testing
     }
 
     @MainActor @Test func aStreamThatFinishesEndsTheModelWithNoError() async throws {
-        let log = try BatteryLog()
+        let log = try await BatteryLog()
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
         let model = BatteryModel(readings: readings)
 

@@ -10,27 +10,42 @@ struct BatteryLog {
     private let since: OSLogPosition
     private let category: String
     private let begins: String
+    private static let beginsPrefix = "test log begins "
 
     /// [LAW:no-ambient-temporal-coupling] The log begins at a line it writes itself, not at a date: the
     /// position a date gives, and the dates on entries, are too coarse to tell lines another test wrote
-    /// just before this log began from this test's own.
-    init(category: String = IOKitBattery.logCategory) throws {
+    /// just before this log began from this test's own. Returns once that line has reached OSLogStore,
+    /// so a log that reads nothing has read something.
+    init(category: String = IOKitBattery.logCategory) async throws {
         self.category = category
         store = try OSLogStore(scope: .currentProcessIdentifier)
         since = store.position(date: Date().addingTimeInterval(-1))
-        let begins = "test log begins \(UUID().uuidString)"
+        let begins = "\(Self.beginsPrefix)\(UUID().uuidString)"
         self.begins = begins
         Logger(subsystem: IOKitBattery.logSubsystem, category: category).info("\(begins, privacy: .public)")
+        let end = ContinuousClock.now.advanced(by: .seconds(5))
+        while try entries().firstIndex(of: begins) == nil {
+            guard ContinuousClock.now < end else { throw Missing(begins: begins) }
+            try await Task.sleep(for: .milliseconds(20))
+        }
     }
 
-    /// The lines after this log's own first line; none until that line has reached OSLogStore, since every
-    /// line after it reaches the store after it.
-    func messages() throws -> [String] {
-        let all = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                                        IOKitBattery.logSubsystem, category))
+    struct Missing: Error, CustomStringConvertible {
+        let begins: String
+        var description: String { "the line this log begins at is not in OSLogStore: \(begins)" }
+    }
+
+    private func entries() throws -> [String] {
+        try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
+                                                              IOKitBattery.logSubsystem, category))
             .map(\.composedMessage)
-        guard let first = all.firstIndex(of: begins) else { return [] }
-        return Array(all[(first + 1)...])
+    }
+
+    /// The lines after this log's own first line, less the first lines of other tests' logs.
+    func messages() throws -> [String] {
+        let all = try entries()
+        guard let first = all.firstIndex(of: begins) else { throw Missing(begins: begins) }
+        return all[(first + 1)...].filter { !$0.hasPrefix(Self.beginsPrefix) }
     }
 
     /// Polls the log until a line contains `fragment`: log entries reach OSLogStore shortly after they are written.

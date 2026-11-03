@@ -51,7 +51,7 @@ import ViewInspector
     }
 
     @Test func aValueTheShelfHoldsCostsNoWriteAndNoReload() async throws {
-        let log = try BatteryLog(category: ShelfLog.category)
+        let log = try await BatteryLog(category: ShelfLog.category)
         let reloads = Reloads()
         let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }
 
@@ -64,7 +64,7 @@ import ViewInspector
     }
 
     @Test func aShelfThatCannotBeWrittenIsLoggedAndAsksNoReload() async throws {
-        let log = try BatteryLog(category: ShelfLog.category)
+        let log = try await BatteryLog(category: ShelfLog.category)
         let reloads = Reloads()
         let missing = shelf.appending(path: "missing")
         let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: missing) { _ in reloads.count += 1 }
@@ -76,7 +76,7 @@ import ViewInspector
 
     /// The widget's own read, logged either way.
     @Test func theWidgetLogsWhatItReadsAndWhyItCouldNot() async throws {
-        let log = try BatteryLog(category: ShelfLog.category)
+        let log = try await BatteryLog(category: ShelfLog.category)
         #expect(throws: (any Error).self) { try WidgetShelf.load(.macBattery, from: .success(shelf), log: ShelfLog.log).get() }
         #expect(try await log.logged("widget shelf unreadable: "))
 

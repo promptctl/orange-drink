@@ -20,7 +20,7 @@ import Testing
     /// different record, as a device paired again brings, gets its own.
     @available(macOS 15.0, *)
     @Test func aPairRecordIsBuiltIntoAnIdentityOnce() async throws {
-        let log = try BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
         let identities = PairIdentities()
         let first = try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM)
         let again = try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM)
