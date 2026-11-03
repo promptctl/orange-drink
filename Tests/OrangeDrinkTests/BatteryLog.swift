@@ -23,9 +23,15 @@ struct BatteryLog {
         let begins = "\(Self.beginsPrefix)\(UUID().uuidString)"
         self.begins = begins
         Logger(subsystem: IOKitBattery.logSubsystem, category: category).info("\(begins, privacy: .public)")
+        guard try await Self.poll(until: { try entries().contains(begins) }) else { throw Missing(begins: begins) }
+    }
+
+    /// Reads `done` every 20 ms until it holds or five seconds have passed; whether it held.
+    private static func poll(until done: () throws -> Bool) async throws -> Bool {
         let end = ContinuousClock.now.advanced(by: .seconds(5))
-        while try entries().firstIndex(of: begins) == nil {
-            guard ContinuousClock.now < end else { throw Missing(begins: begins) }
+        while true {
+            if try done() { return true }
+            if ContinuousClock.now >= end { return false }
             try await Task.sleep(for: .milliseconds(20))
         }
     }
@@ -56,11 +62,11 @@ struct BatteryLog {
     /// How many lines contain `fragment`, counted once `expected` of them have reached OSLogStore or five seconds have
     /// passed, so a count read just after the lines were written does not come up short.
     func count(_ fragment: String, awaiting expected: Int) async throws -> Int {
-        let end = ContinuousClock.now.advanced(by: .seconds(5))
-        while true {
-            let count = try messages().filter { $0.contains(fragment) }.count
-            if count >= expected || ContinuousClock.now >= end { return count }
-            try await Task.sleep(for: .milliseconds(20))
+        var count = 0
+        _ = try await Self.poll {
+            count = try messages().filter { $0.contains(fragment) }.count
+            return count >= expected
         }
+        return count
     }
 }

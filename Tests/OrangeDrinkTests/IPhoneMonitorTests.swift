@@ -94,7 +94,6 @@ import Testing
         while counter.withLock({ $0 }) < count { try await Task.sleep(for: .milliseconds(5)) }
     }
 
-    /// How many log lines since `log` began contain `fragment`.
     @Test
     func pluggingInSwitchesOnWifiSyncOnceAndReadsOverTheCableEachPollInterval() async throws {
         let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
