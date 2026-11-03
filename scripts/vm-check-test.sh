@@ -120,37 +120,43 @@ $alert_b' '$alert_b'")" = "$alert_a" ] || broken "an alert in the baseline is no
 [ -z "$(in_lib "new_alerts '$banner' ''")" ] || broken "a banner is not an alert"
 ok "new_alerts lists the alerts beyond its baseline, and none when only a banner or the baseline shows"
 
-: >"$scratch/warns"
+# Runs $1 in the lib with `warn` recording the levels it is sent to $scratch/warns and `sleep` stood in; $status is its exit status.
 raised="warn() { echo \"warn \$1\" >>'$scratch/warns'; }; sleep() { :; }"
-status=0
-in_lib "$raised; list() { printf '%s\n' '$alert_a'; }; raise 3 ''" || status=$?
+in_lib_warns() {
+  : >"$scratch/warns"
+  status=0
+  in_lib "$raised; $1" || status=$?
+}
+expect_warns() { [ "$(tr '\n' ' ' <"$scratch/warns")" = "$1" ] || broken "$2: the warning was sent as: $(tr '\n' ' ' <"$scratch/warns")"; }
+
+in_lib_warns "list() { printf '%s\\n' '$alert_a'; }; raise 3 ''"
 expect_status 0 "an alert showing after the warning"
-[ "$(tr '\n' ' ' <"$scratch/warns")" = 'warn 1 warn 3 ' ] || broken "raise did not withdraw the warning, then raise it: $(cat "$scratch/warns")"
-status=0
-in_lib "$raised; list() { printf '%s\n' '$alert_a'; }; raise 3 '$alert_a'" || status=$?
+expect_warns 'warn 1 warn 3 ' "an alert showing after the warning"
+in_lib_warns "list() { printf '%s\\n' '$alert_a'; }; raise 3 '$alert_a'"
 expect_status 1 "only the baseline's alert showing"
 ok "raise withdraws the warning, raises it, and succeeds only for an alert beyond its baseline"
 
-# `withdrawn`, with `list` showing the alert until the warning has gone 3 then 1, as macOS 26's stuck alert did.
-withdraw() {
-  : >"$scratch/warns"
-  status=0
-  in_lib "$raised; $1; withdrawn" || status=$?
+# `withdrawn`, with `list` showing the alert until the warning has gone 3 then 1, as macOS 26's stuck alert did; $1 is what `list`
+# does from then on.
+after_level_change() {
+  printf '%s\n' "list() { if [ \"\$(tr '\\n' ' ' <'$scratch/warns')\" = 'warn 3 warn 1 ' ]; then $1; else printf '%s\\n' '$alert_a'; fi; }"
 }
-expect_warns() { [ "$(tr '\n' ' ' <"$scratch/warns")" = "$1" ] || broken "$2: the warning was sent as: $(tr '\n' ' ' <"$scratch/warns")"; }
-withdraw 'list() { :; }'
+in_lib_warns 'list() { :; }; withdrawn'
 expect_status 0 "nothing showing"
 expect_warns '' "nothing showing"
-withdraw "list() { [ \"\$(tr '\\n' ' ' <'$scratch/warns')\" = 'warn 3 warn 1 ' ] || printf '%s\\n' '$alert_a'; }"
+in_lib_warns "$(after_level_change ':'); withdrawn"
 expect_status 0 "an alert that goes when the level changes"
 expect_warns 'warn 3 warn 1 ' "an alert that goes when the level changes"
-withdraw "list() { printf '%s\\n' '$alert_a'; }"
+in_lib_warns "list() { printf '%s\\n' '$alert_a'; }; withdrawn"
 expect_status 1 "an alert that stays"
 expect_warns 'warn 3 warn 1 ' "an alert that stays"
-withdraw 'list() { return 1; }'
+in_lib_warns 'list() { return 1; }; withdrawn'
 expect_status 1 "a tree that could not be read"
 expect_warns '' "a tree that could not be read"
-ok "withdrawn sends nothing for an empty or unreadable tree, changes the level 3 then 1 for one showing, and succeeds only once nothing shows"
+in_lib_warns "$(after_level_change 'return 1'); withdrawn"
+expect_status 1 "a tree that could not be read after the level change"
+expect_warns 'warn 3 warn 1 ' "a tree that could not be read after the level change"
+ok "withdrawn sends nothing for an empty or unreadable tree, changes the level 3 then 1 for one showing, and succeeds only once a tree it could read shows nothing"
 
 [ "$(in_lib "as_literal 'say \"hi\" \\ it’s'")" = 'say \"hi\" \\ it’s' ] || broken "as_literal did not escape a quote and a backslash"
 ok "as_literal escapes the quote and backslash that would end an AppleScript string"
