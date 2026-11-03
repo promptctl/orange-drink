@@ -1,6 +1,6 @@
 # The throwaway Tart VM the checks that must not touch this Mac's screen run in: scripts/update-check,
-# scripts/login-item-check, scripts/first-launch-check, scripts/battery-notification-check, scripts/widget-click-check, and
-# scripts/vm-test source
+# scripts/login-item-check, scripts/first-launch-check, scripts/battery-notification-check, scripts/widget-click-check,
+# scripts/vm-test, and scripts/ui-test source
 # this under `set -euo pipefail`, so nothing shows on the Mac running them. A check may set:
 #   image        before sourcing: the Tart image to clone, for a check on another macOS
 #   vm_cleanup   directories to remove however the run ends, beside the scratch directory
@@ -98,11 +98,22 @@ install_dmg() {
   guest sh -c "mkdir -p '$(dirname "$app")' /tmp/image && hdiutil attach '$1' -nobrowse -readonly -mountpoint /tmp/image >/dev/null && ditto /tmp/image/OrangeDrink.app '$app' && hdiutil detach /tmp/image >/dev/null"
 }
 
-# Runs <only-testing> of the built tests in the guest, with [NAME=value...] set and the result bundle at /tmp/<result>.xcresult.
+# [LAW:single-enforcer] Whether a result bundle's summary, on stdin, says at least one test ran and every test passed:
+# xcodebuild exits 0 when -only-testing matches nothing, and when every test it ran skipped.
+ran_and_passed() {
+  python3 -c 'import json, sys; s = json.load(sys.stdin); sys.exit(not (s["passedTests"] >= 1 and s["skippedTests"] == 0 and s["failedTests"] == 0))'
+}
+
+# Runs <only-testing> of the built tests in the guest, with [NAME=value...] set and the result bundle at /tmp/<result>.xcresult,
+# and prints the bundle's summary. Succeeds only when xcodebuild did and the summary says a test ran and every one passed.
 xctest() {
-  local result=$1 only_testing=$2; shift 2
+  local result=$1 only_testing=$2 ran=0 summary; shift 2
   guest env "$@" xcodebuild test-without-building -xctestrun "$tests/$(basename "$xctestrun")" \
-    -destination 'platform=macOS,arch=arm64' -resultBundlePath "/tmp/$result.xcresult" "-only-testing:$only_testing" >&2
+    -destination 'platform=macOS,arch=arm64' -resultBundlePath "/tmp/$result.xcresult" "-only-testing:$only_testing" >&2 || ran=$?
+  summary=$(guest xcrun xcresulttool get test-results summary --path "/tmp/$result.xcresult" --compact) ||
+    fail "$only_testing left no result bundle; xcodebuild exited $ran"
+  echo "$summary" >&2
+  [ "$ran" -eq 0 ] && ran_and_passed <<<"$summary"
 }
 
 # Runs one XCUITest, <Class>/<method>, against the installed app.

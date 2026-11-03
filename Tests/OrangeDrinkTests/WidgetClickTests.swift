@@ -72,7 +72,7 @@ import WidgetKit
     }
 
     // [LAW:behavior-not-structure] Each callback reaches what it is for: a real signal is watched from the launch, and a
-    // quit leaves its record. SIGUSR1 because the test host is the app, and TerminationTests has SIGUSR2.
+    // quit leaves its record. SIGUSR1, so the test process keeps SIGTERM's own meaning, and TerminationTests has SIGUSR2.
     @Test func quittingStillGoesThroughTheTerminationLog() async throws {
         let quits = QuitRecords(url: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString), build: "test build")
         defer { try? FileManager.default.removeItem(at: quits.url) }

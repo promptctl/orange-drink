@@ -140,13 +140,13 @@ targets:
     scheme:
       testTargets: [OrangeDrinkTests]
       # The tests' language and the time limit of every test that names none: a test awaiting a state that never comes
-      # fails instead of hanging the run. A plan, because build-for-testing writes it into the .xctestrun vm-test replays.
+      # fails instead of hanging the run. A plan, because build-for-testing writes it into the .xctestrun scripts/vm-test replays.
       testPlans:
         - path: OrangeDrink.xctestplan
           defaultPlan: true
       # Xcode's Run action in English on any Mac; a build from make is not touched.
       language: en
-  # Its own scheme, so `make test` never runs it: scripts/vm-check-lib runs it in a VM, because a UI test takes the screen.
+  # Its own scheme, so the unit tests never run it: `make test` runs it in a VM (scripts/ui-test), because a UI test takes the screen.
   OrangeDrinkUITests:
     type: bundle.ui-testing
     platform: macOS

@@ -7,6 +7,16 @@ import Testing
 
 private final class TestBundle {}
 
+/// The app's launch step, which the bare test host never takes (Main.swift), taken once by whichever live helper suite
+/// starts first: it replaces a helper not this copy's, logs the registration HelperLive reads back, and releases the
+/// record at exit.
+private enum LaunchStep {
+    static let taken: Void = {
+        HelperRegistration.holdUntilExit()
+        HelperRegistration.app.waitForSteps()
+    }()
+}
+
 /// The privileged helper's check on a real Mac, run by `make helper-check` once OrangeDrink is approved
 /// under Login Items. [LAW:verifiable-goals] Each claim rests on something read back: an exit status with an
 /// error's domain and code, a euid, a path, or a line in the helper's log. Every call has a deadline, since a
@@ -22,6 +32,7 @@ struct HelperLive {
     let started = Date()
 
     init() throws {
+        LaunchStep.taken
         let daemon = try LaunchDaemon(in: .main)
         label = daemon.label
         identifier = try #require(Bundle.main.bundleIdentifier)
@@ -76,7 +87,7 @@ struct HelperLive {
         #expect(helperLog.components(separatedBy: Self.refusalLine).count - 1 >= refused.count, "helper log:\n\(helperLog)")
         #expect(helperLog.contains("accepted pid \(controlPid)"), "helper log:\n\(helperLog)")
 
-        // This launch's registration, as the app logged it. It runs off the main thread, so it is waited for.
+        // This launch's registration, as LaunchStep logged it.
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         var lines: [String] = []
         for _ in 0..<50 {
@@ -201,6 +212,8 @@ struct HelperLive {
 /// (orange-admin-helper-b2q.qm0, cmt-4bc4dac4 §5). The status still reads enabled, so only the reply tells.
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["HELPER_REPAIR_CHECK"] != nil, "run by make helper-repair-check once OrangeDrink is approved"))
 struct HelperRepairLive {
+    init() { LaunchStep.taken }
+
     @Test(.timeLimit(.minutes(2))) func aJobLaunchdWillNotRunIsRepaired() async throws {
         let daemon = try LaunchDaemon(in: .main)
         let helper = Bundle.main.bundleURL.appending(path: daemon.program).resolvingSymlinksInPath()

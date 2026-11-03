@@ -1,0 +1,31 @@
+#!/bin/bash
+# The UI tests `make test` runs, inside a throwaway VM with no window: the Debug build's component gallery, and what the app
+# wires up as it launches. Each opens a window or the panel, which would show on the Mac running them. Run by `make ui-test`.
+#
+#   scripts/ui-test <xctestrun of the OrangeDrinkUITests scheme>
+#
+# The app tested is the Debug build beside the xctestrun, which vm_start copies into the VM with the tests.
+#
+# Exits 0 when every test passed, and 1 naming the first suite that did not.
+set -euo pipefail
+
+xctestrun=$(realpath "${1:?usage: scripts/ui-test <xctestrun>}")
+cd "$(dirname "$0")/.."
+. scripts/vm-check-lib
+
+on_failure() { guest ps -axo pid,command | grep -F "$app" >&2; log_matching 'process == "OrangeDrink" AND (category == "hotkey" OR category == "termination" OR messageType == error)' >&2; }
+
+vm_start "$xctestrun"
+guest sh -c "mkdir -p '$(dirname "$app")' && ditto '$tests/Debug/$(basename "$app")' '$app'"
+first_launch
+
+uitest ComponentGalleryUITests
+uitest LaunchedAppUITests/testTheDefaultCombinationOpensThePanel
+uitest LaunchedAppUITests/testTheAppRunsWithNoDockPresence
+# Its own session and the last, so its SIGTERM is the quit log's last record: a session's teardown quits what it launched.
+uitest LaunchedAppUITests/testASIGTERMQuitsTheApp
+identifier=$(guest /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
+# A record is a header line, "<ISO 8601 date> pid <pid> <build>", then its lines (Termination.swift's QuitRecords).
+record=$(guest cat "/Users/admin/Library/Logs/$identifier/quits.log" | awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2}T/ { r = "" } { r = r $0 "\n" } END { printf "%s", r }')
+grep -qE 'SIGTERM from pid [0-9]+ \(OrangeDrinkUITests-Runner\)' <<<"$record" ||
+  fail "the app's last quit record does not name the runner that sent SIGTERM: $record"

@@ -1,7 +1,7 @@
 import XCTest
 
-// A UI test takes the screen, so this target is in no scheme `make test` runs: it runs only in the VM of scripts/vm-check-lib,
-// on the copy the check installed from its disk image, and the script reads what each press did off that copy.
+// A UI test takes the screen, so this target runs only in the VM of scripts/vm-check-lib, on the copy the check installed
+// there, and the script reads what each press did off that copy.
 @MainActor extension XCTestCase {
     static let installedAppTimeout: TimeInterval = 60
 
@@ -40,7 +40,7 @@ import XCTest
     /// The app's menu bar item. Its title is the app's name and then the battery's state, which changes
     /// as the battery does, so it is found by the name it begins with.
     func statusItem(of app: XCUIApplication) -> XCUIElement {
-        app.statusItems.matching(NSPredicate(format: "label BEGINSWITH %@", "OrangeDrink")).firstMatch
+        app.statusItems.matching(NSPredicate(format: "label BEGINSWITH %@ OR title BEGINSWITH %@", "OrangeDrink", "OrangeDrink")).firstMatch
     }
 
     /// The first match, because an alert's buttons are in the tree again on the Touch Bar a VM reports.
