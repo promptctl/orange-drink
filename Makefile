@@ -156,7 +156,7 @@ release-helper-check: release
 # uncached: the generated files are under build/, which is not copied, and `--use-cache` would call a second run's copy
 # unchanged and leave them missing.
 update-check.covers := Sources/OrangeDrink/Updates Sources/OrangeDrink/Panel/PanelView.swift project.yml Tests/OrangeDrinkUITests \
-  scripts/update-check scripts/appcast scripts/vm-check-lib
+  scripts/update-check scripts/appcast scripts/dmg scripts/vm-check-lib
 update-check: generate
 	@set -e; out='$(CURDIR)/build/update-check'; rm -rf "$$out"; mkdir -p "$$out/tree"; \
 	rsync -a --exclude .git --exclude .claude --exclude build ./ "$$out/tree/"; \
@@ -172,7 +172,7 @@ update-check: generate
 # screen's switch off and on, and reads what SMAppService.mainApp.status said after each off the app's log. It needs what
 # update-check needs.
 login-item-check.covers := Sources/OrangeDrink/Settings/LaunchAtLogin.swift Sources/OrangeDrink/Blocking.swift Tests/OrangeDrinkUITests \
-  scripts/login-item-check scripts/vm-check-lib
+  scripts/login-item-check scripts/dmg scripts/vm-check-lib
 login-item-check: generate
 	@set -e; out='$(CURDIR)/build/login-item-check'; rm -rf "$$out"; mkdir -p "$$out"; \
 	dmg=$$(scripts/dmg "$$out/dmg"); \

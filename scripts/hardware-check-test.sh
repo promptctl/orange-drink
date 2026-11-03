@@ -128,6 +128,16 @@ expect "a script that exits 1 posts a fail with the reason it printed and the ex
   eval '[ $status = 1 ] && has "result: fail" "$body" && has "failure: the version is 1.0, not 1.1" "$body" &&
         has "failure: sh exited 1" "$body" && has "printed: reading 1 held" "$body" && ! grep -q "^printed: failure" <<<"$body"'
 
+recorder run c --covers src -- sh -c 'echo "» failure: said, then exited 0"'
+body=$(latest)
+expect "a script that exits 0 posts a pass even if it printed a failure line, which is then only printed" \
+  eval '[ $status = 0 ] && has "result: pass" "$body" && has "printed: failure: said, then exited 0" "$body" && ! grep -q "^failure:" <<<"$body"'
+
+recorder run c --covers src -- sh -c 'echo "» failure:   "; exit 1'
+body=$(latest)
+expect "a failure line with only whitespace after its mark is still a failure, not a printed line" \
+  eval '[ $status = 1 ] && has "failure: sh exited 1" "$body" && ! grep -q "^printed:" <<<"$body"'
+
 recorder run c --covers src -- sh -c 'exit 2'
 body=$(latest)
 expect "a script that exits any other non-zero status posts a fail naming it" \

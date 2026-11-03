@@ -63,8 +63,9 @@ func capture(_ command: [String], environment: [String: String] = [:]) throws ->
 }
 
 /// Runs the check's command with its output shown as it arrives, and returns its exit status and the lines marked
-/// for the record. Its stdin is /dev/null: a check takes nothing from the person but their hands.
-func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
+/// for the record: the failure reasons a script gave, and the rest. Its stdin is /dev/null: a check takes nothing from
+/// the person but their hands.
+func stream(_ command: [String]) throws -> (status: Int32, printed: [String], said: [String]) {
     let process = Process()
     process.executableURL = URL(filePath: "/usr/bin/env")
     process.arguments = command
@@ -77,9 +78,14 @@ func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
     try process.run()
     var pending = Data()
     var printed: [String] = []
+    var said: [String] = []
     func take(_ line: Data) {
         let text = String(decoding: line, as: UTF8.self)
-        if text.hasPrefix(recordMark) { printed.append(String(text.dropFirst(recordMark.count)).trimmingCharacters(in: .whitespacesAndNewlines)) }
+        guard text.hasPrefix(recordMark) else { return }
+        // Told apart before trimming, so a reason of only whitespace is still a reason.
+        let marked = String(text.dropFirst(recordMark.count))
+        if marked.hasPrefix(failureMark) { said.append(String(marked.dropFirst(failureMark.count)).trimmingCharacters(in: .whitespacesAndNewlines)) }
+        else { printed.append(marked.trimmingCharacters(in: .whitespacesAndNewlines)) }
     }
     while case let chunk = output.fileHandleForReading.availableData, !chunk.isEmpty {
         FileHandle.standardOutput.write(chunk)
@@ -91,7 +97,7 @@ func stream(_ command: [String]) throws -> (status: Int32, printed: [String]) {
     }
     take(pending)
     process.waitUntilExit()
-    return (process.terminationStatus, printed)
+    return (process.terminationStatus, printed, said)
 }
 
 // MARK: - What a run covered
@@ -237,11 +243,11 @@ func run(check: String, judge: Judge, covers paths: [String], command: [String])
     // A covered path HEAD does not hold is new on disk: uncommitted, like any other path whose code is not HEAD's.
     let committed = try objectIDs(of: paths, in: "HEAD")
 
-    let (status, marked) = try stream(command)
-    let exited = status == 0 ? [] : ["\(command[0]) exited \(status)"]
-    // A script says why a reading failed on a marked line that starts `failure: `; every other marked line is printed.
-    let said = marked.filter { $0.hasPrefix(failureMark) }.map { String($0.dropFirst(failureMark.count)) }
-    let printed = marked.filter { !$0.hasPrefix(failureMark) }
+    let (status, marked, said) = try stream(command)
+    // A script says why a reading failed on a marked line that starts `failure: `. Those lines are a reason only under
+    // a non-zero exit; from a command that exited 0 they are printed like the rest.
+    let exited = status == 0 ? [] : said + ["\(command[0]) exited \(status)"]
+    let printed = status == 0 ? marked + said.map { failureMark + $0 } : marked
     let (result, failures): (Outcome, [String])
     switch judge {
     case .test(let id, let bundle):
@@ -250,7 +256,7 @@ func run(check: String, judge: Judge, covers paths: [String], command: [String])
         (result, failures) = (exited.isEmpty ? tested : .fail, testFailures + exited)
     case .exitStatus:
         // Any other status is a fail too, with the setup its reason names (a VM image that is missing), as `status` says.
-        (result, failures) = (status == 0 ? .pass : .fail, said + exited)
+        (result, failures) = (status == 0 ? .pass : .fail, exited)
     }
     let record = Record(check: check, outcome: result, commit: commit, covers: covers,
                         uncommitted: paths.filter { built[$0] != committed[$0] }, printed: printed, failures: failures)
