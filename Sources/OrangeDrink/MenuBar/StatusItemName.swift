@@ -11,7 +11,7 @@ struct StatusItemName: Equatable {
     init(_ state: BatteryModel.State, appName: String) {
         phrase = switch state {
         case .known(let reading?):
-            "\(appName), \(BatteryLevel.text(BatteryLevel(percent: reading.chargePercent, approximate: false))), \(ChargeCard.Status(reading.power).title)"
+            "\(appName), \(BatteryLevel.text(BatteryLevel(percent: reading.chargePercent, approximate: false))), \(ChargeStatus(reading.power).title)"
         case .unknown: "\(appName), \(BatteryStateNote.unknown)"
         case .known(nil): "\(appName), \(BatteryStateNote.noBattery)"
         case .ended: "\(appName), \(BatteryStateNote.ended)"

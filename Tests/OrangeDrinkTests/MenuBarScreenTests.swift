@@ -117,8 +117,19 @@ import ViewInspector
         #expect(said(.unknown) == "App, Reading the battery…")
         #expect(said(.known(nil)) == "App, This Mac has no battery.")
         #expect(said(.ended(nil)) == "App, Battery readings stopped. Quit and reopen the app.")
-        #expect(said(.known(charging), in: "fr").hasSuffix(", En charge"))
+        #expect(said(.known(charging), in: "fr") == "App, 75\u{a0}%, En charge")
         #expect(said(.unknown, in: "fr") == "App, Lecture de la batterie…")
+    }
+
+    /// Plugged in and not taking charge is where a person who cannot see the glyph most needs the right word.
+    @Test(arguments: [
+        (PowerSource.battery(timeToEmpty: nil), "On Battery"),
+        (.adapter(nil, .charging(.toFull(in: nil))), "Charging"),
+        (.adapter(nil, .notCharging), "Not Charging"),
+        (.adapter(nil, .full), "Charged"),
+    ])
+    func eachPowerSourceIsNamedForWhatItDoes(power: PowerSource, said: String) {
+        #expect(ChargeStatus(power).title.resolve(in: AppLanguage(code: "en"), bundle: PhraseTests.app) == said)
     }
 
     /// The same words reach the item through the view, in the chosen language, whatever icon the bar shows.

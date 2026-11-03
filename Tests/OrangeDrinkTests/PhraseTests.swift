@@ -71,7 +71,7 @@ import Testing
         }
         typealias Words = BatteryInformationWords
         var phrases: [Phrase] = [UpdatedFooter.explanation, UpdatedFooter.action, UpdatedFooter.text(age: 0), UpdatedFooter.text(age: 300)]
-        phrases += [ChargeCard.Status.charging, .onBattery, .notCharging, .charged].map(\.title)
+        phrases += [ChargeStatus.charging, .onBattery, .notCharging, .charged].map(\.title)
         phrases += SettingsScreen.allCases.map(\.comingSoon)
         phrases += PanelAction.allCases.map { $0.title(appName: "App") }
         let helperFailures = [HelperUseFailure(call: .noReply(seconds: 1, service: "x"), status: .requiresApproval), HelperUseFailure(call: .failed("x"), status: .enabled),
