@@ -19,7 +19,8 @@ SCRIPT = pathlib.Path(__file__).resolve().parent / "iphone-devices"
 UDID = "00008140-000000000000001E"
 DEVICE_ID = 7
 LOCKDOWN_PORT, RELAY_PORT = 62078, 4321
-DEVICE_VALUES = {"ProductType": "iPhone17,1", "ProductVersion": "27.2", "DeviceClass": "iPhone"}
+DEVICE_VALUES = {"DeviceName": "Brandon's iPhone", "ProductType": "iPhone17,1", "ProductVersion": "27.2", "DeviceClass": "iPhone",
+                 "BluetoothAddress": "6c:3a:ff:d9:74:42"}
 # A control character the device sends inside a string, which a plist parser refuses until the script strips it.
 RELAY_REPLY = plistlib.dumps({"Diagnostics": {"IORegistry": {"CurrentCapacity": 42, "Label": "AAA"}}}).replace(b"AAA", b"A\x01A")
 

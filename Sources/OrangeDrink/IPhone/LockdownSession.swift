@@ -458,10 +458,12 @@ final class PairIdentities: Sendable {
     }
 }
 
-/// The longest one battery read can take: opening a relay and reading it, eight calls (ReadPairRecord, Connect,
-/// StartSession, session TLS, StartService, Connect, relay TLS, IORegistry), each under callDeadline, which a socket
-/// notices on its next one-second wake-up. A step added to openLockdown or DiagnosticsRelay is a step added here.
-let readWorstCase = (callDeadline + .seconds(1)) * 8
+/// The longest one read can take: reading the device's identity, seven calls (ReadPairRecord, Connect, StartSession,
+/// session TLS, a GetValue for each of the three identity keys), then opening a relay and reading it, eight (ReadPairRecord,
+/// Connect, StartSession, session TLS, StartService, Connect, relay TLS, IORegistry), each under callDeadline, which a socket
+/// notices on its next one-second wake-up. A step added to openLockdown, DiagnosticsRelay or readIPhoneIdentity is a step
+/// added here.
+let readWorstCase = (callDeadline + .seconds(1)) * 15
 
 /// Switches the device's Wi-Fi sync, the box Finder labels "Show this iPhone when on Wi-Fi", on or off. On, usbmuxd
 /// reaches the device over the network once the cable is out. Every outcome leaves one line in the log.
@@ -477,6 +479,28 @@ func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String, identities: PairId
         IPhoneMonitor.log.info("iphone wifi sync \(state, privacy: .public): \(udid, privacy: .public) handle \(handle)")
     } catch {
         IPhoneMonitor.log.error("iphone wifi sync \(state, privacy: .public) failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
+        throw error
+    }
+}
+
+/// Who the device behind a usbmuxd handle says it is: one lockdown session and a GetValue for each of
+/// `IPhoneIdentity.lockdownKeys`, parsed together. It is a session of its own, not the relay's, so a device whose relay will
+/// not start (locked, refused) can still be identified. Every outcome leaves one line in the log.
+@available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
+func readIPhoneIdentity(handle: Int, udid: String, identities: PairIdentities) throws(IPhoneReadError) -> IPhoneIdentity {
+    do {
+        let identity = try typedReadErrors {
+            let lockdown = try openLockdown(handle: handle, udid: udid, identities: identities)
+            var values: [String: Any] = [:]
+            for key in IPhoneIdentity.lockdownKeys {
+                values[key] = try decodeReply(try lockdown.stream.request(["Request": "GetValue", "Key": key]))["Value"]
+            }
+            return try parseIPhoneIdentity(values)
+        }
+        IPhoneMonitor.log.info("iphone identity read: \(udid, privacy: .public) handle \(handle): \(String(describing: identity), privacy: .public)")
+        return identity
+    } catch {
+        IPhoneMonitor.log.error("iphone identity read failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
         throw error
     }
 }

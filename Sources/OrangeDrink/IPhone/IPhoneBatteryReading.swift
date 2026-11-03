@@ -78,14 +78,14 @@ enum IPhoneParseError: Error, Equatable {
 /// out-of-range value is an error, never a default; every integer read states its range.
 func parseIPhoneBattery(_ entry: [String: Any]) throws -> IPhoneBatteryReading {
     // iOS 18 replies carry no BatteryPackCount; their devices have one battery.
-    if let packs = try optional(entry, "BatteryPackCount", as: Int.self), packs != 1 {
+    if let packs = try optionalValue(entry, "BatteryPackCount", as: Int.self), packs != 1 {
         throw IPhoneParseError.multiplePacks(packs)
     }
     // BatteryData.CurrentCapacity is never read: on visionOS it is mAh (2730) where the top level is percent (100).
     let max = try integer(entry, "MaxCapacity", in: 1...)
     let current = try integer(entry, "CurrentCapacity", in: 0...max)
     let battery = try dictionary(entry, "BatteryData")
-    let health = try optional(entry, "BatteryHealthData", as: [String: Any].self)
+    let health = try optionalValue(entry, "BatteryHealthData", as: [String: Any].self)
     return IPhoneBatteryReading(
         level: current * 100 / max,
         cycleCount: try integer(entry, "CycleCount", in: 0...),
@@ -104,18 +104,18 @@ private func capacity(_ entry: [String: Any], _ battery: [String: Any], _ key: S
 
 /// The value at key, which must be present, an integer, and within range.
 private func integer(_ dict: [String: Any], _ key: String, in range: some RangeExpression<Int>) throws -> Int {
-    guard let value = try optional(dict, key, as: Int.self) else { throw IPhoneParseError.missingKey(key) }
+    guard let value = try optionalValue(dict, key, as: Int.self) else { throw IPhoneParseError.missingKey(key) }
     guard range.contains(value) else { throw IPhoneParseError.invalid(key) }
     return value
 }
 
 private func dictionary(_ dict: [String: Any], _ key: String) throws -> [String: Any] {
-    guard let value = try optional(dict, key, as: [String: Any].self) else { throw IPhoneParseError.missingKey(key) }
+    guard let value = try optionalValue(dict, key, as: [String: Any].self) else { throw IPhoneParseError.missingKey(key) }
     return value
 }
 
 /// nil when the key is absent; wrongType when it is present with another type.
-private func optional<T>(_ dict: [String: Any], _ key: String, as _: T.Type) throws -> T? {
+func optionalValue<T>(_ dict: [String: Any], _ key: String, as _: T.Type) throws -> T? {
     guard let value = dict[key] else { return nil }
     guard let typed = value as? T else { throw IPhoneParseError.wrongType(key) }
     return typed

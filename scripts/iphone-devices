@@ -6,8 +6,8 @@
 #
 # capture writes one XML plist per listing, named <ProductType>-<ProductVersion>-<udid>-<ConnectionType>.plist (a device on
 # both cable and Wi-Fi is listed, and captured, twice). Each file holds the diagnostics relay's reply plus a top-level "Device"
-# dict (ProductType, ProductVersion, DeviceClass, ConnectionType) so a fixture cut from it can name the device and OS it came
-# from. IOPMPowerSource, not AppleSmartBattery: the Vision Pro answers only to the superclass (orange-iphone-watch-lm3.7iy
+# dict (DeviceName, ProductType, ProductVersion, DeviceClass, BluetoothAddress, ConnectionType) so a fixture cut from it can
+# name the device and OS it came from, and hold the identity reply the app parses (IPhoneIdentity). IOPMPowerSource, not AppleSmartBattery: the Vision Pro answers only to the superclass (orange-iphone-watch-lm3.7iy
 # cmt-9996a69e). The files hold the full reply, serial numbers included: keep them outside the repo and commit only the
 # allowlisted keys. Exits 1 if any listed device could not be captured.
 #
@@ -123,7 +123,7 @@ def capture(d, out_dir):
         if session.get("EnableSessionSSL"):
             s = open_sockets.enter_context(wrap_tls(s, pair))
         device = {"ConnectionType": conn}
-        for key in ("ProductType", "ProductVersion", "DeviceClass"):
+        for key in ("DeviceName", "ProductType", "ProductVersion", "DeviceClass", "BluetoothAddress"):
             device[key] = call(s, {"Request": "GetValue", "Key": key})["Value"]
         svc = call(s, {"Request": "StartService", "Service": "com.apple.mobile.diagnostics_relay"})
         r = open_sockets.enter_context(connect(dev_id, svc["Port"]))
