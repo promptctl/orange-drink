@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// The app's one device subscription and the list every view reads from it.
 ///
@@ -17,19 +18,19 @@ import Observation
     ///
     /// A source is its stream under its tag, one stream to a tag. Each is followed on its own, so a source failing or
     /// ending leaves the others' devices listed.
-    init(sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }) {
+    init(sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], log: Logger = BluetoothDevices.log, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }) {
         precondition(!sources.isEmpty, "a device list of no sources would read waiting for ever")
         list = DeviceList(sources: sources.keys)
         // The weak reference is re-taken per event: a strong one held across a stream would keep the model alive for good.
         let model: @Sendable () -> DevicesModel? = { [weak self] in self }
         subscriptions = sources.map { source, events in
-            Task { await DevicesModel.follow(source, events, model: model, onChange: onChange) }
+            Task { await DevicesModel.follow(source, events, model: model, log: log, onChange: onChange) }
         }
     }
 
     private static func follow(
         _ source: DeviceSource, _ events: AsyncThrowingStream<DeviceEvent, any Error>,
-        model: @Sendable () -> DevicesModel?, onChange: @MainActor (DeviceList) -> Void
+        model: @Sendable () -> DevicesModel?, log: Logger, onChange: @MainActor (DeviceList) -> Void
     ) async {
         let ending: any Error
         do {
@@ -39,7 +40,7 @@ import Observation
                 // reports another's is a mapper bug the list cannot know of, so it is said here, where the stream and its tag
                 // meet. The key is a Bluetooth address or a device ID, so only the sources are named.
                 for other in Set(event.ids.map(\.source)).subtracting([source]).sorted(by: { $0.rawValue < $1.rawValue }) {
-                    BluetoothDevices.log.error("device source \(source.rawValue, privacy: .public) reported a device of \(other.rawValue, privacy: .public); ignored")
+                    log.error("device source \(source.rawValue, privacy: .public) reported a device of \(other.rawValue, privacy: .public); ignored")
                 }
                 let contestedBefore = Set(model.list.contested)
                 model.list.apply(event, from: source)
@@ -47,7 +48,7 @@ import Observation
                 // extra rows, so the fault is said here, where the list is first seen to hold it. Once per address, not at every
                 // relist of a phone on Wi-Fi.
                 for address in Set(model.list.contested).subtracting(contestedBefore).sorted() {
-                    BluetoothDevices.log.error("device list: more than one device claims Bluetooth address \(address, privacy: .private); their rows are not merged")
+                    log.error("device list: more than one device claims Bluetooth address \(address, privacy: .private); their rows are not merged")
                 }
                 onChange(model.list)
             }
@@ -57,7 +58,7 @@ import Observation
         }
         // deinit cancelled the task: the model is gone, nobody is left to report an ended stream to.
         guard let model = model() else { return }
-        BluetoothDevices.log.error("device source ended: \(source.rawValue, privacy: .public): \(String(describing: ending), privacy: .public)")
+        log.error("device source ended: \(source.rawValue, privacy: .public): \(String(describing: ending), privacy: .public)")
         model.list.end(source)
         onChange(model.list)
     }

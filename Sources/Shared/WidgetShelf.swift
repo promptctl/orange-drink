@@ -6,8 +6,7 @@ import os
 
 /// Where the shelf logs, on either side of it. Not generic, so every widget's publisher shares the one category.
 enum ShelfLog {
-    static let category = "widgets"
-    static let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: category)
+    static let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "widgets")
 }
 
 /// The Mac as the widgets draw it.

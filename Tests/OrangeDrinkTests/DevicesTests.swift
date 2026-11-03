@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import Testing
 @testable import OrangeDrink
 
@@ -166,11 +167,11 @@ struct DeviceListTests {
         let connected = try Self.profilerConnected()
         try #require(!connected.isEmpty, "this check needs paired devices connected")
         let accessories = try Self.accessoryLevels()
-        let log = try await BatteryLog(category: "devices")
+        let log = try await TestLog()
         // The first sweep is the whole connected set, and a refused host never sweeps, so the refusal ends the wait for it.
         var list = DeviceList(sources: [.bluetooth])
         let (seen, see) = AsyncThrowingStream.makeStream(of: Seen.self)
-        let subscription = Self.subscribe(see)
+        let subscription = Self.subscribe(see, log: log.logger)
         defer { subscription.cancel() }
         sweep: for try await next in seen {
             guard case .event(let event) = next else { continue }
@@ -247,7 +248,7 @@ struct DeviceListTests {
         case event(DeviceEvent)
     }
 
-    private static func subscribe(_ see: AsyncThrowingStream<Seen, any Error>.Continuation) -> Task<Void, Never> {
+    private static func subscribe(_ see: AsyncThrowingStream<Seen, any Error>.Continuation, log: Logger) -> Task<Void, Never> {
         let events = BluetoothDevices.events(asks: { timekeeper in
             let (asks, ask) = AsyncStream.makeStream(of: BluetoothPermission.Ask.self)
             let real = BluetoothPermission.asks(timekeeper: timekeeper)
@@ -259,7 +260,7 @@ struct DeviceListTests {
             }
             ask.onTermination = { _ in tee.cancel() }
             return asks
-        })
+        }, log: log)
         return Task {
             do {
                 for try await event in events { see.yield(.event(event)) }

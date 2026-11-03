@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// The app's one battery subscription and the state every view reads from it.
 ///
@@ -23,7 +24,8 @@ import Observation
     /// When the latest reading was taken, by this model's clock; nil until there is one.
     private(set) var readingAt: Date?
     @ObservationIgnored private let timekeeper: any Timekeeper
-    @ObservationIgnored private let read: @Sendable () throws -> BatteryReading?
+    @ObservationIgnored private let read: @Sendable (Logger) throws -> BatteryReading?
+    @ObservationIgnored private let log: Logger
     /// Told of every state the model holds, the first included, so what acts on them (alerts,
     /// history, widgets) never watches `state`.
     @ObservationIgnored private let onState: @MainActor (State) -> Void
@@ -40,10 +42,12 @@ import Observation
     /// `read` takes one reading on demand, for the refresh the model does on its own and when asked.
     init<Readings: AsyncSequence & Sendable>(
         readings: Readings,
-        read: @escaping @Sendable () throws -> BatteryReading? = IOKitBattery.read,
+        read: @escaping @Sendable (Logger) throws -> BatteryReading? = IOKitBattery.read(log:),
         timekeeper: any Timekeeper = SystemTimekeeper(),
+        log: Logger = IOKitBattery.log,
         onState: @escaping @MainActor (State) -> Void = { _ in }
     ) where Readings.Element == BatteryReading? {
+        self.log = log
         self.read = read
         self.timekeeper = timekeeper
         self.onState = onState
@@ -65,7 +69,7 @@ import Observation
             // A dropped model cancelled the stream itself, so its ending is no event.
             guard let self else { return }
             let reason = ending.map { String(describing: $0) } ?? "the stream finished"
-            IOKitBattery.log.error("battery subscription ended: \(reason, privacy: .public)")
+            self.log.error("battery subscription ended: \(reason, privacy: .public)")
             self.set(.ended(ending))
         }
 
@@ -84,10 +88,10 @@ import Observation
     /// model the way a failed subscription does, so the panel says so instead of going stale.
     func refresh() {
         do {
-            take(try read())
-            IOKitBattery.log.info("battery refresh: reading taken")
+            take(try read(log))
+            log.info("battery refresh: reading taken")
         } catch {
-            IOKitBattery.log.error("battery refresh failed: \(String(describing: error), privacy: .public)")
+            log.error("battery refresh failed: \(String(describing: error), privacy: .public)")
             set(.ended(error))
         }
     }

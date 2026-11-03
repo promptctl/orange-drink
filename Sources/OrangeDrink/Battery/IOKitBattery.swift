@@ -7,12 +7,11 @@ import os
 /// dictionaries and hands them to the pure parser.
 enum IOKitBattery {
     static let logSubsystem = Bundle.main.bundleIdentifier!
-    static let logCategory = "battery"
-    static let log = Logger(subsystem: logSubsystem, category: logCategory)
+    static let log = Logger(subsystem: logSubsystem, category: "battery")
 
     /// nil when this Mac has no battery: a desktop, or a laptop whose battery is gone, is a
     /// legal host, not an error. Every outcome leaves one line in the log.
-    static func read() throws -> BatteryReading? {
+    static func read(log: Logger = IOKitBattery.log) throws -> BatteryReading? {
         do {
             let reading = try fetch()
             log.info("battery read: \(reading.map { String(describing: $0) } ?? "none", privacy: .public)")

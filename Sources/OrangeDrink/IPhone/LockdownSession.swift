@@ -396,11 +396,13 @@ final class DiagnosticsRelay: BatteryRelay, @unchecked Sendable {
     private let handle: Int
     private let udid: String
     private let stream: PlistStream
+    private let log: Logger
 
     /// A lockdown session, the relay started under it, and the relay's own TLS. The session ends here: the relay stays
     /// open without it.
-    init(handle: Int, udid: String, identities: PairIdentities) throws(IPhoneReadError) {
+    init(handle: Int, udid: String, identities: PairIdentities, log: Logger = IPhoneMonitor.log) throws(IPhoneReadError) {
         self.handle = handle
+        self.log = log
         self.udid = udid
         do {
             stream = try typedReadErrors {
@@ -411,9 +413,9 @@ final class DiagnosticsRelay: BatteryRelay, @unchecked Sendable {
                 if service["EnableServiceSSL"] as? Bool == true { try relay.startTLS(identity: lockdown.identity) }
                 return relay
             }
-            IPhoneMonitor.log.info("iphone relay opened: \(udid, privacy: .public) handle \(handle)")
+            log.info("iphone relay opened: \(udid, privacy: .public) handle \(handle)")
         } catch {
-            IPhoneMonitor.log.error("iphone relay open failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
+            log.error("iphone relay open failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
             throw error
         }
     }
@@ -423,10 +425,10 @@ final class DiagnosticsRelay: BatteryRelay, @unchecked Sendable {
             let reading = try typedReadErrors {
                 try parseIPhoneBattery(try powerSourceEntry(try decodeReply(try stream.request(["Request": "IORegistry", "EntryClass": "IOPMPowerSource"]))))
             }
-            IPhoneMonitor.log.info("iphone read: \(self.udid, privacy: .public) handle \(self.handle): \(String(describing: reading), privacy: .public)")
+            log.info("iphone read: \(self.udid, privacy: .public) handle \(self.handle): \(String(describing: reading), privacy: .public)")
             return reading
         } catch {
-            IPhoneMonitor.log.error("iphone read failed: \(self.udid, privacy: .public) handle \(self.handle): \(String(describing: error), privacy: .public)")
+            log.error("iphone read failed: \(self.udid, privacy: .public) handle \(self.handle): \(String(describing: error), privacy: .public)")
             throw error
         }
     }
@@ -436,6 +438,10 @@ final class DiagnosticsRelay: BatteryRelay, @unchecked Sendable {
 /// import cost about 6 ms of CPU. usbmuxd's pair record stays the source, read on every connection, so a device paired
 /// again brings a new record and a new identity.
 final class PairIdentities: Sendable {
+    private let log: Logger
+
+    init(log: Logger = IPhoneMonitor.log) { self.log = log }
+
     private struct Record: Hashable {
         let certificatePEM: Data
         let keyPEM: Data
@@ -452,7 +458,7 @@ final class PairIdentities: Sendable {
             let identity = try pairIdentity(certificatePEM: certificatePEM, keyPEM: keyPEM)
             built[record] = identity
             let count = built.count
-            IPhoneMonitor.log.info("iphone host identity built: \(count) pair records")
+            log.info("iphone host identity built: \(count) pair records")
             return identity
         }
     }
@@ -468,7 +474,8 @@ let readWorstCase = (callDeadline + .seconds(1)) * 15
 /// Switches the device's Wi-Fi sync, the box Finder labels "Show this iPhone when on Wi-Fi", on or off. On, usbmuxd
 /// reaches the device over the network once the cable is out. Every outcome leaves one line in the log.
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
-func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String, identities: PairIdentities) throws(IPhoneReadError) {
+func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String, identities: PairIdentities,
+                       log: Logger = IPhoneMonitor.log) throws(IPhoneReadError) {
     let state = on ? "on" : "off"
     do {
         try typedReadErrors {
@@ -476,9 +483,9 @@ func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String, identities: PairId
             _ = try decodeReply(try lockdown.stream.request(["Request": "SetValue", "Domain": "com.apple.mobile.wireless_lockdown",
                                                              "Key": "EnableWifiConnections", "Value": on]))
         }
-        IPhoneMonitor.log.info("iphone wifi sync \(state, privacy: .public): \(udid, privacy: .public) handle \(handle)")
+        log.info("iphone wifi sync \(state, privacy: .public): \(udid, privacy: .public) handle \(handle)")
     } catch {
-        IPhoneMonitor.log.error("iphone wifi sync \(state, privacy: .public) failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
+        log.error("iphone wifi sync \(state, privacy: .public) failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
         throw error
     }
 }
@@ -487,7 +494,8 @@ func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String, identities: PairId
 /// `IPhoneIdentity.lockdownKeys`, parsed together. It is a session of its own, not the relay's, so a device whose relay will
 /// not start (locked, refused) can still be identified. Every outcome leaves one line in the log.
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
-func readIPhoneIdentity(handle: Int, udid: String, identities: PairIdentities) throws(IPhoneReadError) -> IPhoneIdentity {
+func readIPhoneIdentity(handle: Int, udid: String, identities: PairIdentities,
+                        log: Logger = IPhoneMonitor.log) throws(IPhoneReadError) -> IPhoneIdentity {
     do {
         let identity = try typedReadErrors {
             let lockdown = try openLockdown(handle: handle, udid: udid, identities: identities)
@@ -497,10 +505,10 @@ func readIPhoneIdentity(handle: Int, udid: String, identities: PairIdentities) t
             }
             return try parseIPhoneIdentity(values)
         }
-        IPhoneMonitor.log.info("iphone identity read: \(udid, privacy: .public) handle \(handle): \(String(describing: identity), privacy: .public)")
+        log.info("iphone identity read: \(udid, privacy: .public) handle \(handle): \(String(describing: identity), privacy: .public)")
         return identity
     } catch {
-        IPhoneMonitor.log.error("iphone identity read failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
+        log.error("iphone identity read failed: \(udid, privacy: .public) handle \(handle): \(String(describing: error), privacy: .public)")
         throw error
     }
 }

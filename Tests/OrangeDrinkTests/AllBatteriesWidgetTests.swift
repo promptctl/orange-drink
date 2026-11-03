@@ -362,15 +362,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     }
 
     @Test(arguments: [WidgetStyle.list, .bars]) func eachTimelineLogsItsStyle(style: WidgetStyle) async throws {
-        // A category of the test's own, because the host app publishes into the shelf's.
-        let category = "style-\(UUID().uuidString)"
-        let log = try await BatteryLog(category: category)
+        let log = try await TestLog()
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
-        _ = Self.configured(style, in: shelf, log: Logger(subsystem: IOKitBattery.logSubsystem, category: category))
+        _ = Self.configured(style, in: shelf, log: log.logger)
         let line = "widget devices automatic style \(style.rawValue) names false mac true appearance color"
-        #expect(try await log.logged(line))
-        #expect(try log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
+        #expect(try await log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
     }
 
     @Test func aWidgetWithNoSavedStyleDrawsRingsAndASavedStyleKeepsItsName() {

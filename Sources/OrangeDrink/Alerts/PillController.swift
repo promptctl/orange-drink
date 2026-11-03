@@ -71,7 +71,7 @@ enum PillEnd {
 /// countdown live and die together. What moves them is two separate inputs: `hidden` decides
 /// whether the countdown runs, and a change of displays decides where the windows are.
 @MainActor final class PillController {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
+    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
     /// How long a pill stays up while the screen can be seen, unless its × or a newer alert takes it
     /// down first. Each return to being seen starts it again, in full.
     nonisolated static let shownFor: Duration = .seconds(8)
@@ -99,6 +99,7 @@ enum PillEnd {
     private let timekeeper: any Timekeeper
     private let currentScreen: @MainActor () -> ScreenArea?
     private let orderFront: @MainActor (OverlayPanel) -> Void
+    private let log: Logger
     private var up: Up?
     /// A launched app has someone in front of it, so nothing hides the screen until the system says so.
     private var hidden: Set<ScreenHider> = []
@@ -108,7 +109,8 @@ enum PillEnd {
     /// [LAW:effects-at-boundaries] `orderFront` is what puts a built window on the screen, and it has no default: the app
     /// orders each panel front, and a test holds them, so `make test` builds and asserts on the panels without showing them.
     init(appearance: NotificationAppearanceModel, language: AppLanguageModel, orderFront: @escaping @MainActor (OverlayPanel) -> Void,
-         timekeeper: any Timekeeper = SystemTimekeeper(), screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main) {
+         timekeeper: any Timekeeper = SystemTimekeeper(), screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main, log: Logger = PillController.log) {
+        self.log = log
         self.appearance = appearance
         self.language = language
         self.orderFront = orderFront
@@ -151,7 +153,7 @@ enum PillEnd {
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
         // alert is logged. A pill already up stays, with the countdown `hidden` gave it.
         guard let area = currentScreen() else {
-            Self.log.error("no screen to show the pill on: \(content.headline.english, privacy: .private)")
+            log.error("no screen to show the pill on: \(content.headline.english, privacy: .private)")
             return
         }
         dismiss("replaced")
@@ -165,7 +167,7 @@ enum PillEnd {
         // Their levels stack the glow under the pill, whichever is ordered front first.
         shownPanels.forEach(orderFront)
         let counting = pill.countdown == nil ? ", held" : " for \(Self.shownFor)"
-        Self.log.info("pill shown at \(content.position.rawValue, privacy: .public)\(counting, privacy: .public): \(content.headline.english, privacy: .private)")
+        log.info("pill shown at \(content.position.rawValue, privacy: .public)\(counting, privacy: .public): \(content.headline.english, privacy: .private)")
     }
 
     /// What hides the screen now. Every change gives the pill up a new countdown from `countdown()`;
@@ -174,13 +176,13 @@ enum PillEnd {
         guard hidden != self.hidden else { return }
         self.hidden = hidden
         let said = hidden.isEmpty ? "seen" : "hidden by \(hidden.map(\.rawValue).sorted().joined(separator: ", "))"
-        Self.log.info("screen \(said, privacy: .public)")
+        log.info("screen \(said, privacy: .public)")
         guard var pill = up else { return }
         pill.countdown?.cancel()
         pill.countdown = countdown()
         up = pill
         let counting = pill.countdown == nil ? "held" : "counting \(Self.shownFor) again"
-        Self.log.info("pill \(counting, privacy: .public): \(pill.content.headline.english, privacy: .private)")
+        log.info("pill \(counting, privacy: .public): \(pill.content.headline.english, privacy: .private)")
     }
 
     /// The displays changed: the pill up moves onto the current main screen, keeping its countdown.
@@ -188,11 +190,11 @@ enum PillEnd {
         guard let pill = up else { return }
         // [LAW:no-silent-failure] With no screen the pill stays where it was, and the next change places it.
         guard let area = currentScreen() else {
-            Self.log.error("no screen to place the pill on: \(pill.content.headline.english, privacy: .private)")
+            log.error("no screen to place the pill on: \(pill.content.headline.english, privacy: .private)")
             return
         }
         pill.place(on: area)
-        Self.log.info("pill placed in \(String(describing: area.visibleFrame), privacy: .public): \(pill.content.headline.english, privacy: .private)")
+        log.info("pill placed in \(String(describing: area.visibleFrame), privacy: .public): \(pill.content.headline.english, privacy: .private)")
     }
 
     /// Feeds the controller what hides the screen and when the displays change, for as long as it lives.
@@ -233,7 +235,7 @@ enum PillEnd {
     private func dismiss(_ why: String) {
         if let up {
             // A device pill's headline holds the device's name, which AlertCenter logs as private too.
-            Self.log.info("pill \(why, privacy: .public): \(up.content.headline.english, privacy: .private)")
+            log.info("pill \(why, privacy: .public): \(up.content.headline.english, privacy: .private)")
             up.close()
         }
         up = nil

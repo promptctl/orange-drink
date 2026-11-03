@@ -10,10 +10,17 @@ private final class TestBundle {}
 /// The app's launch step, which the bare test host never takes (Main.swift), taken once by whichever live helper suite
 /// starts first: it replaces a helper not this copy's, logs the registration HelperLive reads back, and releases the
 /// record at exit.
+/// [LAW:single-enforcer] `registration` is this process's one registration, as `HelperRegistration.app` is the app's: a
+/// second on the same service would step on a queue of its own, unordered against the first's.
 private enum LaunchStep {
+    /// The category `registration` records to, this process's alone; a `TestLog` on it reads from where it begins.
+    static let category = "test-helper-\(UUID().uuidString)"
+    static let registration = HelperRegistration.onThisBuild(log: Logger(subsystem: IOKitBattery.logSubsystem, category: category))
+
     static let taken: Void = {
-        HelperRegistration.holdUntilExit()
-        HelperRegistration.app.waitForSteps()
+        atexit { LaunchStep.registration.exit() }
+        registration.launch()
+        registration.waitForSteps()
     }()
 }
 
@@ -91,7 +98,7 @@ struct HelperLive {
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         var lines: [String] = []
         for _ in 0..<50 {
-            lines = try store.getEntries(matching: NSPredicate(format: "subsystem == %@ AND category == %@", IOKitBattery.logSubsystem, "helper"))
+            lines = try store.getEntries(matching: NSPredicate(format: "subsystem == %@ AND category == %@", IOKitBattery.logSubsystem, LaunchStep.category))
                 .map(\.composedMessage)
             if lines.contains(where: { $0.hasPrefix("helper registration: ") }) { break }
             Thread.sleep(forTimeInterval: 0.2)
@@ -105,8 +112,8 @@ struct HelperLive {
         let status = SMAppService.daemon(plistName: "\(label).plist").status
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
         try expectAppAccepted()
-        HelperRegistration.app.launch()
-        HelperRegistration.app.waitForSteps()
+        LaunchStep.registration.launch()
+        LaunchStep.registration.waitForSteps()
         try expectAppAccepted()
     }
 
@@ -222,7 +229,7 @@ struct HelperRepairLive {
         try #require(status == .enabled, "status \(status.name): approve OrangeDrink under System Settings › General › Login Items & Extensions › Allow in the Background")
         try #require(Self.reply(client) == nil, "the helper does not answer before the check starts")
 
-        let log = try await BatteryLog(category: "helper")
+        let log = try await TestLog(following: LaunchStep.category)
         let scratch = FileManager.default.temporaryDirectory.appending(path: "helper-repair-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         let good = scratch.appending(path: helper.lastPathComponent)
@@ -263,19 +270,17 @@ struct HelperRepairLive {
         // The good helper is back and launchd still will not run it: this is the wedge, with the status as it was.
         #expect(SMAppService.daemon(plistName: daemon.plistName).status == .enabled)
         var failure: HelperUseFailure?
-        do throws(HelperUseFailure) { try HelperAccess(daemon: daemon).resumeCharging() } catch { failure = error }
+        do throws(HelperUseFailure) { try HelperAccess(service: daemon.label, plistName: daemon.plistName, registration: LaunchStep.registration).resumeCharging() } catch { failure = error }
         try #require(failure?.cause == .notAnswering, "the call ended in \(String(describing: failure))")
 
-        HelperRegistration.app.waitForSteps()
+        LaunchStep.registration.waitForSteps()
         let identity = try client.identity()
         #expect(identity.euid == 0)
         #expect(URL(fileURLWithPath: identity.executable).resolvingSymlinksInPath() == helper)
         // [LAW:verifiable-goals] Cleared, or a running copy with this label kept the job, which only a `helper check:` line says.
-        let repaired = try await log.logged("helper repair: ")
-        let checks = try log.messages().filter { $0.hasPrefix("helper check: ") }
-        #expect(repaired, "\(checks)")
+        let lines = try await log.messages()
         // A second attempt or later, or `register` was never refused and the refusal window this exists to cross was not met.
-        let repair = try #require(try log.messages().first { $0.hasPrefix("helper repair: ") })
+        let repair = try #require(lines.first { $0.hasPrefix("helper repair: ") }, "\(lines.filter { $0.hasPrefix("helper check: ") })")
         let match = try #require(repair.firstMatch(of: #/^helper repair: handshake no reply .*; cleared ok; registered; status enabled; attempt (\d+) after \d+ ms; the helper answered$/#), "\(repair)")
         #expect(try #require(Int(match.1)) > 1, "\(repair)")
     }

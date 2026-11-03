@@ -42,7 +42,8 @@ enum BluetoothDevices {
     static func events(
         timekeeper: any Timekeeper = SystemTimekeeper(),
         asks: @escaping @Sendable (any Timekeeper) -> AsyncStream<BluetoothPermission.Ask> = BluetoothPermission.asks(timekeeper:),
-        watcher: @escaping @Sendable (Events, any Timekeeper) throws -> any DeviceWatcher = liveWatcher
+        log: Logger = BluetoothDevices.log,
+        watcher: @escaping @Sendable (Events, any Timekeeper, Logger) throws -> any DeviceWatcher = { try liveWatcher($0, timekeeper: $1, log: $2) }
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -50,10 +51,10 @@ enum BluetoothDevices {
                 defer { if case .watching(let watcher) = state { watcher.stop() } }
                 do {
                     for await ask in asks(timekeeper) {
-                        state = try await state.advanced(by: ask, continuation) { try watcher(continuation, timekeeper) }
+                        state = try await state.advanced(by: ask, continuation, log: log) { try watcher(continuation, timekeeper, log) }
                     }
                 } catch {
-                    Watcher.fail(continuation, error)
+                    Watcher.fail(continuation, error, log: log)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -71,7 +72,7 @@ enum BluetoothDevices {
         /// A permission reaches the list only when it changes, because `.permission(.allowed)` means a sweep is awaited, and
         /// a minute must not say that of a list already read. A watcher stops before its refusal is reported, so no read follows it.
         func advanced(
-            by ask: BluetoothPermission.Ask, _ continuation: Events, making watcher: () throws -> any DeviceWatcher
+            by ask: BluetoothPermission.Ask, _ continuation: Events, log: Logger, making watcher: () throws -> any DeviceWatcher
         ) async throws -> Watching {
             switch (self, ask) {
             case (.watching(let running), .heard(.allowed)), (.watching(let running), .stalled):
@@ -79,23 +80,23 @@ enum BluetoothDevices {
                 return self
             case (.watching(let running), .heard(let permission)):
                 running.stop()
-                Self.report(permission, continuation)
+                Self.report(permission, continuation, log: log)
                 return .held(permission)
             case (.held, .heard(.allowed)):
-                Self.report(.allowed, continuation)
+                Self.report(.allowed, continuation, log: log)
                 let started = try watcher()
                 try await MainActor.run { try started.start() }
                 log.notice("device watcher started")
                 return .watching(started)
             case (.held(let reported), .heard(let permission)) where permission != reported:
-                Self.report(permission, continuation)
+                Self.report(permission, continuation, log: log)
                 return .held(permission)
             case (.held, _):
                 return self
             }
         }
 
-        private static func report(_ permission: BluetoothPermission, _ continuation: Events) {
+        private static func report(_ permission: BluetoothPermission, _ continuation: Events, log: Logger) {
             if permission != .notDetermined {
                 log.notice("bluetooth permission answered: \(String(describing: permission), privacy: .public)")
             }
@@ -103,8 +104,8 @@ enum BluetoothDevices {
         }
     }
 
-    static func liveWatcher(_ continuation: Events, timekeeper: any Timekeeper) throws -> any DeviceWatcher {
-        Watcher(continuation: continuation, timekeeper: timekeeper, reader: DeviceReader(sources: try AccessoryPower().read))
+    static func liveWatcher(_ continuation: Events, timekeeper: any Timekeeper, log: Logger) throws -> any DeviceWatcher {
+        Watcher(continuation: continuation, timekeeper: timekeeper, reader: DeviceReader(sources: try AccessoryPower().read, log: log), log: log)
     }
 
     /// [LAW:single-enforcer] The private selectors the edge reads, checked once at the border:
@@ -133,8 +134,10 @@ enum BluetoothDevices {
 
         private let timekeeper: any Timekeeper
         private let reader: DeviceReader
+        private let log: Logger
 
-        init(continuation: Events, timekeeper: any Timekeeper, reader: DeviceReader) {
+        init(continuation: Events, timekeeper: any Timekeeper, reader: DeviceReader, log: Logger) {
+            self.log = log
             self.continuation = continuation
             self.timekeeper = timekeeper
             self.reader = reader
@@ -142,8 +145,8 @@ enum BluetoothDevices {
 
         /// [LAW:no-silent-failure] An OS this edge does not understand ends the subscription, so the list
         /// goes `.ended`. A read powerd does not answer is a state of the levels, not an end (`DeviceReader`).
-        static func fail(_ continuation: Events, _ error: any Error) {
-            BluetoothDevices.log.error("device subscription failed: \(String(describing: error), privacy: .public)")
+        static func fail(_ continuation: Events, _ error: any Error, log: Logger) {
+            log.error("device subscription failed: \(String(describing: error), privacy: .public)")
             continuation.finish(throwing: error)
         }
 
@@ -168,7 +171,7 @@ enum BluetoothDevices {
             serial.unlock()
             held.connect?.unregister()
             held.disconnects.values.forEach { $0.unregister() }
-            BluetoothDevices.log.notice("device watcher stopped")
+            log.notice("device watcher stopped")
         }
 
         @objc private func connected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
@@ -186,9 +189,9 @@ enum BluetoothDevices {
         }
 
         @objc private func disconnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
-            guard let id = DeviceID(device) else { return }
+            guard let id = DeviceID(device, log: log) else { return }
             registrations.withLockUnchecked { $0.disconnects.removeValue(forKey: id.key) }?.unregister()
-            BluetoothDevices.log.info("device gone: \(id.key, privacy: .private)")
+            log.info("device gone: \(id.key, privacy: .private)")
             continuation.yield(.gone(id))
         }
 
@@ -201,11 +204,11 @@ enum BluetoothDevices {
             // nil is IOBluetooth's own answer for no paired devices (IOBluetoothDevice.h), not a read that failed.
             let connected = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter { $0.isConnected() }
             connected.forEach(register)
-            continuation.yield(reader.sweep(connected.compactMap(BluetoothPeer.init)))
+            continuation.yield(reader.sweep(connected.compactMap { BluetoothPeer($0, log: log) }))
         }
 
         private func register(_ device: IOBluetoothDevice) {
-            guard let address = DeviceID(device)?.key else { return }
+            guard let address = DeviceID(device, log: log)?.key else { return }
             guard registrations.withLockUnchecked({ $0.disconnects[address] == nil }),
                   let notification = device.register(forDisconnectNotification: self, selector: #selector(disconnected(_:device:)))
             else { return }
@@ -217,7 +220,7 @@ enum BluetoothDevices {
             defer { serial.unlock() }
             guard !stopped else { return }
             register(device)
-            guard let peer = BluetoothPeer(device) else { return }
+            guard let peer = BluetoothPeer(device, log: log) else { return }
             continuation.yield(reader.report(peer))
         }
     }
@@ -246,8 +249,8 @@ private extension BluetoothPeer {
     ///
     /// [LAW:one-source-of-truth] IOBluetooth has battery properties of its own; they held one earbud of
     /// a set power management and system_profiler gave three parts for (1e6), so they are not read.
-    init?(_ device: IOBluetoothDevice) {
-        guard let id = DeviceID(device) else { return nil }
+    init?(_ device: IOBluetoothDevice, log: Logger) {
+        guard let id = DeviceID(device, log: log) else { return nil }
         // The name System Settings shows is the user's alias, which only the private getDisplayName
         // returns; `name` is the name the device broadcasts ("Beats Studio Buds +", not "Brandon’s Beats Studio Buds +").
         let name = Device.name(
@@ -261,9 +264,9 @@ private extension DeviceID {
     /// [LAW:parse-dont-validate] A connect notification can name a peer IOBluetooth has no address
     /// for yet ("No name or address"); such a peer cannot be told from another, so it is not a
     /// device. The next sweep sees it once it can be identified.
-    init?(_ device: IOBluetoothDevice) {
+    init?(_ device: IOBluetoothDevice, log: Logger) {
         guard let address = device.addressString else {
-            BluetoothDevices.log.info("device skipped: no address yet")
+            log.info("device skipped: no address yet")
             return nil
         }
         self.init(source: .bluetooth, key: address)

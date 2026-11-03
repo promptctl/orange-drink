@@ -98,7 +98,7 @@ hardware-status:
 # enables the one test that needs a person at the cable.
 unplug-check: export TEST_RUNNER_UNPLUG_CHECK = 1
 unplug-check.test := BatteryLive/plugAndUnplug()
-unplug-check.covers := Sources/OrangeDrink/Battery Tests/OrangeDrinkTests/BatteryLiveTests.swift Tests/OrangeDrinkTests/BatteryLog.swift
+unplug-check.covers := Sources/OrangeDrink/Battery Tests/OrangeDrinkTests/BatteryLiveTests.swift Tests/OrangeDrinkTests/TestLog.swift
 
 # The iPhone & iPad ticket's step on a real Mac: with one trusted iPhone or iPad cabled, switches its Wi-Fi sync off, then
 # has the monitor switch it on and read the device over the cable, waits for the cable to be pulled, and reads it over Wi-Fi.
@@ -106,7 +106,7 @@ unplug-check.covers := Sources/OrangeDrink/Battery Tests/OrangeDrinkTests/Batter
 iphone-check: export TEST_RUNNER_IPHONE_CHECK = 1
 iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled()
 iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Blocking.swift Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
-  Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
+  Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/TestLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
 # The device sources ticket's step on a real Mac: with an iPhone, iPad or Vision Pro this Mac trusts reachable, cabled or on
 # Wi-Fi, reads each one's name, model and Bluetooth address from lockdown and holds them to the Mac's own record of the device
@@ -122,7 +122,7 @@ iphone-identity-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/D
 devices-check: export TEST_RUNNER_DEVICES_CHECK = 1
 devices-check.test := DevicesLive/matchesSystemProfiler()
 devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/PowerSources.swift Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
-  Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
+  Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/TestLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
 # The pinned devices ticket on a real menu bar, a VM's, because it puts three status items in it: reorders them, and
 # checks the bar follows the list, including over a position left by a ⌘-drag.
@@ -147,7 +147,7 @@ helper-check: generate
 helper-repair-check: export TEST_RUNNER_HELPER_REPAIR_CHECK = 1
 helper-repair-check.test := HelperRepairLive/aJobLaunchdWillNotRunIsRepaired()
 helper-repair-check.covers := Sources/OrangeDrink/Helper Sources/HelperInterface Sources/OrangeDrinkHelper project.yml \
-  Tests/OrangeDrinkTests/HelperLive.swift Tests/OrangeDrinkTests/BatteryLog.swift
+  Tests/OrangeDrinkTests/HelperLive.swift Tests/OrangeDrinkTests/TestLog.swift
 
 # Every check that declares a `.test` runs it through xcodebuild. The rule sits after the declarations because make
 # expands a rule's targets as it reads the rule.

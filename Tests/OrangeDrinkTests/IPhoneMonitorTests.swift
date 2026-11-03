@@ -52,7 +52,7 @@ import Testing
         /// The handles relays were opened over, in order.
         let opened = OSAllocatedUnfairLock<[Int]>(initialState: [])
 
-        init(snapshot: @escaping @Sendable () throws -> [AttachedDevice],
+        init(log: Logger = IPhoneMonitor.log, snapshot: @escaping @Sendable () throws -> [AttachedDevice],
              enableWifiSync: @escaping MonitorInputs.EnableWifiSync = { _, _ throws(IPhoneReadError) in },
              connect: @escaping @Sendable (_ handle: Int) throws(IPhoneReadError) -> Void = { _ throws(IPhoneReadError) in },
              identify: @escaping MonitorInputs.Identify = { _, _ throws(IPhoneReadError) in IPhoneMonitorDecisions.identity },
@@ -69,7 +69,7 @@ import Testing
                     try connect(handle)
                     return StandInRelay(handle: handle, udid: udid, read: read)
                 },
-                enableWifiSync: enableWifiSync, timekeeper: clock))
+                enableWifiSync: enableWifiSync, timekeeper: clock, log: log))
             events = Self.keeping(from: all) { event in
                 switch event {
                 case .listed: listing
@@ -123,9 +123,9 @@ import Testing
 
     @Test
     func pluggingInSwitchesOnWifiSyncOnceAndReadsOverTheCableEachPollInterval() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let syncs = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.usb(5, "B")] },
+        let harness = try Harness(log: log.logger, snapshot: { [Self.usb(5, "B")] },
                                   enableWifiSync: { _, _ throws(IPhoneReadError) in syncs.withLock { $0 += 1 } }) { _, _ throws(IPhoneReadError) in
             Self.reading
         }
@@ -145,9 +145,9 @@ import Testing
 
     @Test
     func aSnapshotEntryAndItsListenAttachReadOnceAndFailuresAreYielded() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.usb(5, "B")] },
+        let harness = try Harness(log: log.logger, snapshot: { [Self.usb(5, "B")] },
                                   enableWifiSync: { _, _ throws(IPhoneReadError) in throw .usbmux(.noPairRecord) }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             throw .closed
@@ -167,9 +167,9 @@ import Testing
 
     @Test
     func aDeviceThatDropsOffWifiAndReturnsDuringItsRestIsReadAtThePollAndNotBefore() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "E")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "E")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             return Self.reading
         }
@@ -192,9 +192,9 @@ import Testing
 
     @Test
     func aDeviceGoneAtThePollIsReadOnItsNextAttach() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "F")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "F")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             return Self.reading
         }
@@ -262,9 +262,9 @@ import Testing
 
     @Test
     func pairingAfterAFailedReadAddsNoReadAndTheNextComesAtThePoll() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "G")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "G")] }) { _, _ throws(IPhoneReadError) in
             if reads.withLock({ $0 += 1; return $0 }) == 1 { throw .usbmux(.noPairRecord) }
             return Self.reading
         }
@@ -307,9 +307,9 @@ import Testing
     // ahead of the cable, and drop it a moment later (lm3.1tt cmt-d1c4f03c). The first read goes over the cable.
     @Test
     func aDeviceTheSnapshotListsOverWifiThenTheCableIsFirstReadOverTheCable() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let snapshot = [Self.wifi(6, "P"), Self.usb(5, "P")]
-        let harness = try Harness(snapshot: { snapshot }) { handle, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: log.logger, snapshot: { snapshot }) { handle, _ throws(IPhoneReadError) in
             guard handle == 5 else { throw .closed }
             return Self.reading
         }
@@ -346,10 +346,10 @@ import Testing
     // cannot be opened is a failed read too.
     @Test
     func aFailedReadOrOpenIsYieldedAndTheNextPollOpensANewRelay() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let opens = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "T")] },
+        let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "T")] },
                                   connect: { _ throws(IPhoneReadError) in
                                       if opens.withLock({ $0 += 1; return $0 }) == 2 { throw .tls(-9806) }
                                   }) { _, _ throws(IPhoneReadError) in
@@ -445,8 +445,8 @@ import Testing
 
     @Test
     func endingTheStreamCancelsEveryPacer() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "B"), Self.wifi(7, "C")] }) { _, _ throws(IPhoneReadError) in Self.reading }
+        let log = try await TestLog()
+        let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "B"), Self.wifi(7, "C")] }) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
         let seen = OSAllocatedUnfairLock(initialState: 0)
         let consumer = Task { for await _ in harness.events { seen.withLock { $0 += 1 } } }
@@ -460,10 +460,10 @@ import Testing
 
     @Test
     func aReadInFlightWhenTheStreamEndsIsDroppedAndItsPacerEnds() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let readMayFinish = DispatchSemaphore(value: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "H")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: log.logger, snapshot: { [Self.wifi(6, "H")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             readMayFinish.wait()
             return Self.reading
@@ -481,11 +481,11 @@ import Testing
 
     @Test
     func aDeviceSeenAfterTheMonitorEndedIsNeitherReadNorWrittenTo() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let reads = OSAllocatedUnfairLock(initialState: 0)
         let syncs = OSAllocatedUnfairLock(initialState: 0)
         let ended = DispatchSemaphore(value: 0)
-        let harness = try Harness(snapshot: { ended.wait(); return [Self.usb(6, "D")] },
+        let harness = try Harness(log: log.logger, snapshot: { ended.wait(); return [Self.usb(6, "D")] },
                                   enableWifiSync: { _, _ throws(IPhoneReadError) in syncs.withLock { $0 += 1 } }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             return Self.reading
@@ -524,8 +524,8 @@ import Testing
 
     @Test
     func aClosedListenConnectionEndsTheStream() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
-        let harness = try Harness(snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }
+        let log = try await TestLog()
+        let harness = try Harness(log: log.logger, snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }
         close(harness.peer)
         var events: [IPhoneEvent] = []
         for await event in harness.events { events.append(event) }
@@ -546,8 +546,8 @@ import Testing
 
     @Test
     func aConsumerThatStopsListeningStopsTheMonitor() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
-        let harness = try Harness(snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }
+        let log = try await TestLog()
+        let harness = try Harness(log: log.logger, snapshot: { [] }) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
         let consumer = Task { for await _ in harness.events {} }
         consumer.cancel()
@@ -559,13 +559,13 @@ import Testing
     @available(macOS 15.0, *)
     @available(macOS, deprecated: 10.15, message: "opens DiagnosticsRelay, which uses SecureTransport; see lm3.8pk")
     @Test func anUntrustedDeviceFailsAsNoPairRecordAndIsLogged() async throws {
-        let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
+        let log = try await TestLog()
         let udid = "00000000-0000000000000000"  // UDID-shaped, so usbmuxd answers ENOENT rather than EINVAL
         let identities = PairIdentities()
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try DiagnosticsRelay(handle: 1, udid: udid, identities: identities) }
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneIdentity(handle: 1, udid: udid, identities: identities) }
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid, identities: identities) }
-        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(false, handle: 1, udid: udid, identities: identities) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try DiagnosticsRelay(handle: 1, udid: udid, identities: identities, log: log.logger) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneIdentity(handle: 1, udid: udid, identities: identities, log: log.logger) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid, identities: identities, log: log.logger) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(false, handle: 1, udid: udid, identities: identities, log: log.logger) }
         #expect(try await log.logged("iphone relay open failed: \(udid) handle 1: usbmux("))
         #expect(try await log.logged("iphone identity read failed: \(udid) handle 1: usbmux("))
         #expect(try await log.logged("iphone wifi sync on failed: \(udid) handle 1: usbmux("))

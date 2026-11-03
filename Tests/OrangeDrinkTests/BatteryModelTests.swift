@@ -8,9 +8,9 @@ import Testing
 
     @MainActor @Test func holdsEachReadingThenTheErrorThatEndedTheStream() async throws {
         let reading = try BatteryEvents.onBattery
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
-        let model = BatteryModel(readings: readings)
+        let model = BatteryModel(readings: readings, log: log.logger)
 
         feed.yield(reading)
         guard case .known(let held) = await model.state(once: BatteryModel.isKnown) else {
@@ -25,13 +25,13 @@ import Testing
             return
         }
         #expect(error is StreamEnded)
-        #expect(try log.messages().contains("battery subscription ended: \(String(describing: StreamEnded()))"))
+        #expect(try await log.messages().contains("battery subscription ended: \(String(describing: StreamEnded()))"))
     }
 
     @MainActor @Test func aStreamThatFinishesEndsTheModelWithNoError() async throws {
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
-        let model = BatteryModel(readings: readings)
+        let model = BatteryModel(readings: readings, log: log.logger)
 
         feed.finish()
         guard case .ended(let error) = await model.state(once: BatteryModel.isEnded) else {
@@ -39,6 +39,6 @@ import Testing
             return
         }
         #expect(error == nil)
-        #expect(try log.messages().contains("battery subscription ended: the stream finished"))
+        #expect(try await log.messages().contains("battery subscription ended: the stream finished"))
     }
 }

@@ -172,25 +172,25 @@ struct MonitorInputs: Sendable {
     let connect: Connect
     let enableWifiSync: EnableWifiSync
     let timekeeper: any Timekeeper
+    let log: Logger
 }
 
 enum IPhoneMonitor {
-    static let logCategory = "iphone"
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: logCategory)
+    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "iphone")
     /// How long a device rests between the end of one read and the start of the next, however often usbmuxd relists it.
     static let pollInterval = Duration.seconds(60)
 
     /// Events for every iPhone and iPad usbmuxd reports, over the cable or over Wi-Fi.
     @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
-    static func events() -> AsyncStream<IPhoneEvent> {
-        let identities = PairIdentities()
+    static func events(log: Logger = IPhoneMonitor.log) -> AsyncStream<IPhoneEvent> {
+        let identities = PairIdentities(log: log)
         return events(from: MonitorInputs(
             listen: usbmuxListen,
             snapshot: usbmuxListDevices,
-            identify: { handle, udid throws(IPhoneReadError) in try readIPhoneIdentity(handle: handle, udid: udid, identities: identities) },
-            connect: { handle, udid throws(IPhoneReadError) in try DiagnosticsRelay(handle: handle, udid: udid, identities: identities) },
-            enableWifiSync: { handle, udid throws(IPhoneReadError) in try setIPhoneWifiSync(true, handle: handle, udid: udid, identities: identities) },
-            timekeeper: SystemTimekeeper()))
+            identify: { handle, udid throws(IPhoneReadError) in try readIPhoneIdentity(handle: handle, udid: udid, identities: identities, log: log) },
+            connect: { handle, udid throws(IPhoneReadError) in try DiagnosticsRelay(handle: handle, udid: udid, identities: identities, log: log) },
+            enableWifiSync: { handle, udid throws(IPhoneReadError) in try setIPhoneWifiSync(true, handle: handle, udid: udid, identities: identities, log: log) },
+            timekeeper: SystemTimekeeper(), log: log))
     }
 
     /// The stream ends after a `.failed` event, or when its consumer stops iterating.
@@ -248,7 +248,7 @@ private final class MonitorState: @unchecked Sendable {
                         receive(String(describing: event)) { $0.apply(event) }
                     }
                 }
-                IPhoneMonitor.log.info("iphone monitor stopped")
+                inputs.log.info("iphone monitor stopped")
             }
         } catch {
             queue.sync { self.finish(with: error) }
@@ -268,14 +268,14 @@ private final class MonitorState: @unchecked Sendable {
     private func receive(_ said: String, then marker: IPhoneEvent? = nil, _ decide: (inout DeviceMap) -> [DeviceMap.Step]) {
         queue.sync {
             let steps = decide(&map)
-            IPhoneMonitor.log.info("iphone \(said, privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
+            inputs.log.info("iphone \(said, privacy: .public) → \(DeviceMap.describe(steps), privacy: .public)")
             switch lifecycle {
             case .running(var pacers):
                 for step in steps { perform(step, pacers: &pacers) }
                 lifecycle = .running(pacers: pacers)
                 if let marker { continuation.yield(marker) }
             case .stopped:
-                IPhoneMonitor.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
+                inputs.log.info("iphone monitor stopped, not performed: \(DeviceMap.describe(steps), privacy: .public)")
             }
         }
     }
@@ -293,7 +293,7 @@ private final class MonitorState: @unchecked Sendable {
     }
 
     private func startPacer(_ udid: String) -> Task<Void, Never> {
-        IPhoneMonitor.log.info("iphone pacer started: \(udid, privacy: .public)")
+        inputs.log.info("iphone pacer started: \(udid, privacy: .public)")
         return Task { await self.pace(udid) }
     }
 
@@ -316,13 +316,13 @@ private final class MonitorState: @unchecked Sendable {
     /// it reads over the route usbmuxd lists now, which may differ from the last read's.
     private func nextRoute(_ udid: String) -> DeviceMap.Route? {
         guard case .running(var pacers) = lifecycle else {
-            IPhoneMonitor.log.info("iphone pacer ended: \(udid, privacy: .public): monitor stopped")
+            inputs.log.info("iphone pacer ended: \(udid, privacy: .public): monitor stopped")
             return nil
         }
         guard let route = map.route(udid) else {
             pacers.removeValue(forKey: udid)
             lifecycle = .running(pacers: pacers)
-            IPhoneMonitor.log.info("iphone pacer ended: \(udid, privacy: .public): unreachable when due; its next attach reads it")
+            inputs.log.info("iphone pacer ended: \(udid, privacy: .public): unreachable when due; its next attach reads it")
             return nil
         }
         return route
@@ -378,10 +378,10 @@ private final class MonitorState: @unchecked Sendable {
     /// mid-read included: that is a true failure over the route it was tried on.
     private func deliver(_ events: [IPhoneEvent], udid: String, over route: DeviceMap.Route, relay: RelayUse) {
         guard case .running = lifecycle else {
-            IPhoneMonitor.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle): monitor stopped")
+            inputs.log.info("iphone read dropped: \(udid, privacy: .public) handle \(route.handle): monitor stopped")
             return
         }
-        IPhoneMonitor.log.info("iphone read delivered: \(udid, privacy: .public) over \(String(describing: route.transport), privacy: .public), relay \(relay.rawValue, privacy: .public); resting \(IPhoneMonitor.pollInterval, privacy: .public)")
+        inputs.log.info("iphone read delivered: \(udid, privacy: .public) over \(String(describing: route.transport), privacy: .public), relay \(relay.rawValue, privacy: .public); resting \(IPhoneMonitor.pollInterval, privacy: .public)")
         events.forEach { continuation.yield($0) }
     }
 
@@ -405,13 +405,13 @@ private final class MonitorState: @unchecked Sendable {
         case .running(let pacers):
             pacers.values.forEach { $0.cancel() }
             lifecycle = .stopped
-            IPhoneMonitor.log.info("iphone monitor ended: \(pacers.count) pacers cancelled")
+            inputs.log.info("iphone monitor ended: \(pacers.count) pacers cancelled")
         case .stopped: break
         }
     }
 
     private func finish(with error: IPhoneReadError) {
-        IPhoneMonitor.log.error("iphone monitor failed: \(String(describing: error), privacy: .public)")
+        inputs.log.error("iphone monitor failed: \(String(describing: error), privacy: .public)")
         end()
         continuation.yield(.failed(error))
         continuation.finish()

@@ -58,7 +58,7 @@ struct BluetoothPermissionTests {
     @Test func nothingIsSetUpUntilTheAnswer() async throws {
         let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
         let reached = Reached()
-        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { _, _ in
+        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { _, _, _ in
             reached.mark()
             throw BluetoothDevicesError.missingSymbol("stand-in")
         })
@@ -74,7 +74,7 @@ struct BluetoothPermissionTests {
 
     @Test func aRefusalSetsNothingUpAndStaysSubscribed() async throws {
         let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
-        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, timekeeper, _ in StandInWatcher(continuation, timekeeper: timekeeper) }).makeAsyncIterator()
         ask.yield(.heard(.denied))
         #expect(try await iterator.next() == .permission(.denied))
         ask.yield(.heard(.allowed))
@@ -84,7 +84,7 @@ struct BluetoothPermissionTests {
 
     @Test func aMinutesAnswerSweepsAndTellsTheListNothing() async throws {
         let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
-        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, timekeeper, _ in StandInWatcher(continuation, timekeeper: timekeeper) }).makeAsyncIterator()
         ask.yield(.heard(.allowed))
         #expect(try await iterator.next() == .permission(.allowed))
         #expect(try await iterator.next() == StandInWatcher.sweep)
@@ -94,7 +94,7 @@ struct BluetoothPermissionTests {
 
     @Test func anUnansweredAskLeavesTheLastAnswerStanding() async throws {
         let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
-        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, timekeeper, _ in StandInWatcher(continuation, timekeeper: timekeeper) }).makeAsyncIterator()
         ask.yield(.stalled)
         ask.yield(.heard(.allowed))
         // A stall held nothing up and swept nothing: the first event is the answer's.
@@ -106,7 +106,7 @@ struct BluetoothPermissionTests {
 
     @Test func permissionTakenAwayStopsTheWatcherBeforeTheListHearsAndNothingSweepsAfter() async throws {
         let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
-        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, timekeeper, _ in StandInWatcher(continuation, timekeeper: timekeeper) }).makeAsyncIterator()
         ask.yield(.heard(.allowed))
         #expect(try await iterator.next() == .permission(.allowed))
         #expect(try await iterator.next() == StandInWatcher.sweep)
@@ -123,7 +123,7 @@ struct BluetoothPermissionTests {
 
     @Test func aPromptAfterAnAnswerIsARefusalOfReading() async throws {
         let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
-        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: StandInWatcher.init).makeAsyncIterator()
+        var iterator = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, timekeeper, _ in StandInWatcher(continuation, timekeeper: timekeeper) }).makeAsyncIterator()
         ask.yield(.heard(.allowed))
         #expect(try await iterator.next() == .permission(.allowed))
         #expect(try await iterator.next() == StandInWatcher.sweep)
@@ -135,7 +135,7 @@ struct BluetoothPermissionTests {
     @MainActor @Test func aCancelledSubscriptionStopsItsWatcher() async throws {
         let (asks, ask) = AsyncStream.makeStream(of: Ask.self)
         let (swept, stopped) = (Reached(), Reached())
-        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _ in
+        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _, _ in
             StandInWatcher(continuation, stopped: stopped)
         })
         let reader = Task { for try await event in events where event == StandInWatcher.sweep { swept.mark() } }

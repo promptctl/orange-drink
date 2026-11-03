@@ -16,14 +16,13 @@ enum SettingEvent: Equatable {
         }
     }
 
-    static let logCategory = "settings"
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: logCategory)
+    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "settings")
 
     /// A value can name the user's devices, so it is private; which setting, and why a save failed, are not.
-    fileprivate func emit() {
+    fileprivate func emit(to log: Logger) {
         switch self {
-        case .saved(let setting, let value): Self.log.notice("\(setting, privacy: .public) saved: \(value, privacy: .private)")
-        case .notSaved(let setting, let reason): Self.log.error("\(setting, privacy: .public) not saved: \(reason, privacy: .public)")
+        case .saved(let setting, let value): log.notice("\(setting, privacy: .public) saved: \(value, privacy: .private)")
+        case .notSaved(let setting, let reason): log.error("\(setting, privacy: .public) not saved: \(reason, privacy: .public)")
         }
     }
 }
@@ -39,6 +38,7 @@ enum SettingEvent: Equatable {
     let read: () -> Value
     let update: ((inout Value) -> Void) throws -> Void
     let record: (SettingEvent) -> Void
+    var log = SettingEvent.log
 
     var value: Value { read() }
 
@@ -50,7 +50,7 @@ enum SettingEvent: Equatable {
         } catch {
             event = .notSaved(setting: setting, reason: error.localizedDescription)
         }
-        event.emit()
+        event.emit(to: log)
         record(event)
     }
 

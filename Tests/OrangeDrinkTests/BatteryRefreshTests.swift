@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Testing
 @testable import OrangeDrink
 
@@ -18,11 +19,11 @@ final class Reads: @unchecked Sendable {
 // on a clock the test moves and readings it supplies.
 @Suite @MainActor struct BatteryRefresh {
     /// A model whose first reading has arrived, over a clock and a counted read.
-    func model() async throws -> (BatteryModel, ManualTimekeeper, Reads, AsyncThrowingStream<BatteryReading?, any Error>.Continuation) {
+    func model(log: Logger = IOKitBattery.log) async throws -> (BatteryModel, ManualTimekeeper, Reads, AsyncThrowingStream<BatteryReading?, any Error>.Continuation) {
         let first = try BatteryEvents.onBattery
         let clock = ManualTimekeeper(), reads = Reads(first)
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
-        let model = BatteryModel(readings: readings, read: { reads.read() }, timekeeper: clock)
+        let model = BatteryModel(readings: readings, read: { _ in reads.read() }, timekeeper: clock, log: log)
         feed.yield(first)
         _ = await model.state(once: BatteryModel.isKnown)
         await clock.asleep()
@@ -30,8 +31,8 @@ final class Reads: @unchecked Sendable {
     }
 
     @Test func aFreshReadingIsTakenTwoMinutesAfterTheLast() async throws {
-        let log = try await BatteryLog()
-        let (model, clock, reads, _) = try await model()
+        let log = try await TestLog()
+        let (model, clock, reads, _) = try await model(log: log.logger)
         #expect(reads.taken == 0)
         clock.advance(by: .seconds(119))
         #expect(reads.taken == 0)
@@ -39,7 +40,7 @@ final class Reads: @unchecked Sendable {
         await clock.asleep()
         #expect(reads.taken == 1)
         #expect(model.updatedText()?.english == "Updated just now")
-        #expect(try log.messages().contains("battery refresh: reading taken"))
+        #expect(try await log.messages().contains("battery refresh: reading taken"))
     }
 
     @Test func updatedCountsWholeMinutesSinceTheReading() async throws {
@@ -72,7 +73,7 @@ final class Reads: @unchecked Sendable {
         struct Unreadable: Error {}
         let clock = ManualTimekeeper()
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
-        let model = BatteryModel(readings: readings, read: { throw Unreadable() }, timekeeper: clock)
+        let model = BatteryModel(readings: readings, read: { _ in throw Unreadable() }, timekeeper: clock)
         feed.yield(try BatteryEvents.onBattery)
         _ = await model.state(once: BatteryModel.isKnown)
         model.refresh()

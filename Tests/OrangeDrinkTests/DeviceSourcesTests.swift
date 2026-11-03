@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import Testing
 @testable import OrangeDrink
 
@@ -119,8 +120,9 @@ struct DeviceSourcesListTests {
 @MainActor struct DeviceSourcesModelTests {
     private struct StandIn: Error { let reason: String }
 
-    private func model(_ bluetooth: AsyncThrowingStream<DeviceEvent, any Error>, _ iPhone: AsyncThrowingStream<DeviceEvent, any Error>) -> DevicesModel {
-        DevicesModel(sources: [.bluetooth: bluetooth, .iPhone: iPhone])
+    private func model(_ bluetooth: AsyncThrowingStream<DeviceEvent, any Error>, _ iPhone: AsyncThrowingStream<DeviceEvent, any Error>,
+                       log: Logger = BluetoothDevices.log) -> DevicesModel {
+        DevicesModel(sources: [.bluetooth: bluetooth, .iPhone: iPhone], log: log)
     }
 
     /// The list once `accepted` holds for it. [LAW:no-ambient-temporal-coupling] Awaited through Observation, never polled.
@@ -156,10 +158,10 @@ struct DeviceSourcesListTests {
     }
 
     @Test func aSourceFailingLeavesTheOthersDevicesListedAndLogsWhichEnded() async throws {
-        let log = try await BatteryLog(category: "devices")
+        let log = try await TestLog()
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = model(bluetooth, iPhone)
+        let model = model(bluetooth, iPhone, log: log.logger)
         sendIPhone.yield(.swept([Fleet.phone]))
         sendBluetooth.yield(.swept([Fleet.mouse]))
         _ = await list(of: model) { $0.devices.count == 2 }
@@ -178,10 +180,10 @@ struct DeviceSourcesListTests {
     }
 
     @Test func theOtherSourceFailingLikewiseLeavesBluetoothListed() async throws {
-        let log = try await BatteryLog(category: "devices")
+        let log = try await TestLog()
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = model(bluetooth, iPhone)
+        let model = model(bluetooth, iPhone, log: log.logger)
         sendBluetooth.yield(.swept([Fleet.mouse]))
         sendIPhone.yield(.swept([Fleet.phone]))
         _ = await list(of: model) { $0.devices.count == 2 }
@@ -208,10 +210,10 @@ struct DeviceSourcesListTests {
     }
 
     @Test func aStreamReportingAnotherSourcesDeviceIsIgnoredAndLoggedNamingBothSources() async throws {
-        let log = try await BatteryLog(category: "devices")
+        let log = try await TestLog()
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, _) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = model(bluetooth, iPhone)
+        let model = model(bluetooth, iPhone, log: log.logger)
         sendBluetooth.yield(.reported(Fleet.phone))
         // A stream is followed in order, so the sweep is applied only after the foreign event was handled. Bluetooth's sweep
         // would not remove an iPhone device, so one stored would still be listed.

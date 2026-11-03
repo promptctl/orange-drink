@@ -73,20 +73,20 @@ import Testing
     }
 
     @Test func everyReadIsLogged() async throws {
-        let log = try await BatteryLog()
-        let reading = try #require(try IOKitBattery.read())
-        #expect(try log.messages().contains("battery read: \(String(describing: reading))"))
+        let log = try await TestLog()
+        let reading = try #require(try IOKitBattery.read(log: log.logger))
+        #expect(try await log.messages().contains("battery read: \(String(describing: reading))"))
     }
 
     @Test func subscriptionStartsWithTheCurrentReading() async throws {
-        let log = try await BatteryLog()
-        var readings = BatteryMonitor.readings().makeAsyncIterator()
+        let log = try await TestLog()
+        var readings = BatteryMonitor.readings(log: log.logger).makeAsyncIterator()
         let published = try #require(try await readings.next(), "the stream ended before its first reading")
         let first = try #require(published, "this check needs a Mac with a battery")
         let direct = try #require(try IOKitBattery.read())
         #expect(first.capacity.design == direct.capacity.design)
         #expect(first.cycles == direct.cycles)
-        #expect(try log.messages().contains { $0.hasPrefix("\(kIOPSNotifyAnyPowerSource): registered token ") })
+        #expect(try await log.messages().contains { $0.hasPrefix("\(kIOPSNotifyAnyPowerSource): registered token ") })
     }
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.
@@ -117,7 +117,7 @@ import Testing
         }
         let start = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
         guard case .adapter = start.power else { Issue.record("start with the adapter plugged in"); return }
-        let log = try await BatteryLog()
+        let log = try await TestLog()
         let posts = OSAllocatedUnfairLock<[ContinuousClock.Instant]>(initialState: [])
         var token: Int32 = 0
         let status = notify_register_dispatch(kIOPSNotifyPowerSource, &token, DispatchQueue(label: "posts")) { _ in
@@ -125,10 +125,11 @@ import Testing
         }
         try #require(status == NOTIFY_STATUS_OK)
         defer { notify_cancel(token) }
+        let logger = log.logger
         let run = Task { () -> (unplugged: Arrival, plugged: Arrival)? in
             var unplugged: Arrival?
             FileHandle.standardError.write(Data("\n>>> Unplug the adapter now.\n".utf8))
-            for try await event in BatteryMonitor.events() {
+            for try await event in BatteryMonitor.events(from: BatteryMonitor.readings(), log: logger) {
                 switch (event, unplugged) {
                 case (.unplugged(let reading), nil):
                     unplugged = try Arrival(reading, pmset: pmsetBattery, read: readBattery)
@@ -161,7 +162,7 @@ import Testing
             #expect(try #require(gap, "powerd posted no source change before the event") <= .seconds(1))
         }
 
-        let messages = try log.messages()
+        let messages = try await log.messages()
         #expect(messages.contains("battery event: \(String(describing: BatteryEvent.unplugged(arrivals.unplugged.reading)))"))
         #expect(messages.contains("battery event: \(String(describing: BatteryEvent.plugged(arrivals.plugged.reading)))"))
     }
