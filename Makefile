@@ -15,7 +15,7 @@ HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c
 XCB_SETTINGS ?=
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)' $(XCB_SETTINGS)
 
-.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
+.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
 
 generate:
 	xcodegen generate --use-cache
@@ -228,6 +228,13 @@ app-energy-check: generate
 # launched as a user runs it. Prints the percent and the power state; fails over the bar.
 cpu-check: release
 	swift scripts/cpu-check.swift "$(RELEASE_APP)/Contents/MacOS/$(APP)"
+
+# How often NotificationCenter posts AXLayoutChanged, the event a low battery warning's pass runs on: a read-only count over
+# SECONDS (300), with the screen's lock state and NotificationCenter's windows read alongside. cpu-check runs at warning
+# level none and cannot see it. The invoking process must be trusted for Accessibility.
+layout-events-count: SECONDS ?= 300
+layout-events-count:
+	swift scripts/layout-events-count.swift $(SECONDS)
 
 # The Release app. The last line printed is the app's path, so scripts/dmg spells neither the
 # configuration's directory nor the app's name.
