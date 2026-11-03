@@ -52,16 +52,16 @@ struct DeviceSourcesListTests {
         #expect(denied.unread(of: .bluetooth) == .denied)
     }
 
-    @Test func aDeviceIsHeldOnceWhicheverSourceReportsIt() {
-        var list = DeviceList()
-        list.apply(.reported(Fleet.phone), from: .iPhone)
+    @Test func aSourceCannotAddRemoveOrKeepAnotherSourcesDevice() {
+        var list = both()
         list.apply(.reported(Fleet.phone), from: .bluetooth)
-        #expect(list.devices == [Fleet.phone])
-        list.end(.bluetooth)
-        // It is the iPhone source's by identity, so only the iPhone source's end clears it.
-        #expect(list.devices == [Fleet.phone])
-        list.end(.iPhone)
-        #expect(list.devices.isEmpty)
+        list.apply(.gone(Fleet.phone.id), from: .bluetooth)
+        #expect(Set(list.devices.map(\.id)) == Set(both().devices.map(\.id)))
+
+        list.apply(.swept([Fleet.mouse, Fleet.tablet]), from: .bluetooth)
+        // Its own device is read; the other source's is ignored, and the other source's reading stands.
+        #expect(Set(list.devices.map(\.id)) == [Fleet.mouse.id, Fleet.phone.id, Fleet.tablet.id])
+        #expect(list.unread(of: .bluetooth) == nil)
     }
 
     // The list-wide reason: nil once any source has swept, else the first source in `DeviceSource.allCases` order that is not
@@ -184,17 +184,17 @@ struct DeviceSourcesListTests {
         #expect(ended.devices.isEmpty)
     }
 
-    @Test func aStreamReportingAnotherSourcesDeviceIsDroppedAndLoggedNamingBothSources() async throws {
+    @Test func aStreamReportingAnotherSourcesDeviceIsIgnoredAndLoggedNamingBothSources() async throws {
         let log = try BatteryLog(category: "devices")
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, _) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = model(bluetooth, iPhone)
         sendBluetooth.yield(.reported(Fleet.phone))
         // A stream is followed in order, so the sweep is applied only after the foreign event was handled. Bluetooth's sweep
-        // would not remove an iPhone device, so one applied would still be listed.
+        // would not remove an iPhone device, so one stored would still be listed.
         sendBluetooth.yield(.swept([Fleet.mouse]))
         let list = await list(of: model) { !$0.devices.isEmpty }
         #expect(list.devices == [Fleet.mouse])
-        #expect(try await log.logged("device source bluetooth reported a device of iphone; event dropped"))
+        #expect(try await log.logged("device source bluetooth reported a device of iphone; ignored"))
     }
 }

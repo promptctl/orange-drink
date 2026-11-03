@@ -69,8 +69,8 @@ enum DeviceEvent: Equatable, Sendable {
 ///
 /// A device is stored once, by its identity, and an identity names its source: which source a device
 /// belongs to is read from it and never held a second time. What a source has told the list is its
-/// reading; an event is applied *from* a source, and that source's sweep, permission or end replaces
-/// only the devices whose identity names it.
+/// reading; an event is applied *from* a source and touches only the devices whose identity names it, so a
+/// source cannot add, remove or keep another's device. [LAW:single-enforcer] Here, in the one reduction.
 struct DeviceList: Equatable, Sendable {
     /// [LAW:types-are-the-program] What one source has told the list: it swept, or why it did not.
     private enum Reading: Equatable, Sendable {
@@ -87,11 +87,12 @@ struct DeviceList: Equatable, Sendable {
 
     mutating func apply(_ event: DeviceEvent, from source: DeviceSource) {
         switch event {
-        case .reported(let device): byID[device.id] = device
-        case .gone(let id): byID[id] = nil
+        case .reported(let device) where device.id.source == source: byID[device.id] = device
+        case .gone(let id) where id.source == source: byID[id] = nil
+        case .reported, .gone: break
         case .swept(let devices):
             removeDevices(of: source)
-            for device in devices { byID[device.id] = device }
+            for device in devices where device.id.source == source { byID[device.id] = device }
             readings[source] = .read
         case .permission(let permission):
             // Heard after a sweep, this is the end of what that sweep read, so nothing is kept to go stale, as in `end(_:)`.
