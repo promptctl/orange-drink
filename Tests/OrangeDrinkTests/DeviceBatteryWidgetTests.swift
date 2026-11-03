@@ -81,7 +81,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
         let (asks, ask) = AsyncStream.makeStream(of: BluetoothPermission.Ask.self)
         let swept = DeviceEvent.swept([Self.iPhone])
-        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _ in
+        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _, _ in
             StandInWatcher(continuation, swept: swept)
         })
         let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)

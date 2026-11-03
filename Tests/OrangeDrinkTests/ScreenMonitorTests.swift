@@ -62,7 +62,7 @@ import os
             == [.locked: true, .switchedOut: false, .displayAsleep: false])
         #expect(ScreenMonitor.asked(session: [kCGSessionOnConsoleKey: false], mainDisplayAsleep: true, log: log.logger)
             == [.locked: false, .switchedOut: true, .displayAsleep: true])
-        #expect(try !log.messages().contains("no window-server session to ask whether the screen is locked"))
+        #expect(try await !log.messages().contains("no window-server session to ask whether the screen is locked"))
         // With no session the system has no word on the lock or the console.
         #expect(ScreenMonitor.asked(session: nil, mainDisplayAsleep: false, log: log.logger) == [.displayAsleep: false])
         #expect(try await log.logged("no window-server session to ask whether the screen is locked"))

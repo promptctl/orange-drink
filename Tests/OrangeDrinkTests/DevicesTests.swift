@@ -260,7 +260,7 @@ struct DeviceListTests {
             }
             ask.onTermination = { _ in tee.cancel() }
             return asks
-        }, watcher: { try BluetoothDevices.liveWatcher($0, timekeeper: $1, log: log) })
+        }, log: log)
         return Task {
             do {
                 for try await event in events { see.yield(.event(event)) }

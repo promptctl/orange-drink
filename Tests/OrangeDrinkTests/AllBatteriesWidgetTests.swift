@@ -368,7 +368,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         _ = Self.configured(style, in: shelf, log: log.logger)
         let line = "widget devices automatic style \(style.rawValue) names false mac true appearance color"
         #expect(try await log.logged(line))
-        #expect(try log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
+        #expect(try await log.messages().contains(line), "the line is public, and a shelf's path holds the account's name")
     }
 
     @Test func aWidgetWithNoSavedStyleDrawsRingsAndASavedStyleKeepsItsName() {

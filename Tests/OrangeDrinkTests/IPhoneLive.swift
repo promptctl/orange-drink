@@ -74,7 +74,7 @@ import Testing
                 continue
             }
         }
-        #expect(try log.messages().contains { $0.hasPrefix("iphone wifi sync on: \(udid) ") })
+        #expect(try await log.messages().contains { $0.hasPrefix("iphone wifi sync on: \(udid) ") })
         print("pull the cable now")
 
         // Wi-Fi: every read, over the cable until the person pulls it and over Wi-Fi after, is held to the pacing above.

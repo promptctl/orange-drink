@@ -111,7 +111,7 @@ import ViewInspector
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil && pills.shownGlowFrame == nil)
-        #expect(try log.messages() == [
+        #expect(try await log.messages() == [
             "pill shown at center for \(PillController.shownFor): 31% Remaining", "pill closed: timed out after \(PillController.shownFor): 31% Remaining"])
     }
 
@@ -135,7 +135,7 @@ import ViewInspector
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil)
-        #expect(try log.messages() == [
+        #expect(try await log.messages() == [
             "pill shown at top for \(PillController.shownFor): 29% Remaining", "pill replaced: 29% Remaining",
             "pill shown at top for \(PillController.shownFor): 28% Remaining", "pill closed: timed out after \(PillController.shownFor): 28% Remaining"])
     }
@@ -151,7 +151,7 @@ import ViewInspector
         pills.close(.closeButton)
         // Nothing is left counting down to take down whichever pill comes up next.
         #expect(clock.sleeping == 0)
-        #expect(try log.messages() == ["pill shown at top for \(PillController.shownFor): 26% Remaining", "pill closed: ×: 26% Remaining"])
+        #expect(try await log.messages() == ["pill shown at top for \(PillController.shownFor): 26% Remaining", "pill closed: ×: 26% Remaining"])
     }
 
     // orange-alerts-cjt.3ns: an alert fires once per crossing, so its pill's time is time the screen
@@ -177,7 +177,7 @@ import ViewInspector
         clock.advance(by: .seconds(1))
         await waiter.value
         #expect(pills.shown == nil && pills.shownGlowFrame == nil)
-        #expect(try log.messages() == [
+        #expect(try await log.messages() == [
             "pill shown at center for \(PillController.shownFor): 24% Remaining", "screen hidden by displayAsleep", "pill held: 24% Remaining",
             "screen seen", "pill counting \(PillController.shownFor) again: 24% Remaining",
             "pill closed: timed out after \(PillController.shownFor): 24% Remaining"])
@@ -202,7 +202,7 @@ import ViewInspector
         await clock.asleep()
         clock.advance(by: PillController.shownFor)
         await waiter.value
-        #expect(try log.messages() == [
+        #expect(try await log.messages() == [
             "screen hidden by locked", "pill shown at top, held: 83% Charged",
             "screen hidden by displayAsleep, locked", "pill held: 83% Charged", "screen hidden by locked", "pill held: 83% Charged",
             "screen seen", "pill counting \(PillController.shownFor) again: 83% Charged",
@@ -238,7 +238,7 @@ import ViewInspector
         let waiter = Task { await pills.untilClosed() }
         clock.advance(by: PillController.shownFor - .seconds(5))
         await waiter.value
-        #expect(try log.messages() == [
+        #expect(try await log.messages() == [
             "pill shown at top for \(PillController.shownFor): 21% Remaining", "pill placed in \(external.visibleFrame): 21% Remaining",
             "no screen to place the pill on: 21% Remaining", "pill closed: timed out after \(PillController.shownFor): 21% Remaining"])
     }
@@ -257,7 +257,7 @@ import ViewInspector
         let waiter = Task { await pills.untilClosed() }
         clock.advance(by: PillController.shownFor - .seconds(6))
         await waiter.value
-        #expect(try log.messages() == [
+        #expect(try await log.messages() == [
             "pill shown at top for \(PillController.shownFor): 18% Remaining", "pill closed: timed out after \(PillController.shownFor): 18% Remaining"])
     }
 
@@ -268,9 +268,11 @@ import ViewInspector
         first.show(PillContent(alert, reading: try Self.reading(17)))
         second.show(PillContent(alert, reading: try Self.reading(17)))
         second.close(.closeButton)
-        #expect(try await closed.count("17% Remaining", awaiting: 2) == 2)
-        #expect(try shown.messages() == ["pill shown at top for \(PillController.shownFor): 17% Remaining"])
-        #expect(try closed.messages() == ["pill shown at top for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"])
+        #expect(try await shown.messages() == ["pill shown at top for \(PillController.shownFor): 17% Remaining"])
+        #expect(try await closed.messages() == ["pill shown at top for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"])
+        first.close(.closeButton)
+        #expect(try await shown.messages() == ["pill shown at top for \(PillController.shownFor): 17% Remaining", "pill closed: ×: 17% Remaining"])
+        #expect(try await closed.messages().count == 2)
     }
 
     /// The screen a test's pills go on, moved by the test.

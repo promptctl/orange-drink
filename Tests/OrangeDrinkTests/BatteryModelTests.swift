@@ -25,7 +25,7 @@ import Testing
             return
         }
         #expect(error is StreamEnded)
-        #expect(try log.messages().contains("battery subscription ended: \(String(describing: StreamEnded()))"))
+        #expect(try await log.messages().contains("battery subscription ended: \(String(describing: StreamEnded()))"))
     }
 
     @MainActor @Test func aStreamThatFinishesEndsTheModelWithNoError() async throws {
@@ -39,6 +39,6 @@ import Testing
             return
         }
         #expect(error == nil)
-        #expect(try log.messages().contains("battery subscription ended: the stream finished"))
+        #expect(try await log.messages().contains("battery subscription ended: the stream finished"))
     }
 }

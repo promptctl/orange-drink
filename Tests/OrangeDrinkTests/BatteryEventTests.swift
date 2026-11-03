@@ -68,6 +68,6 @@ import Testing
         var events: [BatteryEvent] = []
         for try await event in BatteryMonitor.events(from: recorded, log: log.logger) { events.append(event) }
         #expect(events == [.plugged(adapter)])
-        #expect(try log.messages().contains("battery event: \(String(describing: BatteryEvent.plugged(adapter)))"))
+        #expect(try await log.messages().contains("battery event: \(String(describing: BatteryEvent.plugged(adapter)))"))
     }
 }

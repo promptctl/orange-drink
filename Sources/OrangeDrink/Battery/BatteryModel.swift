@@ -24,7 +24,7 @@ import os
     /// When the latest reading was taken, by this model's clock; nil until there is one.
     private(set) var readingAt: Date?
     @ObservationIgnored private let timekeeper: any Timekeeper
-    @ObservationIgnored private let read: @Sendable () throws -> BatteryReading?
+    @ObservationIgnored private let read: @Sendable (Logger) throws -> BatteryReading?
     @ObservationIgnored private let log: Logger
     /// Told of every state the model holds, the first included, so what acts on them (alerts,
     /// history, widgets) never watches `state`.
@@ -42,7 +42,7 @@ import os
     /// `read` takes one reading on demand, for the refresh the model does on its own and when asked.
     init<Readings: AsyncSequence & Sendable>(
         readings: Readings,
-        read: @escaping @Sendable () throws -> BatteryReading? = { try IOKitBattery.read() },
+        read: @escaping @Sendable (Logger) throws -> BatteryReading? = IOKitBattery.read(log:),
         timekeeper: any Timekeeper = SystemTimekeeper(),
         log: Logger = IOKitBattery.log,
         onState: @escaping @MainActor (State) -> Void = { _ in }
@@ -88,7 +88,7 @@ import os
     /// model the way a failed subscription does, so the panel says so instead of going stale.
     func refresh() {
         do {
-            take(try read())
+            take(try read(log))
             log.info("battery refresh: reading taken")
         } catch {
             log.error("battery refresh failed: \(String(describing: error), privacy: .public)")

@@ -25,9 +25,9 @@ enum BatteryMonitor {
     /// A wake at subscribing and at each change of the warning level, read from `IOKitBattery.warningLevel()`. Unlike
     /// `readings()`, powerd posts this key only when the level changes, and on external power it writes none and posts, so
     /// the end of a warning arrives too. A subscriber that is behind has one wake waiting, since the level is read then.
-    static func warningChanges() -> AsyncThrowingStream<Void, any Error> {
+    static func warningChanges(log: Logger = IOKitBattery.log) -> AsyncThrowingStream<Void, any Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            subscribe(to: kIOPSNotifyLowBattery, continuation, log: IOKitBattery.log) { continuation.yield() }
+            subscribe(to: kIOPSNotifyLowBattery, continuation, log: log) { continuation.yield() }
         }
     }
 
@@ -54,13 +54,6 @@ enum BatteryMonitor {
 
     private static func publish(into continuation: AsyncThrowingStream<BatteryReading?, any Error>.Continuation, log: Logger) {
         do { continuation.yield(try IOKitBattery.read(log: log)) } catch { continuation.finish(throwing: error) }
-    }
-
-    /// Plug, unplug, and level changes, each within a second of powerd publishing it. A
-    /// subscriber that subscribes while the state is steady gets nothing until it changes;
-    /// the state itself, battery or none, is `readings()`' first element.
-    static func events() -> AsyncThrowingStream<BatteryEvent, any Error> {
-        events(from: readings())
     }
 
     /// [LAW:composability] The deltas between consecutive readings of any stream, so the

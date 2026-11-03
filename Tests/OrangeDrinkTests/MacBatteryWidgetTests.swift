@@ -88,7 +88,7 @@ import ViewInspector
     /// running app's next state, though unchanged for it, puts the level back.
     @Test func anotherCopysMarkIsCorrectedByTheNextState() throws {
         let reloads = Reloads()
-        let running = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: ShelfLog.log) { if $0 == .macBattery { reloads.count += 1 } }
+        let running = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }
         let quitting = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }
 
         running.publish(.running(.level(percent: 50, charging: false)))
@@ -122,7 +122,7 @@ import ViewInspector
         try JSONEncoder().encode(MacBattery.level(percent: 50, charging: false)).write(to: shelf.appending(path: "mac.json"))
         #expect(throws: (any Error).self) { try WidgetShelf.read(.macBattery, from: shelf).get() as Shelved<MacBattery> }
         let reloads = Reloads()
-        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: ShelfLog.log) { if $0 == .macBattery { reloads.count += 1 } }.publish(.running(.level(percent: 50, charging: false)))
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { if $0 == .macBattery { reloads.count += 1 } }.publish(.running(.level(percent: 50, charging: false)))
         #expect(try WidgetShelf.read(.macBattery, from: shelf).get() == .running(.level(percent: 50, charging: false)))
         #expect(reloads.count == 1)
     }

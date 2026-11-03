@@ -75,7 +75,7 @@ import Testing
     @Test func everyReadIsLogged() async throws {
         let log = try await BatteryLog()
         let reading = try #require(try IOKitBattery.read(log: log.logger))
-        #expect(try log.messages().contains("battery read: \(String(describing: reading))"))
+        #expect(try await log.messages().contains("battery read: \(String(describing: reading))"))
     }
 
     @Test func subscriptionStartsWithTheCurrentReading() async throws {
@@ -86,7 +86,7 @@ import Testing
         let direct = try #require(try IOKitBattery.read())
         #expect(first.capacity.design == direct.capacity.design)
         #expect(first.cycles == direct.cycles)
-        #expect(try log.messages().contains { $0.hasPrefix("\(kIOPSNotifyAnyPowerSource): registered token ") })
+        #expect(try await log.messages().contains { $0.hasPrefix("\(kIOPSNotifyAnyPowerSource): registered token ") })
     }
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.
@@ -162,7 +162,7 @@ import Testing
             #expect(try #require(gap, "powerd posted no source change before the event") <= .seconds(1))
         }
 
-        let messages = try log.messages()
+        let messages = try await log.messages()
         #expect(messages.contains("battery event: \(String(describing: BatteryEvent.unplugged(arrivals.unplugged.reading)))"))
         #expect(messages.contains("battery event: \(String(describing: BatteryEvent.plugged(arrivals.plugged.reading)))"))
     }
