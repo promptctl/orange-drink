@@ -12,7 +12,7 @@ import XCTest
     private func launched() throws -> (app: XCUIApplication, control: XCUIElement) {
         let app = try installedApp()
         app.launch()
-        press(app.statusItems["OrangeDrink"])
+        press(statusItem(of: app))
         press(app.buttons["Settings…"])
         // macOS exposes a SwiftUI switch as a check box.
         let control = app.checkBoxes["Launch at Login"].firstMatch

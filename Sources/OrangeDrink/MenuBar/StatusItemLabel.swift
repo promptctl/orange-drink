@@ -21,6 +21,7 @@ enum StatusItemContent: Equatable {
 struct StatusItemLabel: View {
     let state: BatteryModel.State
     let icon: MenuBarIconModel
+    let language: AppLanguageModel
     /// The menu bar's own appearance, which the glyph's "automatic" colour matches.
     @Environment(\.colorScheme) private var barScheme
 
@@ -36,6 +37,6 @@ struct StatusItemLabel: View {
             case .symbol(let name): Image(systemName: name)
             }
         }
-        .accessibilityLabel(appName)
+        .accessibilityLabel(StatusItemName(state, appName: appName).phrase.text(in: language.value))
     }
 }

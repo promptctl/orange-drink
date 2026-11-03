@@ -51,9 +51,9 @@ struct BatteryScreen: View {
         switch battery.state {
         case .known(let reading?):
             HStack(spacing: 12) { ForEach(StatTiles(reading).all, id: \.label.key) { StatTile(tile: $0) } }
-        case .known(nil): Text("This Mac has no battery.").foregroundStyle(.secondary)
-        case .unknown: Text("Reading the battery…").foregroundStyle(.secondary)
-        case .ended: Text("Battery readings stopped. Quit and reopen the app.").foregroundStyle(.secondary)
+        case .known(nil): PhraseText(BatteryStateNote.noBattery).foregroundStyle(.secondary)
+        case .unknown: PhraseText(BatteryStateNote.unknown).foregroundStyle(.secondary)
+        case .ended: PhraseText(BatteryStateNote.ended).foregroundStyle(.secondary)
         }
     }
 

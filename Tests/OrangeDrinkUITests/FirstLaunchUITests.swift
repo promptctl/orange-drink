@@ -12,7 +12,7 @@ import XCTest
     private func openPanel() throws -> XCUIApplication {
         let app = try installedApp()
         app.activate()
-        press(app.statusItems["OrangeDrink"])
+        press(statusItem(of: app))
         return app
     }
 
