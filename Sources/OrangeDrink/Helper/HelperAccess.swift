@@ -1,7 +1,7 @@
 import Foundation
 import ServiceManagement
 
-/// The helper file in this copy of the app, as it was when a call failed.
+/// The helper file in this copy of the app, as read right after a call failed, beside the status read then.
 enum HelperFile: Equatable {
     case readable
     /// A copy moved or deleted while it runs: why the file could not be read.
