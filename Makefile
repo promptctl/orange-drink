@@ -71,20 +71,19 @@ vm-test: generate
 	$(call gated,build-for-testing)
 	scripts/vm-test "$$(ls -t $(PRODUCTS)/*.xctestrun | head -n 1)"
 
-# [LAW:one-type-per-behavior] The checks that need a real Mac are one recipe, and each is only data declared beside its
-# target: its test (Suite/function()) and the source paths that test covers. scripts/hardware-check.swift runs the test
-# alone and posts the result on the lit ticket the branch names; make hardware-status says which results still hold for
-# HEAD.
+# [LAW:one-type-per-behavior] The checks that need a real Mac are one list, and each is only data declared beside its
+# target: the source paths it covers, and either its test (Suite/function()) or a recipe whose last command is a script.
+# scripts/hardware-check.swift runs the check and posts the result on the lit ticket the branch names; make
+# hardware-status says which results still hold for HEAD. A test's outcome is read from its result bundle. A script runs
+# through $(record) and its exit status is the result (0 passed, anything else failed, with the reason it printed): what it
+# builds first stays outside the record, so a build or a notarization that fails is not a failed check.
 # [LAW:verifiable-goals] A check is here only for what a real device or macOS service replies, and it observes every fact
 # it asserts or records itself; a person only moves a cable or gives an approval macOS keeps for the user. Everything
 # else is tested in `make test`. docs/testing.md says which layer tests what.
-HARDWARE_CHECKS := unplug-check iphone-check devices-check position-check helper-repair-check
+HARDWARE_CHECKS := unplug-check iphone-check devices-check position-check helper-repair-check \
+  release-helper-check update-check login-item-check battery-notification-check
 .PHONY: $(HARDWARE_CHECKS) hardware-status
-
-$(HARDWARE_CHECKS): generate
-	rm -rf build/$@.xcresult build/$@.record
-	swift scripts/hardware-check.swift run $@ --test '$($@.test)' --bundle build/$@.xcresult --covers $($@.covers) \
-	  -- $(XCB) -resultBundlePath build/$@.xcresult '-only-testing:$(APP)Tests/$($@.test)' test
+record = swift scripts/hardware-check.swift run $@ --covers $($@.covers) --
 
 # For the branch's ticket, each check's latest result: "stands" while the code it covered is unchanged at HEAD, with a
 # failed result's failures beneath it, "stale" naming the paths that changed since, or "never run". A standing pass needs
@@ -135,11 +134,20 @@ helper-repair-check.test := HelperRepairLive/aJobLaunchdWillNotRunIsRepaired()
 helper-repair-check.covers := Sources/OrangeDrink/Helper Sources/HelperInterface Sources/OrangeDrinkHelper project.yml \
   Tests/OrangeDrinkTests/HelperLive.swift Tests/OrangeDrinkTests/BatteryLog.swift
 
+# Every check that declares a `.test` runs it through xcodebuild. The rule sits after the declarations because make
+# expands a rule's targets as it reads the rule.
+$(foreach check,$(HARDWARE_CHECKS),$(if $($(check).test),$(check))): generate
+	rm -rf build/$@.xcresult build/$@.record
+	swift scripts/hardware-check.swift run $@ --test '$($@.test)' --bundle build/$@.xcresult --covers $($@.covers) \
+	  -- $(XCB) -resultBundlePath build/$@.xcresult '-only-testing:$(APP)Tests/$($@.test)' test
+
 # The signed Release build's helper on a real Mac, approved as above: answers a charge-limit call at launch, and again
 # at the launch after a crash, and leaves no job once the app quits; and a copy running other code replaces the helper
 # a crash left running.
+release-helper-check.covers := Sources/OrangeDrink/Helper Sources/HelperInterface Sources/OrangeDrinkHelper project.yml \
+  scripts/release-helper-check.swift
 release-helper-check: release
-	swift scripts/release-helper-check.swift "$(RELEASE_APP)"
+	$(record) swift scripts/release-helper-check.swift "$(RELEASE_APP)"
 
 # An update in place on real macOS, in a VM with no window: installs a build from its disk image there, then has its
 # updater find nothing newer on a local feed, and install a higher version from it. scripts/update-check reads each result
@@ -147,6 +155,8 @@ release-helper-check: release
 # It needs Tart, the VM image scripts/vm-check-lib names, and the signing key in this Mac's keychain. The tree is generated
 # uncached: the generated files are under build/, which is not copied, and `--use-cache` would call a second run's copy
 # unchanged and leave them missing.
+update-check.covers := Sources/OrangeDrink/Updates Sources/OrangeDrink/Panel/PanelView.swift project.yml Tests/OrangeDrinkUITests \
+  scripts/update-check scripts/appcast scripts/vm-check-lib
 update-check: generate
 	@set -e; out='$(CURDIR)/build/update-check'; rm -rf "$$out"; mkdir -p "$$out/tree"; \
 	rsync -a --exclude .git --exclude .claude --exclude build ./ "$$out/tree/"; \
@@ -155,17 +165,19 @@ update-check: generate
 	xcodegen generate --spec "$$out/tree/project.yml"; \
 	older_dmg=$$(scripts/dmg "$$out/older"); newer_dmg=$$("$$out/tree/scripts/dmg" "$$out/newer"); \
 	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
-	scripts/update-check "$$older_dmg" "$$newer_dmg" "$$out"/ui/Build/Products/*.xctestrun
+	$(record) scripts/update-check "$$older_dmg" "$$newer_dmg" "$$out"/ui/Build/Products/*.xctestrun
 
 # Launch at login on real macOS, in a VM with no window, because registering posts a notification on the Mac it happens
 # on: installs a build from its disk image there, allows it in System Settings as a person does, presses the General
 # screen's switch off and on, and reads what SMAppService.mainApp.status said after each off the app's log. It needs what
 # update-check needs.
+login-item-check.covers := Sources/OrangeDrink/Settings/LaunchAtLogin.swift Sources/OrangeDrink/Blocking.swift Tests/OrangeDrinkUITests \
+  scripts/login-item-check scripts/vm-check-lib
 login-item-check: generate
 	@set -e; out='$(CURDIR)/build/login-item-check'; rm -rf "$$out"; mkdir -p "$$out"; \
 	dmg=$$(scripts/dmg "$$out/dmg"); \
 	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath "$$out/ui" build-for-testing; \
-	scripts/login-item-check "$$dmg" "$$out"/ui/Build/Products/*.xctestrun
+	$(record) scripts/login-item-check "$$dmg" "$$out"/ui/Build/Products/*.xctestrun
 
 # A new install's first launch on real macOS, in a VM with no window, because only a new install meets the Bluetooth
 # prompt: scripts/first-launch-check presses the status item with the prompt open and reads what each answer did. The
@@ -180,8 +192,11 @@ first-launch-check: release
 # only a real discharge raises the notification on a Mac with a battery. scripts/battery-notification-check reads each
 # result from NotificationCenter's accessibility tree. It needs Tart and these images.
 BATTERY_NOTIFICATION_IMAGES := orange-drink-xcode ghcr.io/cirruslabs/macos-sequoia-base:latest ghcr.io/cirruslabs/macos-sonoma-base:latest
+battery-notification-check.covers := Sources/OrangeDrink/SystemNotifications Sources/OrangeDrink/Battery/BatteryMonitor.swift \
+  Sources/OrangeDrink/Battery/IOKitBattery.swift scripts/notification-tree.swift scripts/fake-battery.swift scripts/vm-check-lib \
+  scripts/battery-notification-check
 battery-notification-check: release
-	@set -e; for image in $(BATTERY_NOTIFICATION_IMAGES); do scripts/battery-notification-check "$(RELEASE_APP)" "$$image"; done
+	@$(record) bash -c 'set -e; for image; do scripts/battery-notification-check "$(RELEASE_APP)" "$$image"; done' _ $(BATTERY_NOTIFICATION_IMAGES)
 
 # A click on a placed widget on real macOS, in a VM with no window, because only a real click makes macOS deliver what it
 # delivers: scripts/widget-click-check places all three widgets, clicks them, and reads the app's log and the window list.
