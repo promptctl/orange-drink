@@ -32,30 +32,41 @@ say() { echo "notification-capture: $image: $*" >&2; }
 nothing_showing() { local showing; showing=$(list) && [ -z "$showing" ]; }
 stack_gone() { local showing; showing=$(list) && ! grep -q '^AXNotificationCenterBannerStack' <<<"$showing"; }
 
-# Prints the tree's notifications as records of <step> once it shows every subrole given, from the look that saw them: a banner fades,
-# so a second look can find it gone.
-snapshot() {
+# Prints the tree's notifications as records of <step> if one look at it shows every subrole given: a banner fades, so a second look
+# can find it gone. A tree that could not be read ends the run, as it is not one without the subroles.
+look() {
   local step=$1 seen subrole line
   shift
-  for _ in $(seq 1 150); do
-    seen=$(guest "$tree" values) || fail "$step: the tree could not be read"
-    # The whole subrole field: AXNotificationCenterBanner is not AXNotificationCenterBannerStack.
-    for subrole; do grep -q "^$subrole"$'\t' <<<"$seen" || continue 2; done
-    while IFS= read -r line; do printf '%s\t%s\n' "$step" "$line" >&3; done <<<"$seen"
-    return 0
-  done
+  seen=$(guest "$tree" values) || fail "$step: the tree could not be read"
+  # The whole subrole field: AXNotificationCenterBanner is not AXNotificationCenterBannerStack.
+  for subrole; do grep -q "^$subrole"$'\t' <<<"$seen" || return 1; done
+  while IFS= read -r line; do printf '%s\t%s\n' "$step" "$line" >&3; done <<<"$seen"
+}
+# Looks until the tree shows every subrole, from the look that saw them.
+snapshot() {
+  local step=$1
+  for _ in $(seq 1 150); do look "$@" && return 0; done
+  shift
   fail "$step: the tree never showed $*"
 }
 
-# Raises the final warning, and has Script Editor post the alert's own words a second later: on macOS 26 a notification takes the
-# top-right corner from a banner already showing, so the alert comes first.
+# Posts the words and looks, for wait_for. A restart of NotificationCenter ends its launch by rebuilding its notification list, and that
+# clears a banner posted before it ends (live, in a run that failed at a language step: the log read "Clearing banner to update root
+# model" 80ms after the banner was set), so a banner that does not show is posted again.
+banner_beside_alert() {
+  post "$2" "$3"
+  sleep 2
+  look "$1" AXNotificationCenterAlert AXNotificationCenterBanner
+}
+
+# Raises the final warning, and has Script Editor post the alert's own words: on macOS 26 a notification takes the top-right corner
+# from a banner already showing, so the alert comes first.
 alert_and_banner() {
   local alert
   wait_for "$1: the low battery alert never showed" 60 raise 3 ""
   read -r alert <<<"$(new_alerts "$(list)" "")"
   [ -n "$alert" ] || fail "$1: the alert that showed was gone when its words were read"
-  post "$(cut -f2 <<<"$alert")" "$(cut -f3 <<<"$alert")"
-  snapshot "$1" AXNotificationCenterAlert AXNotificationCenterBanner
+  wait_for "$1: the tree never showed the alert and Script Editor's banner" 30 banner_beside_alert "$1" "$(cut -f2 <<<"$alert")" "$(cut -f3 <<<"$alert")"
 }
 
 # Withdraws the warning until nothing shows, as `raise` raises it until an alert does. On macOS 26 the French step's alert stayed up for
