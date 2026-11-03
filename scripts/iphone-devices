@@ -65,6 +65,15 @@ def recv(s):
     return plistlib.loads(read_exactly(s, n))
 
 
+# A lockdown request and its reply; lockdown answers a refusal (locked device, stale pair record) with an Error key.
+def call(s, msg):
+    send(s, msg)
+    reply = recv(s)
+    if "Error" in reply:
+        raise RuntimeError(f"lockdown refused {msg['Request']}: {reply}")
+    return reply
+
+
 def wrap_tls(sock, pair):
     # load_cert_chain reads files; the directory is 0700 and gone when the context is built.
     with tempfile.TemporaryDirectory() as tmp:
@@ -88,10 +97,13 @@ def ask(msg_type, extra=None):
 # usbmuxd answers Connect with Number 0 when the tunnel is open, and anything else when the device refused or is gone.
 def connect(device_id, port):
     s = mux("Connect", {"DeviceID": device_id, "PortNumber": socket.htons(port)})
-    reply = read_mux(s)
-    if reply.get("Number") != 0:
+    try:
+        reply = read_mux(s)
+        if reply.get("Number") != 0:
+            raise RuntimeError(f"usbmuxd refused Connect to device {device_id} port {port}: {reply}")
+    except BaseException:
         s.close()
-        raise RuntimeError(f"usbmuxd refused Connect to device {device_id} port {port}: {reply}")
+        raise
     return s
 
 
@@ -107,15 +119,13 @@ def capture(d, out_dir):
     pair = plistlib.loads(record["PairRecordData"])
     with contextlib.ExitStack() as open_sockets:
         s = open_sockets.enter_context(connect(dev_id, LOCKDOWN_PORT))
-        send(s, {"Request": "StartSession", "HostID": pair["HostID"], "SystemBUID": pair["SystemBUID"]})
-        if recv(s).get("EnableSessionSSL"):
+        session = call(s, {"Request": "StartSession", "HostID": pair["HostID"], "SystemBUID": pair["SystemBUID"]})
+        if session.get("EnableSessionSSL"):
             s = open_sockets.enter_context(wrap_tls(s, pair))
         device = {"ConnectionType": conn}
         for key in ("ProductType", "ProductVersion", "DeviceClass"):
-            send(s, {"Request": "GetValue", "Key": key})
-            device[key] = recv(s)["Value"]
-        send(s, {"Request": "StartService", "Service": "com.apple.mobile.diagnostics_relay"})
-        svc = recv(s)
+            device[key] = call(s, {"Request": "GetValue", "Key": key})["Value"]
+        svc = call(s, {"Request": "StartService", "Service": "com.apple.mobile.diagnostics_relay"})
         r = open_sockets.enter_context(connect(dev_id, svc["Port"]))
         if svc.get("EnableServiceSSL"):
             r = open_sockets.enter_context(wrap_tls(r, pair))
@@ -123,12 +133,14 @@ def capture(d, out_dir):
         n = struct.unpack(">I", read_exactly(r, 4))[0]
         raw = read_exactly(r, n)
     reply = plistlib.loads(re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", b"", raw))
+    entry = reply.get("Diagnostics", {}).get("IORegistry")
+    if not entry:
+        raise RuntimeError(f"{udid} ({conn}): the relay's reply has no IORegistry entry: {reply}")
     reply["Device"] = device
     path = os.path.join(out_dir, f"{device['ProductType']}-{device['ProductVersion']}-{udid}-{conn}.plist")
     with open(path, "wb") as f:
         f.write(plistlib.dumps(reply, fmt=plistlib.FMT_XML))
-    entry = reply.get("Diagnostics", {}).get("IORegistry")
-    print(path, device, "entry keys:", len(entry) if entry else f"NO ENTRY: {reply}")
+    print(path, device, "entry keys:", len(entry))
 
 
 def main(argv):

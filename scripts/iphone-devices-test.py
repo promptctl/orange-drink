@@ -17,6 +17,7 @@ import threading
 
 SCRIPT = pathlib.Path(__file__).resolve().parent / "iphone-devices"
 UDID = "00008140-000000000000001E"
+DEVICE_ID = 7
 LOCKDOWN_PORT, RELAY_PORT = 62078, 4321
 DEVICE_VALUES = {"ProductType": "iPhone17,1", "ProductVersion": "27.2", "DeviceClass": "iPhone"}
 # A control character the device sends inside a string, which a plist parser refuses until the script strips it.
@@ -56,8 +57,9 @@ def make_identity(directory):
 
 class StandInUsbmuxd(socketserver.StreamRequestHandler):
     """Answers the requests the script makes. self.server.devices lists the devices; self.server.paired says whether a
-    pair record exists for them; self.server.refuse makes usbmuxd refuse every Connect; self.server.tls_context, when set,
-    makes lockdown and the relay switch to TLS the way a device does and demand the host certificate."""
+    pair record exists for them; self.server.fault, when set, is "connect" (usbmuxd refuses every Connect), "locked"
+    (lockdown refuses StartService) or "no-entry" (the relay answers without an IORegistry entry); self.server.tls_context,
+    when set, makes lockdown and the relay switch to TLS the way a device does and demand the host certificate."""
 
     def handle(self):
         sock = self.request
@@ -67,13 +69,15 @@ class StandInUsbmuxd(socketserver.StreamRequestHandler):
         if kind == "ListDevices":
             sock.sendall(mux_frame({"DeviceList": self.server.devices}))
         elif kind == "ReadPairRecord":
+            assert request["PairRecordID"] == UDID, request
             cert, key = self.server.identity
             record = {"HostID": "host", "SystemBUID": "buid",
                       "HostCertificate": pathlib.Path(cert).read_bytes(), "HostPrivateKey": pathlib.Path(key).read_bytes()}
             sock.sendall(mux_frame({"PairRecordData": plistlib.dumps(record)} if self.server.paired else {"Number": 2}))
         elif kind == "Connect":
-            sock.sendall(mux_frame({"Number": 3 if self.server.refuse else 0}))
-            if self.server.refuse:
+            assert request["DeviceID"] == DEVICE_ID, request
+            sock.sendall(mux_frame({"Number": 3 if self.server.fault == "connect" else 0}))
+            if self.server.fault == "connect":
                 return
             port = socket.ntohs(request["PortNumber"])
             {LOCKDOWN_PORT: self.lockdown, RELAY_PORT: self.relay}[port](sock)
@@ -93,7 +97,7 @@ class StandInUsbmuxd(socketserver.StreamRequestHandler):
                 reply = {"Value": DEVICE_VALUES[request["Key"]]}
             elif request["Request"] == "StartService":
                 assert request["Service"] == "com.apple.mobile.diagnostics_relay"
-                reply = {"Port": RELAY_PORT, "EnableServiceSSL": encrypted}
+                reply = {"Error": "PasswordProtected"} if self.server.fault == "locked" else {"Port": RELAY_PORT, "EnableServiceSSL": encrypted}
             else:
                 raise AssertionError(f"unexpected lockdown request {request}")
             sock.sendall(stream_frame(plistlib.dumps(reply)))
@@ -107,7 +111,7 @@ class StandInUsbmuxd(socketserver.StreamRequestHandler):
             sock = self.tls(sock)
         request = read_stream(sock)
         assert request == {"Request": "IORegistry", "EntryClass": "IOPMPowerSource"}, request
-        sock.sendall(stream_frame(RELAY_REPLY))
+        sock.sendall(stream_frame(plistlib.dumps({"Status": "Failure"}) if self.server.fault == "no-entry" else RELAY_REPLY))
 
 
 class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
@@ -115,15 +119,15 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
 
 
 def listing(connection_type):
-    return {"DeviceID": 7, "Properties": {"SerialNumber": UDID, "ConnectionType": connection_type}}
+    return {"DeviceID": DEVICE_ID, "Properties": {"SerialNumber": UDID, "ConnectionType": connection_type}}
 
 
-def run(devices, paired, *args, tls=False, refuse=False):
+def run(devices, paired, *args, tls=False, fault=None):
     """The script's exit code, stdout and stderr, with a stand-in usbmuxd listing `devices`."""
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "usbmuxd")
         server = Server(path, StandInUsbmuxd)
-        server.devices, server.paired, server.refuse = devices, paired, refuse
+        server.devices, server.paired, server.fault = devices, paired, fault
         server.identity = make_identity(tmp)
         server.tls_context = None
         if tls:
@@ -178,10 +182,13 @@ def main():
         check(code == 1 and UDID in err and "no pair record" in err and os.listdir(tmp) == [],
               f"a device that never trusted this Mac should fail loudly, name the device and write nothing: {code} {err!r}")
 
-    with tempfile.TemporaryDirectory() as tmp:
-        code, out, err = run([listing("Network")], True, "capture", tmp, refuse=True)
-        check(code == 1 and UDID in err and "refused Connect" in err and os.listdir(tmp) == [],
-              f"a device usbmuxd will not connect to should fail with usbmuxd's refusal and write nothing: {code} {err!r}")
+    # Each fault is a device that cannot be captured: the run fails with the refusal's own words, names the device, and
+    # writes nothing.
+    for fault, words in (("connect", "refused Connect"), ("locked", "PasswordProtected"), ("no-entry", "no IORegistry entry")):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out, err = run([listing("Network")], True, "capture", tmp, fault=fault)
+            check(code == 1 and UDID in err and words in err and os.listdir(tmp) == [],
+                  f"fault {fault!r} should fail with {words!r}, name the device and write nothing: {code} {err!r}")
 
     print("iphone-devices: every case held")
 
