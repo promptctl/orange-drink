@@ -210,10 +210,11 @@ battery-notification-check: release
 notification-fixtures-check.covers := Tests/OrangeDrinkTests/NotificationFixtures.swift scripts/notification-captures \
   scripts/notification-capture scripts/notification-fixtures scripts/notification-tree.swift scripts/fake-battery.swift \
   scripts/notification-vm-lib scripts/vm-check-lib
+# Shell for one raw capture per image, numbered in $$out, a directory removed when the shell exits; $(1) is the images.
+notification-sweep = set -e; out=$$(mktemp -d); trap "rm -rf $$out" EXIT; n=0; \
+  for image in $(1); do n=$$((n + 1)); scripts/notification-capture "$$image" > "$$out/$$n.tsv"; done
 notification-fixtures-check:
-	@$(record) bash -c 'set -e; out=$$(mktemp -d); trap "rm -rf $$out" EXIT; n=0; \
-	  for image; do n=$$((n + 1)); scripts/notification-capture "$$image" > "$$out/$$n.tsv"; done; \
-	  python3 -I scripts/notification-fixtures check "$$out"/*.tsv' _ $(BATTERY_NOTIFICATION_IMAGES)
+	@$(record) bash -c '$(call notification-sweep,$(BATTERY_NOTIFICATION_IMAGES)); python3 -I scripts/notification-fixtures check "$$out"/*.tsv'
 
 # Recaptures the notification fixtures after a new macOS: the same sweep as notification-fixtures-check over the images in IMAGES,
 # which replaces those macOS versions' captures in scripts/notification-captures and regenerates NotificationFixtures.swift from
@@ -221,8 +222,7 @@ notification-fixtures-check:
 # the Mac running it.
 IMAGES ?= $(BATTERY_NOTIFICATION_IMAGES)
 notification-fixtures:
-	@set -e; out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT; n=0; \
-	for image in $(IMAGES); do n=$$((n + 1)); scripts/notification-capture "$$image" > "$$out/$$n.tsv"; done; \
+	@$(call notification-sweep,$(IMAGES)); \
 	python3 -I scripts/notification-fixtures record "$$out"/*.tsv; \
 	python3 -I scripts/notification-fixtures render > "$$out/NotificationFixtures.swift"; \
 	mv "$$out/NotificationFixtures.swift" Tests/OrangeDrinkTests/NotificationFixtures.swift

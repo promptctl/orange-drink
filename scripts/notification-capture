@@ -13,6 +13,9 @@ usage='usage: scripts/notification-capture <tart image>'
 image=${1:?$usage}
 cd "$(dirname "$0")/.."
 
+# Stdout is the capture and nothing else: fd 3 keeps it, and whatever tart or the guest prints goes to stderr.
+exec 3>&1 1>&2
+
 . scripts/vm-check-lib
 . scripts/notification-vm-lib
 
@@ -37,7 +40,7 @@ snapshot() {
   for _ in $(seq 1 150); do
     seen=$(guest "$tree" values) || fail "$step: the tree could not be read"
     for subrole; do grep -q "^$subrole" <<<"$seen" || continue 2; done
-    while IFS= read -r line; do printf '%s\t%s\n' "$step" "$line"; done <<<"$seen"
+    while IFS= read -r line; do printf '%s\t%s\n' "$step" "$line" >&3; done <<<"$seen"
     return 0
   done
   fail "$step: the tree never showed $*"
@@ -46,11 +49,11 @@ snapshot() {
 # Raises the final warning, and has Script Editor post the alert's own words a second later: on macOS 26 a notification takes the
 # top-right corner from a banner already showing, so the alert comes first.
 alert_and_banner() {
-  local alert title body
+  local alert
   wait_for "$1: the low battery alert never showed" 60 raise 3 ""
-  alert=$(new_alerts "$(list)" "")
-  IFS=$'\t' read -r _ title body _ <<<"$alert"
-  post "$title" "$body"
+  alert=$(new_alerts "$(list)" "" | head -n 1)
+  [ -n "$alert" ] || fail "$1: the alert that showed was gone when its words were read"
+  post "$(cut -f2 <<<"$alert")" "$(cut -f3 <<<"$alert")"
   snapshot "$1" AXNotificationCenterAlert AXNotificationCenterBanner
 }
 
@@ -61,7 +64,7 @@ clear_all() {
 }
 
 notification_setup
-printf 'macos\t%s\n' "$(guest sw_vers -productVersion)"
+printf 'macos\t%s\n' "$(guest sw_vers -productVersion)" >&3
 
 post First 'A banner'
 snapshot banner AXNotificationCenterBanner

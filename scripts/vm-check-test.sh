@@ -108,7 +108,7 @@ in_lib() {
   TMPDIR=$scratch /bin/bash -c "set -euo pipefail
     . '$repo/scripts/vm-check-lib'
     . '$repo/scripts/notification-vm-lib'
-    $1" 2>/dev/null
+    $1"
 }
 [ "$(in_lib "new_alerts '$alert_a
 $banner
@@ -130,6 +130,9 @@ status=0
 in_lib "$raised; list() { printf '%s\n' '$alert_a'; }; raise 3 '$alert_a'" || status=$?
 expect_status 1 "only the baseline's alert showing"
 ok "raise withdraws the warning, raises it, and succeeds only for an alert beyond its baseline"
+
+[ "$(in_lib "as_literal 'say \"hi\" \\ it’s'")" = 'say \"hi\" \\ it’s' ] || broken "as_literal did not escape a quote and a backslash"
+ok "as_literal escapes the quote and backslash that would end an AppleScript string"
 
 sed -i '' 's/^exit 0$/[ "$1" != get ]/' "$scratch/bin/tart"
 run_check "$listed" ':'

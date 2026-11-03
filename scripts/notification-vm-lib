@@ -20,7 +20,11 @@ tree="$tools/notification-tree"
 battery="$tools/fake-battery"
 
 warn() { guest sudo -n "$battery" warn "$1" >&2; }
-post() { guest osascript -e "display notification \"$2\" with title \"$1\""; }
+# The words go to AppleScript as arguments, never inside its source, so a quote or backslash in a localized alert is only text.
+# The words sit inside AppleScript string literals, so a backslash or quote in a localized alert is escaped to stay text. They are not
+# passed as osascript arguments (`on run argv`): that failed the French step of notification-capture on macOS 26 twice, cause not found.
+as_literal() { local text=${1//\\/\\\\}; echo "${text//\"/\\\"}"; }
+post() { guest osascript -e "display notification \"$(as_literal "$2")\" with title \"$(as_literal "$1")\""; }
 list() { guest "$tree" list; }
 
 has_battery() { grep -q InternalBattery <<<"$(guest pmset -g batt)"; }
