@@ -26,9 +26,10 @@ import Testing
         #expect(chimes == 2)
     }
 
-    @Test func aPowerAlertWithSoundOffAndATemperatureWarningAreSilent() {
+    @Test func aPowerAlertOrTemperatureWarningChimesExactlyWhenTheCardsSoundIsOn() {
         #expect(Firing.pluggedIn(sound: false).sound == false)
         #expect(Firing.unplugged(sound: true).sound)
-        #expect(Firing.temperatureWarning.sound == false)
+        #expect(Firing.temperatureWarning(.hot, sound: false).sound == false)
+        #expect(Firing.temperatureWarning(.warm, sound: true).sound)
     }
 }

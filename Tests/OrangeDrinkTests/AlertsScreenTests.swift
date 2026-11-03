@@ -68,6 +68,69 @@ import Testing
         #expect(pills.shown?.headline == "Plugged In" && pills.shown?.severity == .green)
     }
 
+    /// An `AlertCenter` delivering to a `PillController`, with no threshold alerts to confuse the pills.
+    private func temperatureCenter(_ pills: PillController) throws -> AlertCenter {
+        let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { pills.deliver($0, reading: $1) })
+        try center.model.update { $0.alerts = [] }
+        return center
+    }
+
+    @Test func aBatteryGoingHotShowsOneRedPillWithItsReadingAndNoneWhileItStaysHot() throws {
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        defer { pills.close(.closeButton) }
+        let center = try temperatureCenter(pills)
+        center.observe(try PowerAndTemperatureAlerts.battery())
+        #expect(pills.shown == nil)
+
+        center.observe(try PowerAndTemperatureAlerts.battery(celsius: 41))
+        let pill = try #require(pills.shown)
+        #expect(pill.headline == "Battery Hot" && pill.severity == .red)
+        #expect(pill.subline?.english == "41.0°C / 105.8°F")
+        #expect(pill.position == .top && pill.glow == false)
+
+        pills.close(.closeButton)
+        center.observe(try PowerAndTemperatureAlerts.battery(celsius: 42))
+        #expect(pills.shown == nil)
+    }
+
+    @Test func aBatteryReturningToNormalAndGoingHotAgainShowsAFreshPill() throws {
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        defer { pills.close(.closeButton) }
+        let center = try temperatureCenter(pills)
+        for celsius in [30.0, 41, 30] { center.observe(try PowerAndTemperatureAlerts.battery(celsius: celsius)) }
+        pills.close(.closeButton)
+
+        center.observe(try PowerAndTemperatureAlerts.battery(celsius: 43))
+        #expect(pills.shown?.headline == "Battery Hot")
+    }
+
+    @Test func aWarmBatteryShowsAnOrangePillAndGoingHotFromThereShowsNoSecondOne() throws {
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        defer { pills.close(.closeButton) }
+        let center = try temperatureCenter(pills)
+        center.observe(try PowerAndTemperatureAlerts.battery())
+        center.observe(try PowerAndTemperatureAlerts.battery(celsius: 36))
+        #expect(pills.shown?.headline == "Battery Warm" && pills.shown?.severity == .orange)
+
+        pills.close(.closeButton)
+        center.observe(try PowerAndTemperatureAlerts.battery(celsius: 41))
+        #expect(pills.shown == nil)
+    }
+
+    @Test func theTemperaturePillCountsTheChargeAndIsSilencedByTheMasterSwitch() throws {
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        defer { pills.close(.closeButton) }
+        let center = try temperatureCenter(pills)
+        try center.model.update { $0.enabled = false }
+        center.observe(try PowerAndTemperatureAlerts.battery())
+        center.observe(try PowerAndTemperatureAlerts.battery(celsius: 41))
+        #expect(pills.shown == nil)
+
+        let hot = try PowerAndTemperatureAlerts.battery(celsius: 41)
+        pills.deliver(.temperatureWarning(.hot, sound: false), reading: hot)
+        #expect(pills.shown?.progress == Double(hot.chargePercent) / 100)
+    }
+
     @Test func anAlertEditedFrom20To12FiresOnceAt11AndItsCardFollowsTheEdit() throws {
         var fired: [Int] = []
         let defaults = AlertSettingsPersistence.suite()
