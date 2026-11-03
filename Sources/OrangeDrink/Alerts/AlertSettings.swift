@@ -10,7 +10,7 @@ struct AlertSettings: Codable, Equatable, Sendable {
     /// The Alerts screen's reference setup, which a first launch starts from. A constant, so the
     /// ids are the same every time it is read.
     static let initial = {
-        AlertSettings(enabled: true, power: PowerSourceAlerts(pluggedIn: true, unplugged: true, sound: true), alerts: [
+        AlertSettings(enabled: true, power: PowerSourceAlerts(pluggedIn: true, unplugged: true, temperature: true, sound: true), alerts: [
             Alert(kind: .low, threshold: 3, position: .center, glow: true, sound: true),
             Alert(kind: .low, threshold: 5, position: .center, glow: false, sound: true),
             Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false),

@@ -2818,6 +2818,28 @@
         }
       }
     },
+    "Notify when the battery runs warm or hot": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notify when the battery runs warm or hot"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifier quand la batterie est tiède ou chaude"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notificar cuando la batería esté templada o caliente"
+          }
+        }
+      }
+    },
     "Sound": {
       "localizations": {
         "en": {
@@ -2858,28 +2880,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reproducir un sonido para estas alertas"
-          }
-        }
-      }
-    },
-    "Power Source Sound": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Power Source Sound"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Son de source d’alimentation"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sonido de fuente de alimentación"
           }
         }
       }

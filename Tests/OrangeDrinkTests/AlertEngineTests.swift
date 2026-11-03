@@ -89,7 +89,7 @@ import Testing
 
     @MainActor @Test func aRelaunchGetsTheSameAlertsAndSwitchBack() throws {
         let defaults = Self.suite()
-        let saved = AlertSettings(enabled: false, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: false), alerts: [
+        let saved = AlertSettings(enabled: false, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: false, sound: false), alerts: [
             Alert(kind: .low, threshold: 7, position: .center, glow: true, sound: false),
             Alert(kind: .charged, threshold: 90, position: .top, glow: false, sound: true),
         ])
@@ -104,6 +104,29 @@ import Testing
     @MainActor @Test func storedBytesThatDoNotDecodeFailLoudly() {
         let defaults = Self.suite()
         defaults.set(Data("nonsense".utf8), forKey: "alerts.settings")
+        #expect(throws: DecodingError.self) { try AlertSettingsModel(defaults: defaults) }
+    }
+
+    /// The settings as stored, with `edit` applied to the `power` object: how a release before the
+    /// Temperature row, or a damaged file, leaves them.
+    private static func stored(_ edit: (inout [String: Any]) -> Void) throws -> UserDefaults {
+        var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(AlertSettings.initial)) as? [String: Any])
+        var power = try #require(json["power"] as? [String: Any])
+        edit(&power)
+        json["power"] = power
+        let defaults = suite()
+        defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: AlertSettings.storageKey)
+        return defaults
+    }
+
+    @MainActor @Test func aSettingSavedBeforeTheTemperatureRowReadsTemperatureAsOnAndKeepsTheRest() throws {
+        let defaults = try Self.stored { $0["temperature"] = nil; $0["pluggedIn"] = false; $0["sound"] = false }
+        let power = try AlertSettingsModel(defaults: defaults).value.power
+        #expect(power == PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: true, sound: false))
+    }
+
+    @MainActor @Test func aTemperatureSwitchOfTheWrongTypeFailsLoudlyInsteadOfReadingAsOn() throws {
+        let defaults = try Self.stored { $0["temperature"] = "off" }
         #expect(throws: DecodingError.self) { try AlertSettingsModel(defaults: defaults) }
     }
 }
@@ -141,7 +164,7 @@ import Testing
 // [LAW:behavior-not-structure] The contract is which firings a run of readings produces and what
 // a relaunch gets back, as the Done-when of the plug, unplug, and temperature alerts states it.
 @MainActor @Suite struct PowerAndTemperatureAlerts {
-    static let both = PowerSourceAlerts(pluggedIn: true, unplugged: true, sound: true)
+    static let both = PowerSourceAlerts(pluggedIn: true, unplugged: true, temperature: true, sound: true)
 
     static func reading(_ source: [String: Any], celsius: Double = 30.93) throws -> BatteryReading {
         var registry = BatteryReadingParse.registry
@@ -171,10 +194,24 @@ import Testing
     @Test func eachPowerAlertHasItsOwnSwitchAndTheCardsSound() throws {
         let (battery, adapter) = (try Self.battery(), try Self.adapter())
         let run = [battery, adapter, adapter, battery, battery]
-        #expect(Self.firings(run, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: true))
+        #expect(Self.firings(run, power: PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: true, sound: true))
             == [.unplugged(sound: true)])
-        #expect(Self.firings(run, power: PowerSourceAlerts(pluggedIn: true, unplugged: false, sound: false))
+        #expect(Self.firings(run, power: PowerSourceAlerts(pluggedIn: true, unplugged: false, temperature: true, sound: false))
             == [.pluggedIn(sound: false)])
+    }
+
+    @Test func theTemperatureSwitchOffSilencesTheWarningAndLeavesPlugAndUnplugAlone() throws {
+        let (normal, hot, adapter) = (try Self.battery(), try Self.battery(celsius: 41), try Self.adapter())
+        let off = PowerSourceAlerts(pluggedIn: true, unplugged: true, temperature: false, sound: true)
+        #expect(Self.firings([normal, hot, normal, adapter], power: off) == [.pluggedIn(sound: true)])
+    }
+
+    @Test func switchingTemperatureOnWhileHotAnnouncesNothingUntilTheBatteryHasCooledAndHeatedAgain() throws {
+        let (normal, hot) = (try Self.battery(), try Self.battery(celsius: 41))
+        let off = PowerSourceAlerts(pluggedIn: true, unplugged: true, temperature: false, sound: true)
+        var engine = AlertEngine()
+        let readings = [(normal, off), (hot, off), (hot, Self.both), (normal, Self.both), (hot, Self.both)]
+        #expect(readings.flatMap { engine.observe($0, alerts: [], power: $1) } == [.temperatureWarning(.hot, sound: true)])
     }
 
     @Test func theMasterSwitchSilencesEveryPowerAndTemperatureAlert() throws {
@@ -227,7 +264,7 @@ import Testing
 
     @Test func theSwitchesAndSoundComeBackFromARelaunch() throws {
         let defaults = AlertSettingsPersistence.suite()
-        let power = PowerSourceAlerts(pluggedIn: false, unplugged: true, sound: false)
+        let power = PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: false, sound: false)
         let center = try AlertCenter(defaults: defaults, deliver: { _, _ in })
         try center.model.update { $0.power = power }
         let relaunched = try AlertCenter(defaults: defaults, deliver: { _, _ in })

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is what the Alerts screen shows for the settings, what
@@ -129,6 +130,40 @@ import Testing
         let hot = try PowerAndTemperatureAlerts.battery(celsius: 41)
         pills.deliver(.temperatureWarning(.hot, sound: false), reading: hot)
         #expect(pills.shown?.progress == Double(hot.chargePercent) / 100)
+    }
+
+    private func screen(_ center: AlertCenter) throws -> InspectableView<ViewType.ClassifiedView> {
+        try AlertsScreen(center: center).inspect()
+    }
+
+    private func temperatureSwitch(_ center: AlertCenter) throws -> InspectableView<ViewType.Toggle> {
+        try screen(center).find(ViewType.Toggle.self, where: { try $0.labelView().text().string() == "Temperature" })
+    }
+
+    @Test func theTemperatureRowSitsBetweenUnpluggedAndSoundWithItsWordsAndReadsOnByDefault() throws {
+        let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { _, _ in })
+        let view = try screen(center)
+        _ = try view.find(text: "Notify when the battery runs warm or hot")
+        #expect(try view.findAll(ViewType.Toggle.self).map { try $0.labelView().text().string() }
+            == ["Enable Notifications", "Plugged In", "Unplugged", "Temperature", "Sound"])
+        #expect(try temperatureSwitch(center).isOn())
+    }
+
+    @Test func turningTheTemperatureSwitchOffSilencesAHotBatteryAndSurvivesARelaunch() throws {
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        defer { pills.close(.closeButton) }
+        let defaults = AlertSettingsPersistence.suite()
+        let center = try AlertCenter(defaults: defaults, deliver: { pills.deliver($0, reading: $1) })
+        try center.model.update { $0.alerts = [] }
+
+        try temperatureSwitch(center).tap()
+        #expect(try temperatureSwitch(center).isOn() == false)
+        center.observe(try PowerAndTemperatureAlerts.battery())
+        center.observe(try PowerAndTemperatureAlerts.battery(celsius: 41))
+        #expect(pills.shown == nil)
+
+        let relaunched = try AlertCenter(defaults: defaults, deliver: { _, _ in })
+        #expect(try temperatureSwitch(relaunched).isOn() == false)
     }
 
     @Test func anAlertEditedFrom20To12FiresOnceAt11AndItsCardFollowsTheEdit() throws {
