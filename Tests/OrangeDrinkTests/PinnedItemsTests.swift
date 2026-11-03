@@ -63,7 +63,7 @@ import Testing
         let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
-        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
         let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, language: language, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices.map(\.source)))
@@ -115,7 +115,7 @@ import Testing
         let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
-        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
         let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: controller(items))
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices.map(\.source)))

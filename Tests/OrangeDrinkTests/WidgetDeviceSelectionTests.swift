@@ -38,7 +38,7 @@ import WidgetKit
     }
 
     static func names(_ all: AllBatteries) -> [String?]? {
-        guard case .listed(let batteries) = all else { return nil }
+        guard case .listed(let batteries, _) = all else { return nil }
         return batteries.map(\.name?.english)
     }
 
@@ -83,18 +83,44 @@ import WidgetKit
     /// An unlevelled device is not ranked, so these words have to hold beside one.
     @Test func noDeviceListedSaysWhy() {
         let keyboard = WidgetDevice(id: .bluetooth("silent"), name: "Keyboard", kind: .accessory, level: nil)
-        let silent = WidgetDevices.connected(WidgetDeviceList(ranked: [], pinned: [.bluetooth("silent")], unlevelled: [keyboard]))
+        let silent = WidgetDeviceList(ranked: [], pinned: [.bluetooth("silent")], unlevelled: [keyboard], unreadSources: [])
         #expect(silent.listed(by: .sameAsMenuBar) == .failure(.noneReporting))
         #expect(silent.listed(by: .custom([.bluetooth("silent")])) == .failure(.noneReporting))
         #expect(silent.listed(by: .custom([])) == .failure(.noneChosen))
-        #expect(WidgetDevices.connected(Self.five, pinned: []).listed(by: .sameAsMenuBar) == .failure(.nonePinned))
-        #expect(WidgetDevices.connected(Self.five, pinned: []).listed(by: .custom([.bluetooth("gone")])) == .failure(.noneReporting))
-        #expect(WidgetDevices.unread(.denied).listed(by: .sameAsMenuBar) == .failure(.unread(.denied)))
-        #expect(WidgetDevices.unread(.denied).listed(by: .automatic) == .failure(.unread(.denied)))
+        #expect(WidgetDeviceList.connected(Self.five, pinned: []).listed(by: .sameAsMenuBar) == .failure(.nonePinned))
+        #expect(WidgetDeviceList.connected(Self.five, pinned: []).listed(by: .custom([.bluetooth("gone")])) == .failure(.noneReporting))
+    }
+
+    /// One precedence: a choice not yet made is a fact about configuration and wins over an unread source; an empty pick with a
+    /// source unread says that source, since the pick may be empty for want of it.
+    @Test func anUnreadSourceExplainsAnEmptyPickButNeverAChoiceNotYetMade() {
+        let denied = WidgetDeviceList.unread(.denied)
+        #expect(denied.listed(by: .sameAsMenuBar) == .failure(.nonePinned))
+        #expect(denied.listed(by: .custom([])) == .failure(.noneChosen))
+        #expect(denied.listed(by: .automatic) == .failure(.unread(.bluetooth(.denied))))
+        #expect(denied.listed(by: .custom([.bluetooth("AA")])) == .failure(.unread(.bluetooth(.denied))))
+        let pinned = WidgetDeviceList(ranked: [], pinned: [.bluetooth("AA")], unlevelled: [], unreadSources: [.iPhone(.ended)])
+        #expect(pinned.listed(by: .sameAsMenuBar) == .failure(.unread(.iPhone(.ended))))
+    }
+
+    @Test func devicesAreListedBesideTheSourcesUnreadWithTheirOwnReasons() {
+        let unread: [UnreadSource] = [.bluetooth(.denied), .iPhone(.ended)]
+        let list = WidgetDeviceList(ranked: Self.five, pinned: [Self.five[1].id], unlevelled: [], unreadSources: unread)
+        #expect(list.listed(by: .automatic) == .success(WidgetListing(devices: Self.five, unread: unread)))
+        #expect(list.listed(by: .sameAsMenuBar) == .success(WidgetListing(devices: [Self.five[1]], unread: unread)))
+        #expect(list.listed(by: .custom([Self.five[2].id])) == .success(WidgetListing(devices: [Self.five[2]], unread: unread)))
+    }
+
+    /// One line for a one-line surface: the first source not merely waiting, else the first.
+    @Test func theOneLineASmallSurfaceSaysIsTheFirstSourceNotMerelyWaiting() {
+        #expect([UnreadSource.bluetooth(.waiting), .iPhone(.ended)].headline == .iPhone(.ended))
+        #expect([UnreadSource.bluetooth(.denied), .iPhone(.ended)].headline == .bluetooth(.denied))
+        #expect([UnreadSource.bluetooth(.waiting), .iPhone(.waiting)].headline == .bluetooth(.waiting))
+        #expect([UnreadSource]().headline == nil)
     }
 
     @Test func automaticWithNothingToListIsAnEmptyListNotAReason() {
-        #expect(WidgetDevices.connected([], pinned: []).listed(by: .automatic) == .success([]))
+        #expect(WidgetDeviceList.connected([], pinned: []).listed(by: .automatic) == .success(WidgetListing(devices: [], unread: [])))
     }
 
     @Test func aMacKeepsItsPlaceBesideASelectionThatListsNothing() {
@@ -124,7 +150,7 @@ import WidgetKit
 
     @Test func theLogsCarryHowManyAndNeverAnAddress() {
         #expect(String(describing: WidgetDeviceSelection.custom([.bluetooth("AA-BB"), .bluetooth("CC-DD")])) == "custom 2")
-        let line = String(describing: Shelved.running(WidgetDevices.connected([], pinned: [.bluetooth("AA-BB")])))
+        let line = String(describing: Shelved.running(WidgetDeviceList.connected([], pinned: [.bluetooth("AA-BB")])))
         #expect(!line.contains("AA-BB"))
         #expect(line.contains("1 pinned"))
     }
@@ -133,7 +159,7 @@ import WidgetKit
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([]), from: .bluetooth)
         let pinned = PinnedOrder([DeviceID.bluetooth("gone"), DeviceID.bluetooth("here")])
-        #expect(WidgetDevices(list, pinned: pinned) == .connected([], pinned: [.bluetooth("gone"), .bluetooth("here")]))
+        #expect(WidgetDeviceList(list, pinned: pinned) == .connected([], pinned: [.bluetooth("gone"), .bluetooth("here")]))
     }
 
     // MARK: through the app
@@ -159,7 +185,7 @@ import WidgetKit
             $0.togglePinned(DeviceID.bluetooth("D"))
         }
         var asked: [WidgetKind] = []
-        let publisher = ShelfPublisher<Shelved<WidgetDevices>>(item: .devices, directory: shelf) { asked.append($0) }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { asked.append($0) }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
         let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: pinnedItems)

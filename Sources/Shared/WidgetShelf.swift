@@ -96,16 +96,37 @@ extension UnreadDevices {
         case .denied, .ended: MacBattery.stoppedGlyph
         }
     }
+}
+
+/// One source's list the app could not give, and why. [LAW:types-are-the-program] The reason is held with the source it is
+/// about, so a surface that has devices beside an unread source says which, and the reasons of several sources are a list and
+/// not one verdict picked among them.
+struct UnreadSource: Codable, Equatable, Sendable {
+    let source: DeviceSource
+    let reason: UnreadDevices
+}
+
+extension UnreadSource {
+    var glyph: String { reason.glyph }
 
     /// What a widget says for it. A widget is too small for the panel's sentences, and the panel says why at length.
+    /// `.unanswered` and `.denied` are Bluetooth's: the only source with a permission, which `DeviceList` enforces.
     var text: Phrase {
-        switch self {
-        case .waiting: "Reading devices…"
-        case .unanswered: "Answer the Bluetooth prompt"
-        case .denied: "Allow Bluetooth in System Settings, then reopen the app"
-        case .ended: "Devices unavailable"
+        switch (reason, source) {
+        case (.waiting, .bluetooth): "Reading devices…"
+        case (.waiting, .iPhone): "Reading iPhones…"
+        case (.unanswered, _): "Answer the Bluetooth prompt"
+        case (.denied, _): "Bluetooth is not allowed"
+        case (.ended, .bluetooth): "Bluetooth unavailable"
+        case (.ended, .iPhone): "iPhones unavailable"
         }
     }
+}
+
+extension [UnreadSource] {
+    /// The one source a one-line widget surface speaks for: the first, in source order, that is not merely waiting for its
+    /// first reading, else the first. A presentation choice at the narrowest surface; nothing stores it.
+    var headline: UnreadSource? { first { $0.reason != .waiting } ?? first }
 }
 
 /// The devices pinned to the menu bar, in the order their items sit there, connected or not.
@@ -163,6 +184,9 @@ struct WidgetDeviceList: Codable, Equatable, Sendable {
     /// management has no source for. Device Battery draws one it is set to; All Batteries lists only `ranked`, so a device
     /// with no battery gains no row.
     let unlevelled: [WidgetDevice]
+    /// The sources whose list has not arrived, and why, beside the devices the others gave. [LAW:one-source-of-truth] Derived
+    /// from the one `DeviceList`; a widget that lists devices says these beside them and never "not connected" alone.
+    let unreadSources: [UnreadSource]
 
     /// [LAW:one-source-of-truth] Where Device Battery finds its device: nil only for a device that is not connected.
     func device(_ id: DeviceID) -> WidgetDevice? {
@@ -170,16 +194,51 @@ struct WidgetDeviceList: Codable, Equatable, Sendable {
     }
 }
 
-/// What the app knows of its devices, as the widgets draw them. The app derives it from `DeviceList`.
-enum WidgetDevices: Codable, Equatable, Sendable {
-    case connected(WidgetDeviceList)
-    case unread(UnreadDevices)
+extension WidgetDeviceList {
+    private enum Keys: String, CodingKey { case ranked, pinned, unlevelled, unreadSources }
+    /// The previous release's two shapes, an enum's wire form. Read so a file it wrote still draws until the app rewrites it
+    /// at launch. Owner: this file. Cap: these two. Delete in the release after the one that ships this.
+    private enum Previous: String, CodingKey { case connected, unread }
+    private struct Boxed<Value: Decodable>: Decodable { let _0: Value }
+
+    init(from decoder: any Decoder) throws {
+        let previous = try decoder.container(keyedBy: Previous.self)
+        if previous.contains(.connected) {
+            self = try previous.decode(Boxed<WidgetDeviceList>.self, forKey: .connected)._0
+        } else if previous.contains(.unread) {
+            // The previous release had one source, Bluetooth, and its unread file carried no devices and no pins.
+            let reason = try previous.decode(Boxed<UnreadDevices>.self, forKey: .unread)._0
+            self.init(ranked: [], pinned: WidgetPins(ids: []), unlevelled: [], unreadSources: [UnreadSource(source: .bluetooth, reason: reason)])
+        } else {
+            let values = try decoder.container(keyedBy: Keys.self)
+            // A list the previous release wrapped in `connected` has no unread sources.
+            self.init(ranked: try values.decode([WidgetDevice].self, forKey: .ranked), pinned: try values.decode(WidgetPins.self, forKey: .pinned),
+                      unlevelled: try values.decode([WidgetDevice].self, forKey: .unlevelled),
+                      unreadSources: try values.decodeIfPresent([UnreadSource].self, forKey: .unreadSources) ?? [])
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: Keys.self)
+        try values.encode(ranked, forKey: .ranked)
+        try values.encode(pinned, forKey: .pinned)
+        try values.encode(unlevelled, forKey: .unlevelled)
+        try values.encode(unreadSources, forKey: .unreadSources)
+    }
+}
+
+/// What a widget selection lists: the devices it picked, and the sources unread beside them.
+struct WidgetListing: Equatable, Sendable {
+    let devices: [WidgetDevice]
+    let unread: [UnreadSource]
 }
 
 /// Why an All Batteries widget lists no device. [LAW:types-are-the-program] Each is a list the widget could not draw, so none
 /// of them can reach a person as a widget with nothing to say.
 enum NoDevicesListed: Error, Equatable, Sendable {
-    case unread(UnreadDevices)
+    /// Nothing to list, and a source's list that has not arrived is why it may be so. The one source a one-line surface says
+    /// (`[UnreadSource].headline`), so there is no empty case.
+    case unread(UnreadSource)
     /// Custom, with nothing chosen yet.
     case noneChosen
     /// Same as menu bar, with nothing pinned.
@@ -191,14 +250,14 @@ enum NoDevicesListed: Error, Equatable, Sendable {
 extension NoDevicesListed {
     var glyph: String {
         switch self {
-        case .unread(let reason): reason.glyph
+        case .unread(let source): source.glyph
         case .noneChosen, .nonePinned, .noneReporting: DeviceKind.accessory.symbol
         }
     }
 
     var text: Phrase {
         switch self {
-        case .unread(let reason): reason.text
+        case .unread(let source): source.text
         case .noneChosen: "Choose devices: right-click → Edit Widget"
         case .nonePinned: "Pin a device on the Devices screen"
         case .noneReporting: "This widget's devices aren't reporting a battery"
@@ -212,15 +271,16 @@ enum AllBatteries: Equatable, Sendable {
     /// The Mac first, so a full widget never pushes it out, then the devices in the panel's ranking, so the
     /// lowest are the ones that fit, or in the order a widget's selection gives. Empty when no device reports a
     /// battery and the Mac is left out or has none.
-    case listed([WidgetBattery])
+    case listed([WidgetBattery], unread: [UnreadSource])
     /// The Mac, nil when it has no battery, and why no device is listed. It keeps its place beside the reason:
     /// it is the one thing the widget can show a person who keeps Bluetooth refused.
     case unlisted(mac: WidgetBattery?, NoDevicesListed)
 
-    init(mac: MacBattery, devices: WidgetDevices, settings: AllBatteriesSettings) {
+    init(mac: MacBattery, devices: WidgetDeviceList, settings: AllBatteriesSettings) {
         let mac = (settings.includeMac ? mac.battery : nil).map { settings.drawn($0, named: MacBattery.name) }
         self = switch devices.listed(by: settings.devices) {
-        case .success(let devices): .listed([mac].compactMap(\.self) + devices.map { settings.drawn(WidgetBattery($0), named: "\($0.name)") })
+        case .success(let listing):
+            .listed([mac].compactMap(\.self) + listing.devices.map { settings.drawn(WidgetBattery($0), named: "\($0.name)") }, unread: listing.unread)
         case .failure(let reason): .unlisted(mac: mac, reason)
         }
     }
@@ -309,7 +369,7 @@ extension WidgetShelf.Item where Contents == Shelved<MacBattery> {
     static var macBattery: Self { Self(file: "mac.json", readers: [.macBattery, .allBatteries]) }
 }
 
-extension WidgetShelf.Item where Contents == Shelved<WidgetDevices> {
+extension WidgetShelf.Item where Contents == Shelved<WidgetDeviceList> {
     static var devices: Self { Self(file: "devices.json", readers: [.deviceBattery, .allBatteries]) }
 }
 
@@ -318,21 +378,31 @@ extension WidgetShelf.Item where Contents == SeenDevices {
     static var seenDevices: Self { Self(file: "seen-devices.json", readers: []) }
 }
 
-extension WidgetDevices {
-    /// The devices a widget's selection lists, or why it lists none. [LAW:one-type-per-behavior] Custom and Same as menu
-    /// bar differ only in where their devices come from.
-    func listed(by selection: WidgetDeviceSelection) -> Result<[WidgetDevice], NoDevicesListed> {
-        switch (self, selection) {
-        case (.unread(let reason), _): .failure(.unread(reason))
-        case (.connected(let list), .automatic): .success(list.ranked)
-        case (.connected(let list), .custom(let ids)): Self.picked(ids, from: list.ranked, unset: .noneChosen)
-        case (.connected(let list), .sameAsMenuBar): Self.picked(list.pinned.ids, from: list.ranked, unset: .nonePinned)
+extension WidgetDeviceList {
+    /// The devices a widget's selection lists with the sources unread beside them, or why it lists none. [LAW:one-type-per-behavior]
+    /// Custom and Same as menu bar differ only in where their devices come from.
+    ///
+    /// One precedence for every widget: a choice not yet made (nothing chosen, nothing pinned) is a fact about configuration and
+    /// wins; then an empty pick with a source unread says that source, since the pick may be empty for want of it; then
+    /// the devices, with the unread sources beside them.
+    func listed(by selection: WidgetDeviceSelection) -> Result<WidgetListing, NoDevicesListed> {
+        switch selection {
+        case .automatic: listing(ranked, emptyIs: nil)
+        case .custom(let ids): picked(ids, unset: .noneChosen)
+        case .sameAsMenuBar: picked(pinned.ids, unset: .nonePinned)
         }
     }
 
     /// As the pinned menu bar items do, a device not on the list is left out and the rest keep their order.
-    private static func picked(_ ids: [DeviceID], from list: [WidgetDevice], unset: NoDevicesListed) -> Result<[WidgetDevice], NoDevicesListed> {
-        let devices = ids.compactMap { id in list.first { $0.id == id } }
-        return devices.isEmpty ? .failure(ids.isEmpty ? unset : .noneReporting) : .success(devices)
+    private func picked(_ ids: [DeviceID], unset: NoDevicesListed) -> Result<WidgetListing, NoDevicesListed> {
+        ids.isEmpty ? .failure(unset) : listing(ids.compactMap { id in ranked.first { $0.id == id } }, emptyIs: .noneReporting)
+    }
+
+    /// `devices` beside the unread sources. With none: the unread source that may explain it, else `reason`, else an empty
+    /// listing (an automatic selection of a Mac with no device that reports a battery).
+    private func listing(_ devices: [WidgetDevice], emptyIs reason: NoDevicesListed?) -> Result<WidgetListing, NoDevicesListed> {
+        guard devices.isEmpty else { return .success(WidgetListing(devices: devices, unread: unreadSources)) }
+        if let headline = unreadSources.headline { return .failure(.unread(headline)) }
+        return reason.map { .failure($0) } ?? .success(WidgetListing(devices: [], unread: []))
     }
 }

@@ -39,7 +39,7 @@ import WidgetKit
             try MacBatteryView(entry: MacBatteryEntry(date: .now, battery: .success($0)), appName: "App").inspect().find(Message.self).actualView().text
         }
         let device = WidgetDevice(id: .bluetooth("AA"), name: "iPhone", kind: .phone, level: nil)
-        let single = try [(WidgetDevices.connected([], pinned: []), nil), (.connected([], pinned: []), "AA"), (.connected([device], pinned: []), nil)].map { (list, chosen: String?) in
+        let single = try [(WidgetDeviceList.connected([], pinned: []), nil), (.connected([], pinned: []), "AA"), (.connected([device], pinned: []), nil)].map { (list, chosen: String?) in
             try DeviceBatteryView(entry: DeviceBatteryEntry(date: .now, shelf: .success(.running(list)), chosen: chosen.map(DeviceID.bluetooth)), appName: "App", family: .systemSmall)
                 .inspect().find(Message.self).actualView().text
         }
@@ -70,7 +70,7 @@ import WidgetKit
         #expect(try Self.translation(MacBattery.name, AppLanguage(code: "es")) == "Este Mac")
         let device = WidgetDevice(id: .bluetooth("AA"), name: "Rings", kind: .phone, level: nil)
         let drawn = AllBatteries(mac: .noBattery, devices: .connected([device], pinned: []), settings: AllBatteriesWidgetTests.settings { $0.showNames = true })
-        guard case .listed(let batteries) = drawn, let name = batteries.first?.name else {
+        guard case .listed(let batteries, _) = drawn, let name = batteries.first?.name else {
             Issue.record("a named device")
             return
         }

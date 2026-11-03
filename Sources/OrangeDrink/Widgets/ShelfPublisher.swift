@@ -20,15 +20,15 @@ extension WidgetDevice {
     }
 }
 
-extension WidgetDevices {
+extension WidgetDeviceList {
     /// What the widgets draw for the list. [LAW:one-source-of-truth] Derived from the one ranking the panel
-    /// reads, so a widget shows the level the panel shows, from the list's one word on whether it was read,
+    /// reads, so a widget shows the level the panel shows, from the list's one account of what was not read,
     /// and from the one order the menu bar's items are made in.
     init(_ list: DeviceList, pinned: PinnedOrder) {
-        self = list.unread.map(Self.unread) ?? .connected(WidgetDeviceList(
-            ranked: DeviceRanking.rows(list).map(WidgetDevice.init),
-            pinned: WidgetPins(ids: pinned.ids),
-            unlevelled: DeviceRanking.unlevelled(list).map(WidgetDevice.init)))
+        self.init(ranked: DeviceRanking.rows(list).map(WidgetDevice.init),
+                  pinned: WidgetPins(ids: pinned.ids),
+                  unlevelled: DeviceRanking.unlevelled(list).map(WidgetDevice.init),
+                  unreadSources: list.unreadSources)
     }
 }
 
@@ -37,7 +37,7 @@ extension DevicesModel {
     /// list it starts from reaches the shelf before this returns, so a file a crashed run left behind is not drawn as current
     /// while the first Bluetooth sweep is still out.
     convenience init(
-        sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>,
+        sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, seenShelf: ShelfPublisher<SeenDevices>,
         settings: DeviceSettingsModel, seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) {
@@ -55,11 +55,11 @@ extension DevicesModel {
 
     /// [LAW:no-ambient-temporal-coupling] Observation re-arms after every change to the list, the pins, the language or what has been seen, with no timer
     /// and no polling. A mirror needs only the latest, so changes that land together reach it as one.
-    private func mirror(to shelf: ShelfPublisher<Shelved<WidgetDevices>>, seenShelf: ShelfPublisher<SeenDevices>, settings: DeviceSettingsModel,
+    private func mirror(to shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, seenShelf: ShelfPublisher<SeenDevices>, settings: DeviceSettingsModel,
                         seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController) {
         withObservationTracking {
             pinnedItems.apply(PinnedItem.items(list, pinned: settings.value.pinned, language: language.value))
-            shelf.publish(.running(WidgetDevices(list, pinned: settings.value.pinned)))
+            shelf.publish(.running(WidgetDeviceList(list, pinned: settings.value.pinned)))
             seenShelf.publish(seen.value)
         } onChange: { [weak self] in
             Task { @MainActor in self?.mirror(to: shelf, seenShelf: seenShelf, settings: settings, seen: seen, language: language, pinnedItems: pinnedItems) }

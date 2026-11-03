@@ -3,7 +3,7 @@ import Foundation
 // Compiled into the app and its widget extension, because a widget's settings and the shelf hold these.
 
 /// Where a device is read from. [LAW:types-are-the-program] Closed, so a device of a source nothing reads cannot exist.
-enum DeviceSource: String, CaseIterable, Sendable {
+enum DeviceSource: String, CaseIterable, Sendable, Codable {
     case bluetooth
     /// An iPhone or iPad, read over its cable; its key is the device ID usbmuxd names it by.
     case iPhone = "iphone"

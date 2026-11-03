@@ -6,20 +6,13 @@ struct ConnectedDevicesView: View {
 
     var body: some View {
         let rows = connected.rows
-        if rows.isEmpty {
-            note(connected.emptyNote)
-        } else {
-            VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    if index > 0 { Divider().padding(.leading, 34) }
-                    DeviceRowView(row: row)
-                }
+        VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                if index > 0 { Divider().padding(.leading, 34) }
+                DeviceRowView(row: row)
             }
+            ListNotesView(rowsAreEmpty: rows.isEmpty, notes: connected.notes, font: .caption)
         }
-    }
-
-    private func note(_ text: Phrase) -> some View {
-        PhraseText(text).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

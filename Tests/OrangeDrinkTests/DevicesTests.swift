@@ -122,7 +122,7 @@ struct DeviceListTests {
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let answered = await list(of: model) { $0.devices.first?.levels != .unread }
         #expect(DeviceRanking.rows(answered).map(\.percent.english) == ["47%"])
-        #expect(model.list.unread != .ended)
+        #expect(model.list.unreadSources != [.bluetooth(.ended)])
     }
 
     @Test func aFinishedStreamIsAFailureNotAFrozenList() async {
@@ -131,7 +131,7 @@ struct DeviceListTests {
         send.yield(.reported(DeviceListTests.mouse.source))
         _ = await list(of: model) { $0.devices.count == 1 }
         send.finish()
-        let ended = await list(of: model) { $0.unread == .ended }
+        let ended = await list(of: model) { $0.unreadSources == [.bluetooth(.ended)] }
         #expect(ended.devices.isEmpty)
     }
 
@@ -139,7 +139,7 @@ struct DeviceListTests {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(sources: [.bluetooth: events])
         send.finish(throwing: BluetoothDevicesError.registration)
-        _ = await list(of: model) { $0.unread == .ended }
+        _ = await list(of: model) { $0.unreadSources == [.bluetooth(.ended)] }
     }
 
     @Test func onChangeIsToldOfTheEndedList() async {
@@ -148,7 +148,7 @@ struct DeviceListTests {
         let model = DevicesModel(sources: [.bluetooth: events], onChange: { tell.yield($0) })
         send.finish()
         var lists = told.makeAsyncIterator()
-        #expect(await lists.next()?.unread == .ended)
+        #expect(await lists.next()?.unreadSources == [.bluetooth(.ended)])
         _ = model
     }
 }
@@ -181,7 +181,7 @@ struct DeviceListTests {
             default: continue
             }
         }
-        try #require(list.unread == nil, "macOS refused this test host Bluetooth, so nothing swept")
+        try #require(list.unreadSources.isEmpty, "macOS refused this test host Bluetooth, so nothing swept")
         try #require(!list.devices.contains { $0.levels == .unread }, "powerd did not answer the sweep; the devices log names the call")
         // system_profiler names its devices and nothing more, so the name is the only key the two lists share.
         let swept = try Dictionary(list.devices.map { ($0.name, $0) }) { _, _ in

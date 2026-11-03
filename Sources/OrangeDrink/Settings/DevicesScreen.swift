@@ -86,7 +86,7 @@ struct DevicesScreen: View {
 
     @ViewBuilder private func detectedCard(_ detected: DetectedDevices, _ edits: SettingEdits<DeviceSettings>) -> some View {
         if detected.entries.isEmpty {
-            PhraseText(detected.emptyNote).foregroundStyle(.secondary)
+            ListNotesView(rowsAreEmpty: true, notes: detected.notes)
         } else {
             SettingCard {
                 ForEach(detected.entries) { entry in
@@ -121,6 +121,7 @@ struct DevicesScreen: View {
                     .accessibilityElement(children: .contain)
                 }
             }
+            ListNotesView(rowsAreEmpty: false, notes: detected.notes)
         }
     }
 

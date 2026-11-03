@@ -64,22 +64,22 @@ struct DeviceSourcesListTests {
         #expect(list.unread(of: .bluetooth) == nil)
     }
 
-    // The list-wide reason, for a list with no device to show: nil when every source has swept, else the first source in
-    // `DeviceSource.allCases` order that is not merely waiting, else waiting.
-    static let reasons: [(bluetooth: UnreadDevices?, iPhone: UnreadDevices?, expected: UnreadDevices?)] = [
-        (nil, nil, nil),
-        (nil, .ended, .ended),
-        (.denied, nil, .denied),
-        (.waiting, .denied, .denied),
-        (.waiting, .ended, .ended),
-        (.denied, .ended, .denied),
-        (.ended, .waiting, .ended),
-        (.waiting, .waiting, .waiting),
-        (nil, .waiting, .waiting),
+    // What a list says is missing: each source that has not swept, with its own reason, in `DeviceSource.allCases` order, and
+    // nothing for a source that has. Only Bluetooth has a permission, so only it is ever denied.
+    static let reasons: [(bluetooth: UnreadDevices?, iPhone: UnreadDevices?)] = [
+        (nil, nil),
+        (nil, .ended),
+        (.denied, nil),
+        (.waiting, .ended),
+        (.denied, .ended),
+        (.ended, .waiting),
+        (.waiting, .waiting),
+        (nil, .waiting),
+        (.unanswered, nil),
     ]
 
     @Test(arguments: reasons)
-    func anEmptyListsReasonIsTheFirstSettledOneOfTheSourcesNotYetSwept(bluetooth: UnreadDevices?, iPhone: UnreadDevices?, expected: UnreadDevices?) {
+    func eachSourceNotYetSweptIsListedWithItsOwnReason(bluetooth: UnreadDevices?, iPhone: UnreadDevices?) {
         var list = DeviceList(sources: DeviceSource.allCases)
         for (source, state) in [(DeviceSource.bluetooth, bluetooth), (.iPhone, iPhone)] {
             switch state {
@@ -90,29 +90,32 @@ struct DeviceSourcesListTests {
             case .waiting?: break
             }
         }
-        #expect(list.unread == expected)
+        let expected = [(DeviceSource.bluetooth, bluetooth), (.iPhone, iPhone)].compactMap { source, reason in
+            reason.map { UnreadSource(source: source, reason: $0) }
+        }
+        #expect(list.unreadSources == expected)
     }
 
-    /// A device of a source that has swept is something to show, so the list is no longer a reason; one reported ahead of its
-    /// source's first sweep is not the list yet. The reason a listed device hides is orange-device-sources-rec.k69's.
-    @Test func aListedDeviceOfASweptSourceIsNotAnEmptyListButOneAheadOfItsSweepIs() {
+    /// A device a source reported ahead of its first sweep is listed with the rest, as the panel has always listed it, and its
+    /// source stays unread until it sweeps: a device beside a missing list is shown beside the word that it is missing.
+    @Test func aDeviceAheadOfItsSourcesSweepIsListedAndItsSourceStaysUnread() {
         var list = DeviceList(sources: DeviceSource.allCases)
         list.apply(.permission(.denied), from: .bluetooth)
         list.apply(.reported(Fleet.mouse), from: .bluetooth)
-        #expect(list.unread == .denied)
+        #expect(list.devices.map(\.id) == [Fleet.mouse.id])
+        #expect(list.unreadSources == [.bluetooth(.denied), .iPhone(.waiting)])
 
         list.apply(.swept([Fleet.phone]), from: .iPhone)
-        #expect(list.unread == nil)
-        list.apply(.swept([]), from: .iPhone)
-        #expect(list.unread == .denied)
+        #expect(list.devices.count == 2)
+        #expect(list.unreadSources == [.bluetooth(.denied)])
     }
 
     @Test func aSourceTheListWasNotBuiltForIsNotWaitingForEver() {
         var list = DeviceList(sources: [.bluetooth])
-        #expect(list.unread == .waiting)
+        #expect(list.unreadSources == [.bluetooth(.waiting)])
         #expect(list.unread(of: .iPhone) == nil)
         list.apply(.swept([]), from: .bluetooth)
-        #expect(list.unread == nil)
+        #expect(list.unreadSources.isEmpty)
     }
 }
 
@@ -147,7 +150,7 @@ struct DeviceSourcesListTests {
         #expect(DeviceRanking.rows(merged).map(\.id) == ranked)
         #expect(ConnectedDevices(merged, settings: DeviceSettings()).rows.map(\.id) == ranked)
         #expect(DetectedDevices(merged, settings: DeviceSettings()).entries.map(\.id) == ranked)
-        #expect(merged.unread == nil)
+        #expect(merged.unreadSources.isEmpty)
 
         // A sweep of one source replaces its devices and leaves the other's.
         sendBluetooth.yield(.swept([Fleet.mouse]))
@@ -168,7 +171,7 @@ struct DeviceSourcesListTests {
         sendBluetooth.finish(throwing: failure)
         let after = await list(of: model) { $0.unread(of: .bluetooth) == .ended }
         #expect(after.devices == [Fleet.phone.device])
-        #expect(after.unread == nil)
+        #expect(after.unreadSources == [.bluetooth(.ended)])
         #expect(after.unread(of: .iPhone) == nil)
         #expect(try await log.logged("device source ended: bluetooth: \(String(describing: failure))"))
 
@@ -190,7 +193,7 @@ struct DeviceSourcesListTests {
         sendIPhone.finish(throwing: failure)
         let after = await list(of: model) { $0.unread(of: .iPhone) == .ended }
         #expect(after.devices == [Fleet.mouse.device])
-        #expect(after.unread == nil)
+        #expect(after.unreadSources == [.iPhone(.ended)])
         #expect(try await log.logged("device source ended: iphone: \(String(describing: failure))"))
     }
 
@@ -203,7 +206,7 @@ struct DeviceSourcesListTests {
         _ = await list(of: model) { $0.devices.count == 2 }
         sendBluetooth.finish(throwing: StandIn(reason: "both ended, the first"))
         sendIPhone.finish(throwing: StandIn(reason: "both ended, the second"))
-        let ended = await list(of: model) { $0.unread == .ended }
+        let ended = await list(of: model) { $0.unreadSources == [.bluetooth(.ended), .iPhone(.ended)] }
         #expect(ended.devices.isEmpty)
     }
 

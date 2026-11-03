@@ -171,11 +171,20 @@ struct Caption: View {
 struct Message: View {
     let glyph: String
     let text: Phrase
+    /// A second line beneath, for a fact that does not replace the first: a device is not connected, and a source is unread.
+    let detail: Phrase?
+
+    init(glyph: String, text: Phrase, detail: Phrase? = nil) {
+        self.glyph = glyph
+        self.text = text
+        self.detail = detail
+    }
 
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: glyph).font(.title)
             Caption(text: text)
+            if let detail { Caption(text: detail) }
         }
         .foregroundStyle(.secondary)
     }
@@ -250,7 +259,7 @@ struct MacBatteryView: View {
 struct DeviceBatteryEntry: TimelineEntry {
     let date: Date
     /// What the app put on the shelf, or why there is nothing to read.
-    let shelf: Result<Shelved<WidgetDevices>, any Error>
+    let shelf: Result<Shelved<WidgetDeviceList>, any Error>
     /// The device the widget is set to; nil until one is chosen.
     let chosen: DeviceID?
 }
@@ -270,17 +279,23 @@ struct DeviceBatteryView: View {
     @ViewBuilder private var content: some View {
         switch entry.shelf {
         case .failure, .success(.appNotRunning): Message(glyph: DeviceKind.accessory.symbol, text: "Open \(appName)")
-        case .success(.running(.unread(let reason))): Message(.unread(reason))
-        case .success(.running(.connected(let list))): chosen(from: list)
+        case .success(.running(let list)): chosen(from: list)
         }
     }
 
+    /// [LAW:one-source-of-truth] The same precedence as `WidgetDeviceList.listed(by:)`: a device not yet chosen is said first;
+    /// with nothing listed and a source unread, that source alone; with devices listed, a missing one is not connected, and the
+    /// reason is said beneath it, since the list is incomplete. The reason belongs to the list and not to the missing device:
+    /// a device's id does not name the source that reads it.
     @ViewBuilder private func chosen(from list: WidgetDeviceList) -> some View {
+        let unread = list.unreadSources.headline
         if let id = entry.chosen {
             if let device = list.device(id) {
                 ring(device)
+            } else if let unread, (list.ranked + list.unlevelled).isEmpty {
+                Message(glyph: unread.glyph, text: unread.text)
             } else {
-                Message(glyph: DeviceKind.accessory.symbol, text: "Not connected")
+                Message(glyph: unread?.glyph ?? DeviceKind.accessory.symbol, text: "Not connected", detail: unread?.text)
             }
         } else {
             Message(glyph: DeviceKind.accessory.symbol, text: "Choose a device: right-click → Edit Widget")
@@ -308,7 +323,7 @@ struct AllBatteriesEntry: TimelineEntry {
     let date: Date
     /// What the app put on the shelf, or why there is nothing to read.
     let mac: Result<Shelved<MacBattery>, any Error>
-    let devices: Result<Shelved<WidgetDevices>, any Error>
+    let devices: Result<Shelved<WidgetDeviceList>, any Error>
     let settings: AllBatteriesSettings
 }
 
@@ -351,9 +366,9 @@ struct BatteryGrid {
         CGSize(width: space.width / CGFloat(columns), height: space.height / CGFloat(rows))
     }
 
-    /// As many batteries as fit, a row at a time.
-    func rows(of batteries: [WidgetBattery]) -> [[WidgetBattery]] {
-        let fitting = Array(batteries.prefix(columns * rows))
+    /// As many batteries as fit, a row at a time, leaving `reserved` rows of the grid for something else.
+    func rows(of batteries: [WidgetBattery], reserving reserved: Int) -> [[WidgetBattery]] {
+        let fitting = Array(batteries.prefix(columns * (rows - reserved)))
         return stride(from: 0, to: fitting.count, by: columns).map { Array(fitting[$0..<min($0 + columns, fitting.count)]) }
     }
 }
@@ -362,22 +377,41 @@ struct BatteryGrid {
 /// whatever it is offered: a battery is one size however few there are.
 struct BatteryCells: View {
     let batteries: [WidgetBattery]
+    /// The sources whose list has not arrived. The grid gives the last of its rows to saying so, so a full widget cannot push
+    /// the reason out.
+    let unread: [UnreadSource]
     let grid: BatteryGrid
 
     var body: some View {
         GeometryReader { space in
             let cell = grid.cell(in: space.size)
             VStack(alignment: grid.alignment.horizontal, spacing: 0) {
-                ForEach(Array(grid.rows(of: batteries).enumerated()), id: \.offset) { _, row in
+                ForEach(Array(grid.rows(of: batteries, reserving: unread.isEmpty ? 0 : 1).enumerated()), id: \.offset) { _, row in
                     HStack(spacing: 0) {
                         ForEach(Array(row.enumerated()), id: \.offset) { _, battery in
                             BatteryCell(battery: battery, style: grid.style).frame(width: cell.width, height: cell.height)
                         }
                     }
                 }
+                if let source = unread.headline {
+                    UnreadCaption(source: source).frame(width: space.size.width, height: cell.height)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: grid.alignment)
         }
+    }
+}
+
+/// A row of a widget that says a source's list has not arrived: one line, scaled down to a stated floor so it stays inside the
+/// row the grid gave it.
+struct UnreadCaption: View {
+    /// The least a caption is scaled to; the text of every reason must be whole at it (a test renders each one).
+    static let floor = 0.7
+
+    let source: UnreadSource
+
+    var body: some View {
+        PhraseText(source.text).font(.caption).lineLimit(1).minimumScaleFactor(Self.floor).foregroundStyle(.secondary)
     }
 }
 
@@ -421,8 +455,8 @@ struct AllBatteriesView: View {
     @ViewBuilder private func batteries(_ all: AllBatteries) -> some View {
         let grid = BatteryGrid(family, entry.settings.style)
         switch all {
-        case .listed(let batteries) where batteries.isEmpty: Message.noDeviceBatteries
-        case .listed(let batteries): BatteryCells(batteries: batteries, grid: grid)
+        case .listed(let batteries, _) where batteries.isEmpty: Message.noDeviceBatteries
+        case .listed(let batteries, let unread): BatteryCells(batteries: batteries, unread: unread, grid: grid)
         case .unlisted(nil, let reason): Message(reason)
         case .unlisted(let mac?, let reason): BatteryAndReason(mac: mac, reason: reason, grid: grid)
         }
