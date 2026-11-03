@@ -30,6 +30,11 @@ import Testing
         "iphone \(said) → \(DeviceMap.describe(steps))"
     }
 
+    /// Who every stand-in device says it is. Most tests are about reads and reachability and never see it: their harness leaves
+    /// `.identified` out of the stream, as it leaves out `.listed`.
+    private static let identity = IPhoneIdentity(name: "Brandon's iPhone", productType: "iPhone16,2",
+                                                 bluetooth: BluetoothAddress("6c:3a:ff:d9:74:42")!)
+
     typealias Read = @Sendable (_ handle: Int, _ udid: String) throws(IPhoneReadError) -> IPhoneBatteryReading
 
     /// A relay over one handle whose every read is the harness's read for that handle.
@@ -50,28 +55,36 @@ import Testing
         init(snapshot: @escaping @Sendable () throws -> [AttachedDevice],
              enableWifiSync: @escaping MonitorInputs.EnableWifiSync = { _, _ throws(IPhoneReadError) in },
              connect: @escaping @Sendable (_ handle: Int) throws(IPhoneReadError) -> Void = { _ throws(IPhoneReadError) in },
+             identify: @escaping MonitorInputs.Identify = { _, _ throws(IPhoneReadError) in IPhoneMonitorDecisions.identity },
              listing: Bool = false,
+             identified: Bool = false,
              read: @escaping Read) throws {
             let (socket, peer) = try TimedSocketDeadline.pair()
             self.peer = peer
             let opened = opened
             let all = IPhoneMonitor.events(from: MonitorInputs(
-                listen: { socket }, snapshot: snapshot,
+                listen: { socket }, snapshot: snapshot, identify: identify,
                 connect: { handle, udid throws(IPhoneReadError) in
                     opened.withLock { $0.append(handle) }
                     try connect(handle)
                     return StandInRelay(handle: handle, udid: udid, read: read)
                 },
                 enableWifiSync: enableWifiSync, timekeeper: clock))
-            events = listing ? all : Self.withoutListing(all)
+            events = Self.keeping(from: all) { event in
+                switch event {
+                case .listed: listing
+                case .identified: identified
+                default: true
+                }
+            }
         }
 
-        /// The stream without its `.listed` marker, which every test but the one about it leaves out of the sequence it is
-        /// asserting. Ending the returned stream ends `all`, and with it the monitor.
-        private static func withoutListing(_ all: AsyncStream<IPhoneEvent>) -> AsyncStream<IPhoneEvent> {
+        /// The stream with the markers a test leaves out of the sequence it is asserting taken out. Ending the returned stream
+        /// ends `all`, and with it the monitor.
+        private static func keeping(from all: AsyncStream<IPhoneEvent>, _ keep: @escaping @Sendable (IPhoneEvent) -> Bool) -> AsyncStream<IPhoneEvent> {
             AsyncStream { continuation in
                 let pump = Task {
-                    for await event in all where event != .listed { continuation.yield(event) }
+                    for await event in all where keep(event) { continuation.yield(event) }
                     continuation.finish()
                 }
                 continuation.onTermination = { _ in pump.cancel() }
@@ -360,6 +373,76 @@ import Testing
         #expect(try await log.count("iphone read delivered: T over network, relay held", awaiting: 1) == 1)
     }
 
+    // Who a device is comes with the relay: read when one is opened for it, delivered ahead of its first reading, and not read
+    // again while usbmuxd keeps the handle the relay was opened over.
+    @Test
+    func aDeviceIsIdentifiedWhenItsRelayIsOpenedAheadOfItsReadingAndNotWhileTheRelayIsHeld() async throws {
+        let identified = OSAllocatedUnfairLock<[Int]>(initialState: [])
+        let harness = try Harness(snapshot: { [Self.wifi(6, "I")] },
+                                  identify: { handle, _ throws(IPhoneReadError) in
+                                      identified.withLock { $0.append(handle) }
+                                      return Self.identity
+                                  },
+                                  identified: true) { _, _ throws(IPhoneReadError) in Self.reading }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .reachable(udid: "I", over: .network))
+        #expect(await events.next() == .identified(udid: "I", Self.identity))
+        #expect(await events.next() == .reading(udid: "I", over: .network, Self.reading))
+        await harness.nextPoll()
+        #expect(await events.next() == .reading(udid: "I", over: .network, Self.reading))
+        #expect(identified.withLock { $0 } == [6])
+
+        await harness.clock.asleep()
+        try harness.send(["MessageType": "Detached", "DeviceID": 6])
+        #expect(await events.next() == .unreachable(udid: "I"))
+        try harness.send(Self.attachedFrame(9, "I", "Network"))
+        #expect(await events.next() == .reachable(udid: "I", over: .network))
+        harness.clock.advance(by: IPhoneMonitor.pollInterval)
+        #expect(await events.next() == .identified(udid: "I", Self.identity))
+        #expect(await events.next() == .reading(udid: "I", over: .network, Self.reading))
+        #expect(identified.withLock { $0 } == [6, 9])
+    }
+
+    // [LAW:no-silent-failure] A device that cannot be identified is a failed read, delivered as one, and no relay is opened for
+    // it: its battery is of no use to a list that cannot name it. The next poll identifies it again.
+    @Test
+    func aDeviceThatCannotBeIdentifiedIsAFailedReadWithNoRelayOpenedAndTheNextPollTriesAgain() async throws {
+        let attempts = OSAllocatedUnfairLock(initialState: 0)
+        let harness = try Harness(snapshot: { [Self.wifi(6, "J")] },
+                                  identify: { _, _ throws(IPhoneReadError) in
+                                      if attempts.withLock({ $0 += 1; return $0 }) == 1 { throw .parse(.invalid("BluetoothAddress")) }
+                                      return Self.identity
+                                  },
+                                  identified: true) { _, _ throws(IPhoneReadError) in Self.reading }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .reachable(udid: "J", over: .network))
+        #expect(await events.next() == .readFailed(udid: "J", over: .network, .parse(.invalid("BluetoothAddress"))))
+        #expect(harness.opened.withLock { $0 }.isEmpty)
+        await harness.nextPoll()
+        #expect(await events.next() == .identified(udid: "J", Self.identity))
+        #expect(await events.next() == .reading(udid: "J", over: .network, Self.reading))
+        #expect(harness.opened.withLock { $0 } == [6])
+    }
+
+    // The identity is a fact of its own: a relay that will not open (a locked device refusing its service) still delivers it,
+    // ahead of the failure.
+    @Test
+    func aRelayThatCannotBeOpenedStillDeliversTheIdentityAheadOfTheFailure() async throws {
+        let harness = try Harness(snapshot: { [Self.wifi(6, "K")] },
+                                  connect: { _ throws(IPhoneReadError) in throw .refused("PasswordProtected") },
+                                  identified: true) { _, _ throws(IPhoneReadError) in Self.reading }
+        defer { close(harness.peer) }
+        var events = harness.events.makeAsyncIterator()
+
+        #expect(await events.next() == .reachable(udid: "K", over: .network))
+        #expect(await events.next() == .identified(udid: "K", Self.identity))
+        #expect(await events.next() == .readFailed(udid: "K", over: .network, .refused("PasswordProtected")))
+    }
+
     @Test
     func endingTheStreamCancelsEveryPacer() async throws {
         let log = try await BatteryLog(category: IPhoneMonitor.logCategory)
@@ -480,9 +563,11 @@ import Testing
         let udid = "00000000-0000000000000000"  // UDID-shaped, so usbmuxd answers ENOENT rather than EINVAL
         let identities = PairIdentities()
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try DiagnosticsRelay(handle: 1, udid: udid, identities: identities) }
+        #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneIdentity(handle: 1, udid: udid, identities: identities) }
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid, identities: identities) }
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(false, handle: 1, udid: udid, identities: identities) }
         #expect(try await log.logged("iphone relay open failed: \(udid) handle 1: usbmux("))
+        #expect(try await log.logged("iphone identity read failed: \(udid) handle 1: usbmux("))
         #expect(try await log.logged("iphone wifi sync on failed: \(udid) handle 1: usbmux("))
         #expect(try await log.logged("iphone wifi sync off failed: \(udid) handle 1: usbmux("))
     }

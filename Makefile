@@ -82,7 +82,7 @@ ui-test: build
 # [LAW:verifiable-goals] A check is here only for what a real device or macOS service replies, and it observes every fact
 # it asserts or records itself; a person only moves a cable or gives an approval macOS keeps for the user. Everything
 # else is tested in `make test`. docs/testing.md says which layer tests what.
-HARDWARE_CHECKS := unplug-check iphone-check devices-check position-check helper-repair-check \
+HARDWARE_CHECKS := unplug-check iphone-check iphone-identity-check devices-check position-check helper-repair-check \
   release-helper-check update-check login-item-check battery-notification-check notification-fixtures-check
 .PHONY: $(HARDWARE_CHECKS) hardware-status
 record = swift scripts/hardware-check.swift run $@ --covers $($@.covers) --
@@ -107,6 +107,15 @@ iphone-check: export TEST_RUNNER_IPHONE_CHECK = 1
 iphone-check.test := IPhoneLive/switchesOnWifiSyncThenKeepsReadingOverWifiOnceTheCableIsPulled()
 iphone-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Blocking.swift Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
   Tests/OrangeDrinkTests/IPhoneLive.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
+
+# The device sources ticket's step on a real Mac: with an iPhone, iPad or Vision Pro this Mac trusts reachable, cabled or on
+# Wi-Fi, reads each one's name, model and Bluetooth address from lockdown and holds them to the Mac's own record of the device
+# (system_profiler's paired devices, com.apple.iPod's Product Type). No cable and no person. project.yml is covered because it
+# keeps the app unsandboxed, which its connection to usbmuxd's socket needs.
+iphone-identity-check: export TEST_RUNNER_IPHONE_IDENTITY_CHECK = 1
+iphone-identity-check.test := IPhoneIdentityLive/identityMatchesTheMacsOwnRecord()
+iphone-identity-check.covers := Sources/OrangeDrink/IPhone Sources/OrangeDrink/Devices/BluetoothAddress.swift project.yml \
+  Tests/OrangeDrinkTests/IPhoneIdentityLive.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
 # The devices ticket's step on a real Mac: with paired devices connected, holds every device system_profiler lists
 # with a level to the app's sweep. project.yml is covered for the Bluetooth usage description.

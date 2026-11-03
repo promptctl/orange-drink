@@ -8,6 +8,10 @@ import Testing
 private enum Phone {
     static let udid = "00008110-A"
     static let id = DeviceID(source: .iPhone, key: udid)
+    /// The address as lockdown writes it; the claim holds it in IOBluetooth's form.
+    static let address = BluetoothAddress("6c:3a:ff:d9:74:42")!
+    static let identity = IPhoneIdentity(name: "Brandon's iPhone", productType: "iPhone16,2", bluetooth: address)
+    static let identified = IPhoneEvent.identified(udid: udid, identity)
 
     static func reading(_ level: Int) -> IPhoneBatteryReading {
         IPhoneBatteryReading(level: level, cycleCount: 312,
@@ -16,8 +20,9 @@ private enum Phone {
                              storedMaximumCapacity: nil)
     }
 
+    /// The phone as the source lists it: named and kinded by its identity, claiming its Bluetooth address.
     static func device(_ levels: DeviceLevels) -> SourceDevice {
-        SourceDevice(id: id, name: udid, kind: .phone, levels: levels)
+        SourceDevice(id: id, name: "Brandon's iPhone", kind: .phone, levels: levels, alsoBluetooth: address)
     }
 
     static func percent(_ percent: Int) -> DeviceLevels { .single(BatteryLevel(percent: percent, approximate: false)) }
@@ -32,30 +37,43 @@ struct IPhoneDevicesMappingTests {
     @Test func anAttachedIPhoneReadingSixtyTwoPercentIsAConnectedIPhoneDeviceAtSixtyTwoAndADetachRemovesIt() {
         #expect(events([
             .reachable(udid: Phone.udid, over: .usb),
+            Phone.identified,
             .reading(udid: Phone.udid, over: .usb, Phone.reading(62)),
             .unreachable(udid: Phone.udid),
         ]) == [
+            nil,
             .reported(Phone.device(.unread)),
             .reported(Phone.device(Phone.percent(62))),
             .gone(Phone.id),
         ])
     }
 
+    /// [LAW:types-are-the-program] A device is listed only once its identity has been read, so no report names it by its UDID:
+    /// nothing the reader says about a device before that lists it.
+    @Test func aDeviceWhoseIdentityHasNotBeenReadIsNotListed() {
+        #expect(events([
+            .reachable(udid: Phone.udid, over: .usb),
+            .readFailed(udid: Phone.udid, over: .usb, .refused("PasswordProtected")),
+            .listed,
+        ]) == [nil, nil, .swept([])])
+    }
+
     @Test func aFailedReadLeavesTheDeviceListedWithAnUnknownLevel() {
         let failed = IPhoneEvent.readFailed(udid: Phone.udid, over: .usb, .refused("PasswordProtected"))
-        #expect(events([.reachable(udid: Phone.udid, over: .usb), .reading(udid: Phone.udid, over: .usb, Phone.reading(62)), failed]).last
+        #expect(events([.reachable(udid: Phone.udid, over: .usb), Phone.identified, .reading(udid: Phone.udid, over: .usb, Phone.reading(62)), failed]).last
                 == .reported(Phone.device(.unread)))
     }
 
     @Test func movingFromTheCableToWifiKeepsTheLevelAndThenTheDeviceIsADropNotADeparture() {
         #expect(events([
             .reachable(udid: Phone.udid, over: .usb),
+            Phone.identified,
             .reading(udid: Phone.udid, over: .usb, Phone.reading(62)),
             .reachable(udid: Phone.udid, over: .network),
             .unreachable(udid: Phone.udid),
             .reachable(udid: Phone.udid, over: .network),
             .reading(udid: Phone.udid, over: .network, Phone.reading(60)),
-        ]).dropFirst(2) == [
+        ]).dropFirst(3) == [
             .reported(Phone.device(Phone.percent(62))),
             .reported(Phone.device(.unread)),
             .reported(Phone.device(.unread)),
@@ -68,29 +86,71 @@ struct IPhoneDevicesMappingTests {
     @Test func aReadsOwnTransportDoesNotMoveTheDevicesRoute() {
         #expect(events([
             .reachable(udid: Phone.udid, over: .usb),
+            Phone.identified,
             .reachable(udid: Phone.udid, over: .network),
             .reading(udid: Phone.udid, over: .usb, Phone.reading(62)),
             .unreachable(udid: Phone.udid),
         ]).last == .reported(Phone.device(.unread)))
     }
 
-    @Test func aReadOrDropForADeviceThatIsNotListedSaysNothing() {
+    @Test func aReadOrDropForADeviceThatIsNotReachableSaysNothing() {
         #expect(events([
+            Phone.identified,
             .reading(udid: Phone.udid, over: .usb, Phone.reading(62)),
             .readFailed(udid: Phone.udid, over: .usb, .refused("PasswordProtected")),
             .unreachable(udid: Phone.udid),
             .wifiSyncOn(udid: Phone.udid),
         ]).allSatisfy { $0 == nil })
 
-        // A read that lands after the cable left must not bring the device back.
+        // A read or an identity that lands after the cable left must not bring the device back.
         #expect(events([
-            .reachable(udid: Phone.udid, over: .usb), .unreachable(udid: Phone.udid), .reading(udid: Phone.udid, over: .usb, Phone.reading(62)),
-        ]).last! == nil)
+            .reachable(udid: Phone.udid, over: .usb), Phone.identified, .unreachable(udid: Phone.udid),
+            .reading(udid: Phone.udid, over: .usb, Phone.reading(62)), Phone.identified,
+        ]).suffix(2) == [nil, nil])
+    }
+
+    /// The identity belongs to the device and not to its route: the monitor's pacer rests through an unplug and a replug and reads
+    /// the device again only when it wakes, so the replug lists the phone at once, under the identity it had.
+    @Test func aCableUnpluggedAndPluggedBackBeforeTheNextReadListsThePhoneAgainUnderItsIdentity() {
+        #expect(events([
+            .reachable(udid: Phone.udid, over: .usb),
+            Phone.identified,
+            .reading(udid: Phone.udid, over: .usb, Phone.reading(62)),
+            .unreachable(udid: Phone.udid),
+            .reachable(udid: Phone.udid, over: .usb),
+        ]).suffix(2) == [.gone(Phone.id), .reported(Phone.device(.unread))])
     }
 
     @Test func theListingRestatesWhatIsAttachedEvenWhenNothingIs() {
         #expect(events([.listed]) == [.swept([])])
-        #expect(events([.reachable(udid: Phone.udid, over: .usb), .listed]).last == .swept([Phone.device(.unread)]))
+        #expect(events([.reachable(udid: Phone.udid, over: .usb), Phone.identified, .listed]).last == .swept([Phone.device(.unread)]))
+    }
+
+    @Test func aDevicesNameAndKindAreItsIdentitys() throws {
+        func listed(_ identity: IPhoneIdentity) -> SourceDevice? {
+            var devices = IPhoneDevices()
+            _ = devices.apply(.reachable(udid: Phone.udid, over: .usb))
+            guard case .reported(let device)? = devices.apply(.identified(udid: Phone.udid, identity)) else { return nil }
+            return device
+        }
+        let tablet = try #require(listed(IPhoneIdentity(name: "Studio iPad", productType: "iPad13,1", bluetooth: Phone.address)))
+        #expect((tablet.name, tablet.kind, tablet.alsoBluetooth) == ("Studio iPad", .tablet, Phone.address))
+        let goggles = try #require(listed(IPhoneIdentity(name: "SpaceGoggles2", productType: "RealityDevice14,1", bluetooth: Phone.address)))
+        #expect((goggles.name, goggles.kind) == ("SpaceGoggles2", .accessory))
+        // A blank name is no name: the UDID names the device, as the address names a Bluetooth device (Device.name).
+        let unnamed = try #require(listed(IPhoneIdentity(name: " ", productType: "iPhone16,2", bluetooth: Phone.address)))
+        #expect(unnamed.name == Phone.udid)
+        #expect(Device(id: unnamed.id, name: unnamed.name, kind: unnamed.kind, levels: unnamed.levels).hasName == false)
+    }
+
+    /// A name changed on the device shows from the next time the device is identified, and the level is kept.
+    @Test func identifyingAListedDeviceAgainRenamesItAndKeepsItsLevel() {
+        let renamed = IPhoneIdentity(name: "New name", productType: "iPhone16,2", bluetooth: Phone.address)
+        let last = events([
+            .reachable(udid: Phone.udid, over: .usb), Phone.identified, .reading(udid: Phone.udid, over: .usb, Phone.reading(62)),
+            .identified(udid: Phone.udid, renamed),
+        ]).last
+        #expect(last == .reported(SourceDevice(id: Phone.id, name: "New name", kind: .phone, levels: Phone.percent(62), alsoBluetooth: Phone.address)))
     }
 }
 
@@ -120,28 +180,47 @@ struct IPhoneDevicesMappingTests {
         return model.list
     }
 
+    /// The phone is presented under the Bluetooth address it claims (`Phone.address`), the identity a pin or a bell of it is stored under.
     @Test func aReadersIPhoneIsInThePanelsRankingBesideBluetoothDevicesAndLeavesWhenItDetaches() async {
         bluetooth.yield(.swept([DeviceListTests.mouse.source, DeviceListTests.pods.source]))
         reader.yield(.reachable(udid: Phone.udid, over: .usb))
+        reader.yield(Phone.identified)
         reader.yield(.reading(udid: Phone.udid, over: .usb, Phone.reading(62)))
         reader.yield(.listed)
-        let attached = await list { $0.devices.contains { $0.id == Phone.id && $0.levels == Phone.percent(62) } }
+        let attached = await list { $0.devices.contains { $0.id == Phone.address.identity && $0.levels == Phone.percent(62) } }
 
         // Lowest level first, whichever source it came from.
-        let ranked = [DeviceListTests.mouse.id, DeviceListTests.pods.id, Phone.id]
+        let ranked = [DeviceListTests.mouse.id, DeviceListTests.pods.id, Phone.address.identity]
         #expect(DeviceRanking.rows(attached).map(\.id) == ranked)
         #expect(DeviceRanking.rows(attached).last?.percent.english == "62%")
         #expect(ConnectedDevices(attached, settings: DeviceSettings()).rows.map(\.id) == ranked)
         #expect(DetectedDevices(attached, settings: DeviceSettings()).entries.map(\.id) == ranked)
 
         reader.yield(.unreachable(udid: Phone.udid))
-        let detached = await list { !$0.devices.contains { $0.id == Phone.id } }
+        let detached = await list { !$0.devices.contains { $0.id == Phone.address.identity } }
         #expect(DeviceRanking.rows(detached).map(\.id) == Array(ranked.dropLast()))
+    }
+
+    /// The reader and Bluetooth both list the one phone: the phone's address is its twin's identity, so the panel shows one row, at
+    /// the level the reader read, under the identity a pin or a bell of it is stored under.
+    @Test func aPhoneTheReaderAndBluetoothBothListIsOneRowUnderItsBluetoothIdentity() async {
+        let twin = SourceDevice(id: Phone.address.identity, name: "Brandon’s iPhone", kind: .phone, levels: .unread)
+        bluetooth.yield(.swept([twin]))
+        reader.yield(.reachable(udid: Phone.udid, over: .usb))
+        reader.yield(Phone.identified)
+        reader.yield(.reading(udid: Phone.udid, over: .usb, Phone.reading(62)))
+        reader.yield(.listed)
+        let merged = await list { $0.devices.contains { $0.levels == Phone.percent(62) } }
+
+        #expect(merged.devices.map(\.id) == [Phone.address.identity])
+        #expect(DeviceRanking.rows(merged).map(\.id) == [Phone.address.identity])
+        #expect(DetectedDevices(merged, settings: DeviceSettings()).entries.map(\.id) == [Phone.address.identity])
     }
 
     @Test func theReaderFailingEndsItsSourceAndLeavesBluetoothListed() async {
         bluetooth.yield(.swept([DeviceListTests.mouse.source]))
         reader.yield(.reachable(udid: Phone.udid, over: .usb))
+        reader.yield(Phone.identified)
         reader.yield(.listed)
         reader.yield(.failed(.refused("usbmuxd is gone")))
         let ended = await list { $0.unread(of: .iPhone) == .ended }

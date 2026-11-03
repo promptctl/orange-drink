@@ -115,7 +115,7 @@ private func dictionary(_ dict: [String: Any], _ key: String) throws -> [String:
 }
 
 /// nil when the key is absent; wrongType when it is present with another type.
-private func optional<T>(_ dict: [String: Any], _ key: String, as _: T.Type) throws -> T? {
+func optional<T>(_ dict: [String: Any], _ key: String, as _: T.Type) throws -> T? {
     guard let value = dict[key] else { return nil }
     guard let typed = value as? T else { throw IPhoneParseError.wrongType(key) }
     return typed
