@@ -1,0 +1,31 @@
+# Runs the tests on a GitHub-hosted Mac, so a commit is known to build and pass somewhere other than the machine
+# it was written on. The release workflow reads this file's jobs, each by its `name:` or else its key, and refuses a
+# tag whose commit has any of them not green (scripts/release-tested), so renaming or adding a job changes what a
+# release requires.
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+# A push to a PR makes the run still going on its last commit worth nothing. A commit on master is never superseded
+# that way - each one is owed its own result, because a release tag names one - so it is its own group and nothing
+# cancels it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  # `make ci-test` is `make test` without ax-check, which needs a terminal trusted for Accessibility. A hosted runner
+  # holds no Developer ID certificate, so the build is ad-hoc signed; the tests run the code, not the signature.
+  test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain
+      - run: make ci-test XCB_SETTINGS='CODE_SIGN_IDENTITY=-'

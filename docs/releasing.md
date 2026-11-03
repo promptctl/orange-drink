@@ -9,15 +9,22 @@ Check for Updates… row is pressed. The release marked latest is the update eve
 ## Cut a release
 
 1. Raise `MARKETING_VERSION` in a PR and merge it. The build number follows it.
-2. Run `make test` on that commit. The release workflow does not run the tests.
+2. Run `make test` on that commit. The release gate below is the hosted run, which leaves out what only a developer's
+   Mac answers: the accessibility-tree check, the battery, the helper's Developer ID signature and pmset's power mode.
 3. `git fetch origin && git tag v<version> origin/master && git push origin v<version>`
 4. Check that the run's commit is on master, then approve it when GitHub asks: the `release` environment holds the
    signing secrets and has a required reviewer. `git fetch origin && git merge-base --is-ancestor <commit> origin/master`
    exits 0 for a commit on master.
 
 The `preflight` job runs first, with no approval. It fails a tag that is not `v<MARKETING_VERSION>` or whose
-commit is not on master (`scripts/release-preflight`), so a bad tag is read from a failed run
-(`gh run view <id> --log-failed`) and is never put up for approval. Delete a bad tag with
+commit is not on master (`scripts/release-preflight`). The `tested` job follows it and fails a tag whose commit has a
+job of the `test` workflow (`.github/workflows/test.yaml`) that did not succeed (`scripts/release-tested`). So a bad tag
+is read from a failed run (`gh run view <id> --log-failed`) and is never put up for approval.
+
+The `test` workflow runs `make ci-test`, which is `make test` less the checks named in step 2 (the Makefile's
+`ci-test` comment says why each cannot run on a hosted runner). A commit's run starts when it reaches master, so a tag
+pushed right after the merge waits for it, up to half an hour; a commit with no run at all fails after three minutes.
+When a run failed for a reason outside the commit, re-run it: the latest run of a job decides. Delete a bad tag with
 `git push origin :refs/tags/<tag>`. A tag with a release already made fails at `gh release create`; it never
 replaces one. A tag moved after its run began fails that run at publishing (`scripts/release-publish`), so a
 release never pairs one commit's DMG with another commit's tag.

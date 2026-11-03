@@ -14,14 +14,8 @@ concurrency:
   group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
-# The macos-26 image's default Xcode, 17F113: the one the project builds with on a developer's Mac.
-# [LAW:one-source-of-truth] The XcodeGen the release is generated with is written here once, pinned by its
-# release artifact's SHA-256, not whatever Homebrew ships on the day.
 env:
   TAG: ${{ github.ref_name }}
-  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
-  XCODEGEN_VERSION: 2.46.0
-  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
 
 jobs:
   # [LAW:single-enforcer] scripts/release-preflight judges the tag. This job has no environment, so a tag
@@ -37,11 +31,29 @@ jobs:
           fetch-depth: 0
       - run: scripts/release-preflight "$TAG"
 
+  # [LAW:single-enforcer] scripts/release-tested judges the commit's test run. It only polls the API, so it is not on
+  # a macOS runner for the up-to-half-hour it may wait, and it is after preflight so a bad tag never waits on a test run.
+  # Both jobs are before the release job, so a commit whose tests failed is never put up for approval.
+  tested:
+    needs: preflight
+    runs-on: ubuntu-24.04
+    # release-tested waits up to half an hour for the test run, so this outlasts it.
+    timeout-minutes: 40
+    # checks: the test run's result is read from the commit's check runs.
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release-tested "$GITHUB_SHA"
+
   # The secrets are the release environment's, and it waits for a maintainer's approval before the job gets
   # them: a tag pushed from a branch runs that branch's copy of this file, so no check in it can be what
   # protects the Developer ID key.
   release:
-    needs: preflight
+    needs: [preflight, tested]
     runs-on: macos-26
     environment: release
     # The build, then two notary waits of at most 30 minutes each (scripts/notarize), so a stalled
@@ -56,13 +68,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
-        run: |
-          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
-            "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
-          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
-          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
-          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      # Xcode and XcodeGen: the ones the test workflow uses (.github/actions/toolchain).
+      - uses: ./.github/actions/toolchain
       # runner.temp is not available to a job's env, and a GITHUB_ENV write is not visible to the step that makes it.
       - name: Name the job's keychain
         run: echo "NOTARY_KEYCHAIN=$RUNNER_TEMP/release.keychain-db" >> "$GITHUB_ENV"
