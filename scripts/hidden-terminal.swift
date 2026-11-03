@@ -27,6 +27,12 @@ NSWorkspace.shared.openApplication(at: terminal, configuration: configuration) {
 done.wait()
 let app: NSRunningApplication
 do { app = try opened!.get() } catch { fail("Terminal did not open: \(error)") }
+// The handler fires once the process exists, before Terminal takes Apple events.
+let launchDeadline = Date(timeIntervalSinceNow: 30)
+while !app.isFinishedLaunching {
+    if Date() > launchDeadline { app.forceTerminate(); fail("Terminal did not finish launching") }
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+}
 
 // Terminal's `do script` ('core'/'dosc'), sent to this instance's pid: a script naming Terminal reaches the person's.
 let doScript = NSAppleEventDescriptor(eventClass: AEEventClass(0x636F_7265), eventID: AEEventID(0x646F_7363),
