@@ -58,9 +58,11 @@ alert_and_banner() {
   snapshot "$1" AXNotificationCenterAlert AXNotificationCenterBanner
 }
 
-# Withdraws the warning until nothing shows, as `raise` raises it until an alert does: on macOS 26 a single withdrawal left the French
-# step's alert up for the whole wait in some runs. The banners fade meanwhile, so the next step starts from nothing showing.
-withdrawn() { warn 1; nothing_showing; }
+# Withdraws the warning until nothing shows, as `raise` raises it until an alert does. On macOS 26 the French step's alert stayed up for
+# the whole wait in about half the runs while `warn 1` was sent again and again; sending 3 and then 1 took it down (a live probe of
+# the stuck alert), so a withdrawal that finds something showing is a change of level, as `raise`'s is. The banners fade meanwhile,
+# so the next step starts from nothing showing.
+withdrawn() { nothing_showing || { warn 3; warn 1; sleep 2; nothing_showing; }; }
 clear_all() { wait_for "$1: the notifications never went" 60 withdrawn; }
 
 notification_setup
