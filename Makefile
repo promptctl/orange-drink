@@ -15,7 +15,7 @@ HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c
 XCB_SETTINGS ?=
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)' $(XCB_SETTINGS)
 
-.PHONY: generate build release sparkle-tools test ci-test hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
+.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check
 
 generate:
 	xcodegen generate --use-cache
@@ -26,20 +26,24 @@ build: generate
 # The unit tests, then the accessibility-tree check of the shared settings components: SwiftUI builds
 # its tree only for a client of the running app, so that check is its own process (see ax-check).
 # It fails loudly, never skips, when the invoking terminal is not trusted for Accessibility.
-test: ci-test
+test: generate
+	$(call gated,test)
 	$(MAKE) ax-check
+	$(MAKE) script-tests
 
-# The part of `test` that needs no trusted terminal, which the test workflow runs on a hosted runner and the release
-# refuses a commit without (scripts/release-tested). ax-check cannot run there: it fails loudly without an
-# Accessibility-trusted terminal, so it stays a developer's step in `test`.
-# The tests it leaves out are the ones that ask this Mac a question a hosted runner's VM cannot answer: BatteryLive reads
-# the Mac's battery, which the VM has none of; the two HelperBuildTests read the Developer ID team off the helper's
-# signature, which the ad-hoc build there lacks; and pmsetRunsToItsEndOrItsDeadline reads pmset's power mode, which the VM
-# does not list. `make test` on a developer's Mac runs them.
+# `test` for a hosted runner, which the test workflow runs and the release refuses a commit without
+# (scripts/release-tested). It leaves out ax-check, which fails loudly without an Accessibility-trusted terminal, and the
+# tests that ask this Mac a question a hosted runner's VM cannot answer: BatteryLive reads the Mac's battery, which the VM
+# has none of; the two HelperBuildTests read the Developer ID team off the helper's signature, which the ad-hoc build there
+# lacks; and pmsetRunsToItsEndOrItsDeadline reads pmset's power mode, which the VM does not list. Only `test` runs them.
 CI_UNANSWERABLE := BatteryLive HelperBuildTests/helperIsSignedToServeOnlyThisApp() HelperBuildTests/releaseHelpersRefuseADebuggableApp() \
   PowerModeKeyTests/pmsetRunsToItsEndOrItsDeadline()
 ci-test: generate
 	$(call gated,test,$(foreach t,$(CI_UNANSWERABLE),'-skip-testing:$(APP)Tests/$(t)'))
+	$(MAKE) script-tests
+
+# The tests of the scripts, which need no person and no device; `test` and `ci-test` both end with them.
+script-tests:
 	$(MAKE) hardware-check-test
 	$(MAKE) release-test
 	$(MAKE) vm-check-test

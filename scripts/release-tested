@@ -11,7 +11,7 @@
 #
 # A check run absent for a few minutes means the workflow never ran on this commit, which is a refusal and not
 # something to wait out. Of several runs of one check on a commit, the latest decides: a failure that was re-run
-# and passed is a pass.
+# and passed is a pass. Only Actions' own check runs count, so another app's check of the same name cannot vouch.
 set -euo pipefail
 
 fail() { echo "release-tested: $*" >&2; exit 1; }
@@ -29,7 +29,7 @@ for check in $checks; do
   verdict=none
   for attempt in $(seq "$attempts"); do
     verdict=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/check-runs?check_name=$check" \
-      --jq '.check_runs | sort_by(.started_at) | last | if . == null then "none" else (.conclusion // .status) end')
+      --jq '[.check_runs[] | select(.app.slug == "github-actions")] | sort_by(.id) | last | if . == null then "none" else (.conclusion // .status) end')
     case $verdict in
       queued | in_progress | pending | waiting | requested) ;;
       none) [ "$attempt" -lt "$appear" ] || break ;;

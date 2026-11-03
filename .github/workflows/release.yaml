@@ -22,7 +22,8 @@ jobs:
   # naming the wrong version or sitting off master fails here at once, in a run nobody is asked to approve.
   preflight:
     runs-on: macos-26
-    timeout-minutes: 10
+    # release-tested waits up to half an hour for the test run, so this outlasts it.
+    timeout-minutes: 40
     # checks: the test run's result is read from the commit's check runs.
     permissions:
       contents: read
