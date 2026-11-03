@@ -30,6 +30,7 @@ import XCTest
     func allowInTheBackground() {
         let settings = XCUIApplication(bundleIdentifier: "com.apple.systempreferences")
         let allowed = settings.switches["background-switch-OrangeDrink"]
+        XCTAssertTrue(allowed.waitForExistence(timeout: Self.installedAppTimeout), "System Settings never showed the app's Allow in the Background switch")
         expect(allowed, toRead: 0)
         press(allowed)
         confirmWithThePassword(in: settings)

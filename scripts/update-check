@@ -86,10 +86,11 @@ echo "update-check: nothing newer: Sparkle said up to date, $older_version still
 guest cp "$shared/newer/appcast.xml" "$served/appcast.xml"
 uitest UpdateInPlaceUITests/testANewerBuildIsInstalled
 [ "$(installed_version)" = "$newer_version" ] || fail "the installed version is $(installed_version), not the newer build's $newer_version"
-[ -n "$(pids)" ] || fail "no process runs from $app after the update"
+processes=$(pids | wc -l | tr -d ' ')
+[ "$processes" = 1 ] || fail "$processes processes run from $app after the update, not the one that replaced the older copy"
 echo "update-check: updated: $older_version to $newer_version at the same path, running as pid $(pids)" >&2
 
-# By process id, because the older copy logged the same line launching for the update's test, and the process is what the
-# updated copy is.
+# By process id, because the older copy logged the same line launching for the update's test, and the one process left is
+# what the updated copy is.
 wait_for "the updated copy's helper never answered" 60 running_copys_helper_answers
 echo "update-check: updated: the helper answers from $newer_version" >&2
