@@ -6,6 +6,12 @@ import Testing
 // [LAW:behavior-not-structure] What the menu bar shows of the halo is the layer's state: whether it is
 // there, what it holds, and how its opacity moves. These read that state off a bare CALayer and a
 // stand-in button, with no window.
+/// The status bar as the halo finds it: the button it holds now, which a test swaps out.
+@MainActor private final class Bar {
+    var button: NSStatusBarButton?
+    init(_ button: NSStatusBarButton? = nil) { self.button = button }
+}
+
 @MainActor @Suite struct StatusItemHaloTests {
     static let halo = Halo(glyph: .bottle, ink: .light, side: 24)
 
@@ -31,11 +37,11 @@ import Testing
 
     @Test func aHaloAskedForBeforeTheButtonExistsReachesItWhenItDoes() {
         let button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
-        var exists = false
-        let owner = StatusItemHalo(findButton: { exists ? button : nil }, reduceMotion: { false })
+        let bar = Bar()
+        let owner = StatusItemHalo(findButton: { bar.button }, reduceMotion: { false })
         owner.show(Self.halo)
         #expect(owner.layer.superlayer == nil)
-        exists = true
+        bar.button = button
         NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
         #expect(owner.layer.superlayer === button.layer)
         #expect(!owner.layer.isHidden && owner.layer.contents != nil)
@@ -44,15 +50,15 @@ import Testing
     }
 
     @Test func aButtonThatResizesOrIsReplacedKeepsTheHaloCentredOnIt() {
-        var button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 40, height: 22))
-        let owner = StatusItemHalo(findButton: { button }, reduceMotion: { false })
+        let bar = Bar(NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 40, height: 22)))
+        let owner = StatusItemHalo(findButton: { bar.button }, reduceMotion: { false })
         owner.show(Self.halo)
         // No window update follows SwiftUI's resize of the button; its own frame change has to be enough.
-        button.frame.size.width = 22
+        bar.button?.frame.size.width = 22
         #expect(owner.layer.frame == CGRect(x: -1, y: -1, width: 24, height: 24))
-        button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
+        bar.button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
         NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
-        #expect(owner.layer.superlayer === button.layer)
+        #expect(owner.layer.superlayer === bar.button?.layer)
         #expect(owner.layer.frame == CGRect(x: 3, y: -1, width: 24, height: 24))
         #expect(owner.layer.animation(forKey: HaloBreath.key) != nil)
     }
