@@ -31,7 +31,7 @@ struct DeviceBatteryProvider: AppIntentTimelineProvider {
 
     private func entry(_ configuration: SelectDeviceIntent) -> DeviceBatteryEntry {
         DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: Result { try WidgetShelf.groupContainer() }, log: ShelfLog.log),
-                           chosen: configuration.device?.identity)
+                           chosen: DeviceEntity.identities(of: configuration.device.map { [$0] } ?? []).first)
     }
 }
 

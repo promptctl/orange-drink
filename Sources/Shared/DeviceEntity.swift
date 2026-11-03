@@ -37,11 +37,14 @@ struct DeviceQuery: EntityQuery {
     /// The shelf: the group container, or a directory of a test's own.
     var directory: Swift.Result<URL, any Error> = Swift.Result { try WidgetShelf.groupContainer() }
 
-    /// One result per id asked for, so a widget keeps its choice even of a device the app has never seen.
+    /// One result per id asked for, so a widget keeps its choice even of a device the app has never seen. [LAW:one-source-of-truth]
+    /// A readable id comes back in its wire form, so a choice made before sources and the picker's suggestion of the same
+    /// device are one entity; an id this release cannot read comes back as it was.
     func entities(for identifiers: [String]) async throws -> [DeviceEntity] {
         let names = seen().names
         return identifiers.map { id in
-            DeviceEntity(id: id, name: DeviceID(wire: id).flatMap { names[$0] } ?? Self.unavailable.resolve(in: .matchSystem))
+            let identity = DeviceID(wire: id)
+            return DeviceEntity(id: identity?.wire ?? id, name: identity.flatMap { names[$0] } ?? Self.unavailable.resolve(in: .matchSystem))
         }
     }
 

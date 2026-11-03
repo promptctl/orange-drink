@@ -40,7 +40,10 @@ struct DeviceID: Hashable, Sendable, Comparable {
         (self.source, self.key) = (source, key)
     }
 
-    static func < (lhs: DeviceID, rhs: DeviceID) -> Bool { lhs.wire < rhs.wire }
+    /// By source, then key, so the order is the fields' and not the wire form's.
+    static func < (lhs: DeviceID, rhs: DeviceID) -> Bool {
+        (lhs.source.rawValue, lhs.key) < (rhs.source.rawValue, rhs.key)
+    }
 }
 
 extension DeviceID: Codable {

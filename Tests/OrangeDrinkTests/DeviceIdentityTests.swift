@@ -64,6 +64,7 @@ import Testing
         let named = try await query.entities(for: ["AA-01", "bluetooth:AA-01"]).map(\.name)
 
         #expect(named == ["iPhone", "iPhone"])
+        #expect(try await query.entities(for: ["AA-01", "watch:AA"]).map(\.id) == ["bluetooth:AA-01", "watch:AA"])
         #expect(try await query.suggestedEntities().map(\.id) == ["bluetooth:AA-01"])
         #expect(DeviceEntity.identities(of: [DeviceEntity(id: "AA-01", name: "x"), DeviceEntity(id: "bluetooth:AA-01", name: "x")]) == [.bluetooth("AA-01")])
     }
@@ -77,6 +78,7 @@ import Testing
         list.apply(.swept([Self.device(bluetooth, "Brandon's iPhone"), Self.device(cabled, "Brandon's iPhone")]))
 
         #expect(list.devices.map(\.id).sorted() == [bluetooth, cabled])
+        #expect(DeviceID(source: .iPhone, key: "A") < DeviceID(source: .iPhone, key: "B"))
         #expect(Set([bluetooth, cabled]).count == 2)
 
         var settings = DeviceSettings()
