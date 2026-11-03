@@ -92,18 +92,18 @@ struct PinnedItem: Equatable, Identifiable {
             BluetoothDevices.log.error("a pinned device's status item has no button")
             return
         }
-        button.show(pinned)
+        pinned.draw(on: button)
     }
 
     func remove() { NSStatusBar.system.removeStatusItem(item) }
 }
 
-extension NSButton {
-    /// The type glyph beside the level, on any button: a test fills one with no status bar behind it.
-    func show(_ pinned: PinnedItem) {
-        image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
-        imagePosition = .imageLeading
-        title = pinned.title
-        toolTip = pinned.row.name
+extension PinnedItem {
+    /// The type glyph beside the level, named for the device.
+    @MainActor func draw(on button: NSButton) {
+        button.image = NSImage(systemSymbolName: row.kind.symbol, accessibilityDescription: row.name)
+        button.imagePosition = .imageLeading
+        button.title = title
+        button.toolTip = row.name
     }
 }

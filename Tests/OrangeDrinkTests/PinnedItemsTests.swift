@@ -143,12 +143,12 @@ import Testing
         func pinned(_ percent: Int) -> PinnedItem {
             PinnedItem.items(list([Self.mouse: level(percent)]), pinned: [Self.mouse])[0]
         }
-        button.show(pinned(37))
-        #expect(button.image != nil)
+        pinned(37).draw(on: button)
+        #expect(button.image?.accessibilityDescription == "Magic Mouse")
         #expect(button.imagePosition == .imageLeading)
         #expect(button.title == "37%")
         #expect(button.toolTip == "Magic Mouse")
-        button.show(pinned(30))
+        pinned(30).draw(on: button)
         #expect(button.title == "30%")
     }
 
