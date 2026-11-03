@@ -9,17 +9,28 @@ struct BatteryLog {
     private let store: OSLogStore
     private let since: OSLogPosition
     private let category: String
+    private let begins: String
 
+    /// [LAW:no-ambient-temporal-coupling] The log begins at a line it writes itself, not at a date: the
+    /// position a date gives, and the dates on entries, are too coarse to tell lines another test wrote
+    /// just before this log began from this test's own.
     init(category: String = IOKitBattery.logCategory) throws {
         self.category = category
         store = try OSLogStore(scope: .currentProcessIdentifier)
-        since = store.position(date: Date())
+        since = store.position(date: Date().addingTimeInterval(-1))
+        let begins = "test log begins \(UUID().uuidString)"
+        self.begins = begins
+        Logger(subsystem: IOKitBattery.logSubsystem, category: category).info("\(begins, privacy: .public)")
     }
 
+    /// The lines after this log's own first line; none until that line has reached OSLogStore, since every
+    /// line after it reaches the store after it.
     func messages() throws -> [String] {
-        try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
-                                                              IOKitBattery.logSubsystem, category))
+        let all = try store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@ AND category == %@",
+                                                                        IOKitBattery.logSubsystem, category))
             .map(\.composedMessage)
+        guard let first = all.firstIndex(of: begins) else { return [] }
+        return Array(all[(first + 1)...])
     }
 
     /// Polls the log until a line contains `fragment`: log entries reach OSLogStore shortly after they are written.
