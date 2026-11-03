@@ -84,9 +84,6 @@ struct PinnedItem: Equatable, Identifiable {
         item.button?.identifier = Self.buttonID
     }
 
-    /// The text the item shows, for the check that it shows the device's level.
-    var title: String { item.button?.title ?? "" }
-
     /// Where the item sits on screen, for the check that the bar follows the list.
     var left: CGFloat? { item.button?.window?.frame.minX }
 
@@ -95,6 +92,11 @@ struct PinnedItem: Equatable, Identifiable {
             BluetoothDevices.log.error("a pinned device's status item has no button")
             return
         }
+        Self.fill(button, with: pinned)
+    }
+
+    /// The type glyph beside the level, on any button: a test fills one with no status bar behind it.
+    static func fill(_ button: NSButton, with pinned: PinnedItem) {
         button.image = NSImage(systemSymbolName: pinned.row.kind.symbol, accessibilityDescription: pinned.row.name)
         button.imagePosition = .imageLeading
         button.title = pinned.title
