@@ -6,6 +6,7 @@ orange-admin-helper-b2q.16g, run on one Mac: an Apple M4 Max on macOS 26.5.2 (25
 another chip or another macOS release. Two sources carry the numbers: `docs/smc-charging-output.txt`
 (the spike's committed run, with one line edited: the absolute path in run.sh's "manual restore" hint is cut to `smc`)
 and the ticket's comments (`lit show orange-admin-helper-b2q.16g`), which hold a live check of the shipped helper. Each section below says which one it rests on.
+The run's script and its `powerd.log` are not in the tree; they are in git at `af7ee2c` (see "The spike's SMC client").
 
 ## The key
 
@@ -78,5 +79,9 @@ The helper gives charging back itself: when no connection holds a pause and its 
 `ChargingInhibit.reconcile` writes `00000000` and clears the marker. That runs as the helper exits and again at its next
 start, because the marker outlives a helper that was killed. So a SIGKILL, a crash or a power loss leaves the Mac paused
 until the helper next starts, and a helper that never starts again (unregistered, say) leaves it paused for good. That
-case has no tool in the tree; the spike's client at `af7ee2c`, built and run as root with `write CHTE 00000000`, ends it.
-That command was run in the spike on the Mac named at the top.
+case has no tool in the tree; the spike's client at `af7ee2c` ends it:
+
+    git show af7ee2c:$(git ls-tree -r --name-only af7ee2c | grep b2q.16g/smc.swift) > /tmp/smc.swift
+    swiftc -O /tmp/smc.swift -o /tmp/smc && sudo /tmp/smc write CHTE 00000000
+
+That write was run in the spike on the Mac named at the top.
