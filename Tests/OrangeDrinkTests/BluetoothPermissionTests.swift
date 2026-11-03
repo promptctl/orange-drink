@@ -35,11 +35,11 @@ struct BluetoothPermissionTests {
         #expect(list.unread == .denied)
         list.apply(.permission(.allowed), from: .bluetooth)
         #expect(list.unread == .waiting)
-        list.apply(.reported(DeviceListTests.mouse), from: .bluetooth)
+        list.apply(.reported(DeviceListTests.mouse.source), from: .bluetooth)
         #expect(list.unread == .waiting)
         list.apply(.swept([]), from: .bluetooth)
         #expect(list.unread == nil)
-        list.apply(.swept([DeviceListTests.mouse]), from: .bluetooth)
+        list.apply(.swept([DeviceListTests.mouse.source]), from: .bluetooth)
         list.end(.bluetooth)
         #expect(list.unread == .ended)
         #expect(list.devices.isEmpty)
@@ -47,7 +47,7 @@ struct BluetoothPermissionTests {
 
     @Test func aRefusalHeardAfterASweepKeepsNoneOfItsRows() {
         var list = DeviceList(sources: [.bluetooth])
-        list.apply(.swept([DeviceListTests.mouse]), from: .bluetooth)
+        list.apply(.swept([DeviceListTests.mouse.source]), from: .bluetooth)
         list.apply(.permission(.denied), from: .bluetooth)
         #expect(list.unread == .denied)
         #expect(list.devices.isEmpty)
@@ -226,7 +226,7 @@ struct BluetoothPermissionTests {
 
 /// A watcher with no IOBluetooth: each sweep is the list it is given, and its stop an event of its own, so a test reads the order.
 final class StandInWatcher: DeviceWatcher {
-    static let sweep = DeviceEvent.swept([DeviceListTests.mouse])
+    static let sweep = DeviceEvent.swept([DeviceListTests.mouse.source])
     static let stop = DeviceEvent.gone(DeviceID.bluetooth("stand-in watcher stopped"))
 
     private let continuation: BluetoothDevices.Events

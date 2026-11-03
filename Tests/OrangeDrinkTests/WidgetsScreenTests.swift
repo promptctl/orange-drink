@@ -33,8 +33,8 @@ import WidgetKit
             try #require(swept)
         }
 
-        static func device(_ address: String, _ percent: Int, _ kind: DeviceKind) -> Device {
-            Device(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: kind, levels: .single(BatteryLevel(percent: percent, approximate: false)))
+        static func device(_ address: String, _ percent: Int, _ kind: DeviceKind) -> SourceDevice {
+            SourceDevice(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: kind, levels: .single(BatteryLevel(percent: percent, approximate: false)))
         }
 
         func preview() throws -> WidgetPreview { try screen.inspect().find(WidgetPreview.self).actualView() }

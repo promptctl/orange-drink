@@ -5,8 +5,8 @@ import Testing
 // [LAW:behavior-not-structure] The contract is what survives the move from a Bluetooth address to an identity that names its
 // source: what the release before it stored still loads as the same devices, and devices of different sources never merge.
 @MainActor @Suite struct DeviceIdentityTests {
-    static func device(_ id: DeviceID, _ name: String) -> Device {
-        Device(id: id, name: name, kind: .accessory, levels: .single(BatteryLevel(percent: 50, approximate: false)))
+    static func device(_ id: DeviceID, _ name: String) -> SourceDevice {
+        SourceDevice(id: id, name: name, kind: .accessory, levels: .single(BatteryLevel(percent: 50, approximate: false)))
     }
 
     // MARK: what the release before wrote still loads

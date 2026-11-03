@@ -16,10 +16,10 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 ]
 
 @MainActor @Suite final class DeviceBatteryWidgetTests {
-    static let iPhone = Device(id: DeviceID.bluetooth("AA"), name: "iPhone", kind: .phone,
+    static let iPhone = SourceDevice(id: DeviceID.bluetooth("AA"), name: "iPhone", kind: .phone,
                                levels: .single(BatteryLevel(percent: 95, approximate: false)))
-    static func earbuds(_ percent: Int) -> Device {
-        Device(id: DeviceID.bluetooth("BB"), name: "Earbuds", kind: .accessory,
+    static func earbuds(_ percent: Int) -> SourceDevice {
+        SourceDevice(id: DeviceID.bluetooth("BB"), name: "Earbuds", kind: .accessory,
                levels: .earbuds(left: BatteryLevel(percent: percent, approximate: false), right: nil, case: BatteryLevel(percent: 80, approximate: false)))
     }
 
@@ -133,9 +133,9 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([
             Self.iPhone,
-            Device(id: DeviceID.bluetooth("CC"), name: "iPad", kind: .tablet, levels: .single(BatteryLevel(percent: 40, approximate: true))),
-            Device(id: DeviceID.bluetooth("DD"), name: "Speaker", kind: .accessory, levels: .unread),
-            Device(id: DeviceID.bluetooth("EE"), name: "Mouse", kind: .accessory, levels: .none),
+            SourceDevice(id: DeviceID.bluetooth("CC"), name: "iPad", kind: .tablet, levels: .single(BatteryLevel(percent: 40, approximate: true))),
+            SourceDevice(id: DeviceID.bluetooth("DD"), name: "Speaker", kind: .accessory, levels: .unread),
+            SourceDevice(id: DeviceID.bluetooth("EE"), name: "Mouse", kind: .accessory, levels: .none),
             Self.earbuds(54),
         ]), from: .bluetooth)
         // Ranked as the panel ranks them: lowest first, unread last, a device with no battery kept apart; the case is never the level.

@@ -8,8 +8,8 @@ import Testing
     /// One throwaway suite for each test: the runner makes a fresh instance per test.
     private let defaults = scratchDefaults()
 
-    private func device(_ address: String, _ percent: Int) -> Device {
-        Device(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory,
+    private func device(_ address: String, _ percent: Int) -> SourceDevice {
+        SourceDevice(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory,
                levels: .single(BatteryLevel(percent: percent, approximate: false)))
     }
     /// 95, 37, 54, and 49 percent, in that arrival order.

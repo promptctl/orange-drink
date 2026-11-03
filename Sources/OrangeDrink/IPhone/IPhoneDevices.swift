@@ -9,7 +9,7 @@ import Foundation
 /// (orange-device-sources-rec.0ex, which blocks the ticket that starts this source in the app).
 struct IPhoneDevices {
     private struct Held {
-        var device: Device
+        var device: SourceDevice
         /// The transport of the device's last `reachable` event. A read's own transport is where it started, and may
         /// be stale by the time it is delivered, so it never moves this.
         var over: Transport
@@ -51,7 +51,7 @@ struct IPhoneDevices {
     }
 
     private mutating func update(_ udid: String, over transport: Transport, levels: DeviceLevels) -> DeviceEvent {
-        let device = Device(id: DeviceID(source: .iPhone, key: udid), name: udid, kind: .phone, levels: levels)
+        let device = SourceDevice(id: DeviceID(source: .iPhone, key: udid), name: udid, kind: .phone, levels: levels)
         held[udid] = Held(device: device, over: transport)
         return .reported(device)
     }

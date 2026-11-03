@@ -4,19 +4,19 @@ import Testing
 // [LAW:verifiable-goals] The card's rows from simulated devices: no Bluetooth in the room.
 struct ConnectedDevicesTests {
     private func device(_ address: String, _ name: String, kind: DeviceKind = .accessory,
-                        _ levels: DeviceLevels) -> Device {
-        Device(id: DeviceID.bluetooth(address), name: name, kind: kind, levels: levels)
+                        _ levels: DeviceLevels) -> SourceDevice {
+        SourceDevice(id: DeviceID.bluetooth(address), name: name, kind: kind, levels: levels)
     }
     private func single(_ percent: Int, approximate: Bool = false) -> DeviceLevels {
         .single(BatteryLevel(percent: percent, approximate: approximate))
     }
-    private func rows(_ devices: [Device]) -> [DeviceRow] {
+    private func rows(_ devices: [SourceDevice]) -> [DeviceRow] {
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(devices), from: .bluetooth)
         return ConnectedDevices(list, settings: DeviceSettings()).rows
     }
 
-    private var fleet: [Device] {
+    private var fleet: [SourceDevice] {
         [device("1", "Keyboard", single(54)), device("2", "iPad", kind: .tablet, single(95)),
          device("3", "iPhone", kind: .phone, single(37)), device("4", "AirPods", single(50, approximate: true))]
     }

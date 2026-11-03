@@ -31,6 +31,9 @@ enum DeviceLevels: Equatable, Sendable {
     }
 }
 
+/// A device as the app shows and keys it. `id` is the identity the app's choices about the device (pins, bells, hides, seen
+/// names) are keyed by; for a device that no source's claim joins to another, the identity its source read it under. The source
+/// of a presented id is not necessarily the source that read the device (`DeviceList.devices`), so nothing routes by it.
 struct Device: Equatable, Sendable, Identifiable {
     let id: DeviceID
     let name: String
@@ -50,6 +53,29 @@ struct Device: Equatable, Sendable, Identifiable {
     var hasName: Bool { name != id.key }
 }
 
+/// A device as one source read it: what that source tells the list, which the list turns into `Device`s.
+/// `id` names the source that read it, and `DeviceList` stores it by that.
+struct SourceDevice: Equatable, Sendable {
+    let id: DeviceID
+    let name: String
+    let kind: DeviceKind
+    let levels: DeviceLevels
+    /// The Bluetooth address of this same physical device, for a device another source reads: an iPhone's. A device with one is
+    /// the same device as the Bluetooth device at that address, and is presented under it (`DeviceList.devices`).
+    /// [LAW:one-source-of-truth] The match is by identity and never by name, which collides and changes.
+    let alsoBluetooth: BluetoothAddress?
+
+    /// [LAW:types-are-the-program] A Bluetooth device claiming a Bluetooth address is a mapper bug, stopped here as
+    /// `DeviceList.apply` stops an event from a source it was not built for, so the list has no claim to ignore.
+    init(id: DeviceID, name: String, kind: DeviceKind, levels: DeviceLevels, alsoBluetooth: BluetoothAddress? = nil) {
+        precondition(alsoBluetooth == nil || id.source != .bluetooth, "\(id.wire) is a Bluetooth device and claims a Bluetooth address")
+        (self.id, self.name, self.kind, self.levels, self.alsoBluetooth) = (id, name, kind, levels, alsoBluetooth)
+    }
+
+    /// The device as it reads when nothing joins it to another.
+    var device: Device { Device(id: id, name: name, kind: kind, levels: levels) }
+}
+
 /// What the Bluetooth edge tells the list: a device's current state, that it is gone, or the
 /// complete set of connected devices at one sweep.
 ///
@@ -58,9 +84,9 @@ struct Device: Equatable, Sendable, Identifiable {
 /// the device as connected. The sweep is the authority: it replaces the list, so any such race
 /// is gone by the next sweep instead of leaving a device listed that is not there.
 enum DeviceEvent: Equatable, Sendable {
-    case reported(Device)
+    case reported(SourceDevice)
     case gone(DeviceID)
-    case swept([Device])
+    case swept([SourceDevice])
     case permission(BluetoothPermission)
 }
 
@@ -81,7 +107,7 @@ struct DeviceList: Equatable, Sendable {
         static let unheard = Reading.unread(.waiting)
     }
 
-    private var byID: [DeviceID: Device] = [:]
+    private var byID: [DeviceID: SourceDevice] = [:]
     /// Total over the sources the list was built for, so a source that has not spoken is waiting and cannot be mistaken
     /// for read. A source nothing subscribed to is not in it: it is no source of this list, not one waiting for ever.
     private var readings: [DeviceSource: Reading]
@@ -143,9 +169,57 @@ struct DeviceList: Equatable, Sendable {
         return reasons.lazy.compactMap(\.1).first { $0 != .waiting } ?? .waiting
     }
 
-    /// In a stable order, by name then identity, so a view never reshuffles equal rows.
+    /// Each physical device once, in a stable order, by name then identity, so a view never reshuffles equal rows.
+    ///
+    /// [LAW:one-source-of-truth] Stored is what each source listed; the merge is read off it here and held nowhere, so a
+    /// source that stops listing a phone leaves the other's entry as it was, with nothing to undo. A device that claims a
+    /// Bluetooth address and the Bluetooth device at it are one device, presented under that address (`presentedID`)
+    /// whichever of them are listed. Everything the user attached to a device is keyed by that identity, so none of it moves
+    /// when a cable is pulled. Two claimers of one address name no one, so nothing in that group is merged: the rows stay
+    /// apart, where a mapper bug shows, and `contested` names the address for the log.
+    ///
+    /// `unread` reads `byID` and not this: it asks what each source has listed, and a source's device counts as that source
+    /// showing one even when another source's twin is the one presented. A group always presents its survivor, so a source
+    /// that listed a device is never wholly out of view.
     var devices: [Device] {
-        byID.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+        Dictionary(grouping: byID.values, by: \.presentedID).values
+            .flatMap { members in members.claimers.count > 1 ? members.map(\.device) : [Device.merged(members)] }
+            .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+
+    /// The Bluetooth addresses more than one device claims, in a stable order: a fault of the sources, for the log.
+    var contested: [String] {
+        Dictionary(grouping: byID.values.compactMap(\.alsoBluetooth), by: \.key).filter { $0.value.count > 1 }.keys.sorted()
+    }
+}
+
+private extension SourceDevice {
+    /// The identity the list presents this device under: the Bluetooth address it claims, else its own. Taken from the claim
+    /// and not from which twin is listed, so it is the same whether one source or both list the device. A Bluetooth address is
+    /// the identity every stored pin, bell and hide of a phone already has.
+    var presentedID: DeviceID { alsoBluetooth?.identity ?? id }
+}
+
+private extension Array where Element == SourceDevice {
+    var claimers: [SourceDevice] { filter { $0.alsoBluetooth != nil } }
+}
+
+private extension Device {
+    /// One device from the source devices that share an identity: at most one claimer and the Bluetooth device at its address.
+    /// The claimer is read from the device itself, so its kind and levels stand: Bluetooth's level for a phone the claimer
+    /// lists is never shown, so a stale one cannot move the level an alert watches. The name is the Bluetooth twin's if it is
+    /// one, because that is the user's alias, the name System Settings shows and the one a pin or alert was set under, so it does
+    /// not change when a cable is plugged in; else the claimer's if it is one, else the identity's key, as
+    /// `Device.name(alias:broadcast:address:)` falls back, so `hasName` reads a presented phone as it reads any device and
+    /// `SeenDevices` never stores a UDID as its name.
+    static func merged(_ members: [SourceDevice]) -> Device {
+        let claimer = members.claimers.first
+        let twin = members.first { $0.alsoBluetooth == nil }
+        let survivor = claimer ?? members[0]
+        let identity = survivor.presentedID
+        return Device(
+            id: identity, name: [twin, claimer].lazy.compactMap { $0 }.first { $0.device.hasName }?.name ?? identity.key,
+            kind: survivor.kind, levels: survivor.levels)
     }
 }
 

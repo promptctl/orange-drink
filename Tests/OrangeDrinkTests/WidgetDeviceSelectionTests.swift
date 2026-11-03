@@ -164,7 +164,7 @@ import WidgetKit
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
         let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: pinnedItems)
         send.yield(.swept(Self.addresses.enumerated().map { index, address in
-            Device(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory, levels: .single(BatteryLevel(percent: 30 + 10 * index, approximate: false)))
+            SourceDevice(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory, levels: .single(BatteryLevel(percent: 30 + 10 * index, approximate: false)))
         }))
         #expect(try await eventually { try sameAsMenuBarSays() == ["40%", "60%"] })
 
