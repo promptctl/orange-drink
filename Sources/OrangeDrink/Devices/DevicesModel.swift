@@ -39,11 +39,16 @@ import Observation
         do {
             for try await event in events {
                 guard let model = model() else { return }
-                // [LAW:no-silent-failure] A stream reports devices of its own source. One that reports another's is a mapper bug the
-                // list cannot know of, so it is said here, where the stream and its tag meet. The key is a Bluetooth address or a
-                // device ID, so only the sources are named.
-                for other in Set(event.ids.map(\.source)) where other != source {
-                    BluetoothDevices.log.error("device source \(source.rawValue, privacy: .public) reported a device of \(other.rawValue, privacy: .public)")
+                // [LAW:single-enforcer] A stream reports devices of its own source, and this is where the stream and its tag meet,
+                // so it is enforced here: an event naming another source's device is a mapper bug, and applying it would leave a
+                // device that only the other source's sweep or end could remove. It is dropped whole, and said. The key is a
+                // Bluetooth address or a device ID, so only the sources are named.
+                let foreign = Set(event.ids.map(\.source)).subtracting([source])
+                guard foreign.isEmpty else {
+                    for other in foreign.sorted(by: { $0.rawValue < $1.rawValue }) {
+                        BluetoothDevices.log.error("device source \(source.rawValue, privacy: .public) reported a device of \(other.rawValue, privacy: .public); event dropped")
+                    }
+                    continue
                 }
                 model.list.apply(event, from: source)
                 onChange(model.list)

@@ -13,6 +13,8 @@ private enum Fleet {
                                levels: .single(BatteryLevel(percent: 12, approximate: false)))
 }
 
+// [LAW:no-silent-failure] `list(of:once:)` awaits a list that a regression may never produce; the limit makes that a failure, not a stalled run.
+@Suite(.timeLimit(.minutes(1)))
 struct DeviceSourcesListTests {
     private func both() -> DeviceList {
         var list = DeviceList()
@@ -182,13 +184,17 @@ struct DeviceSourcesListTests {
         #expect(ended.devices.isEmpty)
     }
 
-    @Test func aStreamReportingAnotherSourcesDeviceIsLoggedNamingBothSources() async throws {
+    @Test func aStreamReportingAnotherSourcesDeviceIsDroppedAndLoggedNamingBothSources() async throws {
         let log = try BatteryLog(category: "devices")
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, _) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = model(bluetooth, iPhone)
         sendBluetooth.yield(.reported(Fleet.phone))
-        _ = await list(of: model) { !$0.devices.isEmpty }
-        #expect(try await log.logged("device source bluetooth reported a device of iphone"))
+        // A stream is followed in order, so the sweep is applied only after the foreign event was handled. Bluetooth's sweep
+        // would not remove an iPhone device, so one applied would still be listed.
+        sendBluetooth.yield(.swept([Fleet.mouse]))
+        let list = await list(of: model) { !$0.devices.isEmpty }
+        #expect(list.devices == [Fleet.mouse])
+        #expect(try await log.logged("device source bluetooth reported a device of iphone; event dropped"))
     }
 }
