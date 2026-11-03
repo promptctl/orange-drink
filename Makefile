@@ -151,11 +151,13 @@ release-helper-check: release
 
 # An update in place on real macOS, in a VM with no window: installs a build from its disk image there, then has its
 # updater find nothing newer on a local feed, and install a higher version from it. scripts/update-check reads each result
-# off the installed app. The newer build is the tree with only its version raised, built and notarized as a release is.
+# off the installed app, and the helper's handshake answering from the updated copy, after allowing the helper as a person
+# does. The newer build is the tree with only its version raised, built and notarized as a release is.
 # It needs Tart, the VM image scripts/vm-check-lib names, and the signing key in this Mac's keychain. The tree is generated
 # uncached: the generated files are under build/, which is not copied, and `--use-cache` would call a second run's copy
 # unchanged and leave them missing.
-update-check.covers := Sources/OrangeDrink/Updates Sources/OrangeDrink/Panel/PanelView.swift project.yml Tests/OrangeDrinkUITests \
+update-check.covers := Sources/OrangeDrink/Updates Sources/OrangeDrink/Helper Sources/HelperInterface Sources/OrangeDrinkHelper \
+  Sources/OrangeDrink/Panel/PanelView.swift project.yml Tests/OrangeDrinkUITests \
   scripts/update-check scripts/appcast scripts/dmg scripts/vm-check-lib
 update-check: generate
 	@set -e; out='$(CURDIR)/build/update-check'; rm -rf "$$out"; mkdir -p "$$out/tree"; \

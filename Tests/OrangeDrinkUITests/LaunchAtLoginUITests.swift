@@ -20,20 +20,6 @@ import XCTest
         return (app, control)
     }
 
-    /// Waits for a switch to read `value`, which it does once the system's answer has landed.
-    private func expect(_ control: XCUIElement, toRead value: Int) {
-        let reads = expectation(for: NSPredicate(format: "value == %d", value), evaluatedWith: control)
-        wait(for: [reads], timeout: Self.installedAppTimeout)
-    }
-
-    private func allowInTheBackground() {
-        let settings = XCUIApplication(bundleIdentifier: "com.apple.systempreferences")
-        let allowed = settings.switches["background-switch-OrangeDrink"]
-        press(allowed)
-        confirmWithThePassword(in: settings)
-        expect(allowed, toRead: 1)
-    }
-
     func testAllowing() throws {
         let (app, control) = try launched()
         expect(control, toRead: 0)

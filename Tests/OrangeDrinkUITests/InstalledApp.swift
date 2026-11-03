@@ -19,6 +19,22 @@ import XCTest
         press(settings.sheets.firstMatch.buttons["Modify Settings"])
     }
 
+    /// Waits for a switch to read `value`, which it does once the system's answer has landed.
+    func expect(_ control: XCUIElement, toRead value: Int) {
+        let reads = expectation(for: NSPredicate(format: "value == %d", value), evaluatedWith: control)
+        wait(for: [reads], timeout: Self.installedAppTimeout)
+    }
+
+    /// Allows the app in System Settings' Login Items & Extensions as a person does, with the pane already open. The app's
+    /// login item and its helper share this switch.
+    func allowInTheBackground() {
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.systempreferences")
+        let allowed = settings.switches["background-switch-OrangeDrink"]
+        press(allowed)
+        confirmWithThePassword(in: settings)
+        expect(allowed, toRead: 1)
+    }
+
     /// The app's menu bar item. Its title is the app's name and then the battery's state, which changes
     /// as the battery does, so it is found by the name it begins with.
     func statusItem(of app: XCUIApplication) -> XCUIElement {
