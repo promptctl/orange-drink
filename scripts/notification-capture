@@ -23,8 +23,8 @@ exec 3>&1 1>&2
 languages=(fr-FR ja zh-Hans ar pt-BR pl)
 
 on_failure() {
-  list >&2
   guest cat /tmp/battery.out >&2
+  list >&2
 }
 say() { echo "notification-capture: $image: $*" >&2; }
 
@@ -39,7 +39,8 @@ snapshot() {
   shift
   for _ in $(seq 1 150); do
     seen=$(guest "$tree" values) || fail "$step: the tree could not be read"
-    for subrole; do grep -q "^$subrole" <<<"$seen" || continue 2; done
+    # The whole subrole field: AXNotificationCenterBanner is not AXNotificationCenterBannerStack.
+    for subrole; do grep -q "^$subrole"$'\t' <<<"$seen" || continue 2; done
     while IFS= read -r line; do printf '%s\t%s\n' "$step" "$line" >&3; done <<<"$seen"
     return 0
   done
@@ -51,17 +52,16 @@ snapshot() {
 alert_and_banner() {
   local alert
   wait_for "$1: the low battery alert never showed" 60 raise 3 ""
-  alert=$(new_alerts "$(list)" "" | head -n 1)
+  read -r alert <<<"$(new_alerts "$(list)" "")"
   [ -n "$alert" ] || fail "$1: the alert that showed was gone when its words were read"
   post "$(cut -f2 <<<"$alert")" "$(cut -f3 <<<"$alert")"
   snapshot "$1" AXNotificationCenterAlert AXNotificationCenterBanner
 }
 
-# Withdraws the alert, and waits for the banners to fade, so the next step starts from nothing showing.
-clear_all() {
-  warn 1
-  wait_for "$1: the notifications never went" 60 nothing_showing
-}
+# Withdraws the warning until nothing shows, as `raise` raises it until an alert does: on macOS 26 a single withdrawal left the French
+# step's alert up for the whole wait in some runs. The banners fade meanwhile, so the next step starts from nothing showing.
+withdrawn() { warn 1; nothing_showing; }
+clear_all() { wait_for "$1: the notifications never went" 60 withdrawn; }
 
 notification_setup
 printf 'macos\t%s\n' "$(guest sw_vers -productVersion)" >&3
