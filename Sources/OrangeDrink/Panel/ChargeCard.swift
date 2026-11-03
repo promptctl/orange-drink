@@ -8,8 +8,6 @@ struct ChargeCard: Equatable {
     let percent: String
     let unit = "%"
     let status: ChargeStatus
-    /// Names the estimate under it: time until full while charging, until empty on battery.
-    let estimateCaption: Phrase
     /// "1h 22m", or an en dash while the system has no estimate or nothing is being counted.
     let estimate: Phrase
     let progress: Double
@@ -19,8 +17,9 @@ struct ChargeCard: Equatable {
         percent = String(reading.chargePercent)
         progress = Double(reading.chargePercent) / 100
         status = ChargeStatus(reading.power)
-        estimateCaption = status.estimateCaption
         estimate = reading.power.estimate?.hoursAndMinutes ?? "–"
         tint = BatteryIndicator(reading).tint
     }
+
+    var estimateCaption: Phrase { status.estimateCaption }
 }
