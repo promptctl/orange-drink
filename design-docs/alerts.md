@@ -1,6 +1,6 @@
 # Alerts
 
-Turns notifications on or off, and holds the list of alerts: low-battery thresholds, charged thresholds, and power-source events. Each threshold alert has its own position on screen, glow, and sound.
+Turns notifications on or off, and holds the list of alerts: low-battery thresholds, charged thresholds, power-source events, and a battery temperature warning. Each threshold alert has its own position on screen, glow, and sound.
 
 **Header:** green tile with a white bell, title "Alerts".
 **Subtitle:** "Configure battery notifications and visual effects"
@@ -71,3 +71,29 @@ One card with a row:
 - Switch, on (green).
 
 The reference is cut off below this row. The word "Sound" is just visible, so the card goes on with a sound option for this alert, and presumably an "Unplugged" row as well.
+
+## Temperature Warning
+
+Not in the reference. The Battery Information card's Temperature section already calls a battery Normal, Warm, or Hot; this alert tells the person when it stops being Normal, so a battery running hot is not noticed only by opening the panel.
+
+**When it fires.** On the reading where the battery leaves Normal: from under 35 °C to 35 °C or more, whether that is Warm (35 up to 40 °C) or Hot (40 °C and over). It does not fire again while the battery stays out of Normal, including a Warm battery going Hot, and fires once more only after a reading back in Normal. A Mac that launches already warm or hot does not announce it. The states are the panel's, so the pill appears exactly when the panel stops saying "Normal".
+
+**The pill.** Same shape as the Plugged In and On Battery pills: at the top of the screen, the charge ring around it, no Border Glow.
+
+| Battery | Headline | Colour |
+| --- | --- | --- |
+| Warm | "Battery Warm" | orange |
+| Hot | "Battery Hot" | red |
+
+- **Second line:** the reading in the panel's wording, °C then °F, one decimal each, such as "41.2°C / 106.2°F". It replaces the time estimate the other power pills carry there, as the reading is what this alert is about.
+- The colours are the panel's own: orange for Warm, red for Hot.
+
+**The row.** One more row in the Power Source Alerts card, between "Unplugged" and "Sound":
+
+- Orange tile with a white thermometer.
+- Title "Temperature", description "Notify when the battery runs warm or hot".
+- Switch, on (green), labelled "Temperature" for VoiceOver. A setting saved before this row existed reads as on.
+
+**Sound and glow.** The card has one "Sound" row, "Play a sound for these alerts", shared by every row above it; the Plugged In and Unplugged rows have no sound or glow choice of their own, and the Temperature row has none either. The Sound switch decides whether the temperature pill chimes, and the pill never glows.
+
+**Switches.** The Temperature switch off silences the pill and its sound. "Enable Notifications" off silences it with every other alert.
