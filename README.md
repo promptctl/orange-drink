@@ -18,11 +18,11 @@ The battery indicator built into macOS warns you only at 10% and 5%, and those l
 
 By default, press ⌃⌥J from anywhere to open the Orange Drink panel.
 
-<img src="docs/images/panel.png" alt="The Orange Drink panel: charge, battery health, temperature, power flow, and connected devices" width="330">
+<img src="docs/images/panel.png" alt="The Orange Drink panel: charge and time until full, battery health and cycle count, temperature, and where the adapter's power goes" width="306">
 
 ## Download
 
-[Download the latest Orange Drink](https://github.com/promptctl/orange-drink/releases/latest), open the disk image, and drag Orange Drink to Applications. It needs a Mac with Apple Silicon running macOS 14 or later. The app is signed and notarized by Apple; the first time you open it, macOS asks you to confirm that you want to open an app downloaded from the internet.
+[Download the latest Orange Drink](https://github.com/promptctl/orange-drink/releases/latest), open the disk image, and drag OrangeDrink to Applications. It needs a Mac with Apple Silicon running macOS 14 or later. The app is signed and notarized by Apple; the first time you open it, macOS asks you to confirm that you want to open an app downloaded from the internet.
 
 To update, choose **Check for Updates…** in the panel. When a new version is out, choose **Install Update**, and Orange Drink installs it and reopens.
 
@@ -30,7 +30,7 @@ To update, choose **Check for Updates…** in the panel. When a new version is o
 
 macOS may ask you to allow Orange Drink these, each for one purpose:
 
-- **Charge limit and Low Power Mode:** macOS asks you to allow a small helper in System Settings, under General > Login Items. Pausing charging and switching Low Power Mode need privileges an ordinary app doesn't have, and the helper does only those two things.
+- **Helper (charge limit and Low Power Mode):** on first launch, macOS asks you to allow a small helper. It appears in System Settings under General > Login Items (Login Items & Extensions on macOS 15 and later). Controlling charging and switching Low Power Mode need privileges an ordinary app doesn't have, and the helper does only those. If you also turn on **Launch at Login**, Orange Drink itself is listed there as a second item.
 - **Bluetooth:** reads the battery levels of your paired Bluetooth devices.
 - **Accessibility:** closes macOS's own low battery notifications, so you see Orange Drink's alerts instead. This is used only while **Dismiss macOS Battery Notifications** is on in the General settings.
 
