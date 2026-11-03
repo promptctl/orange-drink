@@ -95,13 +95,15 @@ targets:
     # Sparkle's artifact arrives ad-hoc signed, and copying it signs only the framework, so the notary service
     # would refuse what is inside it. Inside out, with no --deep and no --preserve-metadata: Autoupdate's
     # artifact signature carries an application identifier that taskgated refuses without a provisioning
-    # profile. Embedding the framework is what writes the input, so a framework embedded again is never left
-    # ad-hoc; running on every build instead would change a framework the app's last signature sealed, with
-    # nothing to make Xcode sign the app again. The app's signature comes after every phase and covers the result.
+    # profile. The input is the signature Xcode writes when it signs the framework it embeds: that is what orders
+    # this phase after Xcode's signing, which it would otherwise overlap and corrupt, and it changes exactly when the
+    # framework was embedded again, so one is never left ad-hoc; running on every build instead would change a
+    # framework the app's last signature sealed, with nothing to make Xcode sign the app again. The app's signature
+    # comes after every phase and covers the result.
     postBuildScripts:
       - name: Sign Sparkle's helpers
         inputFiles:
-          - $(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/Sparkle.framework/Versions/B/Sparkle
+          - $(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/Sparkle.framework/Versions/B/_CodeSignature
         outputFiles:
           - $(DERIVED_FILE_DIR)/sparkle-helpers-signed
         script: |
