@@ -2,7 +2,7 @@ import Foundation
 import IOKit
 
 /// Whether the SMC lets the battery charge: the two values the helper ever writes to CHTE, the charge-inhibit key
-/// found on an M4 Max (docs/smc-charging.md says what was and was not measured).
+/// found on an M4 Max; other Macs may lack it (docs/smc-charging.md says what was and was not measured).
 ///
 /// [LAW:types-are-the-program] No other bytes can reach the SMC: a write takes one of these two cases.
 enum ChargingInhibit: Equatable, Sendable {

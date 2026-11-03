@@ -10,13 +10,12 @@ shipped helper. Each section below says which one it rests on.
 ## The key
 
 `CHTE` is a `ui32`, four bytes. `01000000` pauses charging and `00000000` lets it run. The SMC on that Mac also listed
-`CHIE` and `bfD0`, and had no `bfF0`, `bfE0`, `CH0B` or `CH0C`. Nothing wrote any key but `CHTE`. Third-party notes
+`CHIE` and `bfD0`; the key list in `output.txt` has no `bfF0`, `bfE0`, `CH0B` or `CH0C`. Nothing wrote any key but `CHTE`. Third-party notes
 (macwake) say `CHIE` cuts the adapter, which discharges the battery rather than pausing it; that was not checked here.
 
 `ChargeInhibitKey` asks the SMC for the key's type and size once per opening and treats anything but a four-byte
 `ui32` as a Mac it cannot pause. A Mac without `CHTE` would fail that first `keyInfo` call; the code reads SMC result
-`0x84` as key not found. No Mac without `CHTE` was available, so that path was never run. The spike saw `0x85` on
-`CHHV` and `CHHW`.
+`0x84` as key not found. No Mac without `CHTE` was available, so that path was never run and `0x84` is unconfirmed.
 
 ## Who may write it
 
@@ -28,11 +27,13 @@ key at its old value. That is why the write lives in the helper and not the app.
 The writer exits before anything else can look, so the pause is read from the battery registry and the key:
 
 - `NotChargingReason` in `AppleSmartBattery`'s `ChargerData` has bit 55 (`0x80000000000000`) set while `CHTE` holds a
-  pause. Bit 24 (`0x1000000`) is macOS's own Charge Limit. Both are set when both hold.
+  pause. Bit 24 (`0x1000000`) is macOS's own Charge Limit. The ticket's live check saw both set when both held; `output.txt`
+  only ever shows bit 55 alone.
 - The SMC's `CHNC` gains `0x8000` the moment `CHTE` is written.
-- `IsCharging` goes to 0 and `ChargingCurrent` to 0. The registry trails the write: in `output.txt` `CHNC` changed by
-  12:00:16 and `IsCharging` reached 0 by 12:00:26, so 10 to 15 seconds; the live check on the ticket saw about 25.
-  Charging came back about 30 seconds after writing `00000000` in both.
+- `IsCharging` goes to 0 and `ChargingCurrent` to 0. The registry trails the write. `output.txt` samples every 5 seconds
+  and does not record the write itself: `CHNC` had changed by 12:00:16 and `IsCharging` reached 0 by 12:00:26. The live
+  check on the ticket saw about 25 seconds. Size any wait from the 25. Charging came back about 30 seconds after writing
+  `00000000`, on the ticket's live check and in `output.txt` (12:04:33 to 12:05:03).
 
 ## What a held pause survives
 
@@ -66,4 +67,5 @@ committed; build one from the source:
     sudo /tmp/smc write CHTE 00000000    # resumes charging if a run left the Mac paused
 
 Once the spike folder is deleted from the tree, the source and `output.txt` stay in git history:
-`git log --oneline -- spikes/orange-admin-helper-b2q.16g` finds the last commit that has them.
+`git log --oneline -- spikes/orange-admin-helper-b2q.16g` finds the deleting commit, and `git show <that commit>^:spikes/orange-admin-helper-b2q.16g/smc.swift > /tmp/smc.swift`
+gets the source back to build from.
