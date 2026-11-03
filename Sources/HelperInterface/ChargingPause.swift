@@ -2,7 +2,7 @@ import Foundation
 import IOKit
 
 /// Whether the SMC lets the battery charge: the two values the helper ever writes to CHTE, the charge-inhibit key
-/// orange-admin-helper-b2q.16g found on Apple silicon.
+/// found on Apple silicon (docs/smc-charging.md).
 ///
 /// [LAW:types-are-the-program] No other bytes can reach the SMC: a write takes one of these two cases.
 enum ChargingInhibit: Equatable, Sendable {
@@ -86,8 +86,8 @@ enum ChargingFailure: Error, Equatable, Sendable, CustomStringConvertible {
     }
 }
 
-/// CHTE as the helper reads and writes it, through the AppleSMC user client. Ported from
-/// spikes/orange-admin-helper-b2q.16g/smc.swift, cut to the one key.
+/// CHTE as the helper reads and writes it, through the AppleSMC user client, cut to the one key. What the Mac answers
+/// to it is in docs/smc-charging.md.
 ///
 /// [LAW:no-silent-failure] Every IOKit return and SMC result reaches the caller as a ChargingFailure naming the key
 /// and the code; nothing is retried or defaulted.
