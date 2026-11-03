@@ -136,7 +136,7 @@ expect "a script that exits 0 posts a pass even if it printed a failure line, wh
 recorder run c --covers src -- sh -c 'echo "» failure:   "; exit 1'
 body=$(latest)
 expect "a failure line with only whitespace after its mark is still a failure, not a printed line" \
-  eval '[ $status = 1 ] && has "failure: sh exited 1" "$body" && ! grep -q "^printed:" <<<"$body"'
+  eval '[ $status = 1 ] && has "failure: sh exited 1" "$body" && ! grep -q "^printed:" <<<"$body" && ! grep -qE "^failure: *$" <<<"$body"'
 
 recorder run c --covers src -- sh -c 'exit 2'
 body=$(latest)
@@ -203,9 +203,11 @@ makefile=$root/Makefile
 status_command=$(make -n -f "$makefile" hardware-status)
 # Each argument is a path in the real tree; says the first that is not.
 all_exist() { local path; for path; do [ -e "$root/$path" ] || { out="no such path: $path"; return 1; }; done; }
-for check in release-helper-check update-check login-item-check battery-notification-check; do
+for check in $(grep -oE -- '--check [^ ]+' <<<"$status_command" | cut -d' ' -f2); do
   expect "make hardware-status lists $check with covered paths that exist" \
     eval 'covers=$(grep -oE -- "--check $check( [^ -][^ ]*)+" <<<"$status_command" | cut -d" " -f3-); [ -n "$covers" ] && all_exist $covers'
+done
+for check in release-helper-check update-check login-item-check battery-notification-check; do
   expect "make $check runs its script through the recorder, under its own name" \
     eval 'make -n -f "$makefile" $check | grep -qF -- "scripts/hardware-check.swift run $check --covers"'
 done
