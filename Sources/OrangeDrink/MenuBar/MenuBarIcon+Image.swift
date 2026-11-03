@@ -50,8 +50,16 @@ extension MenuBarIcon {
 
     /// The status item's image. It draws when shown, at the size chosen. The colour is the
     /// glyph's own, so it is never a template: the menu bar does not retint it.
+    /// The size chosen, except that the Logo glyph stops growing at the shortest menu bar's height. The halo
+    /// derives from the same scale, so its cut-out always matches the glyph it surrounds.
+    private var scale: CGFloat {
+        guard case .logo = shape else { return size.scale }
+        return min(size.scale, Self.shortestBar / Self.logoSide)
+    }
+    private static let shortestBar: CGFloat = 22
+
     var image: NSImage {
-        let scale = size.scale
+        let scale = scale
         return NSImage(size: NSSize(width: canvas.width * scale, height: canvas.height * scale), flipped: false) { _ in
             let transform = NSAffineTransform()
             transform.scale(by: scale)
@@ -72,7 +80,7 @@ extension MenuBarIcon {
     /// The glow behind the Logo glyph while it charges with status colours on; nil otherwise.
     var halo: Halo? {
         guard case .logo(let glyph, let battery?) = shape, battery.glows else { return nil }
-        return Halo(glyph: glyph, ink: color, side: Self.logoSide * LogoGlyph.haloRatio * size.scale)
+        return Halo(glyph: glyph, ink: color, side: Self.logoSide * LogoGlyph.haloRatio * scale)
     }
 
     /// The outline and the liquid in one colour: the bar's ink, or orange or red for low and critical. Charging

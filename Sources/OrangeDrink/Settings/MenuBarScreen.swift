@@ -131,6 +131,7 @@ struct MenuBarPreview: View {
     private static let size = CGSize(width: 270, height: 190)
 
     var body: some View {
+        let icon = Self.icon(config)
         ZStack(alignment: .topLeading) {
             LinearGradient(colors: [Color(red: 0.05, green: 0.25, blue: 0.18), Color(red: 0.02, green: 0.08, blue: 0.07)],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -139,8 +140,8 @@ struct MenuBarPreview: View {
                 Image(systemName: "apple.logo").font(.system(size: 11)).foregroundStyle(.white)
                 Spacer()
                 ZStack {
-                    Self.icon(config).halo.map { HaloView(halo: $0) }
-                    Image(nsImage: Self.icon(config).image)
+                    icon.halo.map { HaloView(halo: $0) }
+                    Image(nsImage: icon.image)
                 }
             }
             .padding(.horizontal, 10).frame(height: 22)

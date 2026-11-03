@@ -12,6 +12,8 @@ import QuartzCore
     let layer = CALayer()
     private var wanted: Halo?
     private weak var button: NSStatusBarButton?
+    /// What the layer's contents were drawn from; `Halo.image` draws anew on every read.
+    private var drawn: Halo?
     private var breath: HaloBreath?
     // Removing an observer is thread-safe, so deinit may release these outside the main actor.
     nonisolated(unsafe) private var windowUpdates: (any NSObjectProtocol)?
@@ -48,16 +50,25 @@ import QuartzCore
 
     /// Writes only what differs, so the many window updates cost a comparison and never restart the breath.
     private func apply() {
+        layer.isHidden = wanted == nil
+        // A hidden halo has nothing to keep in step; show() brings it back the moment one is wanted.
+        guard let wanted else {
+            drawn = nil
+            layer.contents = nil
+            return
+        }
         if let found = findButton(), found !== button {
             button = found
             found.wantsLayer = true
             found.layer?.addSublayer(layer)
+            breath = nil
         }
-        if layer.isHidden != (wanted == nil) { layer.isHidden = wanted == nil }
-        if layer.contents as AnyObject? !== wanted?.image { layer.contents = wanted?.image }
+        if wanted != drawn {
+            drawn = wanted
+            layer.contents = wanted.image
+        }
         let bounds = button?.bounds ?? .zero
-        // The bar is only so tall; a halo taller than the button would be cut flat at the window's edges.
-        let side = min(wanted?.side ?? 0, bounds.height)
+        let side = wanted.side
         let frame = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
         if layer.frame != frame { layer.frame = frame }
         let scale = button?.window?.backingScaleFactor ?? 2

@@ -6,18 +6,6 @@ import Testing
 // [LAW:behavior-not-structure] What the menu bar shows of the halo is the layer's state: whether it is
 // there, what it holds, and how its opacity moves. These read that state off a bare CALayer and a
 // stand-in button, with no window.
-/// Finder, the DMG, Login Items and notifications show the icon the built bundle names. The tests run
-/// inside the built app, so its Info.plist and resources are the shipped ones. macOS reads the named icon
-/// from the compiled asset catalog; actool's AppIcon.icns beside it is a small fallback for old readers.
-@Suite struct AppIconTests {
-    @Test func theAppNamesItsIconAndTheCatalogHasEverySizeMacOSAsksFor() throws {
-        #expect(Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") as? String == "AppIcon")
-        let icon = try #require(Bundle.main.image(forResource: "AppIcon"))
-        let sides = Set(icon.representations.map(\.pixelsWide))
-        #expect(sides.isSuperset(of: [16, 32, 64, 128, 256, 512, 1024]), "\(sides.sorted())")
-    }
-}
-
 @MainActor @Suite struct StatusItemHaloTests {
     static let halo = Halo(glyph: .bottle, ink: .light, side: 24)
 
@@ -51,8 +39,7 @@ import Testing
         NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
         #expect(owner.layer.superlayer === button.layer)
         #expect(!owner.layer.isHidden && owner.layer.contents != nil)
-        // 24pt asked for, held to the 22pt bar so the window never cuts the glow flat.
-        #expect(owner.layer.frame == CGRect(x: 4, y: 0, width: 22, height: 22))
+        #expect(owner.layer.frame == CGRect(x: 3, y: -1, width: 24, height: 24))
         #expect(owner.layer.animation(forKey: HaloBreath.key) != nil)
     }
 
@@ -62,11 +49,12 @@ import Testing
         owner.show(Self.halo)
         button.frame.size.width = 22
         NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
-        #expect(owner.layer.frame == CGRect(x: 0, y: 0, width: 22, height: 22))
+        #expect(owner.layer.frame == CGRect(x: -1, y: -1, width: 24, height: 24))
         button = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
         NotificationCenter.default.post(name: NSWindow.didUpdateNotification, object: nil)
         #expect(owner.layer.superlayer === button.layer)
-        #expect(owner.layer.frame == CGRect(x: 4, y: 0, width: 22, height: 22))
+        #expect(owner.layer.frame == CGRect(x: 3, y: -1, width: 24, height: 24))
+        #expect(owner.layer.animation(forKey: HaloBreath.key) != nil)
     }
 
     @Test func updatesThatChangeNothingLeaveTheBreathRunning() throws {

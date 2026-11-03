@@ -93,6 +93,16 @@ import Testing
         #expect(empty > 0, "the outline is drawn")
     }
 
+    /// A glyph taller than the bar is squeezed by the status item while its halo is not, so the halo's cut-out
+    /// would miss the glyph. The logo stops at the bar's height and the halo grows only with it.
+    @Test func theLogoNeverOutgrowsTheBarAndItsHaloKeepsItsRatio() throws {
+        let config = { var c = MenuBarIconConfig(); c.style = .logo; c.size = .extraLarge; return c }()
+        let icon = MenuBarIcon(noBattery: config, on: .dark)
+        #expect(icon.image.size.height == 22)
+        let charging = Self.icon(try Self.charging(50)) { $0.style = .logo; $0.size = .extraLarge }
+        #expect(charging.halo?.side == 22 * LogoGlyph.haloRatio)
+    }
+
     @Test func theLogoIsOrangeWhenLowRedWhenCriticalAndNeverGreen() throws {
         func hues(_ reading: BatteryReading) -> [Pixels.Hue] {
             let pixels = Self.pixels(Self.icon(reading) { $0.style = .logo })
