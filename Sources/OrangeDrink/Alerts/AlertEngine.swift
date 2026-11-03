@@ -34,7 +34,7 @@ struct AlertEngine: Equatable, Sendable {
             }
         }
         // [LAW:one-source-of-truth] A `Heat` exists exactly when the reading is out of Normal, so leaving it is `wasNormal` and a heat.
-        guard TemperatureState(previous.temperature) == .normal,
+        guard power.temperature, TemperatureState(previous.temperature) == .normal,
               let heat = TemperatureState.Heat(TemperatureState(reading.temperature)) else { return thresholds + adapter }
         return thresholds + adapter + [.temperatureWarning(heat, sound: power.sound)]
     }

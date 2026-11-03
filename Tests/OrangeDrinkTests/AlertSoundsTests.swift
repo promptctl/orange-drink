@@ -16,7 +16,7 @@ import Testing
                 Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: true),
                 Alert(kind: .low, threshold: 10, position: .top, glow: false, sound: false),
             ]
-            $0.power = PowerSourceAlerts(pluggedIn: true, unplugged: false, sound: true)
+            $0.power = PowerSourceAlerts(pluggedIn: true, unplugged: false, temperature: true, sound: true)
         }
         for percent in [21, 19] { center.observe(try PillTests.reading(percent)) }
         #expect(chimes == 1)
@@ -33,7 +33,7 @@ import Testing
             let center = try AlertCenter(defaults: AlertSettingsPersistence.suite(), deliver: { firing, _ in sounds.deliver(firing) })
             try center.model.update {
                 $0.alerts = []
-                $0.power = PowerSourceAlerts(pluggedIn: false, unplugged: false, sound: sound)
+                $0.power = PowerSourceAlerts(pluggedIn: false, unplugged: false, temperature: true, sound: sound)
             }
             for celsius in [30.0, 41, 42] { center.observe(try PowerAndTemperatureAlerts.battery(celsius: celsius)) }
             #expect(chimes == expected)

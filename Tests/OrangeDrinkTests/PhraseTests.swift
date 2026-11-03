@@ -138,7 +138,7 @@ import Testing
         phrases += ["＋ \("Add Low Battery Alert")", "Add Low Battery Alert", "Add Charged Alert", "Enable Notifications", "Show battery alerts and notifications",
                     "Low Battery Alerts", "Notify when battery goes below percentage", "Charged Alerts", "Notify when battery reaches percentage",
                     "Power Source Alerts", "Plugged In", "Notify when power adapter is connected", "Unplugged", "Notify when power adapter is disconnected",
-                    "Sound", "Play a sound for these alerts", "Power Source Sound", "Threshold", "Below this level", "At or above this level", "Position",
+                    "Temperature", "Notify when the battery runs warm or hot", "Sound", "Play a sound for these alerts", "Threshold", "Below this level", "At or above this level", "Position",
                     "Border Glow", "Light the screen edges", "Play a sound",
                     "Menu Bar Icon", "Display", "Choose what to display in the menu bar icon", "Color", "Match your menu bar style", "Size",
                     "Make the icon and its text larger and easier to read", "Status colors",

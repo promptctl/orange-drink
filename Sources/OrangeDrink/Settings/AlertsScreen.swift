@@ -39,8 +39,12 @@ struct AlertsScreen: View {
                                    description: "Notify when power adapter is disconnected") {
                             AccentSwitch(isOn: edits.binding(\.power.unplugged), tint: Self.tint, label: "Unplugged")
                         }
+                        SettingRow(icon: ("thermometer.medium", .orange), title: "Temperature",
+                                   description: "Notify when the battery runs warm or hot") {
+                            AccentSwitch(isOn: edits.binding(\.power.temperature), tint: Self.tint, label: "Temperature")
+                        }
                         SettingRow(title: "Sound", description: "Play a sound for these alerts") {
-                            AccentSwitch(isOn: edits.binding(\.power.sound), tint: Self.tint, label: "Power Source Sound")
+                            AccentSwitch(isOn: edits.binding(\.power.sound), tint: Self.tint, label: "Sound")
                         }
                     }
                 }
