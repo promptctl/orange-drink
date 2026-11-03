@@ -113,8 +113,8 @@ struct OrangeDrinkApp: App {
         self.history = history
         // [LAW:no-ambient-temporal-coupling] The one place the app's state is saved at its normal end: a menu
         // Quit, logout, shutdown, and SIGTERM (routed to terminate by TerminationLog) arrive here; a
-        // crash or SIGKILL does not. The helper's record is released at exit() instead, which the test
-        // host's end reaches without this notification.
+        // crash or SIGKILL does not. The helper's record is released at exit() instead
+        // (HelperRegistration.holdUntilExit).
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
                 if case .success(let recording) = history { recording.flush() }

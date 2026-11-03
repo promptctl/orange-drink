@@ -27,7 +27,7 @@ import XCTest
         let appURL = URL(filePath: try XCTUnwrap(ProcessInfo.processInfo.environment["INSTALLED_APP"]))
         let identifier = try XCTUnwrap(Bundle(url: appURL)?.bundleIdentifier)
         let running = try XCTUnwrap(NSRunningApplication.runningApplications(withBundleIdentifier: identifier).first)
-        kill(running.processIdentifier, SIGTERM)
+        XCTAssertEqual(kill(running.processIdentifier, SIGTERM), 0, "kill: \(String(cString: strerror(errno)))")
         XCTAssertTrue(app.wait(for: .notRunning, timeout: Self.installedAppTimeout), "the app did not quit on SIGTERM")
     }
 }

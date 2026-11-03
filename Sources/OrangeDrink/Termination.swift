@@ -68,7 +68,7 @@ enum TerminationRequest: Equatable {
 /// morning has left no evidence there; this file is for that reader, by `cat` or `grep`.
 struct QuitRecords {
     let url: URL
-    /// Which copy quit: a Debug build, the installed app, and the test host all write this one file.
+    /// Which copy quit: a Debug build and the installed app both write this one file.
     let build: String
 
     static var standard: QuitRecords {

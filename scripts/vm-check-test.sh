@@ -14,10 +14,14 @@ touch "$scratch/products/Tests.xctestrun"
 cat >"$scratch/bin/tart" <<'STUB'
 #!/bin/bash
 echo "tart $1" >>"$SCRATCH/calls"
+case "$*" in *xcresulttool*) cat "$SCRATCH/summary" ;; esac
 exit 0
 STUB
 chmod +x "$scratch/bin/tart"
 export PATH=$scratch/bin:$PATH
+# The result bundle's summary the stand-in prints; a case that wants another writes its own.
+passed='{"passedTests":1,"skippedTests":0,"failedTests":0}'
+echo "$passed" >"$scratch/summary"
 
 # Runs a check that sources the lib, sets up its cleanup with `$1`, and runs `$2` as its body.
 run_check() {
@@ -86,6 +90,15 @@ run_check ":" "$started; uitest Some/test"
 expect_status 0 "empty lists"
 grep -q 'tart delete' "$scratch/calls" || broken "an empty vm_cleanup ended the trap before the VM was deleted"
 ok "empty lists work under set -u on macOS's bash"
+
+for summary in '{"passedTests":0,"skippedTests":0,"failedTests":0}|no test matched' '{"passedTests":0,"skippedTests":1,"failedTests":0}|a skip'; do
+  echo "${summary%%|*}" >"$scratch/summary"
+  run_check ":" "$started; uitest Some/test"
+  expect_status 1 "${summary##*|}"
+  grep -qF "Some/test failed in the VM" "$scratch/stderr" || broken "${summary##*|} was not reported as the test failing: $(cat "$scratch/stderr")"
+done
+echo "$passed" >"$scratch/summary"
+ok "a test run where no test matched, or the test skipped, fails though xcodebuild passed"
 
 : >"$scratch/calls"
 status=0
