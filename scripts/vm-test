@@ -1,14 +1,17 @@
 #!/bin/bash
-# The hosted tests inside a throwaway VM with no window, so nothing shows on the Mac running them. The test that reads the
-# string catalog through #filePath compiled to this Mac's path, so a copy of the tree sits at the same path in the VM.
-# Run by `make vm-test`.
+# Hosted tests inside a throwaway VM with no window, for a test that puts something on the screen, such as
+# PinnedPositionCheck's status items. The test that reads the string catalog through #filePath compiled to this Mac's path, so
+# a copy of the tree sits at the same path in the VM. Run by `make position-check`.
 #
-#   scripts/vm-test <xctestrun of the OrangeDrink scheme>
+#   scripts/vm-test <xctestrun of the OrangeDrink scheme> <Suite/function() under OrangeDrinkTests> [TEST_RUNNER_NAME=value...]
 #
 # Prints the result bundle's summary, and exits as xcodebuild did.
 set -euo pipefail
 
-xctestrun=$(realpath "${1:?usage: scripts/vm-test <xctestrun>}")
+usage='usage: scripts/vm-test <xctestrun> <test> [TEST_RUNNER_NAME=value...]'
+xctestrun=$(realpath "${1:?$usage}")
+only=${2:?$usage}
+shift 2
 cd "$(dirname "$0")/.."
 . scripts/vm-check-lib
 
@@ -17,6 +20,6 @@ vm_start "$xctestrun"
 guest sudo -n sh -c "mkdir -p '$PWD' && tar -C '$PWD' -xf '$shared/tree.tar'"
 
 status=0
-xctest vm-test OrangeDrinkTests || status=$?
+xctest vm-test "OrangeDrinkTests/$only" "$@" || status=$?
 guest xcrun xcresulttool get test-results summary --path /tmp/vm-test.xcresult --compact
-exit "$status"
+[ "$status" -eq 0 ] || fail "$only failed in the VM"

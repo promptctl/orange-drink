@@ -89,8 +89,8 @@ import Testing
             """)
     }
 
-    // [LAW:behavior-not-structure] A real signal from a real process, end to end to the file. SIGUSR2 because the
-    // test host is the app, whose own watch of SIGTERM would end it.
+    // [LAW:behavior-not-structure] A real signal from a real process, end to end to the file. SIGUSR2, so the test
+    // process keeps SIGTERM's own meaning.
     @Test func aSignalFromAnotherProcessIsRecordedWithThatProcesssPid() async throws {
         let sender = Process()
         sender.executableURL = URL(filePath: "/bin/kill")
@@ -114,12 +114,5 @@ import Testing
     @Test func aStoreThatCannotBeOpenedSaysWhy() throws {
         try FileManager.default.createDirectory(at: quits.url, withIntermediateDirectories: true)
         #expect(throws: POSIXError(.EISDIR)) { try quits.append([], at: Date()) }
-    }
-
-    // What macOS acts on, read from the launched test host: SwiftUI's adaptor reached the delegate at launch.
-    @Test func theLaunchedAppCatchesSIGTERMWithItsSender() {
-        var current = sigaction()
-        sigaction(SIGTERM, nil, &current)
-        #expect(current.sa_flags & SA_SIGINFO != 0)
     }
 }

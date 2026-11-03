@@ -7,7 +7,6 @@ import WidgetKit
 // a case to default past.
 let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as! String
 
-@main
 struct OrangeDrinkApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var battery: BatteryModel

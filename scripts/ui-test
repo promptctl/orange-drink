@@ -1,0 +1,27 @@
+#!/bin/bash
+# The UI tests `make test` runs, inside a throwaway VM with no window: the Debug build's component gallery, and what the app
+# wires up as it launches. Each opens a window or the panel, which would show on the Mac running them. Run by `make ui-test`.
+#
+#   scripts/ui-test <Debug app> <xctestrun of the OrangeDrinkUITests scheme>
+#
+# Exits 0 when every test passed, and 1 naming the first suite that did not.
+set -euo pipefail
+
+usage='usage: scripts/ui-test <app> <xctestrun>'
+built=$(realpath "${1:?$usage}")
+xctestrun=$(realpath "${2:?$usage}")
+cd "$(dirname "$0")/.."
+. scripts/vm-check-lib
+
+on_failure() { guest ps -axo pid,command | grep -F "$app" >&2; log_matching 'process == "OrangeDrink" AND (category == "hotkey" OR category == "termination" OR messageType == error)' >&2; }
+
+tar -C "$(dirname "$built")" -cf "$scratch/app.tar" "$(basename "$built")"
+vm_start "$xctestrun"
+guest sh -c "mkdir -p '$(dirname "$app")' && tar -C '$(dirname "$app")' -xf '$shared/app.tar'"
+
+uitest ComponentGalleryUITests
+uitest LaunchedAppUITests/testTheDefaultCombinationOpensThePanel
+uitest LaunchedAppUITests/testASIGTERMQuitsTheApp
+identifier=$(guest /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
+guest grep -qE 'SIGTERM from pid [0-9]+ \(OrangeDrinkUITests-Runner\)' "/Users/admin/Library/Logs/$identifier/quits.log" ||
+  fail "the app's quit record does not name the runner that sent SIGTERM"

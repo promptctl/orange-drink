@@ -140,7 +140,7 @@ targets:
     scheme:
       testTargets: [OrangeDrinkTests]
       # The tests' language and the time limit of every test that names none: a test awaiting a state that never comes
-      # fails instead of hanging the run. A plan, because build-for-testing writes it into the .xctestrun vm-test replays.
+      # fails instead of hanging the run. A plan, because build-for-testing writes it into the .xctestrun scripts/vm-test replays.
       testPlans:
         - path: OrangeDrink.xctestplan
           defaultPlan: true

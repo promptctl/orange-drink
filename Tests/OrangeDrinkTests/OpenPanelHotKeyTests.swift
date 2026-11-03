@@ -37,9 +37,4 @@ import Testing
         registration.cancel()
         try carbon.register(Self.spare, fire: {}).cancel()
     }
-
-    // The test host is the app itself, which registers ⌃⌥J as it launches: the system now refuses it to anyone else.
-    @Test func theLaunchedAppHoldsTheDefaultCombination() throws {
-        #expect(throws: HotKeyError.self) { try CarbonHotKeys.shared().register(.openPanel, fire: {}) }
-    }
 }

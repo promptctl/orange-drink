@@ -47,11 +47,7 @@ struct ComponentGallery: View {
         window.title = "Component Gallery"
         window.contentView = NSHostingView(rootView: ComponentGallery())
         window.isReleasedWhenClosed = false
-        // The accessibility tree lists only windows ordered in, so the gallery is ordered front, but no person sees it
-        // or types into it: transparent, click-through, never key, and the app never activated (ax-check asserts the alpha).
-        window.alphaValue = 0
-        window.ignoresMouseEvents = true
-        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
         // The app owns the window for its whole life; nothing else holds it.
         galleryWindow = window
     }

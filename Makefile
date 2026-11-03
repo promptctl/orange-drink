@@ -15,7 +15,7 @@ HELPER_COPY ?= .$(shell printf %s '$(abspath $(DERIVED_DATA))' | shasum | cut -c
 XCB_SETTINGS ?=
 XCB  := xcodebuild -scheme $(APP) -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) HELPER_COPY='$(HELPER_COPY)' $(XCB_SETTINGS)
 
-.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test vm-test app-energy-check cpu-check ax-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check iphone-list iphone-capture iphone-devices-test notification-fixtures notification-fixtures-test
+.PHONY: generate build release sparkle-tools test ci-test script-tests hardware-check-test release-test vm-check-test place-widgets-test ui-test app-energy-check cpu-check layout-events-count layout-events-count-test helper-check release-helper-check update-check login-item-check first-launch-check battery-notification-check widget-click-check iphone-list iphone-capture iphone-devices-test notification-fixtures notification-fixtures-test
 
 generate:
 	xcodegen generate --use-cache
@@ -23,16 +23,14 @@ generate:
 build: generate
 	$(call gated,build)
 
-# The unit tests, then the accessibility-tree check of the shared settings components: SwiftUI builds
-# its tree only for a client of the running app, so that check is its own process (see ax-check).
-# It fails loudly, never skips, when the invoking terminal is not trusted for Accessibility.
+# The unit tests, then the UI tests in a VM (see ui-test), then the scripts' tests. Nothing shows on this Mac's screen.
 test: generate
 	$(call gated,test)
-	$(MAKE) ax-check
+	$(MAKE) ui-test
 	$(MAKE) script-tests
 
 # `test` for a hosted runner, which the test workflow runs and the release refuses a commit without
-# (scripts/release-tested). It leaves out ax-check, which fails loudly without an Accessibility-trusted terminal, and the
+# (scripts/release-tested). It leaves out ui-test, whose Tart VM a hosted runner cannot boot, and the
 # tests that ask this Mac a question a hosted runner's VM cannot answer: BatteryLive reads the Mac's battery, which the VM
 # has none of; the two HelperBuildTests read the Developer ID team off the helper's signature, which the ad-hoc build there
 # lacks; and pmsetRunsToItsEndOrItsDeadline reads pmset's power mode, which the VM does not list. Only `test` runs them.
@@ -68,11 +66,12 @@ vm-check-test:
 place-widgets-test:
 	scripts/place-widgets-test.py
 
-# The hosted tests in a VM with no window, because the test host is the app, which puts its status item in the menu bar.
-# The warning gate runs here, and the VM only runs what was built. Prints the result bundle's counts and failures.
-vm-test: generate
-	$(call gated,build-for-testing)
-	scripts/vm-test "$$(ls -t $(PRODUCTS)/*.xctestrun | head -n 1)"
+# The UI tests that open the app's windows, in a VM with no window: the Debug build's component gallery, through the
+# accessibility tree SwiftUI builds only for a client of the running app, and what the app wires up as it launches.
+# It needs Tart and the VM image scripts/vm-check-lib names.
+ui-test: generate
+	xcodebuild -scheme $(APP)UITests -destination '$(DEST)' -derivedDataPath $(DERIVED_DATA) build-for-testing
+	scripts/ui-test $(PRODUCTS)/Debug/$(APP).app "$$(ls -t $(PRODUCTS)/$(APP)UITests*.xctestrun | head -n 1)"
 
 # [LAW:one-type-per-behavior] The checks that need a real Mac are one list, and each is only data declared beside its
 # target: the source paths it covers, and either its test (Suite/function()) or a recipe whose last command is a script.
@@ -116,12 +115,15 @@ devices-check.test := DevicesLive/matchesSystemProfiler()
 devices-check.covers := Sources/OrangeDrink/Devices Sources/OrangeDrink/Battery/PowerSources.swift Sources/OrangeDrink/Battery/Timekeeper.swift project.yml \
   Tests/OrangeDrinkTests/DevicesTests.swift Tests/OrangeDrinkTests/BatteryLog.swift Tests/OrangeDrinkTests/PrintForTheRecord.swift
 
-# The pinned devices ticket on the real menu bar: puts three status items in it for a moment, reorders
-# them, and checks the bar follows the list, including over a position left by a ⌘-drag.
-position-check: export TEST_RUNNER_POSITION_CHECK = 1
-position-check.test := PinnedPositionCheck/theBarFollowsTheListEvenOverASavedPosition()
+# The pinned devices ticket on a real menu bar, a VM's, because it puts three status items in it: reorders them, and
+# checks the bar follows the list, including over a position left by a ⌘-drag.
 position-check.covers := Sources/OrangeDrink/MenuBar/PinnedItems.swift Sources/OrangeDrink/Devices/PinnedOrder.swift \
-  Sources/OrangeDrink/Devices/Device.swift Sources/OrangeDrink/Devices/DeviceRanking.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift
+  Sources/OrangeDrink/Devices/Device.swift Sources/OrangeDrink/Devices/DeviceRanking.swift Tests/OrangeDrinkTests/PinnedOrderTests.swift \
+  scripts/vm-test scripts/vm-check-lib
+position-check: generate
+	$(call gated,build-for-testing)
+	$(record) scripts/vm-test "$$(ls -t $(PRODUCTS)/$(APP)_*.xctestrun | head -n 1)" \
+	  'PinnedPositionCheck/theBarFollowsTheListEvenOverASavedPosition()' TEST_RUNNER_POSITION_CHECK=1
 
 # The privileged helper's check on a real Mac, with OrangeDrink approved under System Settings › General ›
 # Login Items & Extensions › Allow in the Background: the helper, running as root from this build, accepts
@@ -305,13 +307,3 @@ rm -rf $(DERIVED_DATA)/$(1).xcresult
 $(XCB) -resultBundlePath $(DERIVED_DATA)/$(1).xcresult $(1) $(2)
 xcrun xcresulttool get build-results --path $(DERIVED_DATA)/$(1).xcresult | python3 -c 'import json, sys; n = json.load(sys.stdin)["warningCount"]; print(f"build warnings: {n}"); sys.exit(n != 0)'
 endef
-
-# The shared settings components through the accessibility tree of the running app's component
-# gallery (a Debug-only window). Outside `test` because only a client of the running app sees
-# SwiftUI's tree; the invoking process must be trusted for Accessibility.
-ax-check: generate
-	$(call gated,build)
-	@set -e; app=$(PRODUCTS)/Debug/$(APP).app; \
-	"$$app/Contents/MacOS/$(APP)" -ComponentGallery & pid=$$!; \
-	status=0; swift scripts/ax-check.swift $$pid || status=$$?; \
-	kill $$pid; exit $$status
