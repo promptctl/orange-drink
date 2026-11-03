@@ -70,13 +70,9 @@ import ViewInspector
         }
 
         func screen() throws -> GeneralScreen {
-            GeneralScreen(appearance: try NotificationAppearanceModel(defaults: Self.scratch), look: try AppAppearanceModel(defaults: Self.scratch),
-                          language: try AppLanguageModel(defaults: Self.scratch),
-                          launchAtLogin: LaunchAtLogin(effects: LaunchAtLogin.Effects(register: { nil }, unregister: { nil }, status: { .notRegistered }), center: center),
-                          batteryNotifications: model)
+            try scratchGeneralScreen(launchAtLogin: LaunchAtLogin(effects: LaunchAtLogin.Effects(register: { nil }, unregister: { nil }, status: { .notRegistered }), center: center),
+                                     batteryNotifications: model)
         }
-
-        private static var scratch: UserDefaults { scratchDefaults() }
 
         func theSwitch() throws -> InspectableView<ViewType.Toggle> {
             try screen().inspect().find(ViewType.Toggle.self, where: { try $0.labelView().text().string() == "Dismiss macOS Battery Notifications" })
