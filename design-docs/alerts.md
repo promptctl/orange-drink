@@ -51,7 +51,7 @@ Under the stack is a centred, dark, rounded button: "＋ Add Low Battery Alert".
 
 ## Full-Screen Alert
 
-Not in the reference. PROJECT.md promises it for critical levels like 1–2%, where a pill that leaves after eight seconds is easy to miss. Low and charged alerts can choose it. The power-source and temperature pills cannot.
+Not in the reference. PROJECT.md promises it for critical levels like 1–2%, where a pill that leaves after eight seconds is easy to miss. Low and charged alerts can choose it. The power-source and temperature pills cannot. It is for the Mac's own battery: a watched device that fires an alert set to "Full Screen" shows a Center of Screen pill.
 
 **What it shows.** A dark, translucent cover over the whole screen, menu bar and Dock included, with one block centred on it:
 
@@ -65,13 +65,16 @@ Not in the reference. PROJECT.md promises it for critical levels like 1–2%, wh
 - The "Dismiss" button.
 - Esc.
 - The power adapter being connected, for a low alert: the alert has been answered. The Plugged In pill then shows as usual if its switch is on.
-- A newer alert, which replaces it, as a newer alert replaces a pill.
+- The power adapter being disconnected, for a charged alert: the alert has been answered. The Unplugged pill then shows as usual if its switch is on.
+- A newer full-screen alert, which replaces it.
 
-It has no countdown. It stays until one of these happens, including through a sleep or a lock, so it is still there when the person comes back.
+A pill that fires while it is up doesn't show, including another low alert crossed on the same reading: the cover already says more than the pill would.
 
-**Focus and input.** It takes keyboard focus while it is up, so Esc reaches it and typing doesn't go into the app underneath. Clicks on the cover land on the cover, not on what is beneath. It is a deliberate interruption, and the two ways out (the button and Esc) are always one action away. VoiceOver reads the headline and second line when it appears and lands on "Dismiss".
+It has no countdown. It stays until one of these happens, including through a sleep or a lock, so it is still there when the person comes back. An alert that fires while no display is connected appears on the first display connected.
 
-**Several displays.** It covers every connected display, each with the same centred block. Dismissing it on any display clears every one. A display connected while it is up gets covered too, and a display removed takes its cover with it. Keyboard focus sits on the cover of the main display.
+**Focus and input.** It takes keyboard focus while it is up, so Esc reaches it and typing doesn't go into the app underneath. For its first second it ignores keys and clicks, so a keystroke already on its way, such as an Esc in an editor, doesn't dismiss it unread. Clicks on the cover land on the cover, not on what is beneath. It is a deliberate interruption, and the two ways out (the button and Esc) are always one action away. Orange Drink's panel and Settings don't open while it is up. When it is dismissed, the app that was frontmost before it appeared is frontmost again. VoiceOver reads the headline and second line when it appears and lands on "Dismiss".
+
+**Several displays.** It covers every connected display, each with the same centred block. Dismissing it on any display clears every one. A display connected while it is up gets covered too, and a display removed takes its cover with it. Keyboard focus sits on the cover of the display with the menu bar.
 
 **Full-screen apps.** It covers them as it covers the desktop, joining every Space as the pill and glow do, at the pill's level so nothing of Orange Drink's sits above it.
 
