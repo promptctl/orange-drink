@@ -88,7 +88,7 @@ import Testing
         let tiles = StatTiles(try #require(try BatteryReading(
             registry: registry, powerSource: BatteryReadingParse.discharging(timeToEmpty: 192), adapter: BatteryReadingParse.adapter)))
         #expect(tiles.all.map(\.label) == ["HEALTH", "TEMPERATURE", "CYCLES"])
-        #expect(tiles.all.map(\.value) == ["95%", "36.2°C", "84"])
+        #expect(tiles.all.map(\.value.english) == ["95%", "36.2°C", "84"])
         #expect(tiles.all.map(\.status.english) == ["Good", "Warm", "of 1,000 rated"])
         #expect(tiles.temperature.tone == .condition(.warning) && tiles.health.tone == .condition(.good) && tiles.cycles.tone == .info)
     }

@@ -109,7 +109,7 @@ private struct StatTile: View {
         VStack(alignment: .leading, spacing: 6) {
             Label { PhraseText(tile.label).font(.caption.weight(.semibold)) } icon: { Image(systemName: tile.symbol).foregroundStyle(tone) }
                 .foregroundStyle(.secondary)
-            Text(tile.value).font(.system(size: 28, weight: .bold))
+            PhraseText(tile.value).font(.system(size: 28, weight: .bold))
             PhraseText(tile.status).font(.callout).foregroundStyle(tone)
         }
         .padding(16)

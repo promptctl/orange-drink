@@ -144,7 +144,7 @@ struct AppDetailSheet: View {
         HStack {
             PhraseText(title).foregroundStyle(.secondary)
             Spacer()
-            Text(shares.first { $0.app == app }.map { ShareFormat.text(percent: $0.share * 100, locale: language.locale) } ?? "—").fontWeight(.bold)
+            PhraseText(shares.first { $0.app == app }.map { ShareFormat.text(percent: $0.share * 100, locale: language.locale) } ?? "—").fontWeight(.bold)
         }
     }
 }

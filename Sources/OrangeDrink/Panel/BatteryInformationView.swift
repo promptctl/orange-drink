@@ -25,7 +25,7 @@ struct BatteryInformationView: View {
             SectionHeader(symbol: info.health.condition.checkSymbol, color: info.health.condition.color, title: "Battery Health",
                           help: "How much charge the battery holds today compared with when it was new.")
             HStack(alignment: .firstTextBaseline) {
-                Text(info.health.percent).font(.system(size: 28, weight: .bold)).foregroundStyle(info.health.condition.color)
+                PhraseText(info.health.percent).font(.system(size: 28, weight: .bold)).foregroundStyle(info.health.condition.color)
                 PhraseText(info.health.label).foregroundStyle(info.health.condition.color)
                 Spacer()
                 VStack(alignment: .trailing) {
