@@ -58,7 +58,7 @@ import Testing
         let shelf = FileManager.default.temporaryDirectory.appending(path: "identity-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
-        try WidgetShelf.write(SeenDevices(names: [.bluetooth("AA-01"): "iPhone"]), as: .seenDevices, to: shelf)
+        try WidgetShelf.write(SeenDevices(devices: [.bluetooth("AA-01"): SeenDevice(name: "iPhone")]), as: .seenDevices, to: shelf)
         let query = DeviceQuery(directory: .success(shelf), log: .unread)
 
         let named = try await query.entities(for: ["AA-01", "bluetooth:AA-01"]).map(\.name)
@@ -88,7 +88,7 @@ import Testing
         #expect(settings.pinned.ids == [bluetooth] && settings.alerting == [cabled])
 
         var seen = SeenDevices()
-        seen.see(list)
+        seen.see(list, at: .now)
         #expect(seen.names == [bluetooth: "Brandon's iPhone", cabled: "Brandon's iPhone"])
     }
 

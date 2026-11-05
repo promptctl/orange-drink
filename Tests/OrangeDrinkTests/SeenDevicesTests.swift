@@ -7,6 +7,9 @@ import Testing
 @MainActor @Suite final class SeenDevicesTests {
     static let buds = device("BB", "Earbuds")
     static let phone = device("AA", "iPhone")
+    static let mouse = device("CC", "Mouse")
+    static let day: TimeInterval = 86_400
+    static let start = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
     static func device(_ address: String, _ name: String, levels: DeviceLevels = .single(BatteryLevel(percent: 50, approximate: false))) -> SourceDevice {
         SourceDevice(id: DeviceID.bluetooth(address), name: name, kind: .accessory, levels: levels)
@@ -19,6 +22,12 @@ import Testing
     let query: DeviceQuery
     let devicesShelf: ShelfPublisher<Shelved<WidgetDeviceList>>
     let seenShelf: ShelfPublisher<SeenDevices>
+    /// The app's clock: the test sets the time.
+    final class Clock {
+        var now: Date
+        init(_ now: Date) { self.now = now }
+    }
+    let clock = Clock(SeenDevicesTests.start)
 
     init() throws {
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
@@ -36,7 +45,8 @@ import Testing
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(
             sources: [.bluetooth: events], shelf: devicesShelf, seenShelf: seenShelf, settings: try DeviceSettingsModel(defaults: defaults),
-            seen: try SeenDevicesModel(defaults: defaults), language: try AppLanguageModel(defaults: defaults), pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }), log: .unread)
+            seen: try SeenDevicesModel.load(defaults: defaults, adoptingAt: clock.now), language: try AppLanguageModel(defaults: defaults),
+            pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }), log: .unread, now: { [clock] in clock.now })
         return (model, send)
     }
 
@@ -116,12 +126,17 @@ import Testing
 
     // MARK: its name
 
-    /// The names after the app knows `known` and sweeps `devices`.
-    func names(knowing known: [String: String], after devices: [SourceDevice]) -> [String: String] {
+    /// The list a sweep of `devices` makes.
+    static func list(_ devices: [SourceDevice]) -> DeviceList {
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept(devices), from: .bluetooth)
-        var seen = SeenDevices(names: Dictionary(uniqueKeysWithValues: known.map { (DeviceID.bluetooth($0.key), $0.value) }))
-        seen.see(list)
+        return list
+    }
+
+    /// The names after the app knows `known` and sweeps `devices`.
+    func names(knowing known: [String: String], after devices: [SourceDevice]) -> [String: String] {
+        var seen = SeenDevices(devices: Dictionary(uniqueKeysWithValues: known.map { (DeviceID.bluetooth($0.key), SeenDevice(name: $0.value, lastConnected: Self.start)) }))
+        seen.see(Self.list(devices), at: Self.start)
         return Dictionary(uniqueKeysWithValues: seen.names.map { ($0.key.key, $0.value) })
     }
 
@@ -141,10 +156,80 @@ import Testing
     /// A sweep a minute that adds nothing leaves the preferences file alone.
     @Test func anUpdateThatChangesNothingWritesNothing() throws {
         let seen = try SeenDevicesModel(defaults: defaults)
-        try seen.update { $0.names = [.bluetooth("BB"): "Earbuds"] }
+        try seen.update { $0.devices = [.bluetooth("BB"): SeenDevice(name: "Earbuds")] }
         defaults.removeObject(forKey: SeenDevices.storageKey)
-        try seen.update { $0.names = [.bluetooth("BB"): "Earbuds"] }
+        try seen.update { $0.devices = [.bluetooth("BB"): SeenDevice(name: "Earbuds")] }
         #expect(defaults.data(forKey: SeenDevices.storageKey) == nil)
+    }
+
+    /// The same sweep every minute of a day, which is what a running app does, leaves it all alone.
+    @Test func seeingADeviceAgainWithinTheDayWritesNothing() throws {
+        let seen = try SeenDevicesModel(defaults: defaults)
+        try seen.update { $0.see(Self.list([Self.buds]), at: Self.start) }
+        defaults.removeObject(forKey: SeenDevices.storageKey)
+        try seen.update { $0.see(Self.list([Self.buds]), at: Self.start + 60) }
+        try seen.update { $0.see(Self.list([Self.buds]), at: Self.start + Self.day - 1) }
+        #expect(defaults.data(forKey: SeenDevices.storageKey) == nil)
+
+        try seen.update { $0.see(Self.list([Self.buds]), at: Self.start + Self.day) }
+        #expect(seen.value.devices[.bluetooth("BB")]?.lastConnected == Self.start + Self.day)
+        #expect(defaults.data(forKey: SeenDevices.storageKey) != nil)
+    }
+
+    // MARK: a device's place ends
+
+    /// The Done when of orange-widgets-5jo.6q4.
+    @Test func aDeviceNotConnectedForTheWholeWindowIsNoLongerOfferedWhileOneThatMerelyDisconnectedStillIs() async throws {
+        let (model, send) = try launch()
+        try await sweep([Self.buds, Self.phone, Self.mouse], on: send, seen: ["AA", "BB", "CC"])
+
+        clock.now = Self.start + 20 * Self.day
+        try await sweep([Self.phone, Self.mouse], on: send, seen: ["AA", "BB", "CC"])
+
+        clock.now = Self.start + 31 * Self.day
+        try await sweep([Self.phone], on: send, seen: ["AA", "CC"])
+
+        #expect(try await offered() == ["iPhone", "Mouse"])
+        #expect(try await named(["BB", "CC"]) == [Self.unavailable(), "Mouse"])
+        _ = model
+    }
+
+    @Test func aDeviceIsLetGoOnlyOnceItsWholeWindowHasPassed() {
+        var seen = SeenDevices()
+        seen.see(Self.list([Self.buds]), at: Self.start)
+
+        #expect(seen.see(Self.list([]), at: Self.start + SeenDevices.retention) == 0)
+        #expect(seen.names.count == 1)
+        #expect(seen.see(Self.list([]), at: Self.start + SeenDevices.retention + 1) == 1)
+        #expect(seen.names.isEmpty)
+    }
+
+    /// A clock set back must not leave a device dated beyond the window's reach.
+    @Test func aDateInTheFutureIsRenewedByTheNextSighting() {
+        var seen = SeenDevices()
+        seen.see(Self.list([Self.buds]), at: Self.start)
+        seen.see(Self.list([Self.buds]), at: Self.start - 2 * Self.day)
+        #expect(seen.devices[.bluetooth("BB")]?.lastConnected == Self.start - 2 * Self.day)
+    }
+
+    /// What the release before wrote has no dates; it gets a whole window from the launch that reads it, then ages out as any.
+    @Test func devicesFromBeforeDatesGetAFullWindowFromTheFirstLaunch() throws {
+        defaults.set(Data(#"{"names":{"AA":"iPhone"}}"#.utf8), forKey: SeenDevices.storageKey)
+        #expect(try SeenDevicesModel(defaults: defaults).value.devices[.bluetooth("AA")]?.lastConnected == nil)
+
+        let model = try SeenDevicesModel.load(defaults: defaults, adoptingAt: Self.start)
+        #expect(model.value.devices[.bluetooth("AA")] == SeenDevice(name: "iPhone", lastConnected: Self.start))
+
+        var seen = model.value
+        #expect(seen.see(Self.list([]), at: Self.start + 29 * Self.day) == 0)
+        #expect(seen.see(Self.list([]), at: Self.start + 31 * Self.day) == 1)
+    }
+
+    @Test func theFileKeepsEachDevicesDateAcrossARelaunch() throws {
+        let model = try SeenDevicesModel(defaults: defaults)
+        try model.update { $0.see(Self.list([Self.buds]), at: Self.start) }
+
+        #expect(try SeenDevicesModel(defaults: defaults).value == model.value)
     }
 
     // MARK: what is offered
@@ -183,7 +268,7 @@ import Testing
     // MARK: the log
 
     @Test func theLogsCarryHowManyAndNeverANameOrAnAddress() {
-        let line = String(describing: SeenDevices(names: [.bluetooth("AA-BB"): "Sam's Earbuds"]))
+        let line = String(describing: SeenDevices(devices: [.bluetooth("AA-BB"): SeenDevice(name: "Sam's Earbuds", lastConnected: Self.start)]))
         #expect(line == "1 seen")
     }
 }

@@ -58,7 +58,7 @@ struct OrangeDrinkApp: App {
         do {
             appearance = try NotificationAppearanceModel(defaults: .standard)
             deviceSettings = try DeviceSettingsModel(defaults: .standard)
-            seenDevices = try SeenDevicesModel(defaults: .standard)
+            seenDevices = try SeenDevicesModel.load(defaults: .standard, adoptingAt: .now)
             menuBarIcon = try MenuBarIconModel(defaults: .standard)
             look = try AppAppearanceModel(defaults: .standard)
             language = try AppLanguageModel(defaults: .standard)

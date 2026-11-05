@@ -145,7 +145,7 @@ struct DeviceMergeListTests {
         #expect(alone.devices.map(\.hasName) == [false])
         #expect(alone.devices.map(\.name) == [Phone.address.key])
         var seen = SeenDevices()
-        seen.see(alone)
+        seen.see(alone, at: .now)
         #expect(seen.names == [Phone.address: Phone.address.key])
 
         // Bluetooth's name is a name.

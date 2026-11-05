@@ -41,11 +41,17 @@ extension DevicesModel {
     convenience init(
         sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, seenShelf: ShelfPublisher<SeenDevices>,
         settings: DeviceSettingsModel, seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController, log: Logger,
+        now: @escaping () -> Date = Date.init,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) {
         self.init(sources: sources, log: log, onChange: { list in
             do {
-                try seen.update { $0.see(list) }
+                var dropped = 0
+                try seen.update { dropped = $0.see(list, at: now()) }
+                if dropped > 0 {
+                    // [LAW:nothing-unseen] A device leaving Edit Widget is explained here, by count: the log is public, so no names.
+                    log.info("seen devices dropped: \(dropped, privacy: .public), kept: \(seen.value.devices.count, privacy: .public), after \(SeenDevices.retentionDays, privacy: .public) days unconnected")
+                }
             } catch {
                 // [LAW:no-silent-failure] Logged; the memory still lacks the list, so the next event saves it.
                 log.error("seen devices not saved: \(String(describing: error), privacy: .public)")
