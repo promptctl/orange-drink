@@ -16,6 +16,21 @@ struct UnreadSourceWireTests {
         (#"{"reason":"ended","source":"iphone"}"#, .iPhone(.ended)),
     ]
 
+    /// What this release adds: an iPhone reachable and not listed, three kinds. An older reader of a new file fails it loudly
+    /// (`aPairThatMeansNothingFailsTheFile`), as any shelf it cannot read.
+    private static let added: [(json: String, source: UnreadSource)] = [
+        (#"{"reason":"locked","source":"iphone"}"#, .iPhoneMissing(.locked)),
+        (#"{"reason":"notTrusted","source":"iphone"}"#, .iPhoneMissing(.notTrusted)),
+        (#"{"reason":"unreadable","source":"iphone"}"#, .iPhoneMissing(.unreadable)),
+    ]
+
+    @Test(arguments: added) func eachAddedPairIsWrittenAndReadAsItsBytes(json: String, source: UnreadSource) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        #expect(try String(decoding: encoder.encode(source), as: UTF8.self) == json)
+        #expect(try JSONDecoder().decode(UnreadSource.self, from: Data(json.utf8)) == source)
+    }
+
     @Test func aWidgetFileTheCurrentReleaseWroteDecodesToTheSameList() throws {
         let file = #"{"ranked":[],"pinned":{"ids":[]},"unlevelled":[],"unreadSources":[\#(Self.shipped.map(\.json).joined(separator: ","))]}"#
         let list = try JSONDecoder().decode(WidgetDeviceList.self, from: Data(file.utf8))
@@ -40,7 +55,7 @@ struct UnreadSourceWireTests {
     }
 
     /// The reader tries a source's list that did not arrive first, so one string for both sides of a source would read as the
-    /// first. True while the second side has no case; every case it gains is held to it.
+    /// first. Every case a side gains is held to it.
     @Test func aSourcesTwoSidesNeverShareAReasonString() {
         #expect(Set(IPhoneNoList.allCases.map(\.rawValue)).isDisjoint(with: IPhoneMissing.allCases.map(\.rawValue)))
     }

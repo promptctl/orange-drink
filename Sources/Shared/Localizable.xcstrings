@@ -7723,6 +7723,138 @@
           }
         }
       }
+    },
+    "An iPhone is locked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An iPhone is locked"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone est verrouillé"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone está bloqueado"
+          }
+        }
+      }
+    },
+    "Trust this Mac on an iPhone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trust this Mac on an iPhone"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoriser ce Mac sur un iPhone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confía en este Mac en un iPhone"
+          }
+        }
+      }
+    },
+    "An iPhone could not be read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An iPhone could not be read"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone n'a pas pu être lu"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer un iPhone"
+          }
+        }
+      }
+    },
+    "An iPhone or iPad is connected but locked, so it can't be listed. Unlock it to see it here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An iPhone or iPad is connected but locked, so it can't be listed. Unlock it to see it here."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone ou iPad est connecté mais verrouillé, il ne peut donc pas être listé. Déverrouillez-le pour le voir ici."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone o iPad está conectado pero bloqueado, así que no se puede mostrar. Desbloquéalo para verlo aquí."
+          }
+        }
+      }
+    },
+    "An iPhone or iPad is connected but doesn't trust this Mac. Unlock it and tap Trust to see it here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An iPhone or iPad is connected but doesn't trust this Mac. Unlock it and tap Trust to see it here."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone ou iPad est connecté mais ne fait pas confiance à ce Mac. Déverrouillez-le et touchez Se fier pour le voir ici."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone o iPad está conectado pero no confía en este Mac. Desbloquéalo y toca Confiar para verlo aquí."
+          }
+        }
+      }
+    },
+    "An iPhone or iPad is connected but couldn't be read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An iPhone or iPad is connected but couldn't be read."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone ou iPad est connecté mais n'a pas pu être lu."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un iPhone o iPad está conectado pero no se pudo leer."
+          }
+        }
+      }
     }
   }
 }

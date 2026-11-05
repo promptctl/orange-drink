@@ -94,13 +94,17 @@ enum IPhoneNoList: String, CaseIterable, Codable, Equatable, Sendable {
     case ended
 }
 
-/// A device missing from the iPhone list that did arrive, and why. A different fact from `IPhoneNoList`: that source has
-/// delivered, and it is a device of it the app could not give. No reason is known yet, so there is no case, and no value;
-/// orange-device-sources-rec.70o adds its cases, and the `switch`es over `UnreadSource` that need an arm for each fail to
-/// compile until they have one. It stands in `RawRepresentable` by hand because an enum with no cases cannot declare a raw type.
-enum IPhoneMissing: Equatable, Sendable, CaseIterable, RawRepresentable {
-    init?(rawValue: String) { nil }
-    var rawValue: String { switch self {} }
+/// A device missing from the iPhone list that did arrive, and why: usbmuxd reaches it and its identity could not be read, so it
+/// is not listed. A different fact from `IPhoneNoList`: that source has delivered, and it is a device of it the app could not
+/// give. The kind of failure and nothing the device said, so a name or an address cannot reach a surface through it.
+/// The wire has no discriminator between the two sides and reads `IPhoneNoList` first, so no raw value here may equal one there.
+enum IPhoneMissing: String, CaseIterable, Codable, Equatable, Sendable {
+    /// The phone refused the read while locked.
+    case locked
+    /// The phone does not trust this Mac, or trust was revoked.
+    case notTrusted
+    /// Reachable, and the read failed for any other reason.
+    case unreadable
 }
 
 /// Why one source's list has not arrived: the source and its own reason, held together.
@@ -183,6 +187,19 @@ extension BluetoothNoList {
     }
 }
 
+extension IPhoneMissing {
+    /// All three warn: the person has something to do, and nothing is coming that will do it for them.
+    var glyph: String { MacBattery.stoppedGlyph }
+
+    var text: Phrase {
+        switch self {
+        case .locked: "An iPhone is locked"
+        case .notTrusted: "Trust this Mac on an iPhone"
+        case .unreadable: "An iPhone could not be read"
+        }
+    }
+}
+
 extension IPhoneNoList {
     var glyph: String {
         switch self {
@@ -223,12 +240,14 @@ extension UnreadSource {
     var glyph: String {
         switch self {
         case .noList(let list): list.glyph
+        case .iPhoneMissing(let missing): missing.glyph
         }
     }
 
     var text: Phrase {
         switch self {
         case .noList(let list): list.text
+        case .iPhoneMissing(let missing): missing.text
         }
     }
 
@@ -236,6 +255,7 @@ extension UnreadSource {
     var isWaiting: Bool {
         switch self {
         case .noList(let list): list.isWaiting
+        case .iPhoneMissing: false
         }
     }
 }

@@ -83,11 +83,16 @@ struct SourceDevice: Equatable, Sendable {
 /// different threads with no order between them, so a disconnect can land before the sweep that read
 /// the device as connected. The sweep is the authority: it replaces the list, so any such race
 /// is gone by the next sweep instead of leaving a device listed that is not there.
+///
+/// `permission` and `missing` are one source's own, each of a type only that source has: the kinds of device the iPhone source
+/// reaches and cannot list. `missing` is the whole of it, restated by its source whenever it changes, and replaces what the
+/// list held; it is not a sweep, which the iPhone source yields once at startup.
 enum DeviceEvent: Equatable, Sendable {
     case reported(SourceDevice)
     case gone(DeviceID)
     case swept([SourceDevice])
     case permission(BluetoothPermission)
+    case missing(Set<IPhoneMissing>)
 }
 
 /// Every connected device the app knows of, from every source. [LAW:one-source-of-truth] The one
@@ -105,6 +110,10 @@ struct DeviceList: Equatable, Sendable {
     }
 
     private var byID: [DeviceID: SourceDevice] = [:]
+    /// What the iPhone source last said it reaches and cannot list. Replaced whole by each `missing` event; cleared with the
+    /// source's devices when its list is no longer coming (`stop`), and by nothing else, so no sweep and no device event
+    /// decides it.
+    private var missingIPhones: Set<IPhoneMissing> = []
     /// Total over the sources the list was built for, so a source that has not spoken is waiting and cannot be mistaken
     /// for read. A source nothing subscribed to is not in it: it is no source of this list, not one waiting for ever.
     private var readings: [DeviceSource: Reading]
@@ -116,6 +125,9 @@ struct DeviceList: Equatable, Sendable {
 
     mutating func apply(_ event: DeviceEvent, from source: DeviceSource) {
         precondition(readings[source] != nil, "an event from \(source.rawValue), which this list was not built for")
+        // [LAW:single-enforcer] An event about a source is that source's alone (`DeviceEvent.owner`), as a device of another
+        // source is ignored below; `DevicesModel` says so in the log, from the same `owner`.
+        if let owner = event.owner, owner != source { return }
         switch event {
         case .reported(let device) where device.id.source == source: byID[device.id] = device
         case .gone(let id) where id.source == source: byID[id] = nil
@@ -124,10 +136,8 @@ struct DeviceList: Equatable, Sendable {
             removeDevices(of: source)
             for device in devices where device.id.source == source { byID[device.id] = device }
             readings[source] = .read
-        // A permission is Bluetooth's, so one from another source's stream names nothing this list can hold, as a device of
-        // another source is ignored above; `DevicesModel` says so in the log.
-        case .permission(let permission) where source == .bluetooth: stop(.bluetooth(BluetoothNoList(permission)))
-        case .permission: break
+        case .permission(let permission): stop(.bluetooth(BluetoothNoList(permission)))
+        case .missing(let kinds): missingIPhones = kinds
         }
     }
 
@@ -141,6 +151,7 @@ struct DeviceList: Equatable, Sendable {
     /// the end of what it read. The reading is keyed by the reason's own source, so the two cannot disagree.
     private mutating func stop(_ reason: NoList) {
         removeDevices(of: reason.source)
+        if reason.source == .iPhone { missingIPhones = [] }
         readings[reason.source] = .unread(reason)
     }
 
@@ -163,8 +174,22 @@ struct DeviceList: Equatable, Sendable {
     /// say what is missing beside the devices it shows. [LAW:one-source-of-truth] A function of the readings, so there is no
     /// second copy of them and no verdict picked among them; a device reported ahead of its source's first sweep is listed with
     /// the rest in `devices`, and its source is here until it sweeps.
+    ///
+    /// A source that delivered can still be missing devices it reaches and cannot list (a phone whose identity could not be
+    /// read): one entry per kind, after the source's own, so a surface says what is missing and why and never counts devices.
     var unreadSources: [UnreadSource] {
-        DeviceSource.allCases.compactMap { unread(of: $0).map(UnreadSource.noList) }
+        DeviceSource.allCases.flatMap { source in
+            [unread(of: source).map(UnreadSource.noList)].compactMap { $0 } + missing(of: source)
+        }
+    }
+
+    /// What this source reaches and cannot list, in a stable order. A `switch` on the source, so one that gains a missing side
+    /// is named here.
+    private func missing(of source: DeviceSource) -> [UnreadSource] {
+        switch source {
+        case .bluetooth: []
+        case .iPhone: IPhoneMissing.allCases.filter(missingIPhones.contains).map(UnreadSource.iPhoneMissing)
+        }
     }
 
     /// What a card of devices says beside its rows. [LAW:single-enforcer] The one place the rule is made: "none connected" is
@@ -236,7 +261,17 @@ extension DeviceEvent {
         case .reported(let device): [device.id]
         case .gone(let id): [id]
         case .swept(let devices): devices.map(\.id)
-        case .permission: []
+        case .permission, .missing: []
+        }
+    }
+
+    /// The one source an event is about, when it is about a source and not about devices: another source's stream cannot say
+    /// it. The list ignores such an event from any other source, and `DevicesModel` says so in the log.
+    var owner: DeviceSource? {
+        switch self {
+        case .permission: .bluetooth
+        case .missing: .iPhone
+        case .reported, .gone, .swept: nil
         }
     }
 }
@@ -261,6 +296,16 @@ extension BluetoothNoList {
     }
 }
 
+extension IPhoneMissing {
+    var explanation: Phrase {
+        switch self {
+        case .locked: "An iPhone or iPad is connected but locked, so it can't be listed. Unlock it to see it here."
+        case .notTrusted: "An iPhone or iPad is connected but doesn't trust this Mac. Unlock it and tap Trust to see it here."
+        case .unreadable: "An iPhone or iPad is connected but couldn't be read."
+        }
+    }
+}
+
 extension IPhoneNoList {
     var explanation: Phrase {
         switch self {
@@ -276,6 +321,7 @@ extension UnreadSource {
         switch self {
         case .noList(.bluetooth(let reason)): reason.explanation
         case .noList(.iPhone(let reason)): reason.explanation
+        case .iPhoneMissing(let missing): missing.explanation
         }
     }
 }

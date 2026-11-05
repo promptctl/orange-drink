@@ -25,6 +25,13 @@ struct UnreadReasonWordsTests {
         Words(source: .bluetooth(.ended), widget: "Bluetooth unavailable", panel: "Bluetooth readings stopped. Quit and reopen the app.", glyph: warns),
         Words(source: .iPhone(.waiting), widget: "Reading iPhones…", panel: "Reading your iPhones and iPads…", glyph: devices),
         Words(source: .iPhone(.ended), widget: "iPhones unavailable", panel: "iPhone readings stopped. Quit and reopen the app.", glyph: warns),
+        // A reachable iPhone that could not be identified (orange-device-sources-rec.70o).
+        Words(source: .iPhoneMissing(.locked), widget: "An iPhone is locked",
+              panel: "An iPhone or iPad is connected but locked, so it can't be listed. Unlock it to see it here.", glyph: warns),
+        Words(source: .iPhoneMissing(.notTrusted), widget: "Trust this Mac on an iPhone",
+              panel: "An iPhone or iPad is connected but doesn't trust this Mac. Unlock it and tap Trust to see it here.", glyph: warns),
+        Words(source: .iPhoneMissing(.unreadable), widget: "An iPhone could not be read",
+              panel: "An iPhone or iPad is connected but couldn't be read.", glyph: warns),
     ]
 
     @Test(arguments: all) private func eachReasonSaysWhatItAlwaysSaid(words: Words) {

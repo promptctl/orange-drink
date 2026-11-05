@@ -29,9 +29,15 @@ private enum Phone {
 }
 
 struct IPhoneDevicesMappingTests {
-    private func events(_ input: [IPhoneEvent]) -> [DeviceEvent?] {
+    /// Everything the list is told of each reader event, in order.
+    private func told(_ input: [IPhoneEvent]) -> [[DeviceEvent]] {
         var devices = IPhoneDevices()
         return input.map { devices.apply($0) }
+    }
+
+    /// What the list is told of each reader event's device, or nil: `missing` is checked on its own, below.
+    private func events(_ input: [IPhoneEvent]) -> [DeviceEvent?] {
+        told(input).map { $0.first { $0.owner == nil } }
     }
 
     @Test func anAttachedIPhoneReadingSixtyTwoPercentIsAConnectedIPhoneDeviceAtSixtyTwoAndADetachRemovesIt() {
@@ -56,6 +62,72 @@ struct IPhoneDevicesMappingTests {
             .readFailed(udid: Phone.udid, over: .usb, .refused("PasswordProtected")),
             .listed,
         ]) == [nil, nil, .swept([])])
+    }
+
+    // [LAW:verifiable-goals] What the source cannot list (orange-device-sources-rec.70o): the mapper restates the whole of it
+    // whenever an event changes it, and says nothing when one does not.
+
+    private static let unread = IPhoneEvent.readFailed(udid: Phone.udid, over: .usb, .refused("PasswordProtected"))
+
+    @Test(arguments: [
+        (IPhoneReadError.refused("PasswordProtected"), IPhoneMissing.locked),
+        (.refused("InvalidHostID"), .notTrusted),
+        (.usbmux(.noPairRecord), .notTrusted),
+        (.refused("SomethingElse"), .unreadable),
+        (.closed, .unreadable),
+        (.timeout, .unreadable),
+        (.tls(-9806), .unreadable),
+        (.parse(.invalid("BluetoothAddress")), .unreadable),
+        (.usbmuxUnavailable(errno: 2), .unreadable),
+    ])
+    func aFailedIdentityReadIsSaidAsItsKind(error: IPhoneReadError, kind: IPhoneMissing) {
+        #expect(told([.reachable(udid: Phone.udid, over: .usb), .readFailed(udid: Phone.udid, over: .usb, error)]).last == [.missing([kind])])
+    }
+
+    /// The phone is still not listed: the failure says nothing a device event holds.
+    @Test func aPhoneThatCouldNotBeIdentifiedIsMissingAndNeverListed() {
+        #expect(told([.reachable(udid: Phone.udid, over: .usb), Self.unread, .listed]) == [[], [.missing([.locked])], [.swept([])]])
+    }
+
+    /// The pacer reads again within a poll interval: a read that works lists the phone and ends the note in the same breath.
+    @Test func aLaterIdentityListsThePhoneAndEndsTheNote() {
+        #expect(told([.reachable(udid: Phone.udid, over: .usb), Self.unread, Phone.identified]).last == [.reported(Phone.device(.unread)), .missing([])])
+    }
+
+    @Test func theSameFailureAgainSaysNothingNew() {
+        #expect(told([.reachable(udid: Phone.udid, over: .usb), Self.unread, Self.unread]).last == [])
+    }
+
+    /// The set is of kinds: a second phone of a kind already missing changes nothing, and the kind follows the latest failure.
+    @Test func theKindFollowsTheLatestFailureAndTwoPhonesOfOneKindAreOneKind() {
+        let other = "00008110-B"
+        #expect(told([
+            .reachable(udid: Phone.udid, over: .usb), Self.unread,
+            .readFailed(udid: Phone.udid, over: .usb, .closed),
+            .reachable(udid: other, over: .usb), .readFailed(udid: other, over: .usb, .closed),
+            .unreachable(udid: Phone.udid),
+        ]).dropFirst(2) == [[.missing([.unreadable])], [], [], []])
+    }
+
+    /// The note is the device's reachability's: a drop over Wi-Fi leaves both, as it leaves a listed device, and the cable leaving
+    /// ends both. Whatever orange-device-sources-rec.q4w decides leaves Wi-Fi does so for both.
+    @Test func theNoteStaysThroughAWifiDropAndEndsWithTheCable() {
+        #expect(told([
+            .reachable(udid: Phone.udid, over: .network), .readFailed(udid: Phone.udid, over: .network, .refused("PasswordProtected")),
+            .unreachable(udid: Phone.udid),
+        ]).last == [])
+        #expect(told([.reachable(udid: Phone.udid, over: .usb), Self.unread, .unreachable(udid: Phone.udid)]).last == [.missing([])])
+    }
+
+    /// A phone identified once is listed from then on: a later failed read is a failed level read, not a missing phone.
+    @Test func aFailedReadOfAnIdentifiedPhoneIsNotAMissingPhone() {
+        #expect(told([.reachable(udid: Phone.udid, over: .usb), Phone.identified, Self.unread]).last == [.reported(Phone.device(.unread))])
+        #expect(told([.reachable(udid: Phone.udid, over: .usb), Phone.identified, .unreachable(udid: Phone.udid), .reachable(udid: Phone.udid, over: .usb), Self.unread])
+                .last == [.reported(Phone.device(.unread))])
+    }
+
+    @Test func aFailureForAPhoneThatIsNotReachableIsNotMissingAnything() {
+        #expect(told([Self.unread]) == [[]])
     }
 
     @Test func aFailedReadLeavesTheDeviceListedWithAnUnknownLevel() {
@@ -130,7 +202,7 @@ struct IPhoneDevicesMappingTests {
         func listed(_ identity: IPhoneIdentity) -> SourceDevice? {
             var devices = IPhoneDevices()
             _ = devices.apply(.reachable(udid: Phone.udid, over: .usb))
-            guard case .reported(let device)? = devices.apply(.identified(udid: Phone.udid, identity)) else { return nil }
+            guard case .reported(let device)? = devices.apply(.identified(udid: Phone.udid, identity)).first else { return nil }
             return device
         }
         let tablet = try #require(listed(IPhoneIdentity(name: "Studio iPad", productType: "iPad13,1", bluetooth: Phone.address)))
