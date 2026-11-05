@@ -24,7 +24,7 @@ final class GlowPanel: OverlayPanel {
 
     init(severity: Alert.Severity, strength: NotificationAppearance.GlowStrength, frame: CGRect) {
         self.strength = strength
-        super.init(frame: frame, level: .glow, content: GlowView(severity: severity, strength: strength))
+        super.init(frame: frame, level: .glow, hosting: NSHostingView(rootView: GlowView(severity: severity, strength: strength)))
         ignoresMouseEvents = true
         hasShadow = false
     }

@@ -30,12 +30,13 @@ import ViewInspector
             cover.show(CoverContent(CoverTests.critical, reading: try PillTests.reading(percent)))
             await clock.asleep()
             clock.advance(by: CoverController.unarmedFor)
-            await armed()
+            try await armed()
         }
 
         /// Waits for the arming task, which resumes off the main actor and hops back, to take input.
-        func armed() async {
+        func armed() async throws {
             for _ in 0..<1000 where cover.shownAccepting != true { await Task.yield() }
+            try #require(cover.shownAccepting == true, "the cover never armed")
         }
     }
 
@@ -94,11 +95,11 @@ import ViewInspector
         let panel = try #require(rig.cover.shownPanels.first)
 
         panel.sendEvent(try Self.escape())
+        #expect(panel.performKeyEquivalent(with: try Self.escape(modifiers: .command)))
         #expect(rig.cover.shown != nil)
 
         rig.clock.advance(by: CoverController.unarmedFor)
-        await rig.armed()
-        #expect(rig.cover.shownAccepting == true)
+        try await rig.armed()
         panel.sendEvent(try Self.escape(repeating: true))
         panel.sendEvent(try Self.escape(modifiers: .command))
         #expect(rig.cover.shown != nil)
@@ -123,14 +124,20 @@ import ViewInspector
         #expect(rig.cover.shown == nil)
     }
 
-    @Test func aCoverFiredWithNoDisplayIsDrawnOnTheNextOneConnected() throws {
+    @Test func aCoverFiredWithNoDisplayIsDrawnOnTheNextOneConnected() async throws {
         let rig = Rig([])
         rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
         defer { rig.cover.dismiss(.dismissButton) }
         #expect(rig.cover.shownPanels.isEmpty && rig.cover.shown != nil)
+        rig.clock.advance(by: CoverController.unarmedFor * 2)
+        for _ in 0..<100 { await Task.yield() }
         rig.displays = [Self.primary]
         rig.cover.screensChanged()
         #expect(rig.cover.shownPanels.map(\.frame) == [Self.primary.frame] && rig.ordered.last?.key == true)
+        // Its unarmed second starts now, when it is first seen.
+        #expect(rig.cover.shownAccepting == false)
+        rig.cover.shownPanels[0].sendEvent(try Self.escape())
+        #expect(rig.cover.shown != nil)
     }
 
     @Test func aNewerCoverReplacesTheOneUp() async throws {

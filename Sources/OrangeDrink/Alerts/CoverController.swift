@@ -39,9 +39,8 @@ final class CoverPanel: OverlayPanel {
         self.accepting = accepting
         self.onDismiss = onDismiss
         hosted = AnyView(CoverView(content: content, onDismiss: { onDismiss(.dismissButton) }).speaking(language))
-        super.init(frame: frame, level: .pill, content: hosted)
+        super.init(frame: frame, level: .pill, hosting: FirstClickHostingView(rootView: hosted))
         hasShadow = false
-        contentView = FirstClickHostingView(rootView: hosted)
     }
 
     /// Takes the click that makes its panel key, so Dismiss on a display without focus is one click.
@@ -59,6 +58,11 @@ final class CoverPanel: OverlayPanel {
 
     /// [LAW:single-enforcer] The one place the cover's input is held off: a key or click reaches the
     /// cover only once it accepts input, and Esc is read here, so it is held off with the rest.
+    /// A Command chord reaches the key window before `sendEvent`; held off here, it never reaches the app's menu either.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        accepting() ? super.performKeyEquivalent(with: event) : true
+    }
+
     override func sendEvent(_ event: NSEvent) {
         guard accepting() || !Self.input.contains(event.type) else { return }
         if Self.isEscape(event) { onDismiss(.escape) } else { super.sendEvent(event) }
@@ -117,13 +121,6 @@ final class CoverPanel: OverlayPanel {
     func show(_ content: CoverContent) {
         take(down: "replaced")
         let cover = Cover(content: content)
-        // [LAW:no-ambient-temporal-coupling] The arming belongs to the cover, which cancels it on any
-        // dismissal or replacement; the check after the sleep is that state.
-        cover.arming = Task { [timekeeper] in
-            try await timekeeper.sleep(for: Self.unarmedFor)
-            try Task.checkCancellation()
-            cover.accepting = true
-        }
         up = cover
         draw(cover)
         log.info("cover shown on \(cover.panels.count) displays: \(content.headline.english, privacy: .private)")
@@ -158,6 +155,16 @@ final class CoverPanel: OverlayPanel {
                        onDismiss: { [weak self] in self?.dismiss($0) })
         }
         for (panel, display) in zip(cover.panels, displays) { orderFront(panel, display.isPrimary) }
+        // [LAW:no-ambient-temporal-coupling] The unarmed second starts when the cover is first seen, so
+        // one fired with no display holds input off once a display shows it. The arming belongs to the
+        // cover, which cancels it on any dismissal or replacement.
+        if cover.arming == nil && !cover.panels.isEmpty {
+            cover.arming = Task { [timekeeper] in
+                try await timekeeper.sleep(for: Self.unarmedFor)
+                try Task.checkCancellation()
+                cover.accepting = true
+            }
+        }
         // [LAW:no-silent-failure] With every display gone the cover is kept, and the next display connected draws it.
         if displays.isEmpty { log.error("no display to draw the cover on: \(cover.content.headline.english, privacy: .private)") }
     }
