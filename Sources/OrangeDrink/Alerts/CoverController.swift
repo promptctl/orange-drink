@@ -28,14 +28,14 @@ enum CoverEnd: String {
     /// [LAW:one-source-of-truth] The one rule for what answers an alert: the adapter connected answers
     /// a low alert, disconnected a charged one. nil when none of `changes` answers `kind`.
     init?(answering kind: Alert.Kind, in changes: [BatteryEvent]) {
-        let answers = changes.compactMap { change -> CoverEnd? in
+        let answer = changes.lazy.compactMap { change -> CoverEnd? in
             switch (change, kind) {
             case (.plugged, .low): .adapterConnected
             case (.unplugged, .charged): .adapterDisconnected
             case (.plugged, .charged), (.unplugged, .low), (.levelChanged, _): nil
             }
-        }
-        guard let answer = answers.first else { return nil }
+        }.first
+        guard let answer else { return nil }
         self = answer
     }
 }

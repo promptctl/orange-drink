@@ -22,26 +22,30 @@ import os
         var covers: [Alert] = []
         var rest: [Firing] = []
         for firing in fired.firings {
-            if case .threshold(let alert) = firing, alert.position == .fullScreen { covers.append(alert) } else { rest.append(firing) }
+            switch firing {
+            case .threshold(let alert) where alert.position == .fullScreen:
+                // The adapter change on the reading that fired it has already answered it.
+                if let answer = CoverEnd(answering: alert.kind, in: fired.changes) {
+                    log.info("full-screen alert answered by its own reading, \(answer.rawValue, privacy: .public): \(firing.description, privacy: .public)")
+                } else {
+                    covers.append(alert)
+                }
+            default: rest.append(firing)
+            }
         }
-        // One cover per reading: a drop past 5% and 2% at once shows the 2% cover, once.
-        covers.sort { Self.urgency($0) > Self.urgency($1) }
-        if let alert = covers.first { show(alert, fired) }
-        for outranked in covers.dropFirst() {
-            log.info("full-screen alert outranked on its reading: \(Firing.threshold(outranked).description, privacy: .public)")
+        // One cover per reading: a drop past 5% and 2% at once shows the 2% cover, once, and chimes
+        // if any of the reading's full-screen alerts asked to be heard.
+        if var alert = covers.max(by: { Self.urgency($0) < Self.urgency($1) }) {
+            alert.sound = covers.contains(where: \.sound)
+            show(alert, reading: fired.reading)
         }
         rest.forEach { deliver($0, reading: fired.reading) }
     }
 
-    private func show(_ alert: Alert, _ fired: ReadingAlerts) {
-        let firing = Firing.threshold(alert)
-        if let answer = CoverEnd(answering: alert.kind, in: fired.changes) {
-            log.info("full-screen alert answered by the reading that fired it, \(answer.rawValue, privacy: .public): \(firing.description, privacy: .public)")
-            return
-        }
+    private func show(_ alert: Alert, reading: BatteryReading) {
         if let shown = pills.shownFiring, Self.yieldsToCover(shown) { pills.close(.covered) }
-        cover.show(alert, reading: fired.reading)
-        sounds.deliver(firing)
+        cover.show(alert, reading: reading)
+        sounds.deliver(.threshold(alert))
     }
 
     private func deliver(_ firing: Firing, reading: BatteryReading) {

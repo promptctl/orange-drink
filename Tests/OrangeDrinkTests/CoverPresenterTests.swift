@@ -109,6 +109,15 @@ import Testing
         }
     }
 
+    @Test func theOneCoverOfAReadingChimesIfAnyOfItsFullScreenAlertsAskedToBeHeard() throws {
+        let heard = Alert(kind: .low, threshold: 5, position: .fullScreen, glow: false, sound: true)
+        let silent = Alert(kind: .low, threshold: 3, position: .fullScreen, glow: false, sound: false)
+        let rig = Rig()
+        defer { rig.close() }
+        rig.read(try Self.onBattery(1), firing: [.threshold(heard), .threshold(silent)])
+        #expect(rig.covers.cover.shown?.headline.english == "1% Remaining" && rig.chimes == 1)
+    }
+
     @Test func aTemperaturePillShowsAndSoundsOverTheCover() throws {
         let rig = Rig()
         defer { rig.close() }

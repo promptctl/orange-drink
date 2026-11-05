@@ -3,8 +3,8 @@ import SwiftUI
 
 extension NSWindow.Level {
     /// [LAW:one-source-of-truth] The alert windows' stacking, in one place: the glow lies under the
-    /// pill, and the full-screen cover under both, so a temperature or device pill and its glow stay
-    /// over the cover whichever was ordered front last.
+    /// pill, and the full-screen cover under both, so a pill that shows over the cover (AlertPresenter
+    /// says which) stays over it with its glow, whichever was ordered front last.
     static let pill = NSWindow.Level.screenSaver
     static let glow = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue - 1)
     static let cover = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue - 2)
