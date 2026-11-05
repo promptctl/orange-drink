@@ -39,7 +39,7 @@ import ViewInspector
     }
 
     @Test func pluggingInShowsAPillWhileNotificationsAreOnAndNoneWhileTheyAreOff() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try AlertCenter(
             defaults: scratchDefaults(),
@@ -57,7 +57,7 @@ import ViewInspector
     }
 
     @Test func aPowerPillTellsTheEventAndCountsTheReading() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let battery = try PowerAndTemperatureAlerts.battery()
         pills.deliver(.unplugged(sound: false), reading: battery)
@@ -77,7 +77,7 @@ import ViewInspector
     }
 
     @Test func aBatteryGoingHotShowsOneRedPillWithItsReadingAndNoneWhileItStaysHot() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try temperatureCenter(pills)
         center.observe(try PowerAndTemperatureAlerts.battery())
@@ -95,7 +95,7 @@ import ViewInspector
     }
 
     @Test func aBatteryReturningToNormalAndGoingHotAgainShowsAFreshPill() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try temperatureCenter(pills)
         for celsius in [30.0, 41, 30] { center.observe(try PowerAndTemperatureAlerts.battery(celsius: celsius)) }
@@ -106,7 +106,7 @@ import ViewInspector
     }
 
     @Test func aWarmBatteryShowsAnOrangePillAndGoingHotFromThereShowsNoSecondOne() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try temperatureCenter(pills)
         center.observe(try PowerAndTemperatureAlerts.battery())
@@ -119,7 +119,7 @@ import ViewInspector
     }
 
     @Test func theTemperaturePillCountsTheChargeAndIsSilencedByTheMasterSwitch() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try temperatureCenter(pills)
         try center.model.update { $0.enabled = false }
@@ -150,7 +150,7 @@ import ViewInspector
     }
 
     @Test func turningTheTemperatureSwitchOffSilencesAHotBatteryAndSurvivesARelaunch() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let defaults = scratchDefaults()
         let center = try AlertCenter(defaults: defaults, deliver: { pills.deliver($0, reading: $1) })

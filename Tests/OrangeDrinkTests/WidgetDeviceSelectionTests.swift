@@ -178,17 +178,17 @@ import WidgetKit
     }
 
     @Test func pinningFromTheDevicesScreenChangesASameAsMenuBarWidgetAndAsksItToRedraw() async throws {
-        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(.noBattery))
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: .unread) { _ in }.publish(.running(.noBattery))
         let settings = try DeviceSettingsModel(defaults: scratchDefaults())
         try settings.update {
             $0.togglePinned(DeviceID.bluetooth("B"))
             $0.togglePinned(DeviceID.bluetooth("D"))
         }
         var asked: [WidgetKind] = []
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { asked.append($0) }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { asked.append($0) }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
-        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: pinnedItems)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: pinnedItems, log: .unread)
         send.yield(.swept(Self.addresses.enumerated().map { index, address in
             SourceDevice(id: DeviceID.bluetooth(address), name: "Device \(address)", kind: .accessory, levels: .single(BatteryLevel(percent: 30 + 10 * index, approximate: false)))
         }))

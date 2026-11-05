@@ -103,3 +103,8 @@ struct TestLog {
         return count
     }
 }
+
+extension Logger {
+    /// The log of a subject whose lines no test reads, named at the call so that one that does read hands a `TestLog`.
+    static let unread = Logger(subsystem: IOKitBattery.logSubsystem, category: "test-unread")
+}

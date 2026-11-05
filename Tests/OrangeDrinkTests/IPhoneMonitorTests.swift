@@ -561,7 +561,7 @@ import Testing
     @Test func anUntrustedDeviceFailsAsNoPairRecordAndIsLogged() async throws {
         let log = try await TestLog()
         let udid = "00000000-0000000000000000"  // UDID-shaped, so usbmuxd answers ENOENT rather than EINVAL
-        let identities = PairIdentities()
+        let identities = PairIdentities(log: .unread)
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try DiagnosticsRelay(handle: 1, udid: udid, identities: identities, log: log.logger) }
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try readIPhoneIdentity(handle: 1, udid: udid, identities: identities, log: log.logger) }
         #expect(throws: IPhoneReadError.usbmux(.noPairRecord)) { try setIPhoneWifiSync(true, handle: 1, udid: udid, identities: identities, log: log.logger) }

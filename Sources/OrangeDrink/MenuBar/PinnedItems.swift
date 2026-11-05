@@ -1,4 +1,5 @@
 import AppKit
+import os
 
 /// One pinned device's menu bar item: the same row the panel and the Devices screen show, so its
 /// name, type glyph, and level are written once, the level said in the app's language.
@@ -65,6 +66,7 @@ struct PinnedItem: Equatable, Identifiable {
 /// A pinned device's `NSStatusItem`: the type glyph beside the level.
 @MainActor final class NSPinnedStatusItem: PinnedStatusItem {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let log: Logger
 
     /// Marks a pinned device's button, so the one status item that is not a device's can be told apart.
     static let buttonID = NSUserInterfaceItemIdentifier("pinned-device")
@@ -75,7 +77,8 @@ struct PinnedItem: Equatable, Identifiable {
     /// AppKit reads (the standard ones) before the name is set leaves the list the only say. The
     /// same holds for the visibility a ⌘-drag out of the bar saves, which would hide the item for
     /// good. `make position-check` holds the order against the real bar.
-    init(id: DeviceID) {
+    init(id: DeviceID, log: Logger) {
+        self.log = log
         let name = "pinned-device-\(id.wire)"
         for key in ["Preferred Position", "Visible"] {
             UserDefaults.standard.removeObject(forKey: "NSStatusItem \(key) \(name)")
@@ -89,7 +92,7 @@ struct PinnedItem: Equatable, Identifiable {
 
     func show(_ pinned: PinnedItem) {
         guard let button = item.button else {
-            BluetoothDevices.log.error("a pinned device's status item has no button")
+            log.error("a pinned device's status item has no button")
             return
         }
         pinned.draw(on: button)

@@ -104,7 +104,7 @@ struct DeviceListTests {
 
     @Test func followsReportsLevelChangesAndDisconnects() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(sources: [.bluetooth: events])
+        let model = DevicesModel(sources: [.bluetooth: events], log: .unread)
         send.yield(.reported(DeviceListTests.mouse.source))
         send.yield(.reported(DeviceListTests.pods.source))
         #expect(await list(of: model) { $0.devices.count == 2 }.devices == [DeviceListTests.pods, DeviceListTests.mouse])
@@ -114,7 +114,7 @@ struct DeviceListTests {
 
     @Test func powerdGoingSilentIsNoFailureAndItsNextAnswerRestoresTheRow() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(sources: [.bluetooth: events])
+        let model = DevicesModel(sources: [.bluetooth: events], log: .unread)
         let sources = DeviceReaderTests.Sources(unanswered: .unanswered(call: "the model's outage"))
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let silent = await list(of: model) { !$0.devices.isEmpty }
@@ -128,7 +128,7 @@ struct DeviceListTests {
 
     @Test func aFinishedStreamIsAFailureNotAFrozenList() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(sources: [.bluetooth: events])
+        let model = DevicesModel(sources: [.bluetooth: events], log: .unread)
         send.yield(.reported(DeviceListTests.mouse.source))
         _ = await list(of: model) { $0.devices.count == 1 }
         send.finish()
@@ -138,7 +138,7 @@ struct DeviceListTests {
 
     @Test func aFailedSubscriptionIsOnTheModel() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(sources: [.bluetooth: events])
+        let model = DevicesModel(sources: [.bluetooth: events], log: .unread)
         send.finish(throwing: BluetoothDevicesError.registration)
         _ = await list(of: model) { $0.unreadSources == [.bluetooth(.ended)] }
     }
@@ -146,7 +146,7 @@ struct DeviceListTests {
     @Test func onChangeIsToldOfTheEndedList() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (told, tell) = AsyncStream.makeStream(of: DeviceList.self)
-        let model = DevicesModel(sources: [.bluetooth: events], onChange: { tell.yield($0) })
+        let model = DevicesModel(sources: [.bluetooth: events], log: .unread, onChange: { tell.yield($0) })
         send.finish()
         var lists = told.makeAsyncIterator()
         #expect(await lists.next()?.unreadSources == [.bluetooth(.ended)])
@@ -249,9 +249,9 @@ struct DeviceListTests {
     }
 
     private static func subscribe(_ see: AsyncThrowingStream<Seen, any Error>.Continuation, log: Logger) -> Task<Void, Never> {
-        let events = BluetoothDevices.events(asks: { timekeeper in
+        let events = BluetoothDevices.events(log: log, asks: { timekeeper in
             let (asks, ask) = AsyncStream.makeStream(of: BluetoothPermission.Ask.self)
-            let real = BluetoothPermission.asks(timekeeper: timekeeper)
+            let real = BluetoothPermission.asks(timekeeper: timekeeper, log: log)
             let tee = Task {
                 for await asked in real {
                     see.yield(.asked(asked))
@@ -260,7 +260,7 @@ struct DeviceListTests {
             }
             ask.onTermination = { _ in tee.cancel() }
             return asks
-        }, log: log)
+        }, watcher: { try BluetoothDevices.liveWatcher($0, timekeeper: $1, log: log) })
         return Task {
             do {
                 for try await event in events { see.yield(.event(event)) }

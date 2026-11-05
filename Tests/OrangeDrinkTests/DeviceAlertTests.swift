@@ -85,7 +85,7 @@ import Testing
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         var seen: [Int] = []
         let (counts, count) = AsyncStream.makeStream(of: Int.self)
-        let model = DevicesModel(sources: [.bluetooth: events], onChange: { seen.append($0.devices.count); count.yield($0.devices.count) })
+        let model = DevicesModel(sources: [.bluetooth: events], log: .unread, onChange: { seen.append($0.devices.count); count.yield($0.devices.count) })
         send.yield(.swept([DeviceListTests.mouse.source]))
         send.yield(.reported(DeviceListTests.pods.source))
         var iterator = counts.makeAsyncIterator()

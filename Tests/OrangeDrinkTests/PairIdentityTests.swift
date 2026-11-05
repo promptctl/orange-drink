@@ -35,7 +35,7 @@ import Testing
     /// every caller holds the one identity.
     @available(macOS 15.0, *)
     @Test func aPairRecordAskedForAtOnceIsBuiltOnce() throws {
-        let identities = PairIdentities()
+        let identities = PairIdentities(log: .unread)
         let results = OSAllocatedUnfairLock<[Result<SecIdentity, any Error>]>(uncheckedState: [])
         DispatchQueue.concurrentPerform(iterations: 8) { _ in
             let result = Result { try identities.identity(certificatePEM: testIdentityCertificatePEM, keyPEM: testIdentityKeyPEM) }

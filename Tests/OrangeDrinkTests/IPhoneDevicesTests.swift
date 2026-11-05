@@ -166,7 +166,7 @@ struct IPhoneDevicesMappingTests {
         let (readerEvents, reader) = AsyncStream.makeStream(of: IPhoneEvent.self)
         self.bluetooth = bluetooth
         self.reader = reader
-        model = DevicesModel(sources: [.bluetooth: bluetoothEvents, .iPhone: IPhoneDevices.events(from: readerEvents)])
+        model = DevicesModel(sources: [.bluetooth: bluetoothEvents, .iPhone: IPhoneDevices.events(from: readerEvents)], log: .unread)
     }
 
     /// The list once `accepted` holds for it. [LAW:no-ambient-temporal-coupling] Awaited through Observation, never polled.

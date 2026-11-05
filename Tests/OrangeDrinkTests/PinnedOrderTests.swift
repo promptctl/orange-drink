@@ -108,7 +108,7 @@ import Testing
         let ids = ["a", "b", "c"].map { DeviceID.bluetooth("position-check-\($0)") }
         let devices = PinnedOrderTests.list(Dictionary(uniqueKeysWithValues: zip(ids, ["Keyboard", "Mouse", "AirPods"])))
         var made: [DeviceID: NSPinnedStatusItem] = [:]
-        let controller = PinnedItemsController(makeItem: { let item = NSPinnedStatusItem(id: $0); made[$0] = item; return item })
+        let controller = PinnedItemsController(makeItem: { let item = NSPinnedStatusItem(id: $0, log: .unread); made[$0] = item; return item })
         defer { controller.apply([]) }
         // What a ⌘-drag of the middle device to the far right leaves behind, in the settings AppKit reads.
         let key = "NSStatusItem Preferred Position pinned-device-\(ids[1].wire)"

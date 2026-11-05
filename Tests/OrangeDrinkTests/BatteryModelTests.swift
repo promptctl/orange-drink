@@ -10,7 +10,7 @@ import Testing
         let reading = try BatteryEvents.onBattery
         let log = try await TestLog()
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
-        let model = BatteryModel(readings: readings, log: log.logger)
+        let model = BatteryModel(readings: readings, read: { nil }, log: log.logger)
 
         feed.yield(reading)
         guard case .known(let held) = await model.state(once: BatteryModel.isKnown) else {
@@ -31,7 +31,7 @@ import Testing
     @MainActor @Test func aStreamThatFinishesEndsTheModelWithNoError() async throws {
         let log = try await TestLog()
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
-        let model = BatteryModel(readings: readings, log: log.logger)
+        let model = BatteryModel(readings: readings, read: { nil }, log: log.logger)
 
         feed.finish()
         guard case .ended(let error) = await model.state(once: BatteryModel.isEnded) else {

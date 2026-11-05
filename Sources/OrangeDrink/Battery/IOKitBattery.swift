@@ -11,7 +11,7 @@ enum IOKitBattery {
 
     /// nil when this Mac has no battery: a desktop, or a laptop whose battery is gone, is a
     /// legal host, not an error. Every outcome leaves one line in the log.
-    static func read(log: Logger = IOKitBattery.log) throws -> BatteryReading? {
+    static func read(log: Logger) throws -> BatteryReading? {
         do {
             let reading = try fetch()
             log.info("battery read: \(reading.map { String(describing: $0) } ?? "none", privacy: .public)")

@@ -109,7 +109,7 @@ enum PillEnd {
     /// [LAW:effects-at-boundaries] `orderFront` is what puts a built window on the screen, and it has no default: the app
     /// orders each panel front, and a test holds them, so `make test` builds and asserts on the panels without showing them.
     init(appearance: NotificationAppearanceModel, language: AppLanguageModel, orderFront: @escaping @MainActor (OverlayPanel) -> Void,
-         timekeeper: any Timekeeper = SystemTimekeeper(), screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main, log: Logger = PillController.log) {
+         timekeeper: any Timekeeper = SystemTimekeeper(), screen: @escaping @MainActor () -> ScreenArea? = ScreenArea.main, log: Logger) {
         self.log = log
         self.appearance = appearance
         self.language = language

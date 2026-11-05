@@ -1,4 +1,5 @@
 import Foundation
+import os
 @testable import OrangeDrink
 
 /// Spins until `condition` holds or five seconds pass, so a failure fails instead of hanging the run.
@@ -45,21 +46,21 @@ extension PinnedItem {
 extension DevicesModel {
     /// The app's own wiring, for a test that does not care what the app has seen: a throwaway memory, mirrored beside `shelf`.
     convenience init(
-        sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, settings: DeviceSettingsModel, language: AppLanguageModel? = nil, pinnedItems: PinnedItemsController,
+        sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, settings: DeviceSettingsModel, language: AppLanguageModel? = nil, pinnedItems: PinnedItemsController, log: Logger,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) throws {
         let seen = try SeenDevicesModel(defaults: scratchDefaults())
-        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf.directory) { _ in }
+        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf.directory, log: .unread) { _ in }
         self.init(sources: sources, shelf: shelf, seenShelf: seenShelf, settings: settings, seen: seen,
-                  language: try language ?? AppLanguageModel(defaults: scratchDefaults()), pinnedItems: pinnedItems, onChange: onChange)
+                  language: try language ?? AppLanguageModel(defaults: scratchDefaults()), pinnedItems: pinnedItems, log: log, onChange: onChange)
     }
 
     /// The same, for a test that cares about neither the pins nor the menu bar: nothing pinned, in a throwaway suite.
     convenience init(
-        sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
+        sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, log: Logger, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) throws {
         let settings = try DeviceSettingsModel(defaults: scratchDefaults())
         let pinnedItems = PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() })
-        try self.init(sources: sources, shelf: shelf, settings: settings, pinnedItems: pinnedItems, onChange: onChange)
+        try self.init(sources: sources, shelf: shelf, settings: settings, pinnedItems: pinnedItems, log: log, onChange: onChange)
     }
 }

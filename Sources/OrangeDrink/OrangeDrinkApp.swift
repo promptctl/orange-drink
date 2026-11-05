@@ -54,7 +54,7 @@ struct OrangeDrinkApp: App {
             shortcutsModel = try ShortcutsModel(defaults: .standard)
             chargeLimit = try ChargeLimitModel(defaults: .standard)
             systemNotifications = try SystemNotificationSettingsModel(defaults: .standard)
-            pills = PillController(appearance: appearance, language: language, orderFront: { $0.orderFrontRegardless() })
+            pills = PillController(appearance: appearance, language: language, orderFront: { $0.orderFrontRegardless() }, log: PillController.log)
             pills.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
             alerts = try AlertCenter(defaults: .standard, deliver: {
                 pills.deliver($0, reading: $1)
@@ -71,10 +71,10 @@ struct OrangeDrinkApp: App {
         let shelf: URL
         do { shelf = try WidgetShelf.groupContainer() } catch { fatalError("no widget shelf: \(error)") }
         let reload: @MainActor (WidgetKind) -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: $0.rawValue) }
-        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, reload: reload)
-        let deviceWidgets = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, reload: reload)
-        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf, reload: reload)
-        let devices = DevicesModel(sources: [.bluetooth: BluetoothDevices.appEvents()], shelf: deviceWidgets, seenShelf: seenShelf, settings: deviceSettings, seen: seenDevices, language: language, pinnedItems: PinnedItemsController(makeItem: { NSPinnedStatusItem(id: $0) }), onChange: {
+        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: ShelfLog.log, reload: reload)
+        let deviceWidgets = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: ShelfLog.log, reload: reload)
+        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf, log: ShelfLog.log, reload: reload)
+        let devices = DevicesModel(sources: [.bluetooth: BluetoothDevices.appEvents(log: BluetoothDevices.log)], shelf: deviceWidgets, seenShelf: seenShelf, settings: deviceSettings, seen: seenDevices, language: language, pinnedItems: PinnedItemsController(makeItem: { NSPinnedStatusItem(id: $0, log: BluetoothDevices.log) }), log: BluetoothDevices.log, onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
         })
         _devices = State(initialValue: devices)
@@ -100,7 +100,7 @@ struct OrangeDrinkApp: App {
         keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
         _chargeLimit = State(initialValue: chargeLimit)
-        _batteryNotifications = State(initialValue: BatteryNotificationDismissal(settings: systemNotifications, effects: .live, warningChanges: BatteryMonitor.warningChanges(), center: .default))
+        _batteryNotifications = State(initialValue: BatteryNotificationDismissal(settings: systemNotifications, effects: .live, warningChanges: BatteryMonitor.warningChanges(log: IOKitBattery.log), center: .default))
         // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
         let store = Result { try HistoryStore(url: HistoryStore.defaultURL()) }
@@ -134,7 +134,7 @@ struct OrangeDrinkApp: App {
         chargeHold.follow(chargeLimit)
         _chargeHold = State(initialValue: chargeHold)
         _battery = State(initialValue: BatteryModel(
-            readings: BatteryMonitor.readings(), onState: { state in
+            readings: BatteryMonitor.readings(log: IOKitBattery.log), read: { try IOKitBattery.read(log: IOKitBattery.log) }, log: IOKitBattery.log, onState: { state in
                 widgets.publish(.running(MacBattery(state)))
                 // Every state, an ended stream included: readings that stop let charging run.
                 chargeHold.observe(state)

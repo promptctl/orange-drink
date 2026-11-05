@@ -15,7 +15,7 @@ import Testing
         let events = SettingEvents()
         let log: Logger
 
-        init(log: Logger = SettingEvent.log) { self.log = log }
+        init(log: Logger) { self.log = log }
 
         func update(_ edit: (inout ChargeLimit) -> Void) throws {
             if refuses { throw Refused() }
@@ -28,7 +28,7 @@ import Testing
     }
 
     @Test func aChangeThatCannotBeKeptReportsWhyAndLeavesTheValue() {
-        let kept = Kept()
+        let kept = Kept(log: .unread)
         kept.refuses = true
         kept.edits.perform { $0.isOn = true }
         #expect(kept.value == ChargeLimit())
@@ -37,7 +37,7 @@ import Testing
     }
 
     @Test func theNextChangeThatIsKeptClearsTheFailure() {
-        let kept = Kept()
+        let kept = Kept(log: .unread)
         kept.refuses = true
         kept.edits.perform { $0.isOn = true }
         kept.refuses = false
@@ -60,7 +60,7 @@ import Testing
     }
 
     @Test func aBindingReadsTheCurrentValueAndSetsThroughTheSameEdit() {
-        let kept = Kept()
+        let kept = Kept(log: .unread)
         let isOn = kept.edits.binding(\.isOn)
         #expect(!isOn.wrappedValue)
         kept.refuses = true

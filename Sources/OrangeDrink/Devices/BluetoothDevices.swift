@@ -15,13 +15,16 @@ enum BluetoothDevices {
     /// The events the app subscribes to at launch. Every build is ad-hoc signed anew, so any launch
     /// that touches Bluetooth makes macOS ask for permission again, so the component gallery the
     /// UI tests launch hears no devices (and never finishes). A test host never builds the app (Main.swift).
-    static func appEvents() -> AsyncThrowingStream<DeviceEvent, any Error> {
+    static func appEvents(log: Logger) -> AsyncThrowingStream<DeviceEvent, any Error> {
         #if DEBUG
         let forGallery = ProcessInfo.processInfo.arguments.contains(ComponentGallery.launchArgument)
         #else
         let forGallery = false
         #endif
-        guard forGallery else { return events() }
+        guard forGallery else {
+            return events(log: log, asks: { BluetoothPermission.asks(timekeeper: $0, log: log) },
+                          watcher: { try liveWatcher($0, timekeeper: $1, log: log) })
+        }
         return AsyncThrowingStream { continuation in continuation.onTermination = { [continuation] _ in _ = continuation } }
     }
 
@@ -41,9 +44,9 @@ enum BluetoothDevices {
     /// notifications then post on a queue of its own, which is why the watcher is not main-actor isolated.
     static func events(
         timekeeper: any Timekeeper = SystemTimekeeper(),
-        asks: @escaping @Sendable (any Timekeeper) -> AsyncStream<BluetoothPermission.Ask> = BluetoothPermission.asks(timekeeper:),
-        log: Logger = BluetoothDevices.log,
-        watcher: @escaping @Sendable (Events, any Timekeeper, Logger) throws -> any DeviceWatcher = { try liveWatcher($0, timekeeper: $1, log: $2) }
+        log: Logger,
+        asks: @escaping @Sendable (any Timekeeper) -> AsyncStream<BluetoothPermission.Ask>,
+        watcher: @escaping @Sendable (Events, any Timekeeper) throws -> any DeviceWatcher
     ) -> AsyncThrowingStream<DeviceEvent, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -51,7 +54,7 @@ enum BluetoothDevices {
                 defer { if case .watching(let watcher) = state { watcher.stop() } }
                 do {
                     for await ask in asks(timekeeper) {
-                        state = try await state.advanced(by: ask, continuation, log: log) { try watcher(continuation, timekeeper, log) }
+                        state = try await state.advanced(by: ask, continuation, log: log) { try watcher(continuation, timekeeper) }
                     }
                 } catch {
                     Watcher.fail(continuation, error, log: log)

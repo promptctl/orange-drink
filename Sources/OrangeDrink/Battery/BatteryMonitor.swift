@@ -16,7 +16,7 @@ enum BatteryMonitor {
     /// power-source changes. The price is powerd's periodic republish, measured at one post a
     /// minute while held steady at 80% on AC, so one read a minute against the 60 ms a minute
     /// the CPU budget allows.
-    static func readings(log: Logger = IOKitBattery.log) -> AsyncThrowingStream<BatteryReading?, any Error> {
+    static func readings(log: Logger) -> AsyncThrowingStream<BatteryReading?, any Error> {
         AsyncThrowingStream { continuation in
             subscribe(to: kIOPSNotifyAnyPowerSource, continuation, log: log) { publish(into: continuation, log: log) }
         }
@@ -25,7 +25,7 @@ enum BatteryMonitor {
     /// A wake at subscribing and at each change of the warning level, read from `IOKitBattery.warningLevel()`. Unlike
     /// `readings()`, powerd posts this key only when the level changes, and on external power it writes none and posts, so
     /// the end of a warning arrives too. A subscriber that is behind has one wake waiting, since the level is read then.
-    static func warningChanges(log: Logger = IOKitBattery.log) -> AsyncThrowingStream<Void, any Error> {
+    static func warningChanges(log: Logger) -> AsyncThrowingStream<Void, any Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             subscribe(to: kIOPSNotifyLowBattery, continuation, log: log) { continuation.yield() }
         }
@@ -59,7 +59,7 @@ enum BatteryMonitor {
     /// [LAW:composability] The deltas between consecutive readings of any stream, so the
     /// loop is checked from recorded readings with no powerd in the room. Events are never
     /// dropped: a delta a subscriber has not pulled yet is still owed to it.
-    static func events<Readings: AsyncSequence & Sendable>(from readings: Readings, log: Logger = IOKitBattery.log) -> AsyncThrowingStream<BatteryEvent, any Error>
+    static func events<Readings: AsyncSequence & Sendable>(from readings: Readings, log: Logger) -> AsyncThrowingStream<BatteryEvent, any Error>
     where Readings.Element == BatteryReading? {
         AsyncThrowingStream { continuation in
             let task = Task {

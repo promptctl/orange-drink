@@ -340,8 +340,8 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     static func filledShelf() throws -> URL {
         let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
-        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(charging))
-        ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }.publish(.running(.connected(three, pinned: [])))
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: .unread) { _ in }.publish(.running(charging))
+        ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }.publish(.running(.connected(three, pinned: [])))
         return shelf
     }
 
@@ -525,8 +525,8 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
         var asked: [WidgetKind] = []
-        let mac = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { asked.append($0) }
-        let devices = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { asked.append($0) }
+        let mac = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: .unread) { asked.append($0) }
+        let devices = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { asked.append($0) }
         func reloads(_ change: () -> Void) -> [WidgetKind] {
             asked = []
             change()
