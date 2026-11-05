@@ -70,7 +70,7 @@ import ViewInspector
         }
 
         func screen() throws -> GeneralScreen {
-            try scratchGeneralScreen(launchAtLogin: LaunchAtLogin(effects: LaunchAtLogin.Effects(register: { nil }, unregister: { nil }, status: { .notRegistered }), center: center),
+            try scratchGeneralScreen(launchAtLogin: LaunchAtLogin(effects: LaunchAtLogin.Effects(register: { nil }, unregister: { nil }, status: { .notRegistered }), center: center, record: { _ in }),
                                      batteryNotifications: model)
         }
 

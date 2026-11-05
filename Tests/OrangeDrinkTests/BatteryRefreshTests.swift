@@ -19,7 +19,7 @@ final class Reads: @unchecked Sendable {
 // on a clock the test moves and readings it supplies.
 @Suite @MainActor struct BatteryRefresh {
     /// A model whose first reading has arrived, over a clock and a counted read.
-    func model(log: Logger = IOKitBattery.log) async throws -> (BatteryModel, ManualTimekeeper, Reads, AsyncThrowingStream<BatteryReading?, any Error>.Continuation) {
+    func model(log: Logger) async throws -> (BatteryModel, ManualTimekeeper, Reads, AsyncThrowingStream<BatteryReading?, any Error>.Continuation) {
         let first = try BatteryEvents.onBattery
         let clock = ManualTimekeeper(), reads = Reads(first)
         let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
@@ -44,14 +44,14 @@ final class Reads: @unchecked Sendable {
     }
 
     @Test func updatedCountsWholeMinutesSinceTheReading() async throws {
-        let (model, clock, _, _) = try await model()
+        let (model, clock, _, _) = try await model(log: .unread)
         #expect(model.updatedText()?.english == "Updated just now")
         clock.advance(by: .seconds(60))
         #expect(model.updatedText()?.english == "Updated 1 min ago")
     }
 
     @Test func tappingRefreshTakesAReadingAtOnceAndUpdatedReflectsIt() async throws {
-        let (model, clock, reads, _) = try await model()
+        let (model, clock, reads, _) = try await model(log: .unread)
         clock.advance(by: .seconds(90))
         #expect(model.updatedText()?.english == "Updated 1 min ago")
         model.refresh()
@@ -60,7 +60,7 @@ final class Reads: @unchecked Sendable {
     }
 
     @Test func aReadingThePowerdPushedPostponesTheRefresh() async throws {
-        let (model, clock, reads, feed) = try await model()
+        let (model, clock, reads, feed) = try await model(log: .unread)
         clock.advance(by: .seconds(100))
         feed.yield(try BatteryEvents.onAdapter)
         _ = await model.state(once: { if case .known(let r) = $0 { r == (try? BatteryEvents.onAdapter) } else { false } })

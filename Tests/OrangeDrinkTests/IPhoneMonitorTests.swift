@@ -52,7 +52,7 @@ import Testing
         /// The handles relays were opened over, in order.
         let opened = OSAllocatedUnfairLock<[Int]>(initialState: [])
 
-        init(log: Logger = IPhoneMonitor.log, snapshot: @escaping @Sendable () throws -> [AttachedDevice],
+        init(log: Logger, snapshot: @escaping @Sendable () throws -> [AttachedDevice],
              enableWifiSync: @escaping MonitorInputs.EnableWifiSync = { _, _ throws(IPhoneReadError) in },
              connect: @escaping @Sendable (_ handle: Int) throws(IPhoneReadError) -> Void = { _ throws(IPhoneReadError) in },
              identify: @escaping MonitorInputs.Identify = { _, _ throws(IPhoneReadError) in IPhoneMonitorDecisions.identity },
@@ -220,7 +220,7 @@ import Testing
     @Test
     func pullingTheCableOfADeviceOnWifiWhileItRestsReadsItOverWifiAtThePoll() async throws {
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: .unread, snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             return Self.reading
         }
@@ -242,7 +242,7 @@ import Testing
     func aReadWhoseCableIsPulledMidReadFailsOverTheCableAndTheNextGoesOverWifiAtThePoll() async throws {
         let cableReads = OSAllocatedUnfairLock(initialState: 0)
         let cableReadMayFinish = DispatchSemaphore(value: 0)
-        let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { handle, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: .unread, snapshot: { [Self.usb(5, "B"), Self.wifi(6, "B")] }) { handle, _ throws(IPhoneReadError) in
             if handle == 5 { cableReads.withLock { $0 += 1 }; cableReadMayFinish.wait(); throw .closed }
             return Self.reading
         }
@@ -286,7 +286,7 @@ import Testing
     @Test
     func aDeviceUsbmuxdKeepsListedIsReadOverOneRelayEveryPoll() async throws {
         let reads = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "R")] }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: .unread, snapshot: { [Self.wifi(6, "R")] }) { _, _ throws(IPhoneReadError) in
             reads.withLock { $0 += 1 }
             return Self.reading
         }
@@ -326,7 +326,7 @@ import Testing
     // usbmuxd drops a Wi-Fi device's handle and lists it again under another; the relay went with the old handle.
     @Test
     func aDeviceListedAgainUnderANewHandleIsReadOverANewRelay() async throws {
-        let harness = try Harness(snapshot: { [Self.wifi(6, "S")] }) { _, _ throws(IPhoneReadError) in Self.reading }
+        let harness = try Harness(log: .unread, snapshot: { [Self.wifi(6, "S")] }) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
         var events = harness.events.makeAsyncIterator()
 
@@ -378,7 +378,7 @@ import Testing
     @Test
     func aDeviceIsIdentifiedWhenItsRelayIsOpenedAheadOfItsReadingAndNotWhileTheRelayIsHeld() async throws {
         let identified = OSAllocatedUnfairLock<[Int]>(initialState: [])
-        let harness = try Harness(snapshot: { [Self.wifi(6, "I")] },
+        let harness = try Harness(log: .unread, snapshot: { [Self.wifi(6, "I")] },
                                   identify: { handle, _ throws(IPhoneReadError) in
                                       identified.withLock { $0.append(handle) }
                                       return Self.identity
@@ -410,7 +410,7 @@ import Testing
     @Test
     func aDeviceThatCannotBeIdentifiedIsAFailedReadWithNoRelayOpenedAndTheNextPollTriesAgain() async throws {
         let attempts = OSAllocatedUnfairLock(initialState: 0)
-        let harness = try Harness(snapshot: { [Self.wifi(6, "J")] },
+        let harness = try Harness(log: .unread, snapshot: { [Self.wifi(6, "J")] },
                                   identify: { _, _ throws(IPhoneReadError) in
                                       if attempts.withLock({ $0 += 1; return $0 }) == 1 { throw .parse(.invalid("BluetoothAddress")) }
                                       return Self.identity
@@ -432,7 +432,7 @@ import Testing
     // ahead of the failure.
     @Test
     func aRelayThatCannotBeOpenedStillDeliversTheIdentityAheadOfTheFailure() async throws {
-        let harness = try Harness(snapshot: { [Self.wifi(6, "K")] },
+        let harness = try Harness(log: .unread, snapshot: { [Self.wifi(6, "K")] },
                                   connect: { _ throws(IPhoneReadError) in throw .refused("PasswordProtected") },
                                   identified: true) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
@@ -503,7 +503,7 @@ import Testing
     /// The listing is the snapshot's own end: every device it lists has been announced, and no read of one can come before it.
     @Test
     func theListingFollowsTheSnapshotsReachabilityAndPrecedesEveryRead() async throws {
-        let harness = try Harness(snapshot: { [Self.usb(5, "B"), Self.wifi(6, "C")] }, listing: true) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: .unread, snapshot: { [Self.usb(5, "B"), Self.wifi(6, "C")] }, listing: true) { _, _ throws(IPhoneReadError) in
             Self.reading
         }
         defer { close(harness.peer) }
@@ -515,7 +515,7 @@ import Testing
 
     @Test
     func anEmptySnapshotIsStillListed() async throws {
-        let harness = try Harness(snapshot: { [] }, listing: true) { _, _ throws(IPhoneReadError) in Self.reading }
+        let harness = try Harness(log: .unread, snapshot: { [] }, listing: true) { _, _ throws(IPhoneReadError) in Self.reading }
         defer { close(harness.peer) }
         var events = harness.events.makeAsyncIterator()
 
@@ -535,7 +535,7 @@ import Testing
 
     @Test
     func aMalformedStartupSnapshotEndsTheStream() async throws {
-        let harness = try Harness(snapshot: { try usbmuxDeviceList(["DeviceList": "not a list"]) }) { _, _ throws(IPhoneReadError) in
+        let harness = try Harness(log: .unread, snapshot: { try usbmuxDeviceList(["DeviceList": "not a list"]) }) { _, _ throws(IPhoneReadError) in
             Self.reading
         }
         defer { close(harness.peer) }

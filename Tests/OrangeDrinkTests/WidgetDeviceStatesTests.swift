@@ -61,11 +61,11 @@ private let unreadStates = [
     }
 
     func allBatteriesSays() throws -> [String] {
-        try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: AllBatteriesIntent()))
+        try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: .unread, configuration: AllBatteriesIntent()))
     }
 
     func deviceBatterySays(chosen: String?, family: WidgetFamily = .systemSmall) throws -> [String] {
-        let entry = DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: .success(shelf), log: ShelfLog.log), chosen: chosen.map(DeviceID.bluetooth))
+        let entry = DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: .success(shelf), log: .unread), chosen: chosen.map(DeviceID.bluetooth))
         return try DeviceBatteryView(entry: entry, appName: "Orange Drink", family: family).inspect().findAll(ViewType.Text.self).map { try $0.string() }
     }
 
@@ -146,7 +146,7 @@ private let unreadStates = [
         let model = try await publish(read, mac: mac)
         let intent = AllBatteriesIntent()
         intent.includeMac = false
-        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: intent)
+        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: .unread, configuration: intent)
         #expect(try AllBatteriesWidgetTests.texts(entry) == ["No device batteries"])
         _ = model
     }

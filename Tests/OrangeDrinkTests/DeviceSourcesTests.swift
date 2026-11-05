@@ -124,7 +124,7 @@ struct DeviceSourcesListTests {
     private struct StandIn: Error { let reason: String }
 
     private func model(_ bluetooth: AsyncThrowingStream<DeviceEvent, any Error>, _ iPhone: AsyncThrowingStream<DeviceEvent, any Error>,
-                       log: Logger = BluetoothDevices.log) -> DevicesModel {
+                       log: Logger) -> DevicesModel {
         DevicesModel(sources: [.bluetooth: bluetooth, .iPhone: iPhone], log: log)
     }
 
@@ -142,7 +142,7 @@ struct DeviceSourcesListTests {
     @Test func devicesOfTwoSourcesAreOneRankedListOnEverySurfaceThatReadsIt() async throws {
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = model(bluetooth, iPhone)
+        let model = model(bluetooth, iPhone, log: .unread)
         sendBluetooth.yield(.swept([Fleet.mouse, Fleet.pods]))
         sendIPhone.yield(.swept([Fleet.phone, Fleet.tablet]))
         let merged = await list(of: model) { $0.devices.count == 4 }
@@ -202,7 +202,7 @@ struct DeviceSourcesListTests {
     @Test func everySourceEndedIsTheEndedListNotAFrozenOne() async {
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = model(bluetooth, iPhone)
+        let model = model(bluetooth, iPhone, log: .unread)
         sendBluetooth.yield(.swept([Fleet.mouse]))
         sendIPhone.yield(.swept([Fleet.phone]))
         _ = await list(of: model) { $0.devices.count == 2 }

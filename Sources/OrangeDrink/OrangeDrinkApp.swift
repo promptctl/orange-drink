@@ -19,7 +19,7 @@ struct OrangeDrinkApp: App {
     @State private var statusItemHalo = StatusItemHalo()
     @State private var look: AppAppearanceModel
     @State private var language: AppLanguageModel
-    @State private var launchAtLogin = LaunchAtLogin(effects: .live, center: .default)
+    @State private var launchAtLogin = LaunchAtLogin(effects: .live, center: .default, record: LaunchAtLogin.record)
     @State private var batteryNotifications: BatteryNotificationDismissal
     @State private var chargeLimit: ChargeLimitModel
     @State private var chargeHold: AppChargeHold
@@ -100,7 +100,8 @@ struct OrangeDrinkApp: App {
         keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
         _language = State(initialValue: language)
         _chargeLimit = State(initialValue: chargeLimit)
-        _batteryNotifications = State(initialValue: BatteryNotificationDismissal(settings: systemNotifications, effects: .live, warningChanges: BatteryMonitor.warningChanges(log: IOKitBattery.log), center: .default))
+        _batteryNotifications = State(initialValue: BatteryNotificationDismissal(settings: systemNotifications, effects: .live, warningChanges: BatteryMonitor.warningChanges(log: IOKitBattery.log), center: .default,
+                                                                                       record: BatteryNotificationDismissal.record))
         // [LAW:no-silent-failure] A history that cannot be opened is logged, and the app runs without it;
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
         let store = Result { try HistoryStore(url: HistoryStore.defaultURL()) }

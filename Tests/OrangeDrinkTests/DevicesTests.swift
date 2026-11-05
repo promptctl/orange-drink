@@ -115,7 +115,7 @@ struct DeviceListTests {
     @Test func powerdGoingSilentIsNoFailureAndItsNextAnswerRestoresTheRow() async {
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(sources: [.bluetooth: events], log: .unread)
-        let sources = DeviceReaderTests.Sources(unanswered: .unanswered(call: "the model's outage"))
+        let sources = DeviceReaderTests.Sources(unanswered: .unanswered(call: "the model's outage"), log: .unread)
         send.yield(sources.reader.sweep([DeviceReaderTests.peer]))
         let silent = await list(of: model) { !$0.devices.isEmpty }
         #expect(DeviceRanking.rows(silent).map(\.percent.english) == ["–"])

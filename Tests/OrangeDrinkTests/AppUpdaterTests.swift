@@ -8,7 +8,7 @@ import ViewInspector
 // says in the log however it ended.
 @MainActor @Suite struct AppUpdaterTests {
     private func card(_ updates: AppUpdater) -> ActionsCard {
-        let lowPowerMode = LowPowerMode(read: { false }, center: NotificationCenter(), write: { _ throws(HelperUseFailure) in })
+        let lowPowerMode = LowPowerMode(read: { false }, center: NotificationCenter(), write: { _ throws(HelperUseFailure) in }, record: { _ in })
         return ActionsCard(lowPowerMode: lowPowerMode, updates: updates)
     }
 

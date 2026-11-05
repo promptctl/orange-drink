@@ -169,7 +169,7 @@ import WidgetKit
         let intent = AllBatteriesIntent()
         intent.devices = .sameAsMenuBar
         intent.includeMac = false
-        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: intent)
+        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: .unread, configuration: intent)
         return try AllBatteriesWidgetTests.texts(entry)
     }
 
