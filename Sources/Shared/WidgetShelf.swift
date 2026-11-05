@@ -314,37 +314,55 @@ struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, Cust
     var debugDescription: String { "\(ids.count) pinned" }
 }
 
+/// Everything the app keeps of a device it has seen. [LAW:one-source-of-truth] One record, so what is known of a device
+/// has one key and a device cannot be named without a place in the list's expiry.
+struct SeenDevice: Codable, Equatable, Sendable {
+    var name: String
+    /// When the app last saw it connected, renewed no oftener than a day: the clock a device's place in the list expires by,
+    /// so a device seen again within the day leaves this value equal. Not the time a level was read. nil for a device the app has not
+    /// dated yet, which never expires.
+    var lastConnected: Date?
+}
+
 /// Every device the app has seen, connected now or not: what Edit Widget names and offers. [LAW:types-are-the-program] Not
 /// `Shelved`: a device's name stays true after the app quits, and Edit Widget needs it then.
 struct SeenDevices: Codable, Equatable, Sendable, CustomDebugStringConvertible {
+    var devices: [DeviceID: SeenDevice] = [:]
+
     /// Each device's name.
-    var names: [DeviceID: String] = [:]
+    var names: [DeviceID: String] { devices.mapValues(\.name) }
 
     init() {}
-    init(names: [DeviceID: String]) { self.names = names }
+    init(devices: [DeviceID: SeenDevice]) { self.devices = devices }
 
-    private enum CodingKeys: CodingKey { case names }
+    private enum CodingKeys: CodingKey { case devices, names }
 
-    /// The file keys each name by the device's wire form. [LAW:parse-dont-validate] A key with no source is a Bluetooth address
+    /// The file keys each device by its wire form. [LAW:parse-dont-validate] A key with no source is a Bluetooth address
     /// from before sources, and one this release cannot read fails the file loudly rather than lose a device's name.
+    /// The release before dates wrote `names` alone, each name a string: read as undated devices, which the app dates at launch.
+    /// Owner: this file. Cap: that one shape. Delete in the release after the one that ships this.
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        let wired = try values.decode([String: String].self, forKey: .names)
-        names = try Dictionary(wired.map { wire, name in
+        let (wired, key): ([String: SeenDevice], CodingKeys) = if values.contains(.devices) {
+            (try values.decode([String: SeenDevice].self, forKey: .devices), .devices)
+        } else {
+            (try values.decode([String: String].self, forKey: .names).mapValues { SeenDevice(name: $0) }, .names)
+        }
+        devices = try Dictionary(wired.map { wire, device in
             guard let id = DeviceID(wire: wire) else {
-                throw DecodingError.dataCorruptedError(forKey: .names, in: values, debugDescription: "not a device identity: \(wire)")
+                throw DecodingError.dataCorruptedError(forKey: key, in: values, debugDescription: "not a device identity: \(wire)")
             }
-            return (id, name)
+            return (id, device)
         }, uniquingKeysWith: { _, later in later })
     }
 
     func encode(to encoder: any Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
-        try values.encode(Dictionary(uniqueKeysWithValues: names.map { ($0.key.wire, $0.value) }), forKey: .names)
+        try values.encode(Dictionary(uniqueKeysWithValues: devices.map { ($0.key.wire, $0.value) }), forKey: .devices)
     }
 
     /// What the shelf's logs carry, which are public: how many, never a name or an address.
-    var debugDescription: String { "\(names.count) seen" }
+    var debugDescription: String { "\(devices.count) seen" }
 }
 
 /// What a sweep read of what is connected, as the widgets draw it. [LAW:locality-or-seam] One value, so a new fact about
