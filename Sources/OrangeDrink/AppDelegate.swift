@@ -3,7 +3,7 @@ import OSLog
 
 /// The app's delegate. SwiftUI's adaptor takes one, so this hands each callback to the type whose job it is.
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "appDelegate")
+    private static let log = Logger(.appDelegate)
 
     private let termination: TerminationLog
     private let panel: any Panel
@@ -16,7 +16,7 @@ import OSLog
     }
 
     override convenience init() {
-        self.init(termination: TerminationLog(), panel: StatusItemPanel(item: .live), record: { Self.log.notice("\($0, privacy: .public)") })
+        self.init(termination: TerminationLog(), panel: StatusItemPanel(item: .live(log: Logger(.hotkey))), record: { Self.log.notice("\($0, privacy: .public)") })
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {

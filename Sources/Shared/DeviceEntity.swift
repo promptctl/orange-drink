@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import os
 
 // Compiled into the app and its widget extension, because a widget's settings hold these.
 
@@ -18,10 +19,10 @@ struct DeviceEntity: AppEntity {
 
     /// The devices a widget's choices name, in the user's order, each once. [LAW:no-silent-failure] A choice this release
     /// cannot read is left out and logged.
-    static func identities(of entities: [DeviceEntity]) -> [DeviceID] {
+    static func identities(of entities: [DeviceEntity], log: Logger) -> [DeviceID] {
         let read = entities.compactMap(\.identity)
         if read.count < entities.count {
-            ShelfLog.log.error("widget choices unreadable: \(entities.count - read.count, privacy: .public)")
+            log.error("widget choices unreadable: \(entities.count - read.count, privacy: .public)")
         }
         var seen = Set<DeviceID>()
         return read.filter { seen.insert($0).inserted }
@@ -35,7 +36,16 @@ struct DeviceQuery: EntityQuery {
     static let unavailable: Phrase = "Unavailable device"
 
     /// The shelf: the group container, or a directory of a test's own.
-    var directory: Swift.Result<URL, any Error> = Swift.Result { try WidgetShelf.groupContainer() }
+    let directory: Swift.Result<URL, any Error>
+    let log: Logger
+
+    init(directory: Swift.Result<URL, any Error>, log: Logger) {
+        self.directory = directory
+        self.log = log
+    }
+
+    /// The query AppIntents makes for itself: the group container's shelf, logged where the widgets log.
+    init() { self.init(directory: Swift.Result { try WidgetShelf.groupContainer() }, log: ShelfLog.log) }
 
     /// One result per id asked for, so a widget keeps its choice even of a device the app has never seen. [LAW:one-source-of-truth]
     /// A readable id comes back in its wire form, so a choice made before sources and the picker's suggestion of the same
@@ -56,7 +66,7 @@ struct DeviceQuery: EntityQuery {
 
     /// [LAW:no-silent-failure] A file that cannot be read offers no devices, and the log says why.
     private func seen() -> SeenDevices {
-        switch WidgetShelf.load(.seenDevices, from: directory, log: ShelfLog.log) {
+        switch WidgetShelf.load(.seenDevices, from: directory, log: log) {
         case .success(let seen): seen
         case .failure: SeenDevices()
         }

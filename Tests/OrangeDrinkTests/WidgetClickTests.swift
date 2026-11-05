@@ -41,7 +41,7 @@ import WidgetKit
     private let lines = Lines()
 
     private func delegate(_ termination: TerminationLog? = nil) -> AppDelegate {
-        AppDelegate(termination: termination ?? TerminationLog(records: QuitRecords(url: URL(filePath: "/dev/null/quits.log"), build: "test build"), signal: SIGUSR1, terminate: {}),
+        AppDelegate(termination: termination ?? TerminationLog(records: QuitRecords(url: URL(filePath: "/dev/null/quits.log"), build: "test build"), signal: SIGUSR1, log: .unread, terminate: {}),
                     panel: panel, record: { [lines] in lines.read.append($0) })
     }
 
@@ -77,7 +77,7 @@ import WidgetKit
         let quits = QuitRecords(url: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString), build: "test build")
         defer { try? FileManager.default.removeItem(at: quits.url) }
         let (asked, ask) = AsyncStream.makeStream(of: Void.self)
-        let delegate = delegate(TerminationLog(records: quits, signal: SIGUSR1, terminate: { ask.yield() }))
+        let delegate = delegate(TerminationLog(records: quits, signal: SIGUSR1, log: .unread, terminate: { ask.yield() }))
         delegate.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
         kill(getpid(), SIGUSR1)
         for await _ in asked { break }

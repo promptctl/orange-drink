@@ -76,7 +76,7 @@ import Testing
 
     // The ticket's own failure: a quit noticed later, after the unified log has dropped it.
     @Test func aQuitsRecordOriginAndSenderIncludedIsStillInTheStoreAfterALaterQuit() throws {
-        let log = TerminationLog(records: quits, signal: SIGUSR2, terminate: {})
+        let log = TerminationLog(records: quits, signal: SIGUSR2, log: .unread, terminate: {})
         log.record(.signal(sender: .init(pid: 412, name: "zsh")), stack: ["delegate", "frame"], at: Date(timeIntervalSince1970: 0))
         log.record(.inApp, stack: [], at: Date(timeIntervalSince1970: 8 * 24 * 3600))
         #expect(try String(contentsOf: quits.url, encoding: .utf8) == """
@@ -96,7 +96,7 @@ import Testing
         sender.executableURL = URL(filePath: "/bin/kill")
         sender.arguments = ["-USR2", "\(getpid())"]
         let (asked, ask) = AsyncStream.makeStream(of: Void.self)
-        let log = TerminationLog(records: quits, signal: SIGUSR2, terminate: { ask.yield() })
+        let log = TerminationLog(records: quits, signal: SIGUSR2, log: .unread, terminate: { ask.yield() })
         log.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
         try sender.run()
         // A stream, because the time limit cancels and then waits for the test: a signal that never comes must end
@@ -106,9 +106,11 @@ import Testing
         #expect(try String(contentsOf: quits.url, encoding: .utf8).contains("SIGTERM from pid \(sender.processIdentifier) ("))
     }
 
-    @Test func aRecordThatCannotBeWrittenNeverStopsTheQuit() {
+    @Test func aRecordThatCannotBeWrittenNeverStopsTheQuitAndIsLogged() async throws {
+        let log = try await TestLog()
         let unwritable = QuitRecords(url: URL(filePath: "/dev/null/quits.log"), build: "test build")
-        #expect(TerminationLog(records: unwritable, signal: SIGUSR2, terminate: {}).applicationShouldTerminate(NSApplication.shared) == .terminateNow)
+        #expect(TerminationLog(records: unwritable, signal: SIGUSR2, log: log.logger, terminate: {}).applicationShouldTerminate(NSApplication.shared) == .terminateNow)
+        #expect(try await log.logged("no quit record at /dev/null/quits.log"))
     }
 
     @Test func aStoreThatCannotBeOpenedSaysWhy() throws {

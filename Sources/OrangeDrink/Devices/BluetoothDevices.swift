@@ -6,7 +6,6 @@ import os
 /// Pushes every connected Bluetooth device's state to subscribers: when it connects, when it
 /// disconnects, and once a minute while it is connected, because Bluetooth announces no level change.
 enum BluetoothDevices {
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "devices")
     static let pollInterval = Duration.seconds(60)
     /// A device's battery arrives after it connects, with no event to say so, so a connect is
     /// followed by one more sweep once the first report has had time to land.

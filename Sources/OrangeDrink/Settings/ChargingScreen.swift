@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// design-docs/charging.md: the Charge Limit switch, its explanation, and, while it is on, the target. `ChargeHold`
@@ -5,6 +6,7 @@ import SwiftUI
 struct ChargingScreen: View {
     let limit: ChargeLimitModel
     let hold: AppChargeHold
+    let settingsLog: Logger
     @Environment(\.controlActiveState) private var window
 
     static let limitHelp: Phrase = "When the battery reaches your target, charging pauses and your Mac runs on the charger. Charging resumes once the level drops below the target. Turn the limit off, or quit \(appName), and your Mac charges normally."
@@ -21,7 +23,7 @@ struct ChargingScreen: View {
     }
 
     var body: some View {
-        SettingEditor(limit) { edits in
+        SettingEditor(limit, log: settingsLog) { edits in
             SettingCard {
                 SettingRow(icon: ("bolt.heart.fill", .green), title: "Charge Limit",
                            description: "Pause charging at your target so the battery sits in a healthier range.") {

@@ -24,7 +24,7 @@ import WidgetKit
             let devices = DevicesModel(sources: [.bluetooth: events], log: .unread)
             let settings = try DeviceSettingsModel(defaults: scratchDefaults())
             (self.feed, self.send, self.battery, self.devices, self.settings) = (feed, send, battery, devices, settings)
-            screen = WidgetsScreen(battery: battery, devices: devices, settings: settings)
+            screen = WidgetsScreen(battery: battery, devices: devices, settings: settings, widgetsLog: .unread)
             let charging = try BatteryHistoryTests.charging(80)
             feed.yield(charging)
             _ = await battery.state { if case .known(let held) = $0 { held == charging } else { false } }

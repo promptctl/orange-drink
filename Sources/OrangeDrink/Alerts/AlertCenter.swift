@@ -7,9 +7,8 @@ import os
 /// [LAW:one-source-of-truth] `model` keeps the settings; the Alerts screen edits them through it, and
 /// the engines read them from it.
 @Observable @MainActor final class AlertCenter {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
-
     @ObservationIgnored let model: AlertSettingsModel
+    @ObservationIgnored private let log: Logger
     var settings: AlertSettings { model.value }
     @ObservationIgnored private var engine = AlertEngine()
     @ObservationIgnored private var deviceEngine = DeviceAlertEngine()
@@ -20,9 +19,10 @@ import os
 
     /// [LAW:no-silent-failure] Stored settings that do not decode fail the launch loudly.
     init(
-        defaults: UserDefaults, deliver: @escaping @MainActor (Firing, BatteryReading) -> Void,
+        defaults: UserDefaults, log: Logger, deliver: @escaping @MainActor (Firing, BatteryReading) -> Void,
         deliverDevice: @escaping @MainActor (DeviceFiring) -> Void = { _ in }
     ) throws {
+        self.log = log
         self.deliver = deliver
         self.deliverDevice = deliverDevice
         model = try AlertSettingsModel(defaults: defaults)
@@ -36,7 +36,7 @@ import os
         // switching it on at 15% does not fire a stale 20% alert; the switch only empties delivery.
         let delivered = settings.enabled ? fired : []
         for firing in fired {
-            Self.log.info("""
+            log.info("""
                 alert \(delivered.isEmpty ? "suppressed by master switch" : "fired", privacy: .public): \
                 \(firing.description, privacy: .public) at \(reading.chargePercent)%
                 """)
@@ -50,7 +50,7 @@ import os
         let fired = deviceEngine.observe(devices, watching: watching, alerts: settings.alerts)
         let delivered = settings.enabled ? fired : []
         for firing in fired {
-            Self.log.info("""
+            log.info("""
                 device alert \(delivered.isEmpty ? "suppressed by master switch" : "fired", privacy: .public): \
                 \(firing.description, privacy: .private)
                 """)

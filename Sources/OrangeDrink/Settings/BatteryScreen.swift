@@ -6,11 +6,11 @@ import SwiftUI
 struct BatteryScreen: View {
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
+    let log: Logger
     @State private var range = HistoryRange.day
     @State private var loaded: Result<BatteryLevelTimeline, any Error>?
     @State private var overview: Result<BatteryOverview, any Error>?
     @Environment(\.appLanguage) private var language
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "history")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -44,7 +44,7 @@ struct BatteryScreen: View {
     }
 
     private func report(_ failure: (any Error)?) {
-        if let failure { Self.log.error("battery history unreadable: \(String(describing: failure), privacy: .public)") }
+        if let failure { log.error("battery history unreadable: \(String(describing: failure), privacy: .public)") }
     }
 
     @ViewBuilder private var tiles: some View {

@@ -30,14 +30,14 @@ import OSLog
 /// `MenuBarExtraWindow<…>` among `NSApp.windows`, and the item's own `NSStatusBarButton` is the one
 /// button there that is not a pinned device's (those are tagged `NSPinnedStatusItem.buttonID`).
 @MainActor struct StatusItemPanel: Panel {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
-
     /// The running app's panel and its menu bar item, as one seam: a press toggles, whatever the panel is showing.
     struct Item: Sendable {
         let panelIsVisible: @MainActor () -> Bool
         let press: @MainActor () -> Void
 
-        static let live = Item(panelIsVisible: { NSApp.windows.contains { isPanelWindow($0) && $0.isVisible } }, press: click)
+        static func live(log: Logger) -> Item {
+            Item(panelIsVisible: { NSApp.windows.contains { isPanelWindow($0) && $0.isVisible } }, press: { click(log: log) })
+        }
     }
 
     let item: Item
@@ -53,7 +53,7 @@ import OSLog
     func open() { if !isOpen { item.press() } }
     func close() { if isOpen { item.press() } }
 
-    private static func click() {
+    private static func click(log: Logger) {
         guard let button = itemButton() else {
             log.error("the panel's menu bar item has no button to click")
             return

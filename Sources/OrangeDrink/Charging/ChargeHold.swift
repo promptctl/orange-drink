@@ -119,7 +119,7 @@ enum ChargeHoldEvent: Equatable {
     @ObservationIgnored private let record: (ChargeHoldEvent) -> Void
     @ObservationIgnored private let openLoginItemsPane: () -> Void
 
-    private nonisolated static var log: Logger { Logger(subsystem: IOKitBattery.logSubsystem, category: "chargeLimit") }
+    private nonisolated static var log: Logger { Logger(.chargeLimit) }
 
     /// The app's `record`: each event to the chargeLimit log.
     nonisolated static func record(_ event: ChargeHoldEvent) { log.notice("\(event.line, privacy: .public)") }

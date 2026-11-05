@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// One of the Devices screen's help lines: a coloured icon tile and grey text, which may end in a
@@ -56,12 +57,13 @@ struct DevicesHelpLine: Equatable, Identifiable {
 struct DevicesScreen: View {
     let devices: DevicesModel
     let settings: DeviceSettingsModel
+    let settingsLog: Logger
     /// Switches the settings window to another screen.
     let select: (SettingsScreen) -> Void
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        SettingEditor(settings) { edits in
+        SettingEditor(settings, log: settingsLog) { edits in
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
                     SettingsSectionHeader(symbol: "wave.3.right", color: .blue, title: "Bluetooth Devices")

@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 extension MenuBarIconConfig.Style {
@@ -66,12 +67,13 @@ struct MenuBarScreen: View {
     let model: MenuBarIconModel
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
+    let settingsLog: Logger
     @Environment(\.appLanguage) private var language
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "macwindow", color: .cyan, title: "Menu Bar Icon")
-            SettingEditor(model) { edits in
+            SettingEditor(model, log: settingsLog) { edits in
                 let config = edits.value
                 SettingCard {
                     ForEach(MenuBarIconConfig.Style.allCases, id: \.self) { style in
@@ -104,7 +106,7 @@ struct MenuBarScreen: View {
                 Text("Preview").font(.callout).foregroundStyle(.secondary).padding(.top, 8)
                 MenuBarPreview(config: config).frame(maxWidth: .infinity)
             }
-            PinnedDevicesCard(devices: devices, settings: deviceSettings).padding(.top, 16)
+            PinnedDevicesCard(devices: devices, settings: deviceSettings, settingsLog: settingsLog).padding(.top, 16)
         }
         .padding(24)
     }

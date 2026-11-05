@@ -71,7 +71,6 @@ enum PillEnd {
 /// countdown live and die together. What moves them is two separate inputs: `hidden` decides
 /// whether the countdown runs, and a change of displays decides where the windows are.
 @MainActor final class PillController {
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "alerts")
     /// How long a pill stays up while the screen can be seen, unless its × or a newer alert takes it
     /// down first. Each return to being seen starts it again, in full.
     nonisolated static let shownFor: Duration = .seconds(8)

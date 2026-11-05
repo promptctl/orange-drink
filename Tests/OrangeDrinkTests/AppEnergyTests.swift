@@ -21,7 +21,7 @@ import Testing
 
     @Test func thePanelSectionListsTheNewestStoredIntervalInTheRightNowCardsOrder() throws {
         let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
-        let history = AppEnergyHistory(store: store, changes: HistoryChanges(), source: Scripted([]), timekeeper: ManualTimekeeper(), interval: .seconds(120))
+        let history = AppEnergyHistory(store: store, log: .unread, changes: HistoryChanges(), source: Scripted([]), timekeeper: ManualTimekeeper(), interval: .seconds(120))
         #expect(try history.rightNow() == RightNow(shares: [], at: nil))
         let older = AppEnergyInterval(at: Self.t0.addingTimeInterval(-120), seconds: 120, totalNanojoules: 9_000_000_000, entries: [.init(app: AppIdentity(key: "com.example.gone", name: "Gone", bundleID: "com.example.gone"), nanojoules: 9_000_000_000)])
         let newest = AppEnergyInterval(at: Self.t0, seconds: 120, totalNanojoules: 10_000_000_000, entries: [
@@ -106,7 +106,7 @@ import Testing
         let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
         let changes = HistoryChanges()
         let source = Scripted([[Self.process(1, 1, Self.editor)], [Self.process(1, 4, Self.editor)], [Self.process(1, 6, Self.editor)]])
-        let history = AppEnergyHistory(store: store, changes: changes, source: source, timekeeper: clock, interval: .seconds(120))
+        let history = AppEnergyHistory(store: store, log: .unread, changes: changes, source: source, timekeeper: clock, interval: .seconds(120))
         await clock.asleep()
         #expect(changes.revision == 0)
         clock.advance(by: .seconds(120))
@@ -142,7 +142,7 @@ import Testing
     func terminalLeadsTheStoredEnergyWhileYesRuns() async throws {
         let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
         let changes = HistoryChanges()
-        let history = AppEnergyHistory(store: store, changes: changes, source: try RusageEnergySource(), interval: .seconds(10))
+        let history = AppEnergyHistory(store: store, log: .unread, changes: changes, source: try RusageEnergySource(), interval: .seconds(10))
         while changes.revision < 5 { try await Task.sleep(for: .milliseconds(200)) }
         let intervals = try store.appEnergy(since: .distantPast)
         var energy: [AppIdentity: UInt64] = [:]

@@ -59,14 +59,14 @@ import Testing
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
         try WidgetShelf.write(SeenDevices(names: [.bluetooth("AA-01"): "iPhone"]), as: .seenDevices, to: shelf)
-        let query = DeviceQuery(directory: .success(shelf))
+        let query = DeviceQuery(directory: .success(shelf), log: .unread)
 
         let named = try await query.entities(for: ["AA-01", "bluetooth:AA-01"]).map(\.name)
 
         #expect(named == ["iPhone", "iPhone"])
         #expect(try await query.entities(for: ["AA-01", "watch:AA"]).map(\.id) == ["bluetooth:AA-01", "watch:AA"])
         #expect(try await query.suggestedEntities().map(\.id) == ["bluetooth:AA-01"])
-        #expect(DeviceEntity.identities(of: [DeviceEntity(id: "AA-01", name: "x"), DeviceEntity(id: "bluetooth:AA-01", name: "x")]) == [.bluetooth("AA-01")])
+        #expect(DeviceEntity.identities(of: [DeviceEntity(id: "AA-01", name: "x"), DeviceEntity(id: "bluetooth:AA-01", name: "x")], log: .unread) == [.bluetooth("AA-01")])
     }
 
     // MARK: sources keep devices apart
@@ -125,8 +125,17 @@ import Testing
         #expect(DeviceEntity(id: wire, name: "x").identity == nil)
     }
 
-    @Test func choicesThisReleaseCannotReadAreLeftOut() {
+    @Test func aShelfTheQueryCannotReadOffersNoDevicesAndIsLogged() async throws {
+        let log = try await TestLog()
+        let query = DeviceQuery(directory: .failure(CocoaError(.fileNoSuchFile)), log: log.logger)
+        #expect(try await query.suggestedEntities().isEmpty)
+        #expect(try await log.logged("widget shelf unreadable"))
+    }
+
+    @Test func choicesThisReleaseCannotReadAreLeftOutAndLogged() async throws {
+        let log = try await TestLog()
         let entities = ["iphone:XY", "watch:AA", "AA-01"].map { DeviceEntity(id: $0, name: $0) }
-        #expect(DeviceEntity.identities(of: entities) == [DeviceID(source: .iPhone, key: "XY"), .bluetooth("AA-01")])
+        #expect(DeviceEntity.identities(of: entities, log: log.logger) == [DeviceID(source: .iPhone, key: "XY"), .bluetooth("AA-01")])
+        #expect(try await log.messages() == ["widget choices unreadable: 1"])
     }
 }

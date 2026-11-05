@@ -12,7 +12,7 @@ struct AllBatteriesProvider: AppIntentTimelineProvider {
             WidgetDevice(id: .bluetooth("earbuds"), name: "Earbuds", kind: .accessory, level: BatteryLevel(percent: 54, approximate: false)),
             WidgetDevice(id: .bluetooth("tablet"), name: "iPad", kind: .tablet, level: BatteryLevel(percent: 62, approximate: false)),
         ]
-        return AllBatteriesEntry(date: .now, mac: .success(.running(.level(percent: 80, charging: true))), devices: .success(.running(WidgetDeviceList(ranked: devices, pinned: [], unlevelled: [], unreadSources: []))), settings: AllBatteriesSettings(AllBatteriesIntent()))
+        return AllBatteriesEntry(date: .now, mac: .success(.running(.level(percent: 80, charging: true))), devices: .success(.running(WidgetDeviceList(ranked: devices, pinned: [], unlevelled: [], unreadSources: []))), settings: AllBatteriesSettings(AllBatteriesIntent(), log: ShelfLog.log))
     }
 
     func snapshot(for configuration: AllBatteriesIntent, in context: Context) async -> AllBatteriesEntry {

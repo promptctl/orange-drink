@@ -70,7 +70,9 @@ struct KeyPress {
 /// Key presses through an AppKit local monitor, which sees only the keys typed to this app's windows;
 /// of those, only the ones typed to the panel's window, so the Settings window's keys are its own.
 @MainActor struct NSKeyEvents: KeyEvents {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
+    private let log: Logger
+
+    init(log: Logger) { self.log = log }
 
     func listen(_ handle: @escaping @MainActor (KeyPress) -> Bool) -> any KeyListening {
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
@@ -81,7 +83,7 @@ struct KeyPress {
             return MainActor.assumeIsolated { handle(KeyPress(key: key, isRepeat: event.isARepeat)) } ? nil : event
         }
         // [LAW:no-silent-failure] A monitor the system would not give is logged; the shortcuts then do nothing.
-        if monitor == nil { Self.log.error("the panel's key shortcuts could not be listened for") }
+        if monitor == nil { log.error("the panel's key shortcuts could not be listened for") }
         return Listener(monitor: monitor)
     }
 

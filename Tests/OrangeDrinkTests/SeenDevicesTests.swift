@@ -22,7 +22,7 @@ import Testing
 
     init() throws {
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
-        query = DeviceQuery(directory: .success(shelf))
+        query = DeviceQuery(directory: .success(shelf), log: .unread)
         devicesShelf = ShelfPublisher(item: .devices, directory: shelf, log: .unread) { _ in }
         seenShelf = ShelfPublisher(item: .seenDevices, directory: shelf, log: .unread) { _ in }
     }

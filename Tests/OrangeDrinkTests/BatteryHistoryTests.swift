@@ -42,7 +42,7 @@ import Testing
     @Test func aSimulatedDayIsAllThereAfterARelaunch() throws {
         let url = Self.tempFile()
         let clock = Clock(Self.midnight.addingTimeInterval(8 * 3600))
-        let history = BatteryHistory(store: try HistoryStore(url: url), timekeeper: clock, calendar: Self.utc)
+        let history = BatteryHistory(store: try HistoryStore(url: url), log: .unread, timekeeper: clock, calendar: Self.utc)
         func at(_ hour: Double, _ step: () -> Void) { clock.current = Self.midnight.addingTimeInterval(hour * 3600); step() }
 
         // 08:00 screen on at 90%; 10:00 screen off at 80%; 12:00 screen on at 78% and plugs in;

@@ -1,4 +1,14 @@
+import OSLog
 import SwiftUI
+
+/// The loggers the views write through, each the one its subject's category has.
+struct ViewLogs {
+    let settings: Logger
+    let history: Logger
+    let appEnergy: Logger
+    let widgets: Logger
+    let hotkey: Logger
+}
 
 /// The settings window: the sidebar on the left, the chosen screen on the right.
 struct SettingsView: View {
@@ -17,6 +27,7 @@ struct SettingsView: View {
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
+    let logs: ViewLogs
     @State private var selection: SettingsScreen = .general
 
     var body: some View {
@@ -32,7 +43,7 @@ struct SettingsView: View {
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
             ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
-                       deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
+                       deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, logs: logs, select: { selection = $0 })
         }
         .appLook(look, language)
         .frame(minWidth: 760, minHeight: 640)
@@ -96,6 +107,7 @@ private struct ScreenView: View {
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
+    let logs: ViewLogs
     let select: (SettingsScreen) -> Void
 
     var body: some View {
@@ -111,15 +123,15 @@ private struct ScreenView: View {
                     PhraseText(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
                 switch screen {
-                case .general: GeneralScreen(appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications)
-                case .alerts: AlertsScreen(center: alerts)
-                case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
-                case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold)
-                case .shortcuts: ShortcutsScreen(controller: shortcuts)
-                case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
-                case .widgets: WidgetsScreen(battery: battery, devices: devices, settings: deviceSettings)
-                case .appUsage: AppUsageScreen(appEnergy: appEnergy)
-                case .battery: BatteryScreen(battery: battery, history: history)
+                case .general: GeneralScreen(appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, settingsLog: logs.settings)
+                case .alerts: AlertsScreen(center: alerts, settingsLog: logs.settings)
+                case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings, settingsLog: logs.settings)
+                case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold, settingsLog: logs.settings)
+                case .shortcuts: ShortcutsScreen(controller: shortcuts, log: logs.hotkey)
+                case .devices: DevicesScreen(devices: devices, settings: deviceSettings, settingsLog: logs.settings, select: select)
+                case .widgets: WidgetsScreen(battery: battery, devices: devices, settings: deviceSettings, widgetsLog: logs.widgets)
+                case .appUsage: AppUsageScreen(appEnergy: appEnergy, log: logs.appEnergy)
+                case .battery: BatteryScreen(battery: battery, history: history, log: logs.history)
                 case .iphoneIpad: EmptyState(screen: screen).padding(.top, 60)
                 }
             }

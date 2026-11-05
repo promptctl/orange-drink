@@ -58,7 +58,7 @@ import ServiceManagement
     @ObservationIgnored private let record: (Event) -> Void
     @ObservationIgnored private let openLoginItemsPane: () -> Void
 
-    private nonisolated static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "lowPowerMode")
+    private nonisolated static let log = Logger(.lowPowerMode)
 
     /// The app's `record`: each event to the lowPowerMode log.
     nonisolated static func record(_ event: Event) { log.notice("\(event.line, privacy: .public)") }

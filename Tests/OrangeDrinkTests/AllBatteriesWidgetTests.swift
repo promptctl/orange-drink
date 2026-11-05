@@ -38,7 +38,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         let intent = AllBatteriesIntent()
         intent.style = style
         set(intent)
-        return AllBatteriesSettings(intent)
+        return AllBatteriesSettings(intent, log: .unread)
     }
 
     static func entry(_ mac: MacBattery, _ devices: [WidgetDevice], style: WidgetStyle = .rings, _ set: (AllBatteriesIntent) -> Void = { _ in }) -> AllBatteriesEntry {

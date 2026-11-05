@@ -10,9 +10,8 @@ struct ShortcutsScreen: View {
         case menu(MenuShortcut)
     }
 
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
-
     let controller: ShortcutsController
+    let log: Logger
     @State private var recording: Target?
     @State private var failure: Text?
 
@@ -75,7 +74,7 @@ struct ShortcutsScreen: View {
         recording = nil
         do { try controller.start() } catch {
             // The screen may be gone by now, so the failure is also logged.
-            Self.log.error("the global shortcut could not be held again: \(error)")
+            log.error("the global shortcut could not be held again: \(error)")
             failure = failure ?? describe(error)
         }
     }

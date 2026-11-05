@@ -331,7 +331,7 @@ struct AllBatteriesEntry: TimelineEntry {
 extension AllBatteriesEntry {
     /// What the widget reads: both of the shelf's files, each logged, and the settings it holds.
     init(date: Date, directory: Result<URL, any Error>, log: Logger, configuration: AllBatteriesIntent) {
-        let settings = AllBatteriesSettings(configuration)
+        let settings = AllBatteriesSettings(configuration, log: log)
         self.init(date: date, mac: WidgetShelf.load(.macBattery, from: directory, log: log), devices: WidgetShelf.load(.devices, from: directory, log: log), settings: settings)
         log.notice("widget devices \(settings.devices, privacy: .public) style \(settings.style.rawValue, privacy: .public) names \(settings.showNames, privacy: .public) mac \(settings.includeMac, privacy: .public) appearance \(settings.appearance.rawValue, privacy: .public)")
     }

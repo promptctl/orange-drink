@@ -6,8 +6,7 @@ import os
 /// [LAW:effects-at-boundaries] The one edge that talks to IOKit. It fetches the three
 /// dictionaries and hands them to the pure parser.
 enum IOKitBattery {
-    static let logSubsystem = Bundle.main.bundleIdentifier!
-    static let log = Logger(subsystem: logSubsystem, category: "battery")
+    static let logSubsystem = LogCategory.subsystem
 
     /// nil when this Mac has no battery: a desktop, or a laptop whose battery is gone, is a
     /// legal host, not an error. Every outcome leaves one line in the log.

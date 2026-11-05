@@ -16,6 +16,7 @@ import ViewInspector
     static func center(_ pills: PillController, alerts: [Alert]) throws -> AlertCenter {
         let center = try AlertCenter(
             defaults: scratchDefaults(),
+            log: .unread,
             deliver: { pills.deliver($0, reading: $1) })
         try center.model.update { $0.alerts = alerts }
         return center

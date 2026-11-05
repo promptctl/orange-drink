@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// The pinned devices that have an item in the menu bar, top to bottom as the items sit left to
@@ -28,12 +29,13 @@ struct PinnedDevicesList: Equatable {
 struct PinnedDevicesCard: View {
     let devices: DevicesModel
     let settings: DeviceSettingsModel
+    let settingsLog: Logger
     @Environment(\.appLanguage) private var language
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "pin.fill", color: .orange, title: "Pinned Devices")
-            SettingEditor(settings) { edits in
+            SettingEditor(settings, log: settingsLog) { edits in
                 let list = PinnedDevicesList(devices.list, pinned: edits.value.pinned)
                 if list.entries.isEmpty {
                     ListNotesView(rowsAreEmpty: true, notes: list.notes)
