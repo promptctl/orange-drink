@@ -102,7 +102,7 @@ import Testing
         phrases += HistoryRange.allCases.map(\.title) + ["HEALTH", "TEMPERATURE", "CYCLES", "of \(1000) rated", "Today, \("2:00 AM")", "Yesterday, \("2:00 AM")",
                     "\("Jan 1"), \("2:00 AM")", "Last charged to \(79)%", "Battery Level", "Battery level over the last \("24h")",
                     "Building your battery-level history — your charge timeline fills in as you use your Mac.",
-                    "The battery history could not be read. Quit and reopen the app.",
+                    HistoryNote.unopened, HistoryNote.level, HistoryNote.overview,
                     BatteryStateNote.unknown, BatteryStateNote.noBattery, BatteryStateNote.unread, BatteryStateNote.ended]
         phrases += try [BatteryModel.State.known(MenuBarIconDrawing.charging(75)), .unknown].map { StatusItemName($0, appName: "App").phrase }
         phrases += ["DAILY USAGE", BatteryOverview.age(0), BatteryOverview.age(120), BatteryOverview.age(7200), BatteryOverview.age(200_000),

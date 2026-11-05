@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is what the Battery screen's top half says for a reading
@@ -80,6 +81,41 @@ import Testing
         #expect(history.changes.revision == 0)
         history.observe(try BatteryHistoryTests.onBattery(80))
         #expect(history.changes.revision == 1)
+    }
+
+    /// What the overview cards say for the overview `store` gives, in reading order.
+    static func overviewTexts(_ store: HistoryStore, state: BatteryModel.State = .unknown) throws -> [String] {
+        let history = BatteryHistory(store: store, log: .unread, timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
+        return try OverviewCards(overview: Result { try history.overview() }, state: state)
+            .inspect().findAll(ViewType.Text.self).map { try $0.string(locale: .testsDefault) }
+    }
+
+    @Test func anOverviewTheHistoryCannotReadSaysSoInPlaceOfItsCards() throws {
+        let texts = try Self.overviewTexts(try HistoryReadFailureTests.unreadable(BatteryHistoryTests.tempFile()))
+        #expect(texts.contains(HistoryNote.overview.english))
+        #expect(!texts.contains("DAILY USAGE"))
+    }
+
+    @Test func aReadableOverviewShowsItsCardsAndNoFailure() throws {
+        let texts = try Self.overviewTexts(try HistoryStore(url: BatteryHistoryTests.tempFile()))
+        #expect(texts.contains("DAILY USAGE"))
+        #expect(!texts.contains(HistoryNote.overview.english))
+    }
+
+    @Test func aHistoryThatNeverOpenedIsSaidOnceInPlaceOfEveryCard() throws {
+        let (readings, _) = AsyncThrowingStream.makeStream(of: BatteryRead.self)
+        let battery = BatteryModel(readings: readings, read: { .success(nil) }, log: .unread)
+        let texts = try BatteryScreen(battery: battery, history: .failure(CocoaError(.fileReadCorruptFile)))
+            .inspect().findAll(ViewType.Text.self).map { try $0.string(locale: .testsDefault) }
+        #expect(texts.filter { $0.contains("could not be read") } == [HistoryNote.unopened.english])
+        #expect(!texts.contains("Battery Level"))
+    }
+
+    @Test func aMacWithAReadingShowsItsHealthOnlyBesideAReadableOverview() throws {
+        let reading = try #require(try BatteryReading(
+            registry: BatteryReadingParse.registry, powerSource: BatteryReadingParse.discharging(timeToEmpty: 192), adapter: BatteryReadingParse.adapter))
+        #expect(try Self.overviewTexts(try HistoryStore(url: BatteryHistoryTests.tempFile()), state: .known(reading)).contains("Battery Health"))
+        #expect(!(try Self.overviewTexts(try HistoryReadFailureTests.unreadable(BatteryHistoryTests.tempFile()), state: .known(reading)).contains("Battery Health")))
     }
 
     @Test func theTilesSayWhatTheReferenceReadingSays() throws {

@@ -14,12 +14,12 @@ struct BatteryScreen: View {
         VStack(alignment: .leading, spacing: 24) {
             tiles
             // A Mac with no battery records nothing, so a card promising a filling history would never fill.
-            if case .known(nil) = battery.state {} else {
+            if case .known(nil) = battery.state {} else if case .failure = history {
+                // A history that never opened is one fault, said once rather than by every card it empties.
+                UnreadableCard(phrase: HistoryNote.unopened)
+            } else {
                 levelCard
-                if case .success(let overview)? = overview {
-                    DailyUsageCard(overview: overview)
-                    if case .known(let reading?) = battery.state { BatteryHealthCard(reading: reading, overview: overview) }
-                }
+                OverviewCards(overview: overview, state: battery.state)
             }
         }
         .padding(24)
@@ -56,7 +56,7 @@ struct BatteryScreen: View {
                 }
                 switch loaded {
                 case nil: EmptyView()
-                case .failure: Text("The battery history could not be read. Quit and reopen the app.").foregroundStyle(.secondary)
+                case .failure: PhraseText(HistoryNote.level).foregroundStyle(.secondary)
                 case .success(let timeline):
                     summary(timeline)
                     chart(timeline)
@@ -98,6 +98,42 @@ struct BatteryScreen: View {
             .chartYAxis { AxisMarks(values: [0, 50, 100]) { AxisGridLine(); AxisValueLabel("\($0.as(Int.self) ?? 0)%") } }
             .frame(height: 160)
             .accessibilityLabel(Phrase("Battery level over the last \(timeline.range.title)").text(in: language))
+        }
+    }
+}
+
+/// The Daily Usage and Battery Health cards, or in their place the word that the history behind them could not be read.
+struct OverviewCards: View {
+    let overview: Result<BatteryOverview, any Error>?
+    let state: BatteryModel.State
+
+    var body: some View {
+        switch overview {
+        case nil: EmptyView()
+        case .failure: UnreadableCard(phrase: HistoryNote.overview)
+        case .success(let overview):
+            DailyUsageCard(overview: overview)
+            if case .known(let reading?) = state { BatteryHealthCard(reading: reading, overview: overview) }
+        }
+    }
+}
+
+/// What the Battery screen says in place of what its history could not give.
+enum HistoryNote {
+    static let unopened: Phrase = "The battery history could not be read. Quit and reopen the app."
+    static let level: Phrase = "Battery level could not be read. Quit and reopen the app."
+    static let overview: Phrase = "Battery usage and health could not be read. Quit and reopen the app."
+}
+
+/// A card standing in for what the history could not give.
+struct UnreadableCard: View {
+    let phrase: Phrase
+
+    var body: some View {
+        SettingCard {
+            PhraseText(phrase).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
         }
     }
 }
