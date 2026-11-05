@@ -39,13 +39,45 @@ Reference contents:
 | 15% | yellow | Top of Screen |
 
 So each alert has these options:
-- **Position:** "Center of Screen" or "Top of Screen".
-- **Border Glow:** on or off. This is the screen edge glow.
+- **Position:** "Center of Screen", "Top of Screen", or "Full Screen". The first two place a pill; "Full Screen" is the full-screen alert below.
+- **Border Glow:** on or off. This is the screen edge glow. With "Full Screen" the editor hides the switch and the summary leaves it out, since nothing of the screen is left uncovered to glow; the saved value is kept for a switch back to a pill.
 - **Sound:** on or off. The summary lists only the options that are on.
+
+An alert saved before "Full Screen" existed keeps the position it was saved with.
 
 The reference colours red at 5% and below and yellow at 15%. Severity is presumably assigned by threshold band.
 
 Under the stack is a centred, dark, rounded button: "＋ Add Low Battery Alert".
+
+## Full-Screen Alert
+
+Not in the reference. PROJECT.md promises it for critical levels like 1–2%, where a pill that leaves after eight seconds is easy to miss. Low and charged alerts can choose it. The power-source and temperature pills cannot.
+
+**What it shows.** A dark, translucent cover over the whole screen, menu bar and Dock included, with one block centred on it:
+
+- The charge ring at a large size, drawn in the alert's severity colour and filled to the remaining charge, as the pill's ring is.
+- The pill's headline in large bold type, such as "2% Remaining" or "80% Charged".
+- The pill's second line under it, such as the time remaining, and left out when the pill would leave it out.
+- One button, "Dismiss".
+
+**What dismisses it.**
+
+- The "Dismiss" button.
+- Esc.
+- The power adapter being connected, for a low alert: the alert has been answered. The Plugged In pill then shows as usual if its switch is on.
+- A newer alert, which replaces it, as a newer alert replaces a pill.
+
+It has no countdown. It stays until one of these happens, including through a sleep or a lock, so it is still there when the person comes back.
+
+**Focus and input.** It takes keyboard focus while it is up, so Esc reaches it and typing doesn't go into the app underneath. Clicks on the cover land on the cover, not on what is beneath. It is a deliberate interruption, and the two ways out (the button and Esc) are always one action away. VoiceOver reads the headline and second line when it appears and lands on "Dismiss".
+
+**Several displays.** It covers every connected display, each with the same centred block. Dismissing it on any display clears every one. A display connected while it is up gets covered too, and a display removed takes its cover with it. Keyboard focus sits on the cover of the main display.
+
+**Full-screen apps.** It covers them as it covers the desktop, joining every Space as the pill and glow do, at the pill's level so nothing of Orange Drink's sits above it.
+
+**Screen sharing.** It does nothing special: someone watching a shared screen sees it as the person sharing does. A battery level is not private, and a cover the sharer sees but viewers don't would make the sharer's screen and the shared one disagree.
+
+**Sound.** The alert's Sound switch decides whether it plays a sound, once, when it appears, as a pill does.
 
 ## Charged Alerts
 
