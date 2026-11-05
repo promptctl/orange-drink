@@ -10,7 +10,7 @@ struct ShortcutsScreen: View {
         case menu(MenuShortcut)
     }
 
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
+    private static let log = Logger(.hotkey)
 
     let controller: ShortcutsController
     @State private var recording: Target?

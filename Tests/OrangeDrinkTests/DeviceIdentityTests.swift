@@ -125,6 +125,13 @@ import Testing
         #expect(DeviceEntity(id: wire, name: "x").identity == nil)
     }
 
+    @Test func aShelfTheQueryCannotReadOffersNoDevicesAndIsLogged() async throws {
+        let log = try await TestLog()
+        let query = DeviceQuery(directory: .failure(CocoaError(.fileNoSuchFile)), log: log.logger)
+        #expect(try await query.suggestedEntities().isEmpty)
+        #expect(try await log.logged("widget shelf unreadable"))
+    }
+
     @Test func choicesThisReleaseCannotReadAreLeftOutAndLogged() async throws {
         let log = try await TestLog()
         let entities = ["iphone:XY", "watch:AA", "AA-01"].map { DeviceEntity(id: $0, name: $0) }

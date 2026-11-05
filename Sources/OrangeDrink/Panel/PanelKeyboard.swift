@@ -70,7 +70,9 @@ struct KeyPress {
 /// Key presses through an AppKit local monitor, which sees only the keys typed to this app's windows;
 /// of those, only the ones typed to the panel's window, so the Settings window's keys are its own.
 @MainActor struct NSKeyEvents: KeyEvents {
-    let log: Logger
+    private let log: Logger
+
+    init(log: Logger) { self.log = log }
 
     func listen(_ handle: @escaping @MainActor (KeyPress) -> Bool) -> any KeyListening {
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in

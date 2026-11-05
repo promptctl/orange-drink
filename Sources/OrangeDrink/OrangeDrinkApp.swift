@@ -31,26 +31,17 @@ struct OrangeDrinkApp: App {
     private let appEnergy: Result<AppEnergyHistory, any Error>
     private let logs: ViewLogs
 
-    /// The loggers the views write through, each the one its subject's category has.
-    private struct ViewLogs {
-        let settings: Logger
-        let history: Logger
-        let appEnergy: Logger
-        let widgets: Logger
-    }
-
     init() {
         // [LAW:one-source-of-truth] Each subject's one logger, bound once here, so every part of a subject writes to the
         // same category and a test hands the same subject a log of its own.
-        func logger(_ category: String) -> Logger { Logger(subsystem: IOKitBattery.logSubsystem, category: category) }
-        let alertsLog = logger("alerts")
-        let devicesLog = logger("devices")
-        let batteryLog = logger("battery")
-        let hotKeyLog = logger("hotkey")
-        let historyLog = logger("history")
-        let appEnergyLog = logger("app-energy")
-        let settingsLog = logger("settings")
-        logs = ViewLogs(settings: settingsLog, history: historyLog, appEnergy: appEnergyLog, widgets: ShelfLog.log)
+        let alertsLog = Logger(.alerts)
+        let devicesLog = Logger(.devices)
+        let batteryLog = Logger(.battery)
+        let hotKeyLog = Logger(.hotkey)
+        let historyLog = Logger(.history)
+        let appEnergyLog = Logger(.appEnergy)
+        let widgetsLog = Logger(.widgets)
+        logs = ViewLogs(settings: Logger(.settings), history: historyLog, appEnergy: appEnergyLog, widgets: widgetsLog)
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
         let alerts: AlertCenter
         let appearance: NotificationAppearanceModel
@@ -91,9 +82,9 @@ struct OrangeDrinkApp: App {
         let shelf: URL
         do { shelf = try WidgetShelf.groupContainer() } catch { fatalError("no widget shelf: \(error)") }
         let reload: @MainActor (WidgetKind) -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: $0.rawValue) }
-        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: ShelfLog.log, reload: reload)
-        let deviceWidgets = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: ShelfLog.log, reload: reload)
-        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf, log: ShelfLog.log, reload: reload)
+        let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: widgetsLog, reload: reload)
+        let deviceWidgets = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: widgetsLog, reload: reload)
+        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf, log: widgetsLog, reload: reload)
         let devices = DevicesModel(sources: [.bluetooth: BluetoothDevices.appEvents(log: devicesLog)], shelf: deviceWidgets, seenShelf: seenShelf, settings: deviceSettings, seen: seenDevices, language: language, pinnedItems: PinnedItemsController(makeItem: { NSPinnedStatusItem(id: $0, log: devicesLog) }), log: devicesLog, onChange: {
             alerts.observe(devices: $0, watching: deviceSettings.value.alerting)
         })
@@ -175,7 +166,7 @@ struct OrangeDrinkApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, settingsLog: logs.settings, historyLog: logs.history, appEnergyLog: logs.appEnergy, widgetsLog: logs.widgets) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, logs: logs) }
     }
 }
 
