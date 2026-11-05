@@ -4820,6 +4820,28 @@
         }
       }
     },
+    "Battery level could not be read. Quit and reopen the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery level could not be read. Quit and reopen the app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le niveau de la batterie n’a pas pu être lu. Quittez puis rouvrez l’app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer el nivel de la batería. Cierra y vuelve a abrir la app."
+          }
+        }
+      }
+    },
     "Battery usage and health could not be read. Quit and reopen the app.": {
       "localizations": {
         "en": {

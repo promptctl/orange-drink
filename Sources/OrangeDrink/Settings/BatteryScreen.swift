@@ -14,9 +14,9 @@ struct BatteryScreen: View {
         VStack(alignment: .leading, spacing: 24) {
             tiles
             // A Mac with no battery records nothing, so a card promising a filling history would never fill.
-            if case .known(nil) = battery.state {} else if case .failure = loaded, case .failure = overview {
-                // One unreadable history is one fault, said once rather than by every card it empties.
-                UnreadableCard(phrase: "The battery history could not be read. Quit and reopen the app.")
+            if case .known(nil) = battery.state {} else if case .failure = history {
+                // A history that never opened is one fault, said once rather than by every card it empties.
+                UnreadableCard(phrase: HistoryNote.unopened)
             } else {
                 levelCard
                 OverviewCards(overview: overview, state: battery.state)
@@ -56,7 +56,7 @@ struct BatteryScreen: View {
                 }
                 switch loaded {
                 case nil: EmptyView()
-                case .failure: PhraseText("The battery history could not be read. Quit and reopen the app.").foregroundStyle(.secondary)
+                case .failure: PhraseText(HistoryNote.level).foregroundStyle(.secondary)
                 case .success(let timeline):
                     summary(timeline)
                     chart(timeline)
@@ -110,12 +110,19 @@ struct OverviewCards: View {
     var body: some View {
         switch overview {
         case nil: EmptyView()
-        case .failure: UnreadableCard(phrase: "Battery usage and health could not be read. Quit and reopen the app.")
+        case .failure: UnreadableCard(phrase: HistoryNote.overview)
         case .success(let overview):
             DailyUsageCard(overview: overview)
             if case .known(let reading?) = state { BatteryHealthCard(reading: reading, overview: overview) }
         }
     }
+}
+
+/// What the Battery screen says in place of what its history could not give.
+enum HistoryNote {
+    static let unopened: Phrase = "The battery history could not be read. Quit and reopen the app."
+    static let level: Phrase = "Battery level could not be read. Quit and reopen the app."
+    static let overview: Phrase = "Battery usage and health could not be read. Quit and reopen the app."
 }
 
 /// A card standing in for what the history could not give.

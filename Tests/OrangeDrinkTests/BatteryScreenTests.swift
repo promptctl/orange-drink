@@ -92,14 +92,23 @@ import ViewInspector
 
     @Test func anOverviewTheHistoryCannotReadSaysSoInPlaceOfItsCards() throws {
         let texts = try Self.overviewTexts(try HistoryReadFailureTests.unreadable(BatteryHistoryTests.tempFile()))
-        #expect(texts.contains("Battery usage and health could not be read. Quit and reopen the app."))
+        #expect(texts.contains(HistoryNote.overview.english))
         #expect(!texts.contains("DAILY USAGE"))
     }
 
     @Test func aReadableOverviewShowsItsCardsAndNoFailure() throws {
         let texts = try Self.overviewTexts(try HistoryStore(url: BatteryHistoryTests.tempFile()))
         #expect(texts.contains("DAILY USAGE"))
-        #expect(!texts.contains("Battery usage and health could not be read. Quit and reopen the app."))
+        #expect(!texts.contains(HistoryNote.overview.english))
+    }
+
+    @Test func aHistoryThatNeverOpenedIsSaidOnceInPlaceOfEveryCard() throws {
+        let (readings, _) = AsyncThrowingStream.makeStream(of: BatteryRead.self)
+        let battery = BatteryModel(readings: readings, read: { .success(nil) }, log: .unread)
+        let texts = try BatteryScreen(battery: battery, history: .failure(CocoaError(.fileReadCorruptFile)))
+            .inspect().findAll(ViewType.Text.self).map { try $0.string(locale: .testsDefault) }
+        #expect(texts.filter { $0.contains("could not be read") } == [HistoryNote.unopened.english])
+        #expect(!texts.contains("Battery Level"))
     }
 
     @Test func aMacWithAReadingShowsItsHealthOnlyBesideAReadableOverview() throws {
