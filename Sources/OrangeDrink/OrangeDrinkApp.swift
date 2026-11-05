@@ -145,9 +145,9 @@ struct OrangeDrinkApp: App {
         chargeHold.follow(chargeLimit)
         _chargeHold = State(initialValue: chargeHold)
         _battery = State(initialValue: BatteryModel(
-            readings: BatteryMonitor.readings(log: batteryLog), read: { try IOKitBattery.read(log: batteryLog) }, log: batteryLog, onState: { state in
+            readings: BatteryMonitor.readings(log: batteryLog), read: { IOKitBattery.look(log: batteryLog) }, log: batteryLog, onState: { state in
                 widgets.publish(.running(MacBattery(state)))
-                // Every state, an ended stream included: readings that stop let charging run.
+                // Every state, a read that gave no reading and an ended stream included: no reading lets charging run.
                 chargeHold.observe(state)
                 guard case .known(let reading) = state else { return }
                 alerts.observe(reading)

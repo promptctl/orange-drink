@@ -7,5 +7,6 @@ import Foundation
 enum BatteryStateNote {
     static let unknown: Phrase = "Reading the battery…"
     static let noBattery: Phrase = "This Mac has no battery."
+    static let unread: Phrase = "Can't read the battery right now. Trying again."
     static let ended: Phrase = "Battery readings stopped. Quit and reopen the app."
 }

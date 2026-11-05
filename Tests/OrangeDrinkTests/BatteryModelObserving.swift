@@ -19,5 +19,16 @@ extension BatteryModel {
 
     static func isSettled(_ state: State) -> Bool { if case .unknown = state { false } else { true } }
     static func isKnown(_ state: State) -> Bool { if case .known = state { true } else { false } }
+    static func isUnread(_ state: State) -> Bool { if case .unread = state { true } else { false } }
     static func isEnded(_ state: State) -> Bool { if case .ended = state { true } else { false } }
+}
+
+/// What a read that gave no reading is in a test: powerd not answering, which is the one cause the tests need to name.
+extension BatteryRead {
+    static var unanswered: BatteryRead { .failure(PowerSourcesError.unanswered(call: "IOPSCopyPowerSourcesInfo")) }
+}
+
+extension AsyncThrowingStream<BatteryRead, any Error>.Continuation {
+    /// A read that gave this reading (nil is a Mac with no battery).
+    @discardableResult func yield(_ reading: BatteryReading?) -> YieldResult { yield(.success(reading)) }
 }

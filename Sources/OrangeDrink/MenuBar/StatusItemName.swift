@@ -14,6 +14,7 @@ struct StatusItemName: Equatable {
             "\(appName), \(BatteryLevel.text(BatteryLevel(percent: reading.chargePercent, approximate: false))), \(ChargeStatus(reading.power).title)"
         case .unknown: "\(appName), \(BatteryStateNote.unknown)"
         case .known(nil): "\(appName), \(BatteryStateNote.noBattery)"
+        case .unread: "\(appName), \(BatteryStateNote.unread)"
         case .ended: "\(appName), \(BatteryStateNote.ended)"
         }
     }

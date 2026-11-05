@@ -21,6 +21,7 @@ struct PanelView: View {
             case .known(let reading?): ChargeCardView(card: ChargeCard(reading))
             case .unknown: PanelNote(BatteryStateNote.unknown)
             case .known(nil): PanelNote(BatteryStateNote.noBattery)
+            case .unread: PanelNote(BatteryStateNote.unread)
             case .ended: PanelNote(BatteryStateNote.ended)
             }
             CollapsibleCard(title: "Battery Information", symbol: "info.circle.fill", symbolColor: .blue,

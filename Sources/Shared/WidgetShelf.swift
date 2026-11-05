@@ -18,7 +18,8 @@ enum MacBattery: Codable, Equatable, Sendable {
     case noBattery
     /// The app is running and has no reading yet.
     case waiting
-    /// The app's readings stopped; its panel says why.
+    /// The app has no reading to show, because its readings stopped or its latest read gave none; its panel says
+    /// which. The name is the wire key the widget extension shares, not the app's `BatteryModel.State.ended`.
     case ended
 }
 
@@ -26,17 +27,17 @@ extension MacBattery {
     static let glyph = "laptopcomputer"
     /// What a widget that shows names calls the Mac, in the words the panel and the widget's settings use.
     static let name: Phrase = "This Mac"
-    /// Readings that stopped, wherever they are drawn: the menu bar and every widget.
-    static let stoppedGlyph = "exclamationmark.triangle"
+    /// No reading to show, wherever it is drawn: the menu bar and every widget.
+    static let unavailableGlyph = "exclamationmark.triangle"
 
     /// The Mac as a widget draws it: the empty ring until there is a reading, and the empty ring with a
-    /// warning after the readings end, so a stopped Mac never reads as one still waiting. nil when it has
+    /// warning once there is none to show, so such a Mac never reads as one still waiting. nil when it has
     /// no battery, a desktop Mac.
     var battery: WidgetBattery? {
         switch self {
         case .level(let percent, let charging): WidgetBattery(glyph: Self.glyph, level: BatteryLevel(percent: percent, approximate: false), charging: charging)
         case .waiting: WidgetBattery(glyph: Self.glyph, level: nil, charging: false)
-        case .ended: WidgetBattery(glyph: Self.stoppedGlyph, level: nil, charging: false)
+        case .ended: WidgetBattery(glyph: Self.unavailableGlyph, level: nil, charging: false)
         case .noBattery: nil
         }
     }
@@ -173,7 +174,7 @@ extension BluetoothNoList {
     var glyph: String {
         switch self {
         case .waiting, .unanswered: DeviceKind.accessory.symbol
-        case .denied, .ended: MacBattery.stoppedGlyph
+        case .denied, .ended: MacBattery.unavailableGlyph
         }
     }
 
@@ -189,7 +190,7 @@ extension BluetoothNoList {
 
 extension IPhoneMissing {
     /// All three warn: the person has something to do, and nothing is coming that will do it for them.
-    var glyph: String { MacBattery.stoppedGlyph }
+    var glyph: String { MacBattery.unavailableGlyph }
 
     var text: Phrase {
         switch self {
@@ -204,7 +205,7 @@ extension IPhoneNoList {
     var glyph: String {
         switch self {
         case .waiting: DeviceKind.accessory.symbol
-        case .ended: MacBattery.stoppedGlyph
+        case .ended: MacBattery.unavailableGlyph
         }
     }
 

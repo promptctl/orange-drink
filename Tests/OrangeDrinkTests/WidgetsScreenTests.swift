@@ -10,7 +10,7 @@ import WidgetKit
 @MainActor @Suite final class WidgetsScreenTests {
     /// The Mac at 80% charging and two simulated devices, as the models hold them.
     @MainActor struct Bed {
-        let feed: AsyncThrowingStream<BatteryReading?, any Error>.Continuation
+        let feed: AsyncThrowingStream<BatteryRead, any Error>.Continuation
         let send: AsyncThrowingStream<DeviceEvent, any Error>.Continuation
         let battery: BatteryModel
         let devices: DevicesModel
@@ -18,9 +18,9 @@ import WidgetKit
         let screen: WidgetsScreen
 
         init() async throws {
-            let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
+            let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryRead.self)
             let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-            let battery = BatteryModel(readings: readings, read: { nil }, log: .unread)
+            let battery = BatteryModel(readings: readings, read: { .success(nil) }, log: .unread)
             let devices = DevicesModel(sources: [.bluetooth: events], log: .unread)
             let settings = try DeviceSettingsModel(defaults: scratchDefaults())
             (self.feed, self.send, self.battery, self.devices, self.settings) = (feed, send, battery, devices, settings)

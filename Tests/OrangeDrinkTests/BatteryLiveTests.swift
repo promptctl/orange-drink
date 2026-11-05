@@ -82,7 +82,7 @@ import Testing
         let log = try await TestLog()
         var readings = BatteryMonitor.readings(log: log.logger).makeAsyncIterator()
         let published = try #require(try await readings.next(), "the stream ended before its first reading")
-        let first = try #require(published, "this check needs a Mac with a battery")
+        let first = try #require(try published.get(), "this check needs a Mac with a battery")
         let direct = try #require(try IOKitBattery.read(log: .unread))
         #expect(first.capacity.design == direct.capacity.design)
         #expect(first.cycles == direct.cycles)
@@ -91,11 +91,12 @@ import Testing
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.
     @MainActor @Test func appModelHoldsTheCurrentReading() async throws {
-        let model = BatteryModel(readings: BatteryMonitor.readings(log: .unread), read: { try IOKitBattery.read(log: .unread) }, log: .unread)
+        let model = BatteryModel(readings: BatteryMonitor.readings(log: .unread), read: { IOKitBattery.look(log: .unread) }, log: .unread)
         let direct = try #require(try IOKitBattery.read(log: .unread))
         switch await model.state(once: BatteryModel.isSettled) {
         case .known(let reading?): #expect(reading.cycles == direct.cycles)
         case .known(nil): Issue.record("the subscription saw no battery where a direct read saw one")
+        case .unread: Issue.record("the subscription's read gave no reading where a direct read gave one")
         case .ended(let error): Issue.record("the subscription ended: \(error.map { "\($0)" } ?? "the stream finished")")
         case .unknown: Issue.record("state(once:) returned before the state settled")
         }
@@ -129,7 +130,8 @@ import Testing
         let run = Task { () -> (unplugged: Arrival, plugged: Arrival)? in
             var unplugged: Arrival?
             FileHandle.standardError.write(Data("\n>>> Unplug the adapter now.\n".utf8))
-            for try await event in BatteryMonitor.events(from: BatteryMonitor.readings(log: .unread), log: logger) {
+            // A read that gives no reading throws here, ending the check: it must never read as a Mac with no battery.
+            for try await event in BatteryMonitor.events(from: BatteryMonitor.readings(log: .unread).map { try $0.get() }, log: logger) {
                 switch (event, unplugged) {
                 case (.unplugged(let reading), nil):
                     unplugged = try Arrival(reading, pmset: pmsetBattery, read: readBattery)
