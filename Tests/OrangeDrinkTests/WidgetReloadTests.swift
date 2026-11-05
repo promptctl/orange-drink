@@ -40,10 +40,10 @@ import Testing
             let device = DeviceBatteryWidgetTests.earbuds(54, case: 100 - step)
             send.yield(.reported(device))
             // Each event reaches the model, and the mirror that follows it has had a turn, before the next one is sent.
-            #expect(await eventually { model.list.devices.first { $0.id == device.id }?.levels == device.levels })
+            try #require(await eventually { model.list.devices.first { $0.id == device.id }?.levels == device.levels })
             await Task.yield()
         }
-        // A mirror that lags is caught by the exact list below as well: its reload would be in it.
+        // Mirror passes run in order, so a reload from a pass that ran late lands before the real change's and is in the exact list below.
         #expect(reloads.asked == drawn)
         #expect(try WidgetShelf.read(.devices, from: shelf).get() == onShelf)
 
@@ -61,8 +61,9 @@ import Testing
 
         func holds(_ reading: BatteryReading) -> Bool { if case .known(let held) = model.state { held == reading } else { false } }
         // The full-charge capacity is the field that moves: the temperature is parsed to whole degrees, so a tenth of one makes no new reading.
-        func reading(percent: Int, fullCapacity: Int) throws -> BatteryReading {
-            try BatteryHistoryTests.reading(BatteryReadingParse.discharging(timeToEmpty: 192), percent: percent, full: fullCapacity)
+        func reading(percent: Int, fullCapacity: Int, charging: Bool = false) throws -> BatteryReading {
+            try BatteryHistoryTests.reading(charging ? BatteryReadingParse.charging(timeToFull: 60) : BatteryReadingParse.discharging(timeToEmpty: 192),
+                                            percent: percent, full: fullCapacity)
         }
 
         let first = try reading(percent: 79, fullCapacity: 5_900)
@@ -74,13 +75,17 @@ import Testing
         for step in 1...100 {
             let next = try reading(percent: 79, fullCapacity: 5_900 + step)
             feed.yield(next)
-            #expect(await eventually { holds(next) })
+            try #require(await eventually { holds(next) })
         }
         #expect(reloads.asked == drawn)
 
         let lower = try reading(percent: 78, fullCapacity: 5_900)
         feed.yield(lower)
         #expect(await eventually { holds(lower) })
-        #expect(Array(reloads.asked.dropFirst(drawn.count)).sorted { $0.rawValue < $1.rawValue } == [.allBatteries, .macBattery])
+        let plugged = try reading(percent: 78, fullCapacity: 5_900, charging: true)
+        feed.yield(plugged)
+        #expect(await eventually { holds(plugged) })
+        // The percent and then the charging state each change what the widgets draw, so each asks for its own pair of reloads.
+        #expect(Array(reloads.asked.dropFirst(drawn.count)).sorted { $0.rawValue < $1.rawValue } == [.allBatteries, .allBatteries, .macBattery, .macBattery])
     }
 }
