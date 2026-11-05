@@ -54,7 +54,6 @@ struct OrangeDrinkApp: App {
         let chargeLimit: ChargeLimitModel
         let systemNotifications: SystemNotificationSettingsModel
         let pills: PillController
-        let presenter: AlertPresenter
         let sounds = AlertSounds(play: AlertSounds.systemChime(log: alertsLog))
         do {
             appearance = try NotificationAppearanceModel(defaults: .standard)
@@ -73,7 +72,7 @@ struct OrangeDrinkApp: App {
                 if key { panel.makeKey() }
             }, log: alertsLog)
             cover.follow(layout: ScreenMonitor.layout())
-            presenter = AlertPresenter(pills: pills, cover: cover, sounds: sounds, log: alertsLog)
+            let presenter = AlertPresenter(pills: pills, cover: cover, sounds: sounds, log: alertsLog)
             alerts = try AlertCenter(defaults: .standard, log: alertsLog, deliver: {
                 presenter.deliver($0)
             }, deliverDevice: {

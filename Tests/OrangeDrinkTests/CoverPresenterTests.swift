@@ -99,6 +99,16 @@ import Testing
         }
     }
 
+    @Test func twoFullScreenAlertsCrossedOnOneReadingShowTheMoreUrgentOnceWhicheverIsListedFirst() throws {
+        let five = Alert(kind: .low, threshold: 5, position: .fullScreen, glow: false, sound: true)
+        for firings: [Firing] in [[.threshold(five), .threshold(CoverTests.critical)], [.threshold(CoverTests.critical), .threshold(five)]] {
+            let rig = Rig()
+            defer { rig.close() }
+            rig.read(try Self.onBattery(1), firing: firings)
+            #expect(rig.covers.cover.shown?.headline.english == "1% Remaining" && rig.covers.ordered.count == 1 && rig.chimes == 1)
+        }
+    }
+
     @Test func aTemperaturePillShowsAndSoundsOverTheCover() throws {
         let rig = Rig()
         defer { rig.close() }

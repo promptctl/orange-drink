@@ -25,12 +25,18 @@ enum CoverEnd: String {
     case adapterConnected = "adapter connected"
     case adapterDisconnected = "adapter disconnected"
 
-    /// The adapter change that answers an alert of this kind.
-    static func answering(_ kind: Alert.Kind) -> CoverEnd {
-        switch kind {
-        case .low: .adapterConnected
-        case .charged: .adapterDisconnected
+    /// [LAW:one-source-of-truth] The one rule for what answers an alert: the adapter connected answers
+    /// a low alert, disconnected a charged one. nil when none of `changes` answers `kind`.
+    init?(answering kind: Alert.Kind, in changes: [BatteryEvent]) {
+        let answers = changes.compactMap { change -> CoverEnd? in
+            switch (change, kind) {
+            case (.plugged, .low): .adapterConnected
+            case (.unplugged, .charged): .adapterDisconnected
+            case (.plugged, .charged), (.unplugged, .low), (.levelChanged, _): nil
+            }
         }
+        guard let answer = answers.first else { return nil }
+        self = answer
     }
 }
 
@@ -171,7 +177,7 @@ final class CoverPanel: OverlayPanel {
     /// cover's alert takes it down; a low alert fired with the adapter already connected waits for
     /// Dismiss or Esc, as no change answers it.
     func observe(_ changes: [BatteryEvent]) {
-        if let up, up.alert.isAnswered(by: changes) { dismiss(.answering(up.alert.kind)) }
+        if let up, let answer = CoverEnd(answering: up.alert.kind, in: changes) { dismiss(answer) }
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.

@@ -52,15 +52,4 @@ struct Alert: Codable, Equatable, Identifiable, Sendable {
         case .charged: level <= max(threshold - Self.hysteresis, 0)
         }
     }
-
-    /// Whether one of these adapter changes answers the alert: connecting the adapter answers a low
-    /// alert, disconnecting it a charged one (design-docs/alerts.md).
-    func isAnswered(by changes: [BatteryEvent]) -> Bool {
-        changes.contains {
-            switch ($0, kind) {
-            case (.plugged, .low), (.unplugged, .charged): true
-            case (.plugged, .charged), (.unplugged, .low), (.levelChanged, _): false
-            }
-        }
-    }
 }
