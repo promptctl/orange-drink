@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ViewInspector
 @testable import OrangeDrink
 
 // [LAW:behavior-not-structure] The contract is what the Battery screen's top half says for a reading
@@ -80,6 +81,25 @@ import Testing
         #expect(history.changes.revision == 0)
         history.observe(try BatteryHistoryTests.onBattery(80))
         #expect(history.changes.revision == 1)
+    }
+
+    /// What the overview cards say for the overview `store` gives, in reading order.
+    static func overviewTexts(_ store: HistoryStore) throws -> [String] {
+        let history = BatteryHistory(store: store, log: .unread, timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
+        return try OverviewCards(overview: Result { try history.overview() }, state: .unknown)
+            .inspect().findAll(ViewType.Text.self).map { try $0.string(locale: .testsDefault) }
+    }
+
+    @Test func anOverviewTheHistoryCannotReadSaysSoInPlaceOfItsCards() throws {
+        let texts = try Self.overviewTexts(try HistoryReadFailureTests.unreadable(BatteryHistoryTests.tempFile()))
+        #expect(texts.contains("Battery usage and health could not be read. Quit and reopen the app."))
+        #expect(!texts.contains("DAILY USAGE"))
+    }
+
+    @Test func aReadableOverviewShowsItsCardsAndNoFailure() throws {
+        let texts = try Self.overviewTexts(try HistoryStore(url: BatteryHistoryTests.tempFile()))
+        #expect(texts.contains("DAILY USAGE"))
+        #expect(!texts.contains("Battery usage and health could not be read. Quit and reopen the app."))
     }
 
     @Test func theTilesSayWhatTheReferenceReadingSays() throws {

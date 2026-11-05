@@ -4820,6 +4820,28 @@
         }
       }
     },
+    "Battery usage and health could not be read. Quit and reopen the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery usage and health could not be read. Quit and reopen the app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’utilisation et la santé de la batterie n’ont pas pu être lues. Quittez puis rouvrez l’app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron leer el uso ni la salud de la batería. Cierra y vuelve a abrir la app."
+          }
+        }
+      }
+    },
     "The battery history could not be read. Quit and reopen the app.": {
       "localizations": {
         "en": {

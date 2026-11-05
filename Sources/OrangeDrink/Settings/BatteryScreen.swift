@@ -16,10 +16,7 @@ struct BatteryScreen: View {
             // A Mac with no battery records nothing, so a card promising a filling history would never fill.
             if case .known(nil) = battery.state {} else {
                 levelCard
-                if case .success(let overview)? = overview {
-                    DailyUsageCard(overview: overview)
-                    if case .known(let reading?) = battery.state { BatteryHealthCard(reading: reading, overview: overview) }
-                }
+                OverviewCards(overview: overview, state: battery.state)
             }
         }
         .padding(24)
@@ -98,6 +95,27 @@ struct BatteryScreen: View {
             .chartYAxis { AxisMarks(values: [0, 50, 100]) { AxisGridLine(); AxisValueLabel("\($0.as(Int.self) ?? 0)%") } }
             .frame(height: 160)
             .accessibilityLabel(Phrase("Battery level over the last \(timeline.range.title)").text(in: language))
+        }
+    }
+}
+
+/// The Daily Usage and Battery Health cards, or in their place the word that the history behind them could not be read.
+struct OverviewCards: View {
+    let overview: Result<BatteryOverview, any Error>?
+    let state: BatteryModel.State
+
+    var body: some View {
+        switch overview {
+        case nil: EmptyView()
+        case .failure:
+            SettingCard {
+                PhraseText("Battery usage and health could not be read. Quit and reopen the app.").foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+            }
+        case .success(let overview):
+            DailyUsageCard(overview: overview)
+            if case .known(let reading?) = state { BatteryHealthCard(reading: reading, overview: overview) }
         }
     }
 }
