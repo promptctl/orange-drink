@@ -7,6 +7,7 @@ struct ViewLogs {
     let history: Logger
     let appEnergy: Logger
     let widgets: Logger
+    let hotkey: Logger
 }
 
 /// The settings window: the sidebar on the left, the chosen screen on the right.
@@ -126,7 +127,7 @@ private struct ScreenView: View {
                 case .alerts: AlertsScreen(center: alerts, settingsLog: logs.settings)
                 case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings, settingsLog: logs.settings)
                 case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold, settingsLog: logs.settings)
-                case .shortcuts: ShortcutsScreen(controller: shortcuts)
+                case .shortcuts: ShortcutsScreen(controller: shortcuts, log: logs.hotkey)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, settingsLog: logs.settings, select: select)
                 case .widgets: WidgetsScreen(battery: battery, devices: devices, settings: deviceSettings, widgetsLog: logs.widgets)
                 case .appUsage: AppUsageScreen(appEnergy: appEnergy, log: logs.appEnergy)

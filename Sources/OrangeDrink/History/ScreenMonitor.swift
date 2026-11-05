@@ -9,7 +9,7 @@ enum ScreenHider: String, CaseIterable, Sendable {
 
 /// [LAW:effects-at-boundaries] The one edge that listens for what the screen is doing.
 enum ScreenMonitor {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "screen")
+    private static let log = Logger(.screen)
 
     /// One hider's start and end, posted on the workspace's center or the distributed one.
     struct Signal: Sendable {

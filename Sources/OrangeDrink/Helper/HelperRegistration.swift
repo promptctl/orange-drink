@@ -156,7 +156,7 @@ struct HelperRegistration: Sendable {
     static let refusalWindow = Duration.seconds(3)
     static let attemptGap = Duration.seconds(1)
 
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "helper")
+    static let log = Logger(.helper)
 
     /// [LAW:one-source-of-truth] The plist this build embeds, read once at launch, so the exit handler can still name
     /// the label with the bundle gone from disk. A build without one is broken.

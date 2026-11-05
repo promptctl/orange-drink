@@ -142,7 +142,7 @@ import Testing
         center.observe(try Self.reading(19))
         center.observe(nil)
         #expect(delivered == [.threshold(alert)])
-        #expect(try await log.logged("alert fired"))
+        #expect(try await log.messages().contains { $0.hasPrefix("alert fired") })
         #expect(try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in }).settings.alerts == [alert])
     }
 

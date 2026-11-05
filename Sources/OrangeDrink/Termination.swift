@@ -110,7 +110,7 @@ struct QuitRecords {
     }
 
     convenience init() {
-        self.init(records: .standard, signal: SIGTERM, log: Logger(subsystem: IOKitBattery.logSubsystem, category: "termination"), terminate: { NSApplication.shared.terminate(nil) })
+        self.init(records: .standard, signal: SIGTERM, log: Logger(.termination), terminate: { NSApplication.shared.terminate(nil) })
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {

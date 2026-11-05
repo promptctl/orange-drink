@@ -91,7 +91,7 @@ import Sparkle
 /// [LAW:nothing-unseen] `updater:didFinishUpdateCycleForUpdateCheck:error:` is the one callback per cycle, however it
 /// ended; `updater:didAbortWithError:` also fires for no update and for a cancel, so it is no sign of a failure.
 private final class UpdaterEvents: NSObject, SPUUpdaterDelegate {
-    private let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "updates")
+    private let log = Logger(.updates)
 
     private func record(_ event: AppUpdater.Event) { log.notice("\(event.line, privacy: .public)") }
 

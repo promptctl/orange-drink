@@ -96,7 +96,7 @@ import ServiceManagement
     @ObservationIgnored private let record: (Event) -> Void
     @ObservationIgnored private let openLoginItemsPane: () -> Void
 
-    private nonisolated static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "launchAtLogin")
+    private nonisolated static let log = Logger(.launchAtLogin)
 
     /// The app's `record`: each event to the launchAtLogin log.
     nonisolated static func record(_ event: Event) { log.notice("\(event.line, privacy: .public)") }

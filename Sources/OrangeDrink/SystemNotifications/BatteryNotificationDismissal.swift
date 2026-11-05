@@ -178,7 +178,7 @@ import OSLog
     @ObservationIgnored private let openAccessibilityPane: () -> Void
     @ObservationIgnored private let wake: AsyncStream<Void>.Continuation
 
-    private nonisolated static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "batteryNotifications")
+    private nonisolated static let log = Logger(.batteryNotifications)
 
     /// The app's `record`: each event to the batteryNotifications log.
     nonisolated static func record(_ event: Event) { log.notice("\(event.line, privacy: .public)") }
