@@ -65,9 +65,7 @@ struct SettingRow<Control: View>: View {
             Spacer(minLength: 12)
             control()
         }
-        .padding(12)
-        .overlay(alignment: .bottom) { Divider().padding(.leading, 56) }
-        .accessibilityElement(children: .contain)
+        .settingRowChrome()
     }
 }
 
@@ -81,10 +79,17 @@ struct StackedSettingRow<Control: View>: View {
             Text(title).fontWeight(.bold)
             control()
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .bottom) { Divider().padding(.leading, 56) }
-        .accessibilityElement(children: .contain)
+        .settingRowChrome()
+    }
+}
+
+extension View {
+    /// A setting row's padding, its hairline below, and one accessibility group, shared by every row shape.
+    fileprivate func settingRowChrome() -> some View {
+        padding(12)
+            .overlay(alignment: .bottom) { Divider().padding(.leading, 56) }
+            .accessibilityElement(children: .contain)
     }
 }
 
