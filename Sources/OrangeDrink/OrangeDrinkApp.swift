@@ -67,8 +67,14 @@ struct OrangeDrinkApp: App {
             systemNotifications = try SystemNotificationSettingsModel(defaults: .standard)
             pills = PillController(appearance: appearance, language: language, orderFront: { $0.orderFrontRegardless() }, log: alertsLog)
             pills.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
+            let cover = CoverController(language: language, orderFront: { panel, key in
+                panel.orderFrontRegardless()
+                if key { panel.makeKey() }
+            }, log: alertsLog)
+            cover.follow(layout: ScreenMonitor.layout())
+            let presenter = AlertPresenter(pills: pills, cover: cover)
             alerts = try AlertCenter(defaults: .standard, log: alertsLog, deliver: {
-                pills.deliver($0, reading: $1)
+                presenter.deliver($0, reading: $1)
                 sounds.deliver($0)
             }, deliverDevice: {
                 pills.deliver($0)

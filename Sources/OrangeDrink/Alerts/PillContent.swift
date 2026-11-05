@@ -81,8 +81,7 @@ struct PillContent: Equatable, Sendable {
     }
 
     /// Where an alert's pill sits and whether it glows. A full-screen alert shown as a pill sits at
-    /// the centre. Every full-screen firing, the Mac's own included, comes here until the Mac's are
-    /// routed to the cover.
+    /// the centre: a watched device's, since `AlertPresenter` sends the Mac's to the cover.
     static func placement(_ alert: Alert) -> (position: Position, glow: Bool) {
         (alert.position == .top ? .top : .center, alert.showsGlow)
     }
