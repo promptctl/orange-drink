@@ -14,7 +14,10 @@ struct BatteryScreen: View {
         VStack(alignment: .leading, spacing: 24) {
             tiles
             // A Mac with no battery records nothing, so a card promising a filling history would never fill.
-            if case .known(nil) = battery.state {} else {
+            if case .known(nil) = battery.state {} else if case .failure = loaded, case .failure = overview {
+                // One unreadable history is one fault, said once rather than by every card it empties.
+                UnreadableCard(phrase: "The battery history could not be read. Quit and reopen the app.")
+            } else {
                 levelCard
                 OverviewCards(overview: overview, state: battery.state)
             }
@@ -107,15 +110,23 @@ struct OverviewCards: View {
     var body: some View {
         switch overview {
         case nil: EmptyView()
-        case .failure:
-            SettingCard {
-                PhraseText("Battery usage and health could not be read. Quit and reopen the app.").foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-            }
+        case .failure: UnreadableCard(phrase: "Battery usage and health could not be read. Quit and reopen the app.")
         case .success(let overview):
             DailyUsageCard(overview: overview)
             if case .known(let reading?) = state { BatteryHealthCard(reading: reading, overview: overview) }
+        }
+    }
+}
+
+/// A card standing in for what the history could not give.
+struct UnreadableCard: View {
+    let phrase: Phrase
+
+    var body: some View {
+        SettingCard {
+            PhraseText(phrase).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
         }
     }
 }

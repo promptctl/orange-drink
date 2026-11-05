@@ -84,9 +84,9 @@ import ViewInspector
     }
 
     /// What the overview cards say for the overview `store` gives, in reading order.
-    static func overviewTexts(_ store: HistoryStore) throws -> [String] {
+    static func overviewTexts(_ store: HistoryStore, state: BatteryModel.State = .unknown) throws -> [String] {
         let history = BatteryHistory(store: store, log: .unread, timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
-        return try OverviewCards(overview: Result { try history.overview() }, state: .unknown)
+        return try OverviewCards(overview: Result { try history.overview() }, state: state)
             .inspect().findAll(ViewType.Text.self).map { try $0.string(locale: .testsDefault) }
     }
 
@@ -100,6 +100,13 @@ import ViewInspector
         let texts = try Self.overviewTexts(try HistoryStore(url: BatteryHistoryTests.tempFile()))
         #expect(texts.contains("DAILY USAGE"))
         #expect(!texts.contains("Battery usage and health could not be read. Quit and reopen the app."))
+    }
+
+    @Test func aMacWithAReadingShowsItsHealthOnlyBesideAReadableOverview() throws {
+        let reading = try #require(try BatteryReading(
+            registry: BatteryReadingParse.registry, powerSource: BatteryReadingParse.discharging(timeToEmpty: 192), adapter: BatteryReadingParse.adapter))
+        #expect(try Self.overviewTexts(try HistoryStore(url: BatteryHistoryTests.tempFile()), state: .known(reading)).contains("Battery Health"))
+        #expect(!(try Self.overviewTexts(try HistoryReadFailureTests.unreadable(BatteryHistoryTests.tempFile()), state: .known(reading)).contains("Battery Health")))
     }
 
     @Test func theTilesSayWhatTheReferenceReadingSays() throws {
