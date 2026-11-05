@@ -53,6 +53,48 @@ struct DeviceSourcesListTests {
         #expect(denied.unread(of: .bluetooth) == .bluetooth(.denied))
     }
 
+    // [LAW:verifiable-goals] What the iPhone source reaches and cannot list (orange-device-sources-rec.70o): the list holds the
+    // last whole thing it said, and nothing but the end of the source takes it away.
+
+    @Test func theKindsMissingAreTheLastWholeSetTheSourceSaid() {
+        var list = both()
+        list.apply(.missing([.locked, .unreadable]), from: .iPhone)
+        #expect(list.unreadSources == [.iPhoneMissing(.locked), .iPhoneMissing(.unreadable)])
+        list.apply(.missing([.notTrusted, .unreadable]), from: .iPhone)
+        #expect(list.unreadSources == [.iPhoneMissing(.notTrusted), .iPhoneMissing(.unreadable)])
+        list.apply(.missing([]), from: .iPhone)
+        #expect(list.unreadSources == [])
+    }
+
+    /// A sweep lists the devices the source could read, and says nothing of one it could not.
+    @Test func aSweepOrADeviceEventLeavesWhatIsMissing() {
+        var list = both()
+        list.apply(.missing([.locked]), from: .iPhone)
+        list.apply(.swept([Fleet.phone]), from: .iPhone)
+        list.apply(.reported(Fleet.tablet), from: .iPhone)
+        list.apply(.gone(Fleet.phone.id), from: .iPhone)
+        list.apply(.swept([Fleet.mouse]), from: .bluetooth)
+        #expect(list.unreadSources == [.iPhoneMissing(.locked)])
+    }
+
+    @Test func theEndOfTheSourceTakesWhatIsMissingWithItsDevices() {
+        var list = both()
+        list.apply(.missing([.locked]), from: .iPhone)
+        list.end(.iPhone)
+        #expect(list.unreadSources == [.iPhone(.ended)])
+        list.apply(.missing([.locked]), from: .bluetooth)
+        #expect(list.unreadSources == [.iPhone(.ended)])
+    }
+
+    /// A source's own reason first, then what it could not list, each source in turn: one entry per kind however many phones.
+    @Test func aSourcesMissingKindsFollowItsOwnReasonInAStableOrder() {
+        var list = DeviceList(sources: DeviceSource.allCases)
+        list.apply(.permission(.denied), from: .bluetooth)
+        list.apply(.swept([]), from: .iPhone)
+        list.apply(.missing([.unreadable, .locked]), from: .iPhone)
+        #expect(list.unreadSources == [.bluetooth(.denied), .iPhoneMissing(.locked), .iPhoneMissing(.unreadable)])
+    }
+
     @Test func aSourceCannotAddRemoveOrKeepAnotherSourcesDevice() {
         var list = both()
         list.apply(.reported(Fleet.phone), from: .bluetooth)
@@ -226,6 +268,19 @@ struct DeviceSourcesListTests {
         #expect(try await log.logged("device source bluetooth reported a device of iphone; ignored"))
     }
 
+    // What the iPhone source cannot list is the iPhone's. It on Bluetooth's stream changes nothing, and is said in the log.
+    @Test func aMissingPhoneOnAnotherSourcesStreamIsIgnoredAndLogged() async throws {
+        let log = try await TestLog()
+        let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let (iPhone, _) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let model = model(bluetooth, iPhone, log: log.logger)
+        sendBluetooth.yield(.missing([.locked]))
+        sendBluetooth.yield(.swept([Fleet.mouse]))
+        let list = await list(of: model) { !$0.devices.isEmpty }
+        #expect(list.unreadSources == [.iPhone(.waiting)])
+        #expect(try await log.logged("device source bluetooth reported an event only iphone has; ignored"))
+    }
+
     // A permission is Bluetooth's. One on another source's stream changes no reading, and is said in the log.
     @Test func aPermissionOnAnotherSourcesStreamIsIgnoredAndLogged() async throws {
         let log = try await TestLog()
@@ -237,6 +292,6 @@ struct DeviceSourcesListTests {
         let list = await list(of: model) { !$0.devices.isEmpty }
         #expect(list.unreadSources == [.bluetooth(.waiting)])
         #expect(list.devices == [Fleet.phone.device])
-        #expect(try await log.logged("device source iphone reported a Bluetooth permission; ignored"))
+        #expect(try await log.logged("device source iphone reported an event only bluetooth has; ignored"))
     }
 }

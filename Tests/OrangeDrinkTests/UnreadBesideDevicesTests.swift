@@ -67,6 +67,64 @@ struct UnreadBesideDevicesTests {
                                              unread: [UnreadSource.bluetooth(.denied).explanation]))
     }
 
+    // [LAW:verifiable-goals] The Done when of orange-device-sources-rec.70o: a reachable iPhone whose identity read failed is said
+    // beside the devices that did list, on every surface that lists devices, by its reader and the kind of failure, never by
+    // the phone's name or address.
+
+    private static let unreadableUDID = "00008110-SYNTHETIC-7F3A"
+
+    /// The list as the real mapper builds it from what the reader said of a phone it reached and could not read, beside a Bluetooth
+    /// mouse that listed.
+    private static func listWithAnUnreadablePhone(_ error: IPhoneReadError) -> DeviceList {
+        var list = DeviceList(sources: DeviceSource.allCases)
+        list.apply(.swept([DeviceListTests.mouse.source]), from: .bluetooth)
+        var mapper = IPhoneDevices()
+        for event in [IPhoneEvent.reachable(udid: unreadableUDID, over: .usb), .readFailed(udid: unreadableUDID, over: .usb, error), .listed] {
+            for told in mapper.apply(event) { list.apply(told, from: .iPhone) }
+        }
+        return list
+    }
+
+    @Test(arguments: [
+        (IPhoneReadError.refused("PasswordProtected"), IPhoneMissing.locked),
+        (.refused("InvalidHostID"), .notTrusted),
+        (.lockdown("a-string-the-phone-sent"), .unreadable),
+    ])
+    func aReachablePhoneThatCouldNotBeIdentifiedIsSaidBesideTheDevicesThatListed(error: IPhoneReadError, kind: IPhoneMissing) {
+        let list = Self.listWithAnUnreadablePhone(error)
+        let said = ListNotes(empty: nil, unread: [UnreadSource.iPhoneMissing(kind).explanation])
+        let mouse = DeviceListTests.mouse.id
+
+        #expect(list.devices.map(\.id) == [mouse])
+        let connected = ConnectedDevices(list, settings: DeviceSettings())
+        #expect(connected.rows.map(\.id) == [mouse])
+        #expect(connected.notes == said)
+        let detected = DetectedDevices(list, settings: DeviceSettings())
+        #expect(detected.entries.map(\.id) == [mouse])
+        #expect(detected.notes == said)
+        let pinned = PinnedDevicesList(list, pinned: [mouse])
+        #expect(pinned.notes == said)
+        #expect(WidgetDeviceList(list, pinned: [mouse]).unreadSources == [.iPhoneMissing(kind)])
+
+        // The reader and the kind are named; the phone and what its error carried are not.
+        let words = [UnreadSource.iPhoneMissing(kind).explanation.english, UnreadSource.iPhoneMissing(kind).text.english]
+        for word in words {
+            #expect(word.contains("iPhone"))
+            #expect(!word.contains(Self.unreadableUDID))
+            #expect(!word.contains("a-string-the-phone-sent"))
+        }
+    }
+
+    /// The phone is not listed, so with nothing else listed "none connected" would be false: a phone is connected.
+    @Test func anUnreadablePhoneAloneIsNotNoneConnected() {
+        var list = DeviceList(sources: DeviceSource.allCases)
+        list.apply(.swept([]), from: .bluetooth)
+        list.apply(.swept([]), from: .iPhone)
+        list.apply(.missing([.locked]), from: .iPhone)
+        #expect(ConnectedDevices(list, settings: DeviceSettings()).notes == .only(.iPhoneMissing(.locked)))
+        #expect(WidgetDeviceList(list, pinned: []).listed(by: .automatic) == .failure(.unread(.iPhoneMissing(.locked))))
+    }
+
     /// Each source is named by what the user sees it as, never as another source's.
     @Test func eachUnreadSourceExplainsItselfInItsOwnWords() {
         #expect(UnreadSource.iPhone(.waiting).explanation.english == "Reading your iPhones and iPads…")

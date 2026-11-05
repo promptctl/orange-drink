@@ -42,8 +42,8 @@ import os
                 for other in Set(event.ids.map(\.source)).subtracting([source]).sorted(by: { $0.rawValue < $1.rawValue }) {
                     log.error("device source \(source.rawValue, privacy: .public) reported a device of \(other.rawValue, privacy: .public); ignored")
                 }
-                if case .permission = event, source != .bluetooth {
-                    log.error("device source \(source.rawValue, privacy: .public) reported a Bluetooth permission; ignored")
+                if let owner = event.owner, owner != source {
+                    log.error("device source \(source.rawValue, privacy: .public) reported an event only \(owner.rawValue, privacy: .public) has; ignored")
                 }
                 let contestedBefore = Set(model.list.contested)
                 model.list.apply(event, from: source)
