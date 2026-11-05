@@ -125,6 +125,9 @@ struct DeviceList: Equatable, Sendable {
 
     mutating func apply(_ event: DeviceEvent, from source: DeviceSource) {
         precondition(readings[source] != nil, "an event from \(source.rawValue), which this list was not built for")
+        // [LAW:single-enforcer] An event about a source is that source's alone (`DeviceEvent.owner`), as a device of another
+        // source is ignored below; `DevicesModel` says so in the log, from the same `owner`.
+        if let owner = event.owner, owner != source { return }
         switch event {
         case .reported(let device) where device.id.source == source: byID[device.id] = device
         case .gone(let id) where id.source == source: byID[id] = nil
@@ -133,12 +136,8 @@ struct DeviceList: Equatable, Sendable {
             removeDevices(of: source)
             for device in devices where device.id.source == source { byID[device.id] = device }
             readings[source] = .read
-        // A permission is Bluetooth's, so one from another source's stream names nothing this list can hold, as a device of
-        // another source is ignored above; `DevicesModel` says so in the log.
-        case .permission(let permission) where source == .bluetooth: stop(.bluetooth(BluetoothNoList(permission)))
-        case .permission: break
-        case .missing(let kinds) where source == .iPhone: missingIPhones = kinds
-        case .missing: break
+        case .permission(let permission): stop(.bluetooth(BluetoothNoList(permission)))
+        case .missing(let kinds): missingIPhones = kinds
         }
     }
 
