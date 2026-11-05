@@ -131,6 +131,6 @@ enum TickFormat {
     /// A tick on a percent axis: the number, then the sign the way the language writes it.
     static func percent(_ value: Double, locale: Locale) -> Phrase { "\(number(value, locale: locale))%" }
 
-    /// A tick on an hours axis; the unit is written alike in every language the app carries.
+    /// A tick on an hours axis: the number, then the unit the way the language writes it ("2 h" in French and Spanish).
     static func hours(_ value: Double, locale: Locale) -> Phrase { "\(number(value, locale: locale))h" }
 }

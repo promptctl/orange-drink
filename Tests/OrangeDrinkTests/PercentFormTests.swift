@@ -44,10 +44,12 @@ import Testing
         }
     }
 
-    @Test func anHoursTickKeepsItsUnitInEveryLanguage() {
-        for (code, _) in Self.sign {
+    /// The unit sits off its number as the percent sign does, so the two axes of one card read alike.
+    @Test func anHoursTickIsSaidTheWayItsLanguageWritesAnHour() {
+        for (code, sign) in Self.sign {
             let language = AppLanguage(code: code)
-            #expect(TickFormat.hours(2, locale: language.locale).resolve(in: language, bundle: Self.app) == "2h")
+            let unit = sign.replacingOccurrences(of: "%", with: "h")
+            #expect(TickFormat.hours(2, locale: language.locale).resolve(in: language, bundle: Self.app) == "2\(unit)")
         }
     }
 }

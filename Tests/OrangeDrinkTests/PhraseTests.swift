@@ -165,7 +165,7 @@ import Testing
         for edit: (inout [String: Any]) -> Void in [{ _ in }, { $0["AppleRawMaxCapacity"] = 4000 }, { $0["Temperature"] = 3700 },
                                                      { $0["Temperature"] = 4300 }, { $0["Voltage"] = 8000 }] {
             let info = try Words.reference(edit)
-            phrases += [info.health.percent, ShareFormat.text(percent: 12, locale: Locale(identifier: "en_US")), info.health.label, info.temperature.status, info.temperature.caption, info.electrical.voltageNote]
+            phrases += [info.health.percent, ShareFormat.text(percent: 12, locale: Locale(identifier: "en_US")), TickFormat.percent(50, locale: Locale(identifier: "en_US")), TickFormat.hours(2, locale: Locale(identifier: "en_US")), info.health.label, info.temperature.status, info.temperature.caption, info.electrical.voltageNote]
         }
         for phrase in phrases {
             for code in ["fr", "es"] { #expect(hasTranslation(phrase, code), "\(phrase.key) has no \(code) in the catalog") }
