@@ -265,7 +265,7 @@ import ViewInspector
 
     private func editor(_ alert: Alert, _ center: AlertCenter) throws -> InspectableView<ViewType.ClassifiedView> {
         try AlertEditor(alert: alert, draftThreshold: .constant(nil), onEdit: { change in
-            try? center.model.update { $0.edit(alert.id, change) }
+            do { try center.model.update { $0.edit(alert.id, change) } } catch { Issue.record(error) }
         }).inspect()
     }
 
@@ -277,13 +277,13 @@ import ViewInspector
         let defaults = scratchDefaults()
         let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
         let before = center.settings.alerts
-        let two = center.settings.alerts(.low)[0]
+        let chosen = center.settings.alerts(.low)[0]
 
-        try editor(two, center).find(button: "Full Screen").tap()
+        try editor(chosen, center).find(button: "Full Screen").tap()
 
         let after = center.settings.alerts
-        #expect(after.first { $0.id == two.id }?.position == .fullScreen)
-        #expect(after.filter { $0.id != two.id } == before.filter { $0.id != two.id })
+        #expect(after.first { $0.id == chosen.id }?.position == .fullScreen)
+        #expect(after.filter { $0.id != chosen.id } == before.filter { $0.id != chosen.id })
         let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
         #expect(relaunched.settings.alerts == after)
     }

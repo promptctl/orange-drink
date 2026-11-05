@@ -71,6 +71,23 @@ struct SettingRow<Control: View>: View {
     }
 }
 
+/// A bold title over a control that takes the row's whole width, for a control too wide to sit beside its title.
+struct StackedSettingRow<Control: View>: View {
+    let title: LocalizedStringKey
+    @ViewBuilder let control: () -> Control
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).fontWeight(.bold)
+            control()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) { Divider().padding(.leading, 56) }
+        .accessibilityElement(children: .contain)
+    }
+}
+
 /// A grey circled "i" (or other glyph) that shows an explanation of the setting.
 struct InfoButton: View {
     let text: Phrase

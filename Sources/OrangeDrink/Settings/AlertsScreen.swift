@@ -138,7 +138,7 @@ private struct AlertCard: View {
     }
 }
 
-/// The editor behind a card's gear: the alert's threshold, position, Border Glow, and Sound.
+/// The editor behind a card's gear: the alert's threshold, position, Border Glow where the position has one, and Sound.
 /// Each control changes its one field and the card follows; the threshold waits for the popover to close.
 struct AlertEditor: View {
     let alert: Alert
@@ -150,10 +150,10 @@ struct AlertEditor: View {
             SettingRow(title: "Threshold", description: alert.kind == .low ? "Below this level" : "At or above this level") {
                 Stepper("\(threshold.wrappedValue)%", value: threshold, in: 1...100)
             }
-            SettingRow(title: "Position") {
+            StackedSettingRow(title: "Position") {
                 SegmentedPills(selection: binding(\.position), options: Alert.Position.allCases, accent: .green, title: \.title)
             }
-            if alert.position != .fullScreen {
+            if alert.position.glows {
                 SettingRow(title: "Border Glow", description: "Light the screen edges") {
                     AccentSwitch(isOn: binding(\.glow), tint: .green, label: "Border Glow")
                 }
