@@ -9,7 +9,7 @@ extension NSWindow.Level {
 
 /// A borderless window that floats over every app, full-screen ones included, without taking focus.
 class OverlayPanel: NSPanel {
-    init(frame: CGRect, level: NSWindow.Level, content: some View) {
+    init(frame: CGRect, level: NSWindow.Level, hosting: NSView) {
         super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
@@ -19,7 +19,7 @@ class OverlayPanel: NSPanel {
         // lets a window of an accessory app appear there.
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         self.level = level
-        contentView = NSHostingView(rootView: content)
+        contentView = hosting
     }
 
     override var canBecomeKey: Bool { false }

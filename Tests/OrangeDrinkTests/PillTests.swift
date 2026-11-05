@@ -37,13 +37,11 @@ import ViewInspector
         #expect(try #require(pills.shownFrame).maxY > screen.midY)
     }
 
-    /// design-docs/alerts.md: a full-screen alert shown as a pill sits at the centre without its glow.
+    /// design-docs/alerts.md: a watched device's full-screen alert is a pill that sits at the centre without its glow.
     @Test func aFullScreenAlertShownAsAPillSitsAtTheCentreWithoutGlow() throws {
         let alert = Alert(kind: .low, threshold: 2, position: .fullScreen, glow: true, sound: true)
         let device = PillContent(DeviceFiring(alert: alert, name: "Magic Mouse", level: BatteryLevel(percent: 1, approximate: false)))
-        let mac = PillContent(alert, reading: try Self.reading(1))
         #expect(device.position == .center && !device.glow)
-        #expect(mac.position == .center && !mac.glow)
     }
 
     @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {

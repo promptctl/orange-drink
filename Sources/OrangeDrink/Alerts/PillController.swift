@@ -47,7 +47,7 @@ private final class PillPanel: OverlayPanel {
         hosted = AnyView(PillView(content: content, scale: scale, onClose: onClose).speaking(language))
         super.init(
             frame: PillPlacement.frame(content.position, on: area.visibleFrame, scale: scale), level: .pill,
-            content: hosted)
+            hosting: NSHostingView(rootView: hosted))
     }
 }
 
