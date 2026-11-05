@@ -101,10 +101,7 @@ struct DeviceList: Equatable, Sendable {
     /// [LAW:types-are-the-program] What one source has told the list: it swept, or why it did not.
     private enum Reading: Equatable, Sendable {
         case read
-        case unread(UnreadDevices)
-
-        /// A source that has not spoken: waiting, never read.
-        static let unheard = Reading.unread(.waiting)
+        case unread(NoList)
     }
 
     private var byID: [DeviceID: SourceDevice] = [:]
@@ -113,7 +110,8 @@ struct DeviceList: Equatable, Sendable {
     private var readings: [DeviceSource: Reading]
 
     init(sources: some Collection<DeviceSource>) {
-        readings = Dictionary(uniqueKeysWithValues: sources.map { ($0, Reading.unheard) })
+        // A source that has not spoken is waiting, never read.
+        readings = Dictionary(uniqueKeysWithValues: sources.map { ($0, Reading.unread(.waiting(of: $0))) })
     }
 
     mutating func apply(_ event: DeviceEvent, from source: DeviceSource) {
@@ -126,20 +124,24 @@ struct DeviceList: Equatable, Sendable {
             removeDevices(of: source)
             for device in devices where device.id.source == source { byID[device.id] = device }
             readings[source] = .read
-        case .permission(let permission):
-            // [LAW:types-are-the-program] Bluetooth is the only source with a permission, so `UnreadSource` never holds another's.
-            precondition(source == .bluetooth, "a permission from \(source.rawValue), which has none")
-            // Heard after a sweep, this is the end of what that sweep read, so nothing is kept to go stale, as in `end(_:)`.
-            removeDevices(of: source)
-            readings[source] = .unread(UnreadDevices(permission))
+        // A permission is Bluetooth's, so one from another source's stream names nothing this list can hold, as a device of
+        // another source is ignored above; `DevicesModel` says so in the log.
+        case .permission(let permission) where source == .bluetooth: stop(.bluetooth(BluetoothNoList(permission)))
+        case .permission: break
         }
     }
 
     /// The source's stream ended: no event will follow from it, so nothing of its is kept to go stale.
     mutating func end(_ source: DeviceSource) {
         precondition(readings[source] != nil, "the end of \(source.rawValue), which this list was not built for")
-        removeDevices(of: source)
-        readings[source] = .unread(.ended)
+        stop(.ended(of: source))
+    }
+
+    /// The source's list is not coming, so nothing of its is kept to go stale, and `reason` is why. A sweep heard before this is
+    /// the end of what it read. The reading is keyed by the reason's own source, so the two cannot disagree.
+    private mutating func stop(_ reason: NoList) {
+        removeDevices(of: reason.source)
+        readings[reason.source] = .unread(reason)
     }
 
     private mutating func removeDevices(of source: DeviceSource) {
@@ -150,7 +152,7 @@ struct DeviceList: Equatable, Sendable {
     /// list was not built for, which has nothing to say. [LAW:types-are-the-program]
     /// A device reported before the first sweep leaves it unread: one device is not what is connected, and the connect a
     /// registration replays has no order with that sweep.
-    func unread(of source: DeviceSource) -> UnreadDevices? {
+    func unread(of source: DeviceSource) -> NoList? {
         switch readings[source] {
         case nil, .read?: nil
         case .unread(let reason)?: reason
@@ -162,7 +164,7 @@ struct DeviceList: Equatable, Sendable {
     /// second copy of them and no verdict picked among them; a device reported ahead of its source's first sweep is listed with
     /// the rest in `devices`, and its source is here until it sweeps.
     var unreadSources: [UnreadSource] {
-        DeviceSource.allCases.compactMap { source in unread(of: source).map { UnreadSource(source: source, reason: $0) } }
+        DeviceSource.allCases.compactMap { unread(of: $0).map(UnreadSource.noList) }
     }
 
     /// What a card of devices says beside its rows. [LAW:single-enforcer] The one place the rule is made: "none connected" is
@@ -239,7 +241,7 @@ extension DeviceEvent {
     }
 }
 
-extension UnreadDevices {
+extension BluetoothNoList {
     /// What a sweep is waiting on for this permission: nothing yet when allowed, since the sweep is what reads the list.
     init(_ permission: BluetoothPermission) {
         self = switch permission {
@@ -248,19 +250,32 @@ extension UnreadDevices {
         case .denied: .denied
         }
     }
+
+    var explanation: Phrase {
+        switch self {
+        case .waiting: "Reading your Bluetooth devices…"
+        case .unanswered: "Answer the Bluetooth prompt to see your devices."
+        case .denied: "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app."
+        case .ended: "Bluetooth readings stopped. Quit and reopen the app."
+        }
+    }
+}
+
+extension IPhoneNoList {
+    var explanation: Phrase {
+        switch self {
+        case .waiting: "Reading your iPhones and iPads…"
+        case .ended: "iPhone readings stopped. Quit and reopen the app."
+        }
+    }
 }
 
 extension UnreadSource {
     /// Why a card that lists devices is missing some, or is empty: the panel's sentence, naming the source it is about.
-    /// `.unanswered` and `.denied` are Bluetooth's (`DeviceList` enforces it).
     var explanation: Phrase {
-        switch (reason, source) {
-        case (.waiting, .bluetooth): "Reading your Bluetooth devices…"
-        case (.waiting, .iPhone): "Reading your iPhones and iPads…"
-        case (.unanswered, _): "Answer the Bluetooth prompt to see your devices."
-        case (.denied, _): "This app isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth, then quit and reopen the app."
-        case (.ended, .bluetooth): "Bluetooth readings stopped. Quit and reopen the app."
-        case (.ended, .iPhone): "iPhone readings stopped. Quit and reopen the app."
+        switch self {
+        case .noList(.bluetooth(let reason)): reason.explanation
+        case .noList(.iPhone(let reason)): reason.explanation
         }
     }
 }

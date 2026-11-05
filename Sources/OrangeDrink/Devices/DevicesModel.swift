@@ -42,6 +42,9 @@ import os
                 for other in Set(event.ids.map(\.source)).subtracting([source]).sorted(by: { $0.rawValue < $1.rawValue }) {
                     log.error("device source \(source.rawValue, privacy: .public) reported a device of \(other.rawValue, privacy: .public); ignored")
                 }
+                if case .permission = event, source != .bluetooth {
+                    log.error("device source \(source.rawValue, privacy: .public) reported a Bluetooth permission; ignored")
+                }
                 let contestedBefore = Set(model.list.contested)
                 model.list.apply(event, from: source)
                 // [LAW:no-silent-failure] Two devices claiming one Bluetooth address are not merged, which a screen shows only as

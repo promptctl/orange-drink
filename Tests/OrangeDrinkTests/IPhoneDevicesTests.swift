@@ -223,7 +223,7 @@ struct IPhoneDevicesMappingTests {
         reader.yield(Phone.identified)
         reader.yield(.listed)
         reader.yield(.failed(.refused("usbmuxd is gone")))
-        let ended = await list { $0.unread(of: .iPhone) == .ended }
+        let ended = await list { $0.unread(of: .iPhone) == .iPhone(.ended) }
         #expect(ended.devices == [DeviceListTests.mouse])
     }
 
@@ -236,17 +236,17 @@ struct IPhoneDevicesMappingTests {
 
     @Test func bluetoothDeniedBesideAWorkingReaderIsShownOnEveryCardAndInTheWidget() async {
         bluetooth.yield(.permission(.denied))
-        let list = await settle { $0.unread(of: .bluetooth) == .denied && $0.unread(of: .iPhone) == nil }
+        let list = await settle { $0.unread(of: .bluetooth) == .bluetooth(.denied) && $0.unread(of: .iPhone) == nil }
         expectShown(.denied, by: list)
     }
 
     @Test func bluetoothEndedBesideAWorkingReaderIsShownOnEveryCardAndInTheWidget() async {
         bluetooth.finish(throwing: StandIn())
-        let list = await settle { $0.unread(of: .bluetooth) == .ended && $0.unread(of: .iPhone) == nil }
+        let list = await settle { $0.unread(of: .bluetooth) == .bluetooth(.ended) && $0.unread(of: .iPhone) == nil }
         expectShown(.ended, by: list)
     }
 
-    private func expectShown(_ reason: UnreadDevices, by list: DeviceList) {
+    private func expectShown(_ reason: BluetoothNoList, by list: DeviceList) {
         #expect(list.devices.isEmpty)
         let shown = ListNotes.only(.bluetooth(reason))
         #expect(ConnectedDevices(list, settings: DeviceSettings()).notes == shown)
