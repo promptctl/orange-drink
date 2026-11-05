@@ -16,7 +16,7 @@ enum Firing: Equatable, Sendable, CustomStringConvertible {
     var description: String {
         switch self {
         case .threshold(let alert):
-            "\(alert.kind.rawValue) \(alert.threshold)% position \(alert.position.rawValue) glow \(alert.glow) sound \(alert.sound)"
+            "\(alert.kind.rawValue) \(alert.threshold)% position \(alert.position.rawValue) glow \(alert.showsGlow) sound \(alert.sound)"
         case .pluggedIn(let sound): "plugged in sound \(sound)"
         case .unplugged(let sound): "unplugged sound \(sound)"
         case .temperatureWarning(let heat, let sound): "temperature warning \(heat) sound \(sound)"

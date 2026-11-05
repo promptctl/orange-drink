@@ -12,8 +12,9 @@ struct Alert: Codable, Equatable, Identifiable, Sendable {
         case charged
     }
 
+    /// Where the alert shows: a pill at the centre or top, or the full-screen alert of design-docs/alerts.md.
     enum Position: String, Codable, CaseIterable, Sendable {
-        case center, top
+        case center, top, fullScreen
     }
 
     /// How far back across its threshold the level must go before a fired alert may fire again.
@@ -26,6 +27,10 @@ struct Alert: Codable, Equatable, Identifiable, Sendable {
     var position: Position
     var glow: Bool
     var sound: Bool
+
+    /// Whether the alert shows the Border Glow. A full-screen alert keeps its stored `glow` for a
+    /// return to a pill position but never shows it: design-docs/alerts.md gives full screen no Border Glow.
+    var showsGlow: Bool { glow && position != .fullScreen }
 
     /// The level is on the firing side of the threshold.
     func isCrossed(by level: Int) -> Bool {

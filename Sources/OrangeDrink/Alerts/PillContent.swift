@@ -20,18 +20,23 @@ extension Alert {
 /// [LAW:effects-at-boundaries] A pure function of the alert and the reading that fired it, so the
 /// wording, the colour, and the progress are asserted without a window.
 struct PillContent: Equatable, Sendable {
+    /// Where a pill sits. Narrower than `Alert.Position`, so no pill is full screen.
+    enum Position: String, Equatable, Sendable {
+        case center, top
+    }
+
     let headline: Phrase
     /// nil while the system has no estimate to give or nothing is being counted.
     let subline: Phrase?
     let severity: Alert.Severity
     /// The share of the border the severity stroke covers: the remaining charge, 0...1.
     let progress: Double
-    let position: Alert.Position
+    let position: Position
     /// The alert's Border Glow: light the screen edges alongside the pill.
     let glow: Bool
 
     init(headline: Phrase, subline: Phrase?, severity: Alert.Severity, progress: Double,
-         position: Alert.Position, glow: Bool) {
+         position: Position, glow: Bool) {
         self.headline = headline; self.subline = subline; self.severity = severity
         self.progress = progress; self.position = position; self.glow = glow
     }
@@ -45,14 +50,14 @@ struct PillContent: Equatable, Sendable {
         subline = Self.subline(reading)
         severity = alert.severity
         progress = Double(percent) / 100
-        position = alert.position
-        glow = alert.glow
+        (position, glow) = Self.placement(alert)
     }
 
     /// The pill for a watched device: its name and level, in the alert's severity, position, and glow.
     init(_ firing: DeviceFiring) {
+        let (position, glow) = Self.placement(firing.alert)
         self.init(headline: "\(firing.name): \(BatteryLevel.text(firing.level)) Remaining", subline: nil, severity: firing.alert.severity,
-                  progress: BatteryLevel.fraction(firing.level), position: firing.alert.position, glow: firing.alert.glow)
+                  progress: BatteryLevel.fraction(firing.level), position: position, glow: glow)
     }
 
     /// The pill for a power source alert: it has no threshold or position of its own, so it sits at
@@ -73,6 +78,13 @@ struct PillContent: Equatable, Sendable {
         }
         return PillContent(headline: headline, subline: "\(words.celsius) / \(words.fahrenheit)", severity: severity,
                            progress: Double(reading.chargePercent) / 100, position: .top, glow: false)
+    }
+
+    /// Where an alert's pill sits and whether it glows. A full-screen alert shown as a pill sits at
+    /// the centre. Every full-screen firing, the Mac's own included, comes here until the Mac's are
+    /// routed to the cover.
+    static func placement(_ alert: Alert) -> (position: Position, glow: Bool) {
+        (alert.position == .top ? .top : .center, alert.showsGlow)
     }
 
     // [LAW:one-source-of-truth] The pill's sentences are said here once; the real pill and the
