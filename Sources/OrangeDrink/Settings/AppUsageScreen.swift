@@ -1,12 +1,10 @@
 import AppKit
-import OSLog
 import SwiftUI
 
 /// design-docs/app-usage.md: the status line, the range pills, the Right Now and Top Drainers cards, the insights,
 /// and the Top Energy Consumers list, all read from the one ranking.
 struct AppUsageScreen: View {
     let appEnergy: Result<AppEnergyHistory, any Error>
-    let log: Logger
     @State private var range = AppUsageRange.day
     @State private var loaded: Result<AppUsageRanking, any Error>?
     @State private var detail: AppDetailSheet.Subject?
@@ -37,7 +35,6 @@ struct AppUsageScreen: View {
             // A pill tapped again while this ran has cancelled it; its range is no longer the one selected.
             guard !Task.isCancelled else { return }
             loaded = ranking
-            if case .failure(let error)? = loaded { log.error("app usage unreadable: \(String(describing: error), privacy: .public)") }
         }
     }
 

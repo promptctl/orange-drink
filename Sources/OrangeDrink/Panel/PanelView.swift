@@ -7,7 +7,6 @@ struct PanelView: View {
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
     let appEnergy: Result<AppEnergyHistory, any Error>
-    let logs: ViewLogs
     let sections: PanelSections
     let lowPowerMode: LowPowerMode
     let updates: AppUpdater
@@ -29,7 +28,7 @@ struct PanelView: View {
             }
             CollapsibleCard(title: "Apps Using Significant Energy", symbol: "bolt.circle.fill", symbolColor: .orange,
                             section: .appsUsingSignificantEnergy, sections: sections) {
-                SignificantEnergyView(appEnergy: appEnergy, log: logs.appEnergy)
+                SignificantEnergyView(appEnergy: appEnergy)
             }
             let connected = ConnectedDevices(devices.list, settings: deviceSettings.value)
             if connected.isShown {

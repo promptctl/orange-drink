@@ -38,12 +38,14 @@ import OSLog
     func ranking(range: AppUsageRange) throws -> AppUsageRanking {
         let now = timekeeper.now()
         let longest = AppUsageRange.allCases.map(\.duration).max() ?? 0
-        return AppUsageRanking(intervals: try store.appEnergy(since: now.addingTimeInterval(-longest)), firstInterval: try store.firstIntervalTime(), now: now, range: range)
+        return try log.read("app usage") {
+            AppUsageRanking(intervals: try store.appEnergy(since: now.addingTimeInterval(-longest)), firstInterval: try store.firstIntervalTime(), now: now, range: range)
+        }
     }
 
     /// The Right Now list and its age, read from the newest stored interval alone; empty before any.
     func rightNow() throws -> RightNow {
-        let latest = try store.latestAppEnergy()
+        let latest = try log.read("right now") { try store.latestAppEnergy() }
         return RightNow(shares: AppUsageRanking.rightNow(of: latest.map(AppUsageRanking.shares(of:)) ?? []), at: latest?.at)
     }
 
