@@ -12,8 +12,9 @@ struct Alert: Codable, Equatable, Identifiable, Sendable {
         case charged
     }
 
+    /// Where the alert shows: a pill at the centre or top, or the full-screen alert of design-docs/alerts.md.
     enum Position: String, Codable, CaseIterable, Sendable {
-        case center, top
+        case center, top, fullScreen
     }
 
     /// How far back across its threshold the level must go before a fired alert may fire again.

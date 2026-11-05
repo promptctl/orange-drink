@@ -13,7 +13,7 @@ enum PillPlacement {
         CGSize(width: size.width * scale, height: size.height * scale)
     }
 
-    static func frame(_ position: Alert.Position, on screen: CGRect, scale: Double) -> CGRect {
+    static func frame(_ position: PillContent.Position, on screen: CGRect, scale: Double) -> CGRect {
         let size = Self.size(scale: scale)
         let x = screen.midX - size.width / 2
         switch position {

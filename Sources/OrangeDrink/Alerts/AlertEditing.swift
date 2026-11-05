@@ -1,19 +1,21 @@
 import Foundation
 
 extension Alert.Position {
-    /// The Alerts screen's wording for where the pill sits.
+    /// The Alerts screen's wording for where the alert shows.
     var title: Phrase {
         switch self {
         case .center: "Center of Screen"
         case .top: "Top of Screen"
+        case .fullScreen: "Full Screen"
         }
     }
 }
 
 extension Alert {
     /// The card's grey line: the position, then only the options that are on, joined by " • ".
+    /// A full-screen alert has no glow to show, so its summary leaves the kept value out.
     var summary: Phrase {
-        let options: [Phrase] = [glow ? "Border Glow" : nil, sound ? "Sound" : nil].compactMap { $0 }
+        let options: [Phrase] = [glow && position != .fullScreen ? "Border Glow" : nil, sound ? "Sound" : nil].compactMap { $0 }
         return options.reduce(position.title) { "\($0) • \($1)" }
     }
 

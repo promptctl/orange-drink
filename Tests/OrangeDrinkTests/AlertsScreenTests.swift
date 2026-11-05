@@ -12,6 +12,34 @@ import ViewInspector
         #expect(Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false).summary.english == "Top of Screen")
         #expect(Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: true).summary.english
             == "Top of Screen • Sound")
+        #expect(Alert(kind: .low, threshold: 2, position: .fullScreen, glow: true, sound: true).summary.english
+            == "Full Screen • Sound")
+    }
+
+    /// The bytes a build from before "Full Screen" saved: each alert loads with the position it had.
+    @Test func alertsSavedBeforeFullScreenLoadUnchanged() throws {
+        let defaults = scratchDefaults()
+        let saved = """
+            {"enabled":true,"power":{"pluggedIn":true,"unplugged":false,"temperature":true,"sound":true},"alerts":[
+            {"id":"6A1E2B3C-0000-4000-8000-000000000001","kind":"low","threshold":3,"position":"center","glow":true,"sound":true},
+            {"id":"6A1E2B3C-0000-4000-8000-000000000002","kind":"charged","threshold":80,"position":"top","glow":false,"sound":false}]}
+            """
+        defaults.set(Data(saved.utf8), forKey: AlertSettings.storageKey)
+
+        let loaded = try AlertSettingsModel(defaults: defaults).value.alerts
+        #expect(loaded.map(\.position) == [.center, .top])
+        #expect(loaded.map(\.glow) == [true, false] && loaded.map(\.sound) == [true, false])
+        #expect(loaded.map(\.threshold) == [3, 80] && loaded.map(\.kind) == [.low, .charged])
+    }
+
+    @Test func aFullScreenChoiceAndItsKeptGlowSurviveARelaunch() throws {
+        let defaults = scratchDefaults()
+        let first = try AlertSettingsModel(defaults: defaults)
+        let id = try #require(first.value.alerts.first { $0.glow }).id
+        try first.update { $0.edit(id) { $0.position = .fullScreen } }
+
+        let relaunched = try #require(try AlertSettingsModel(defaults: defaults).value.alerts.first { $0.id == id })
+        #expect(relaunched.position == .fullScreen && relaunched.glow)
     }
 
     @Test func eachListHoldsItsKindLowestThresholdFirstAndAddAndDeleteChangeIt() {
