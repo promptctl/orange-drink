@@ -46,7 +46,7 @@ import OSLog
 
     /// The Right Now list and its age, read from the newest stored interval alone; empty before any.
     func rightNow() throws -> RightNow {
-        let latest = try log.loggingFailure(of: "right now") { try store.latestAppEnergy() }
+        let latest = try log.loggingFailure(of: "app energy right now") { try store.latestAppEnergy() }
         return RightNow(shares: AppUsageRanking.rightNow(of: latest.map(AppUsageRanking.shares(of:)) ?? []), at: latest?.at)
     }
 
