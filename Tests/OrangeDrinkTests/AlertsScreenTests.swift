@@ -35,8 +35,8 @@ import ViewInspector
     @Test func aFullScreenChoiceAndItsKeptGlowSurviveARelaunch() throws {
         let defaults = scratchDefaults()
         let first = try AlertSettingsModel(defaults: defaults)
-        let id = try #require(first.value.alerts.first { $0.glow }).id
-        try first.update { $0.edit(id) { $0.position = .fullScreen } }
+        let id = try #require(first.value.alerts.first).id
+        try first.update { $0.edit(id) { $0.glow = true; $0.position = .fullScreen } }
 
         let relaunched = try #require(try AlertSettingsModel(defaults: defaults).value.alerts.first { $0.id == id })
         #expect(relaunched.position == .fullScreen && relaunched.glow)

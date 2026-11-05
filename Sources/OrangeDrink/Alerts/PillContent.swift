@@ -80,14 +80,13 @@ struct PillContent: Equatable, Sendable {
                            progress: Double(reading.chargePercent) / 100, position: .top, glow: false)
     }
 
-    /// Where an alert's pill sits and whether it glows. A full-screen alert that shows as a pill — a
-    /// watched device's, which has no cover — sits at the centre without the glow, since the
-    /// editor hides Border Glow for full screen (design-docs/alerts.md).
+    /// Where an alert's pill sits and whether it glows. A full-screen alert shown as a pill sits at
+    /// the centre. Every full-screen firing, the Mac's own included, comes here until the Mac's are
+    /// routed to the cover.
     static func placement(_ alert: Alert) -> (position: Position, glow: Bool) {
         switch alert.position {
-        case .center: (.center, alert.glow)
-        case .top: (.top, alert.glow)
-        case .fullScreen: (.center, false)
+        case .center, .fullScreen: (.center, alert.showsGlow)
+        case .top: (.top, alert.showsGlow)
         }
     }
 

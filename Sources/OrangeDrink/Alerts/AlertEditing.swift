@@ -13,9 +13,8 @@ extension Alert.Position {
 
 extension Alert {
     /// The card's grey line: the position, then only the options that are on, joined by " • ".
-    /// A full-screen alert has no glow to show, so its summary leaves the kept value out.
     var summary: Phrase {
-        let options: [Phrase] = [glow && position != .fullScreen ? "Border Glow" : nil, sound ? "Sound" : nil].compactMap { $0 }
+        let options: [Phrase] = [showsGlow ? "Border Glow" : nil, sound ? "Sound" : nil].compactMap { $0 }
         return options.reduce(position.title) { "\($0) • \($1)" }
     }
 

@@ -28,6 +28,10 @@ struct Alert: Codable, Equatable, Identifiable, Sendable {
     var glow: Bool
     var sound: Bool
 
+    /// Whether the alert shows the Border Glow. A full-screen alert keeps its stored `glow` for a
+    /// return to a pill position but never shows it, since the editor hides the switch (design-docs/alerts.md).
+    var showsGlow: Bool { glow && position != .fullScreen }
+
     /// The level is on the firing side of the threshold.
     func isCrossed(by level: Int) -> Bool {
         switch kind {
