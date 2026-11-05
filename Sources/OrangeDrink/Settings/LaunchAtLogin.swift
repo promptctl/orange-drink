@@ -96,12 +96,15 @@ import ServiceManagement
     @ObservationIgnored private let record: (Event) -> Void
     @ObservationIgnored private let openLoginItemsPane: () -> Void
 
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "launchAtLogin")
+    private nonisolated static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "launchAtLogin")
+
+    /// The app's `record`: each event to the launchAtLogin log.
+    nonisolated static func record(_ event: Event) { log.notice("\(event.line, privacy: .public)") }
 
     /// [LAW:composability] `center` posts the app's activations. The app passes the live effects, the default center,
-    /// the log, and System Settings. The first read starts here and answers off the launch's main thread.
+    /// `record(_:)`, and System Settings. The first read starts here and answers off the launch's main thread.
     init(effects: Effects, center: NotificationCenter,
-         record: @escaping (Event) -> Void = { event in LaunchAtLogin.log.notice("\(event.line, privacy: .public)") },
+         record: @escaping (Event) -> Void,
          openLoginItems: @escaping () -> Void = { SMAppService.openSystemSettingsLoginItems() }) {
         self.effects = effects
         self.record = record

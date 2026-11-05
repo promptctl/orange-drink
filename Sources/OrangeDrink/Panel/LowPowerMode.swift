@@ -58,13 +58,16 @@ import ServiceManagement
     @ObservationIgnored private let record: (Event) -> Void
     @ObservationIgnored private let openLoginItemsPane: () -> Void
 
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "lowPowerMode")
+    private nonisolated static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "lowPowerMode")
+
+    /// The app's `record`: each event to the lowPowerMode log.
+    nonisolated static func record(_ event: Event) { log.notice("\(event.line, privacy: .public)") }
 
     /// [LAW:composability] `read` is the system's state, `center` posts its changes, `write` asks for a state
     /// and throws when it did not happen, `record` is told each event, and `openLoginItems` shows the setting that
-    /// allows the helper. The app passes ProcessInfo, the default center, the helper, the log, and System Settings.
+    /// allows the helper. The app passes ProcessInfo, the default center, the helper, `record(_:)`, and System Settings.
     init(read: @escaping () -> Bool, center: NotificationCenter, write: @escaping @Sendable (Bool) throws(HelperUseFailure) -> Void,
-         record: @escaping (Event) -> Void = { event in LowPowerMode.log.notice("\(event.line, privacy: .public)") },
+         record: @escaping (Event) -> Void,
          openLoginItems: @escaping () -> Void = { SMAppService.openSystemSettingsLoginItems() }) {
         self.read = read
         self.write = write
@@ -78,9 +81,9 @@ import ServiceManagement
     }
 
     convenience init(helper: HelperAccess) {
-        self.init(read: { ProcessInfo.processInfo.isLowPowerModeEnabled }, center: .default) { on throws(HelperUseFailure) in
+        self.init(read: { ProcessInfo.processInfo.isLowPowerModeEnabled }, center: .default, write: { on throws(HelperUseFailure) in
             try helper.setLowPowerMode(on)
-        }
+        }, record: LowPowerMode.record)
     }
 
     /// Asks for the other of the state the switch shows, unless an ask is still unanswered. The switch is what the

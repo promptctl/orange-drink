@@ -16,7 +16,7 @@ enum SettingEvent: Equatable {
         }
     }
 
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "settings")
+    fileprivate static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "settings")
 
     /// A value can name the user's devices, so it is private; which setting, and why a save failed, are not.
     fileprivate func emit(to log: Logger) {
@@ -38,7 +38,7 @@ enum SettingEvent: Equatable {
     let read: () -> Value
     let update: ((inout Value) -> Void) throws -> Void
     let record: (SettingEvent) -> Void
-    var log = SettingEvent.log
+    let log: Logger
 
     var value: Value { read() }
 
@@ -61,8 +61,8 @@ enum SettingEvent: Equatable {
 
 extension SettingEdits where Value: Stored {
     /// The edits of a stored value, named in the log by the key it is kept under.
-    init(_ model: StoredModel<Value>, record: @escaping (SettingEvent) -> Void) {
-        self.init(setting: Value.storageKey, read: { model.value }, update: model.update, record: record)
+    init(_ model: StoredModel<Value>, record: @escaping (SettingEvent) -> Void, log: Logger) {
+        self.init(setting: Value.storageKey, read: { model.value }, update: model.update, record: record, log: log)
     }
 }
 
@@ -86,7 +86,7 @@ struct SettingEditor<Value: Stored, Content: View>: View {
             if let failure {
                 Label("Could not save: \(failure)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
             }
-            content(SettingEdits(model) { failure = $0.failure })
+            content(SettingEdits(model, record: { failure = $0.failure }, log: SettingEvent.log))
         }
     }
 }

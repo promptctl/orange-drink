@@ -18,7 +18,7 @@ import os
     ///
     /// A source is its stream under its tag, one stream to a tag. Each is followed on its own, so a source failing or
     /// ending leaves the others' devices listed.
-    init(sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], log: Logger = BluetoothDevices.log, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }) {
+    init(sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], log: Logger, onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }) {
         precondition(!sources.isEmpty, "a device list of no sources would read waiting for ever")
         list = DeviceList(sources: sources.keys)
         // The weak reference is re-taken per event: a strong one held across a stream would keep the model alive for good.

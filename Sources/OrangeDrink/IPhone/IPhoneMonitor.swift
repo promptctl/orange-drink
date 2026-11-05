@@ -176,13 +176,12 @@ struct MonitorInputs: Sendable {
 }
 
 enum IPhoneMonitor {
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "iphone")
     /// How long a device rests between the end of one read and the start of the next, however often usbmuxd relists it.
     static let pollInterval = Duration.seconds(60)
 
     /// Events for every iPhone and iPad usbmuxd reports, over the cable or over Wi-Fi.
     @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
-    static func events(log: Logger = IPhoneMonitor.log) -> AsyncStream<IPhoneEvent> {
+    static func events(log: Logger) -> AsyncStream<IPhoneEvent> {
         let identities = PairIdentities(log: log)
         return events(from: MonitorInputs(
             listen: usbmuxListen,

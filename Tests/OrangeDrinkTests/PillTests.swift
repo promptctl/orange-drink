@@ -22,7 +22,7 @@ import ViewInspector
     }
 
     @Test func aLowAlertAtTopOfScreenShowsOnePillForTheReadingThatCrossedIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)])
@@ -37,7 +37,7 @@ import ViewInspector
     }
 
     @Test func borderGlowFollowsTheAlertThatFiredAndGoesWithItsPill() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try Self.center(pills, alerts: [
             Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: false),
@@ -58,7 +58,7 @@ import ViewInspector
     }
 
     @Test func aCenterAlertSitsAtTheMiddleOfTheScreen() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         pills.show(PillContent(Alert(kind: .low, threshold: 5, position: .center, glow: false, sound: false),
                                reading: try Self.reading(4)))
@@ -68,7 +68,7 @@ import ViewInspector
     }
 
     @Test func aNewPillReplacesTheOneShowingAndClosingClearsIt() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         pills.show(PillContent(low, reading: try Self.reading(13)))
@@ -78,7 +78,7 @@ import ViewInspector
     }
 
     @Test func replacingAPillDoesNotReleaseWhoeverWaitsForNoPill() async throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         let low = Alert(kind: .low, threshold: 15, position: .top, glow: false, sound: false)
         pills.show(PillContent(low, reading: try Self.reading(14)))
         var released = false
@@ -294,7 +294,7 @@ import ViewInspector
     // orange-alerts-cjt.c2g: under an 80% Charge Limit the reading that crosses 80 still says
     // charging with powerd's estimate to 100%; the pill must not promise a full charge.
     @Test func aChargedPillAtTheChargeLimitSaysNoTimeUntilFull() throws {
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let center = try Self.center(
             pills, alerts: [Alert(kind: .charged, threshold: 80, position: .top, glow: false, sound: false)])
@@ -322,7 +322,7 @@ import ViewInspector
 
     @Test func theOverlayIsHandedTheLanguageTheAppSpeaksWhenThePillComesUp() throws {
         let language = AppLanguageTests.scratch()
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: language, orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         try language.update { $0 = AppLanguage(code: "fr") }
         pills.show(.power("On Battery", severity: .orange, reading: try Self.reading(14)))
@@ -338,7 +338,7 @@ import ViewInspector
     /// Dock icon. The glow lies under the pill and lets every click through. Both are the windows ordered front.
     @Test func thePillAndItsGlowAreWindowsMacOSShowsOverFullScreenApps() throws {
         var ordered: [OverlayPanel] = []
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { ordered.append($0) })
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { ordered.append($0) }, log: .unread)
         defer { pills.close(.closeButton) }
         pills.deliver(.threshold(Alert(kind: .low, threshold: 17, position: .center, glow: true, sound: false)), reading: try Self.reading(17))
         let panels = pills.shownPanels

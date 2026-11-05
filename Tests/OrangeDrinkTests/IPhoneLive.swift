@@ -36,7 +36,7 @@ import Testing
         }
         try #require(cabled.count == 1, "this check needs exactly one cabled iPhone or iPad; usbmuxd lists \(cabled.count)")
         let (handle, udid) = cabled[0]
-        try setIPhoneWifiSync(false, handle: handle, udid: udid, identities: PairIdentities())
+        try setIPhoneWifiSync(false, handle: handle, udid: udid, identities: PairIdentities(log: .unread), log: .unread)
         printForTheRecord("wifi sync off: \(udid)")
 
         let listing = try Listing(udid: udid)

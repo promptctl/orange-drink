@@ -178,14 +178,17 @@ import OSLog
     @ObservationIgnored private let openAccessibilityPane: () -> Void
     @ObservationIgnored private let wake: AsyncStream<Void>.Continuation
 
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "batteryNotifications")
+    private nonisolated static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "batteryNotifications")
+
+    /// The app's `record`: each event to the batteryNotifications log.
+    nonisolated static func record(_ event: Event) { log.notice("\(event.line, privacy: .public)") }
 
     /// [LAW:composability] `warningChanges` wakes a pass, first at subscribing, so launch needs no wake of its own. `center`
-    /// posts the app's activations. The app passes the live effects, BatteryMonitor's stream, the default center, the log,
-    /// and System Settings.
+    /// posts the app's activations. The app passes the live effects, BatteryMonitor's stream, the default center,
+    /// `record(_:)`, and System Settings.
     init(settings: SystemNotificationSettingsModel, effects: Effects, warningChanges: AsyncThrowingStream<Void, any Error>, center: NotificationCenter,
          timekeeper: any Timekeeper = SystemTimekeeper(),
-         record: @escaping (Event) -> Void = { event in BatteryNotificationDismissal.log.notice("\(event.line, privacy: .public)") },
+         record: @escaping (Event) -> Void,
          openAccessibility: @escaping () -> Void = { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!) }) {
         self.settings = settings
         self.effects = effects

@@ -39,15 +39,15 @@ extension DevicesModel {
     /// while the first Bluetooth sweep is still out.
     convenience init(
         sources: [DeviceSource: AsyncThrowingStream<DeviceEvent, any Error>], shelf: ShelfPublisher<Shelved<WidgetDeviceList>>, seenShelf: ShelfPublisher<SeenDevices>,
-        settings: DeviceSettingsModel, seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController,
+        settings: DeviceSettingsModel, seen: SeenDevicesModel, language: AppLanguageModel, pinnedItems: PinnedItemsController, log: Logger,
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) {
-        self.init(sources: sources, onChange: { list in
+        self.init(sources: sources, log: log, onChange: { list in
             do {
                 try seen.update { $0.see(list) }
             } catch {
                 // [LAW:no-silent-failure] Logged; the memory still lacks the list, so the next event saves it.
-                ShelfLog.log.error("seen devices not saved: \(String(describing: error), privacy: .public)")
+                log.error("seen devices not saved: \(String(describing: error), privacy: .public)")
             }
             onChange(list)
         })
@@ -78,7 +78,7 @@ extension DevicesModel {
 
     /// [LAW:effects-at-boundaries] `reload` is the app's call into WidgetKit, asked once per reader of
     /// the file; a test passes a recorder.
-    init(item: WidgetShelf.Item<Contents>, directory: URL, log: Logger = ShelfLog.log, reload: @escaping @MainActor (WidgetKind) -> Void) {
+    init(item: WidgetShelf.Item<Contents>, directory: URL, log: Logger, reload: @escaping @MainActor (WidgetKind) -> Void) {
         self.log = log
         self.item = item
         self.directory = directory

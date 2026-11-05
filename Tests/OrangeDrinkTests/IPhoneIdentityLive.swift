@@ -23,10 +23,10 @@ struct IPhoneIdentityLive {
         try #require(!handles.isEmpty, "usbmuxd lists no iPhone or iPad; this check needs one this Mac trusts, cabled or on Wi-Fi")
         let paired = try Self.pairedBluetooth()
         let models = try Self.recordedModels()
-        let identities = PairIdentities()
+        let identities = PairIdentities(log: .unread)
         var modelsCompared = 0
         for (udid, handle) in handles.sorted(by: { $0.key < $1.key }) {
-            let identity = try readIPhoneIdentity(handle: handle, udid: udid, identities: identities)
+            let identity = try readIPhoneIdentity(handle: handle, udid: udid, identities: identities, log: .unread)
             let name = paired[identity.bluetooth]
             // The Mac records a model only for a device it has synced (a Vision Pro it never has gets none), so a device with
             // no record is left out of the model comparison, and the check needs one device that is in it.

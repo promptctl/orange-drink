@@ -9,7 +9,7 @@ struct DeviceReaderTests {
     final class Sources {
         var unanswered: PowerSourcesError?
         let log: Logger
-        init(unanswered: PowerSourcesError?, log: Logger = BluetoothDevices.log) { self.unanswered = unanswered; self.log = log }
+        init(unanswered: PowerSourcesError?, log: Logger) { self.unanswered = unanswered; self.log = log }
         var reader: DeviceReader {
             DeviceReader(sources: { () throws(PowerSourcesError) in
                 if let unanswered = self.unanswered { throw unanswered }
@@ -25,21 +25,21 @@ struct DeviceReaderTests {
     static let read = device(.single(BatteryLevel(percent: 47, approximate: false)))
 
     @Test func aSweepPowerdDidNotAnswerKeepsTheDeviceUnreadUntilOneDoes() {
-        let sources = Sources(unanswered: .unanswered(call: "sweep unanswered"))
+        let sources = Sources(unanswered: .unanswered(call: "sweep unanswered"), log: .unread)
         #expect(sources.reader.sweep([Self.peer]) == .swept([Self.device(.unread)]))
         sources.unanswered = nil
         #expect(sources.reader.sweep([Self.peer]) == .swept([Self.read]))
     }
 
     @Test func aDeviceConnectingWhilePowerdIsSilentIsReportedUnread() {
-        let sources = Sources(unanswered: .unanswered(call: "report unanswered"))
+        let sources = Sources(unanswered: .unanswered(call: "report unanswered"), log: .unread)
         #expect(sources.reader.report(Self.peer) == .reported(Self.device(.unread)))
         sources.unanswered = nil
         #expect(sources.reader.report(Self.peer) == .reported(Self.read))
     }
 
     @Test func aSourceReadThatAnsweredOmitsADeviceWithNoBattery() {
-        let reader = Sources(unanswered: nil).reader
+        let reader = Sources(unanswered: nil, log: .unread).reader
         let speaker = BluetoothPeer(id: DeviceID.bluetooth("BB"), name: "Speaker", kind: .accessory)
         #expect(reader.sweep([speaker]) == .swept([SourceDevice(id: speaker.id, name: "Speaker", kind: .accessory, levels: .none)]))
     }
@@ -58,8 +58,8 @@ struct DeviceReaderTests {
     }
 
     @Test func anOSWithoutTheSymbolEndsTheSubscription() async {
-        let events = BluetoothDevices.events(asks: { _ in AsyncStream { $0.yield(.heard(.allowed)) } },
-                                             watcher: { _, _, _ in throw BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType") })
+        let events = BluetoothDevices.events(log: .unread, asks: { _ in AsyncStream { $0.yield(.heard(.allowed)) } },
+                                             watcher: { _, _ in throw BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType") })
         await #expect(throws: BluetoothDevicesError.missingSymbol("IOPSCopyPowerSourcesByType")) {
             for try await _ in events {}
         }

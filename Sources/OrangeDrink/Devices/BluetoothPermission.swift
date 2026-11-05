@@ -31,8 +31,8 @@ enum BluetoothPermission: Equatable, Sendable {
     typealias Updates = AsyncStream<CBManagerAuthorization>
 
     /// The app's asks: the launch's, then a new manager's every minute.
-    @Sendable static func asks(timekeeper: any Timekeeper) -> AsyncStream<Ask> {
-        asks(first: launchAsk, then: ask, timekeeper: timekeeper)
+    static func asks(timekeeper: any Timekeeper, log: Logger) -> AsyncStream<Ask> {
+        asks(first: { launchAsk(log: log) }, then: { ask(log: log) }, timekeeper: timekeeper, log: log)
     }
 
     /// Asks `first`, then `then` each minute, for as long as the stream is read.
@@ -42,14 +42,14 @@ enum BluetoothPermission: Equatable, Sendable {
     /// minute being spent, the next is made at once. The one wait with no bound is an ask that said `.notDetermined`: a
     /// prompt is open for as long as a person leaves it, and there is no list to go stale behind it.
     static func asks(
-        first: @escaping @Sendable () -> Updates, then ask: @escaping @Sendable () -> Updates, timekeeper: any Timekeeper
+        first: @escaping @Sendable () -> Updates, then ask: @escaping @Sendable () -> Updates, timekeeper: any Timekeeper, log: Logger
     ) -> AsyncStream<Ask> {
         AsyncStream { continuation in
             let task = Task {
                 var next = first
                 do {
                     while true {
-                        let asked = try await answer(to: next(), timekeeper) { continuation.yield($0) }
+                        let asked = try await answer(to: next(), timekeeper, log: log) { continuation.yield($0) }
                         next = ask
                         continuation.yield(asked)
                         if asked != .stalled { try await timekeeper.sleep(for: BluetoothDevices.pollInterval) }
@@ -66,10 +66,10 @@ enum BluetoothPermission: Equatable, Sendable {
 
     /// What one ask came to. `updates` ends with this call, which drops the ask and releases its manager.
     private static func answer(
-        to updates: Updates, _ timekeeper: any Timekeeper, prompted: (Ask) -> Void
+        to updates: Updates, _ timekeeper: any Timekeeper, log: Logger, prompted: (Ask) -> Void
     ) async throws -> Ask {
         guard let update = try await firstUpdate(of: updates, timekeeper) else {
-            BluetoothDevices.log.error("bluetooth permission: no answer within the minute, the last one stands")
+            log.error("bluetooth permission: no answer within the minute, the last one stands")
             return .stalled
         }
         var permission = BluetoothPermission(update)
@@ -102,9 +102,9 @@ enum BluetoothPermission: Equatable, Sendable {
     }
 
     /// The launch's ask. The property is true at launch, so an answered launch makes no manager and waits on no delegate call.
-    @Sendable static func launchAsk() -> Updates {
+    static func launchAsk(log: Logger) -> Updates {
         let authorization = CBManager.authorization
-        return authorization == .notDetermined ? ask() : AsyncStream { $0.yield(authorization) }
+        return authorization == .notDetermined ? ask(log: log) : AsyncStream { $0.yield(authorization) }
     }
 
     /// [LAW:effects-at-boundaries] The one edge that asks macOS, through a new manager, because only a new one hears a change
@@ -112,12 +112,12 @@ enum BluetoothPermission: Equatable, Sendable {
     /// nothing, and `CBManager.authorization` goes on saying allowed (orange-devices-bue.4gw). The property is yielded only
     /// for the one case the manager's first delegate call is held for, the open prompt. The stream holds the manager until
     /// the ask is dropped.
-    @Sendable static func ask() -> Updates {
+    static func ask(log: Logger) -> Updates {
         AsyncStream { continuation in
             let authorization = CBManager.authorization
-            BluetoothDevices.log.log(level: logLevel(of: authorization), "bluetooth permission: read authorization \(authorization.rawValue, privacy: .public)")
+            log.log(level: logLevel(of: authorization), "bluetooth permission: read authorization \(authorization.rawValue, privacy: .public)")
             if authorization == .notDetermined { continuation.yield(authorization) }
-            let delegate = ManagerDelegate(continuation: continuation)
+            let delegate = ManagerDelegate(continuation: continuation, log: log)
             let manager = CBCentralManager(delegate: delegate, queue: DispatchQueue(label: "BluetoothPermission"),
                                            options: [CBCentralManagerOptionShowPowerAlertKey: false])
             continuation.onTermination = { _ in withExtendedLifetime((manager, delegate)) {} }
@@ -131,14 +131,18 @@ enum BluetoothPermission: Equatable, Sendable {
 
     private final class ManagerDelegate: NSObject, CBCentralManagerDelegate, Sendable {
         private let continuation: AsyncStream<CBManagerAuthorization>.Continuation
+        private let log: Logger
 
-        init(continuation: AsyncStream<CBManagerAuthorization>.Continuation) { self.continuation = continuation }
+        init(continuation: AsyncStream<CBManagerAuthorization>.Continuation, log: Logger) {
+            self.continuation = continuation
+            self.log = log
+        }
 
         /// A prompt left open logs none of these; a wait that stalled logs one still not determined.
         func centralManagerDidUpdateState(_ central: CBCentralManager) {
             let authorization = CBManagerAuthorization(state: central.state, authorization: CBManager.authorization)
             let said = authorization.map { String($0.rawValue) } ?? "none yet"
-            BluetoothDevices.log.log(level: logLevel(of: authorization), "bluetooth permission: state \(central.state.rawValue, privacy: .public), authorization \(said, privacy: .public)")
+            log.log(level: logLevel(of: authorization), "bluetooth permission: state \(central.state.rawValue, privacy: .public), authorization \(said, privacy: .public)")
             if let authorization { continuation.yield(authorization) }
         }
     }

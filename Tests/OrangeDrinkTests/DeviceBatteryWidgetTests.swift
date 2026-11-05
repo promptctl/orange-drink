@@ -45,9 +45,9 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     @Test func theWidgetReadsEachDevicesLevelAfterEveryChange() async throws {
         let reloads = Reloads()
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { if $0 == .deviceBattery { reloads.count += 1 } }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { if $0 == .deviceBattery { reloads.count += 1 } }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, log: .unread)
 
         send.yield(.swept([Self.iPhone]))
         #expect(try await eventually { try levelRead("AA") == 95 })
@@ -64,9 +64,9 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func anEndedDeviceStreamTakesItsLevelsOffTheShelfInsteadOfFreezingThem() async throws {
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, log: .unread)
         send.yield(.swept([Self.iPhone]))
         #expect(try await eventually { try levelRead("AA") == 95 })
 
@@ -78,13 +78,13 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     /// The Done when of orange-devices-bue.4gw: the stand-in's stream turns to a refusal after the watcher started, through the
     /// real loop, the model, and the app's wiring to the shelf.
     @Test func permissionTakenAwayFromARunningAppMakesEverySurfaceSaySo() async throws {
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }
         let (asks, ask) = AsyncStream.makeStream(of: BluetoothPermission.Ask.self)
         let swept = DeviceEvent.swept([Self.iPhone])
-        let events = BluetoothDevices.events(asks: { _ in asks }, watcher: { continuation, _, _ in
+        let events = BluetoothDevices.events(log: .unread, asks: { _ in asks }, watcher: { continuation, _ in
             StandInWatcher(continuation, swept: swept)
         })
-        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, log: .unread)
         ask.yield(.heard(.allowed))
         #expect(try await eventually { try levelRead("AA") == 95 })
 
@@ -98,9 +98,9 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func aDevicesModelTornDownIsNotAnEndedStreamAndLeavesTheShelfAlone() async throws {
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        var model: DevicesModel? = try DevicesModel(sources: [.bluetooth: events], shelf: publisher)
+        var model: DevicesModel? = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, log: .unread)
         model = nil
         send.finish()
         try await Task.sleep(for: .milliseconds(100))
@@ -117,7 +117,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
     }
 
     @Test func aDeviceThatDisconnectsLeavesTheShelfAndTheAppQuittingSaysSo() async throws {
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }
         var list = DeviceList(sources: [.bluetooth])
         list.apply(.swept([Self.iPhone]), from: .bluetooth)
         publisher.publish(.running(WidgetDeviceList(list, pinned: [])))

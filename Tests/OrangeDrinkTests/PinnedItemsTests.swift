@@ -63,8 +63,8 @@ import Testing
         let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
-        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, language: language, pinnedItems: controller(items))
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, language: language, pinnedItems: controller(items), log: .unread)
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices.map(\.source)))
         #expect(await eventually { items.made.first?.shown?.title == "37%" })
@@ -115,8 +115,8 @@ import Testing
         let shelf = FileManager.default.temporaryDirectory.appending(path: "pinned-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
-        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: controller(items))
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, settings: settings, pinnedItems: controller(items), log: .unread)
         try settings.update { $0.togglePinned(Self.mouse) }
         send.yield(.swept(list([Self.mouse: level(37)]).devices.map(\.source)))
         #expect(await eventually { items.made.first?.shown?.row.percent.english == "37%" })

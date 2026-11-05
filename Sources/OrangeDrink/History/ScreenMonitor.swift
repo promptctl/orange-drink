@@ -9,7 +9,7 @@ enum ScreenHider: String, CaseIterable, Sendable {
 
 /// [LAW:effects-at-boundaries] The one edge that listens for what the screen is doing.
 enum ScreenMonitor {
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "screen")
+    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "screen")
 
     /// One hider's start and end, posted on the workspace's center or the distributed one.
     struct Signal: Sendable {
@@ -34,10 +34,10 @@ enum ScreenMonitor {
     /// locked or off the console, and whether the main display sleeps. The screen saver and system
     /// sleep cannot be asked.
     static func asked() -> [ScreenHider: Bool] {
-        asked(session: CGSessionCopyCurrentDictionary() as? [String: Any], mainDisplayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0)
+        asked(session: CGSessionCopyCurrentDictionary() as? [String: Any], mainDisplayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0, log: log)
     }
 
-    static func asked(session: [String: Any]?, mainDisplayAsleep: Bool, log: Logger = ScreenMonitor.log) -> [ScreenHider: Bool] {
+    static func asked(session: [String: Any]?, mainDisplayAsleep: Bool, log: Logger) -> [ScreenHider: Bool] {
         // [LAW:no-silent-failure] An app with a menu bar item has a window-server session; one without
         // is logged, and the system has no word on the lock.
         if session == nil { log.error("no window-server session to ask whether the screen is locked") }

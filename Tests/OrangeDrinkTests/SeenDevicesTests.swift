@@ -23,8 +23,8 @@ import Testing
     init() throws {
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         query = DeviceQuery(directory: .success(shelf))
-        devicesShelf = ShelfPublisher(item: .devices, directory: shelf) { _ in }
-        seenShelf = ShelfPublisher(item: .seenDevices, directory: shelf) { _ in }
+        devicesShelf = ShelfPublisher(item: .devices, directory: shelf, log: .unread) { _ in }
+        seenShelf = ShelfPublisher(item: .seenDevices, directory: shelf, log: .unread) { _ in }
     }
 
     deinit {
@@ -36,7 +36,7 @@ import Testing
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let model = DevicesModel(
             sources: [.bluetooth: events], shelf: devicesShelf, seenShelf: seenShelf, settings: try DeviceSettingsModel(defaults: defaults),
-            seen: try SeenDevicesModel(defaults: defaults), language: try AppLanguageModel(defaults: defaults), pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }))
+            seen: try SeenDevicesModel(defaults: defaults), language: try AppLanguageModel(defaults: defaults), pinnedItems: PinnedItemsController(makeItem: { _ in PinnedItemsTests.RecordingItem() }), log: .unread)
         return (model, send)
     }
 

@@ -17,7 +17,7 @@ import Testing
     @Test func theSwitchAndTargetComeBackAsSetWhenLoadedAsARelaunchWould() throws {
         let defaults = scratchDefaults()
         let events = SettingEvents()
-        let edits = SettingEdits(try Self.model(defaults), record: events.record)
+        let edits = SettingEdits(try Self.model(defaults), record: events.record, log: .unread)
         edits.binding(\.isOn).wrappedValue = true
         edits.binding(\.target).wrappedValue = try Self.target(90)
         #expect(try Self.model(defaults).value == ChargeLimit(isOn: true, target: try Self.target(90)))
@@ -28,7 +28,7 @@ import Testing
     }
 
     @Test func turningTheLimitOffKeepsTheTargetForWhenItIsTurnedBackOn() throws {
-        let edits = SettingEdits(try Self.model(scratchDefaults()), record: SettingEvents().record)
+        let edits = SettingEdits(try Self.model(scratchDefaults()), record: SettingEvents().record, log: .unread)
         let ninety = try Self.target(90)
         edits.perform { $0.isOn = true; $0.target = ninety }
         edits.binding(\.isOn).wrappedValue = false

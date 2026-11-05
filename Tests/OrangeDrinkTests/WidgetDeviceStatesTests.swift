@@ -41,12 +41,12 @@ private let unreadStates = [
 
     /// Publishes the mac and the state through the app's own wiring.
     func publish(_ state: DeviceState, mac: MacBattery) async throws -> DevicesModel {
-        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(mac))
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: .unread) { _ in }.publish(.running(mac))
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }
         let (changed, signal) = AsyncStream.makeStream(of: Void.self)
         var next = changed.makeAsyncIterator()
         let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, onChange: { _ in signal.yield() })
+        let model = try DevicesModel(sources: [.bluetooth: events], shelf: publisher, log: .unread, onChange: { _ in signal.yield() })
         for event in state.events {
             send.yield(event)
             _ = await next.next()
@@ -61,11 +61,11 @@ private let unreadStates = [
     }
 
     func allBatteriesSays() throws -> [String] {
-        try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: AllBatteriesIntent()))
+        try AllBatteriesWidgetTests.texts(AllBatteriesEntry(date: .now, directory: .success(shelf), log: .unread, configuration: AllBatteriesIntent()))
     }
 
     func deviceBatterySays(chosen: String?, family: WidgetFamily = .systemSmall) throws -> [String] {
-        let entry = DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: .success(shelf), log: ShelfLog.log), chosen: chosen.map(DeviceID.bluetooth))
+        let entry = DeviceBatteryEntry(date: .now, shelf: WidgetShelf.load(.devices, from: .success(shelf), log: .unread), chosen: chosen.map(DeviceID.bluetooth))
         return try DeviceBatteryView(entry: entry, appName: "Orange Drink", family: family).inspect().findAll(ViewType.Text.self).map { try $0.string() }
     }
 
@@ -146,7 +146,7 @@ private let unreadStates = [
         let model = try await publish(read, mac: mac)
         let intent = AllBatteriesIntent()
         intent.includeMac = false
-        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: intent)
+        let entry = AllBatteriesEntry(date: .now, directory: .success(shelf), log: .unread, configuration: intent)
         #expect(try AllBatteriesWidgetTests.texts(entry) == ["No device batteries"])
         _ = model
     }
@@ -164,7 +164,7 @@ private let unreadStates = [
         #expect(try deviceBatterySays(chosen: "AA") == ["Open Orange Drink"])
 
         var asked: [WidgetKind] = []
-        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { asked.append($0) }
+        let publisher = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { asked.append($0) }
         publisher.publish(.running(.unread(.waiting)))
         #expect(asked == [.deviceBattery, .allBatteries])
         #expect(try deviceBatterySays(chosen: "AA") == ["Reading devices…"])

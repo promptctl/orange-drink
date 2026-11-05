@@ -63,7 +63,7 @@ import ViewInspector
     private func screen(_ login: LaunchAtLogin) throws -> GeneralScreen {
         try scratchGeneralScreen(launchAtLogin: login,
                                  batteryNotifications: BatteryNotificationDismissal(settings: try SystemNotificationSettingsModel(defaults: scratchDefaults()), effects: FakeMac().effects,
-                                                                                    warningChanges: AsyncThrowingStream { _ in }, center: system.center))
+                                                                                    warningChanges: AsyncThrowingStream { _ in }, center: system.center, record: { _ in }))
     }
 
     private func theSwitch(_ login: LaunchAtLogin) throws -> InspectableView<ViewType.Toggle> {

@@ -119,12 +119,15 @@ enum ChargeHoldEvent: Equatable {
     @ObservationIgnored private let record: (ChargeHoldEvent) -> Void
     @ObservationIgnored private let openLoginItemsPane: () -> Void
 
-    nonisolated static var log: Logger { Logger(subsystem: IOKitBattery.logSubsystem, category: "chargeLimit") }
+    private nonisolated static var log: Logger { Logger(subsystem: IOKitBattery.logSubsystem, category: "chargeLimit") }
+
+    /// The app's `record`: each event to the chargeLimit log.
+    nonisolated static func record(_ event: ChargeHoldEvent) { log.notice("\(event.line, privacy: .public)") }
 
     /// [LAW:composability] `limit` is the setting as it stands, `effects` the helper, `record` is told each event, and
     /// `openLoginItems` shows the setting that allows the helper. Nothing is asked until the first input.
     init(limit: ChargeLimit, effects: Effects,
-         record: @escaping (ChargeHoldEvent) -> Void = { event in ChargeHold.log.notice("\(event.line, privacy: .public)") },
+         record: @escaping (ChargeHoldEvent) -> Void,
          openLoginItems: @escaping () -> Void = { SMAppService.openSystemSettingsLoginItems() }) {
         self.limit = limit
         self.effects = effects
@@ -275,7 +278,7 @@ extension ChargeHold where Lease == ChargeLease {
         self.init(limit: limit, effects: Effects(
             pause: { lost throws(HelperUseFailure) in try helper.pauseCharging(lost: lost) },
             release: { lease throws(HelperUseFailure) in try helper.release(lease) },
-            resume: { () throws(HelperUseFailure) in try helper.resumeCharging() }))
+            resume: { () throws(HelperUseFailure) in try helper.resumeCharging() }), record: Self.record)
     }
 }
 

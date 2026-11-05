@@ -400,7 +400,7 @@ final class DiagnosticsRelay: BatteryRelay, @unchecked Sendable {
 
     /// A lockdown session, the relay started under it, and the relay's own TLS. The session ends here: the relay stays
     /// open without it.
-    init(handle: Int, udid: String, identities: PairIdentities, log: Logger = IPhoneMonitor.log) throws(IPhoneReadError) {
+    init(handle: Int, udid: String, identities: PairIdentities, log: Logger) throws(IPhoneReadError) {
         self.handle = handle
         self.log = log
         self.udid = udid
@@ -440,7 +440,7 @@ final class DiagnosticsRelay: BatteryRelay, @unchecked Sendable {
 final class PairIdentities: Sendable {
     private let log: Logger
 
-    init(log: Logger = IPhoneMonitor.log) { self.log = log }
+    init(log: Logger) { self.log = log }
 
     private struct Record: Hashable {
         let certificatePEM: Data
@@ -475,7 +475,7 @@ let readWorstCase = (callDeadline + .seconds(1)) * 15
 /// reaches the device over the network once the cable is out. Every outcome leaves one line in the log.
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
 func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String, identities: PairIdentities,
-                       log: Logger = IPhoneMonitor.log) throws(IPhoneReadError) {
+                       log: Logger) throws(IPhoneReadError) {
     let state = on ? "on" : "off"
     do {
         try typedReadErrors {
@@ -495,7 +495,7 @@ func setIPhoneWifiSync(_ on: Bool, handle: Int, udid: String, identities: PairId
 /// not start (locked, refused) can still be identified. Every outcome leaves one line in the log.
 @available(macOS, deprecated: 10.15, message: "lockdown TLS is SecureTransport, the only client-identity TLS that lockdown accepts here; see lm3.8pk")
 func readIPhoneIdentity(handle: Int, udid: String, identities: PairIdentities,
-                        log: Logger = IPhoneMonitor.log) throws(IPhoneReadError) -> IPhoneIdentity {
+                        log: Logger) throws(IPhoneReadError) -> IPhoneIdentity {
     do {
         let identity = try typedReadErrors {
             let lockdown = try openLockdown(handle: handle, udid: udid, identities: identities)

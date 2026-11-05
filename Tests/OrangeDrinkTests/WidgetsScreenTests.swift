@@ -20,8 +20,8 @@ import WidgetKit
         init() async throws {
             let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
             let (events, send) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-            let battery = BatteryModel(readings: readings)
-            let devices = DevicesModel(sources: [.bluetooth: events])
+            let battery = BatteryModel(readings: readings, read: { nil }, log: .unread)
+            let devices = DevicesModel(sources: [.bluetooth: events], log: .unread)
             let settings = try DeviceSettingsModel(defaults: scratchDefaults())
             (self.feed, self.send, self.battery, self.devices, self.settings) = (feed, send, battery, devices, settings)
             screen = WidgetsScreen(battery: battery, devices: devices, settings: settings)

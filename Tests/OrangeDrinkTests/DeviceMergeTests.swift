@@ -213,7 +213,7 @@ struct DeviceMergeListTests {
     @Test(.timeLimit(.minutes(1))) func thePhoneReportedByBothStandInSourcesAppearsOnceWithTheLevelTheRulePicks() async {
         let (bluetooth, sendBluetooth) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
         let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
-        let model = DevicesModel(sources: [.bluetooth: bluetooth, .iPhone: iPhone])
+        let model = DevicesModel(sources: [.bluetooth: bluetooth, .iPhone: iPhone], log: .unread)
         sendBluetooth.yield(.swept([Phone.paired(Phone.level(80)), DeviceListTests.mouse.source]))
         sendIPhone.yield(.swept([Phone.cabled(Phone.level(62))]))
         // Both sources have swept: with only Bluetooth's in, the phone is listed once for a different reason.

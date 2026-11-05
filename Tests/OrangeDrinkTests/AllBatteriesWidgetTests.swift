@@ -340,12 +340,12 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     static func filledShelf() throws -> URL {
         let shelf = FileManager.default.temporaryDirectory.appending(path: "shelf-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
-        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { _ in }.publish(.running(charging))
-        ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { _ in }.publish(.running(.connected(three, pinned: [])))
+        ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: .unread) { _ in }.publish(.running(charging))
+        ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { _ in }.publish(.running(.connected(three, pinned: [])))
         return shelf
     }
 
-    static func configured(_ style: WidgetStyle, in shelf: URL, log: Logger = ShelfLog.log) -> AllBatteriesEntry {
+    static func configured(_ style: WidgetStyle, in shelf: URL, log: Logger) -> AllBatteriesEntry {
         let configuration = AllBatteriesIntent()
         configuration.style = style
         return AllBatteriesEntry(date: .now, directory: .success(shelf), log: log, configuration: configuration)
@@ -354,7 +354,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
     @Test(arguments: WidgetStyle.allCases) func aWidgetsStyleSettingGivesAnEntryDrawnInThatStyle(style: WidgetStyle) throws {
         let shelf = try Self.filledShelf()
         defer { try? FileManager.default.removeItem(at: shelf) }
-        let drawn = try Self.drawing(Self.configured(style, in: shelf))
+        let drawn = try Self.drawing(Self.configured(style, in: shelf, log: .unread))
         #expect(try drawn == Self.drawing(Self.entry(Self.charging, Self.three, style: style)))
         for other in WidgetStyle.allCases where other != style {
             #expect(try drawn != Self.drawing(Self.entry(Self.charging, Self.three, style: other)))
@@ -434,7 +434,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         func entry(_ set: (AllBatteriesIntent) -> Void = { _ in }) -> AllBatteriesEntry {
             let intent = AllBatteriesIntent()
             set(intent)
-            return AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: intent)
+            return AllBatteriesEntry(date: .now, directory: .success(shelf), log: .unread, configuration: intent)
         }
         let defaults = try Self.drawing(entry())
         #expect(try Self.texts(entry()) == ["80%", "95%", "54%", "40%"])
@@ -525,8 +525,8 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         try FileManager.default.createDirectory(at: shelf, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: shelf) }
         var asked: [WidgetKind] = []
-        let mac = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf) { asked.append($0) }
-        let devices = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf) { asked.append($0) }
+        let mac = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: .unread) { asked.append($0) }
+        let devices = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: .unread) { asked.append($0) }
         func reloads(_ change: () -> Void) -> [WidgetKind] {
             asked = []
             change()
@@ -538,7 +538,7 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(reloads { mac.publish(.running(Self.charging)) } == [])
         #expect(reloads { devices.publish(.running(.connected(Self.three, pinned: []))) } == [])
 
-        func shelved() -> AllBatteriesEntry { AllBatteriesEntry(date: .now, directory: .success(shelf), log: ShelfLog.log, configuration: AllBatteriesIntent()) }
+        func shelved() -> AllBatteriesEntry { AllBatteriesEntry(date: .now, directory: .success(shelf), log: .unread, configuration: AllBatteriesIntent()) }
         #expect(try Self.texts(shelved()) == ["80%", "95%", "54%", "40%"])
 
         #expect(reloads { mac.publish(.running(Self.onBattery)) } == [.macBattery, .allBatteries])

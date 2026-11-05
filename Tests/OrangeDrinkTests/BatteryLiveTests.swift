@@ -13,7 +13,7 @@ import Testing
         // [LAW:no-ambient-temporal-coupling] powerd may publish between two reads, so the
         // reading is bracketed: a value sampled between two pmset samples equals one of them.
         let before = try pmsetBattery()
-        let reading = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
+        let reading = try #require(try IOKitBattery.read(log: .unread), "this check needs a Mac with a battery")
         let after = try pmsetBattery()
         let ac = try run("/usr/bin/pmset", "-g", "ac")
         #expect([before.percent, after.percent].contains(reading.chargePercent))
@@ -58,7 +58,7 @@ import Testing
     }
 
     @Test func matchesIoreg() throws {
-        let reading = try #require(try IOKitBattery.read())
+        let reading = try #require(try IOKitBattery.read(log: .unread))
         let plist = try run("/usr/sbin/ioreg", "-a", "-r", "-c", "AppleSmartBattery")
         let entries = try PropertyListSerialization.propertyList(from: Data(plist.utf8), format: nil) as! [[String: Any]]
         let registry = try #require(entries.first)
@@ -83,7 +83,7 @@ import Testing
         var readings = BatteryMonitor.readings(log: log.logger).makeAsyncIterator()
         let published = try #require(try await readings.next(), "the stream ended before its first reading")
         let first = try #require(published, "this check needs a Mac with a battery")
-        let direct = try #require(try IOKitBattery.read())
+        let direct = try #require(try IOKitBattery.read(log: .unread))
         #expect(first.capacity.design == direct.capacity.design)
         #expect(first.cycles == direct.cycles)
         #expect(try await log.messages().contains { $0.hasPrefix("\(kIOPSNotifyAnyPowerSource): registered token ") })
@@ -91,8 +91,8 @@ import Testing
 
     /// The app holds its subscription from launch, which is what `make cpu-check` measures.
     @MainActor @Test func appModelHoldsTheCurrentReading() async throws {
-        let model = BatteryModel(readings: BatteryMonitor.readings())
-        let direct = try #require(try IOKitBattery.read())
+        let model = BatteryModel(readings: BatteryMonitor.readings(log: .unread), read: { try IOKitBattery.read(log: .unread) }, log: .unread)
+        let direct = try #require(try IOKitBattery.read(log: .unread))
         switch await model.state(once: BatteryModel.isSettled) {
         case .known(let reading?): #expect(reading.cycles == direct.cycles)
         case .known(nil): Issue.record("the subscription saw no battery where a direct read saw one")
@@ -115,7 +115,7 @@ import Testing
                 self.reading = reading; at = .now; self.pmset = try pmset(); after = try read()
             }
         }
-        let start = try #require(try IOKitBattery.read(), "this check needs a Mac with a battery")
+        let start = try #require(try IOKitBattery.read(log: .unread), "this check needs a Mac with a battery")
         guard case .adapter = start.power else { Issue.record("start with the adapter plugged in"); return }
         let log = try await TestLog()
         let posts = OSAllocatedUnfairLock<[ContinuousClock.Instant]>(initialState: [])
@@ -129,7 +129,7 @@ import Testing
         let run = Task { () -> (unplugged: Arrival, plugged: Arrival)? in
             var unplugged: Arrival?
             FileHandle.standardError.write(Data("\n>>> Unplug the adapter now.\n".utf8))
-            for try await event in BatteryMonitor.events(from: BatteryMonitor.readings(), log: logger) {
+            for try await event in BatteryMonitor.events(from: BatteryMonitor.readings(log: .unread), log: logger) {
                 switch (event, unplugged) {
                 case (.unplugged(let reading), nil):
                     unplugged = try Arrival(reading, pmset: pmsetBattery, read: readBattery)
@@ -167,7 +167,7 @@ import Testing
         #expect(messages.contains("battery event: \(String(describing: BatteryEvent.plugged(arrivals.plugged.reading)))"))
     }
 
-    func readBattery() throws -> BatteryReading { try #require(try IOKitBattery.read()) }
+    func readBattery() throws -> BatteryReading { try #require(try IOKitBattery.read(log: .unread)) }
 
     func run(_ command: String, _ arguments: String...) throws -> String {
         let result = try ChildProcess.run(command, arguments)
