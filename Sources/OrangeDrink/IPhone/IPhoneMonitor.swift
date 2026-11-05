@@ -176,7 +176,6 @@ struct MonitorInputs: Sendable {
 }
 
 enum IPhoneMonitor {
-    static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "iphone")
     /// How long a device rests between the end of one read and the start of the next, however often usbmuxd relists it.
     static let pollInterval = Duration.seconds(60)
 

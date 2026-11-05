@@ -50,7 +50,7 @@ extension DevicesModel {
         onChange: @escaping @MainActor (DeviceList) -> Void = { _ in }
     ) throws {
         let seen = try SeenDevicesModel(defaults: scratchDefaults())
-        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf.directory, log: .unread) { _ in }
+        let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf.directory, log: log) { _ in }
         self.init(sources: sources, shelf: shelf, seenShelf: seenShelf, settings: settings, seen: seen,
                   language: try language ?? AppLanguageModel(defaults: scratchDefaults()), pinnedItems: pinnedItems, log: log, onChange: onChange)
     }
