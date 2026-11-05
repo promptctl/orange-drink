@@ -19,7 +19,7 @@ func scratchSuitePath() -> String {
 @MainActor func scratchGeneralScreen(launchAtLogin: LaunchAtLogin, batteryNotifications: BatteryNotificationDismissal) throws -> GeneralScreen {
     GeneralScreen(appearance: try NotificationAppearanceModel(defaults: scratchDefaults()), look: try AppAppearanceModel(defaults: scratchDefaults()),
                   language: try AppLanguageModel(defaults: scratchDefaults()), launchAtLogin: launchAtLogin,
-                  batteryNotifications: batteryNotifications)
+                  batteryNotifications: batteryNotifications, settingsLog: .unread)
 }
 
 private enum ScratchRoot {

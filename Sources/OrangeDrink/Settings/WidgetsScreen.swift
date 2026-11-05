@@ -1,4 +1,5 @@
 import Observation
+import OSLog
 import SwiftUI
 import WidgetKit
 
@@ -86,6 +87,7 @@ struct WidgetPreview: View {
     let devices: WidgetDeviceList
     /// The device Device Battery shows. Nothing here has a widget's settings, so nobody chose it.
     let device: DeviceID?
+    let log: Logger
     @Environment(\.appLanguage) private var language
 
     var body: some View {
@@ -103,7 +105,7 @@ struct WidgetPreview: View {
         switch kind {
         case .allBatteries:
             AllBatteriesView(entry: AllBatteriesEntry(date: .now, mac: .success(.running(mac)), devices: .success(.running(devices)),
-                                                      settings: AllBatteriesSettings(AllBatteriesIntent())),
+                                                      settings: AllBatteriesSettings(AllBatteriesIntent(), log: log)),
                              appName: appName, family: size.family)
         case .macBattery:
             MacBatteryView(entry: MacBatteryEntry(date: .now, battery: .success(.running(mac))), appName: appName)
@@ -119,6 +121,7 @@ struct WidgetsScreen: View {
     let battery: BatteryModel
     let devices: DevicesModel
     let settings: DeviceSettingsModel
+    let widgetsLog: Logger
     @State private var choice = WidgetPreviewChoice()
 
     var body: some View {
@@ -168,7 +171,7 @@ struct WidgetsScreen: View {
                 // [LAW:one-source-of-truth] The two derivations the shelf is published from, read as the view draws so each
                 // reading and each change to the list redraws the preview. Device Battery shows the panel's first device.
                 WidgetPreview(kind: choice.kind, size: choice.size, mac: MacBattery(battery.state), devices: WidgetDeviceList(devices.list, pinned: settings.value.pinned),
-                              device: ConnectedDevices(devices.list, settings: settings.value).rows.first?.id)
+                              device: ConnectedDevices(devices.list, settings: settings.value).rows.first?.id, log: widgetsLog)
                     .frame(maxWidth: .infinity)
                 // The design doc words this for All Batteries alone.
                 if choice.kind == .allBatteries {

@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// design-docs/general.md.
@@ -7,14 +8,15 @@ struct GeneralScreen: View {
     let language: AppLanguageModel
     let launchAtLogin: LaunchAtLogin
     let batteryNotifications: BatteryNotificationDismissal
+    let settingsLog: Logger
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            LanguageSection(language: language)
-            AppAppearanceSection(look: look)
+            LanguageSection(language: language, settingsLog: settingsLog)
+            AppAppearanceSection(look: look, settingsLog: settingsLog)
             SystemIntegrationSection(login: launchAtLogin)
-            SystemNotificationsSection(dismissal: batteryNotifications)
-            NotificationAppearanceSection(appearance: appearance)
+            SystemNotificationsSection(dismissal: batteryNotifications, settingsLog: settingsLog)
+            NotificationAppearanceSection(appearance: appearance, settingsLog: settingsLog)
         }
         .padding(24)
     }
@@ -23,11 +25,12 @@ struct GeneralScreen: View {
 /// Match System or a language the app carries, applied as it is chosen.
 private struct LanguageSection: View {
     let language: AppLanguageModel
+    let settingsLog: Logger
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "globe", color: .blue, title: "Language")
-            SettingEditor(language) { edits in
+            SettingEditor(language, log: settingsLog) { edits in
                 SettingCard {
                     SettingRow(icon: ("globe", .blue), title: "App Language", description: "Choose the language \(appName) uses. Changes apply immediately.") {
                         PopUpButton(selection: edits.binding(\.self), options: AppLanguage.choices(), title: { Text(verbatim: $0.menuTitle(speaking: edits.value)) })
@@ -41,11 +44,12 @@ private struct LanguageSection: View {
 /// Auto, Light, or Dark for the settings window and the panel, applied as it is chosen.
 private struct AppAppearanceSection: View {
     let look: AppAppearanceModel
+    let settingsLog: Logger
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "circle.lefthalf.filled", color: .purple, title: "Appearance")
-            SettingEditor(look) { edits in
+            SettingEditor(look, log: settingsLog) { edits in
                 SettingCard {
                     SettingRow(icon: ("circle.lefthalf.filled", .purple), title: "App Appearance", description: "Auto follows your Mac's system appearance") {
                         PopUpButton(selection: edits.binding(\.self), options: AppAppearance.allCases, title: { Text($0.label) })
@@ -83,11 +87,12 @@ private struct SystemIntegrationSection: View {
 /// so the line under it says when it cannot act.
 private struct SystemNotificationsSection: View {
     let dismissal: BatteryNotificationDismissal
+    let settingsLog: Logger
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "app.badge", color: .orange, title: "System Notifications")
-            SettingEditor(dismissal.settings) { edits in
+            SettingEditor(dismissal.settings, log: settingsLog) { edits in
                 SettingCard {
                     SettingRow(icon: ("bell.slash", .red), title: "Dismiss macOS Battery Notifications",
                                description: "Automatically closes system battery notification on the top right so you don't have to click it away.") {
@@ -107,12 +112,13 @@ private struct SystemNotificationsSection: View {
 /// The two settings that shape every alert, and a live sample of the alert they shape.
 private struct NotificationAppearanceSection: View {
     let appearance: NotificationAppearanceModel
+    let settingsLog: Logger
     @State private var showGlow = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(symbol: "sparkle", color: .pink, title: "Notification Appearance")
-            SettingEditor(appearance) { edits in
+            SettingEditor(appearance, log: settingsLog) { edits in
                 let look = edits.value
                 SettingCard {
                     SettingRow(title: "Alert Bubble Size", description: "Scales the alert pill") {

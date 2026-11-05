@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// The settings window: the sidebar on the left, the chosen screen on the right.
@@ -17,6 +18,10 @@ struct SettingsView: View {
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
+    let settingsLog: Logger
+    let historyLog: Logger
+    let appEnergyLog: Logger
+    let widgetsLog: Logger
     @State private var selection: SettingsScreen = .general
 
     var body: some View {
@@ -32,7 +37,7 @@ struct SettingsView: View {
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
         } detail: {
             ScreenView(screen: selection, alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices,
-                       deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, select: { selection = $0 })
+                       deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, settingsLog: settingsLog, historyLog: historyLog, appEnergyLog: appEnergyLog, widgetsLog: widgetsLog, select: { selection = $0 })
         }
         .appLook(look, language)
         .frame(minWidth: 760, minHeight: 640)
@@ -96,6 +101,10 @@ private struct ScreenView: View {
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
     let appEnergy: Result<AppEnergyHistory, any Error>
+    let settingsLog: Logger
+    let historyLog: Logger
+    let appEnergyLog: Logger
+    let widgetsLog: Logger
     let select: (SettingsScreen) -> Void
 
     var body: some View {
@@ -111,15 +120,15 @@ private struct ScreenView: View {
                     PhraseText(subtitle).font(.callout).foregroundStyle(.secondary).padding(.horizontal, 24).padding(.top, 12)
                 }
                 switch screen {
-                case .general: GeneralScreen(appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications)
-                case .alerts: AlertsScreen(center: alerts)
-                case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings)
-                case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold)
+                case .general: GeneralScreen(appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, settingsLog: settingsLog)
+                case .alerts: AlertsScreen(center: alerts, settingsLog: settingsLog)
+                case .menuBar: MenuBarScreen(model: menuBarIcon, devices: devices, deviceSettings: deviceSettings, settingsLog: settingsLog)
+                case .charging: ChargingScreen(limit: chargeLimit, hold: chargeHold, settingsLog: settingsLog)
                 case .shortcuts: ShortcutsScreen(controller: shortcuts)
-                case .devices: DevicesScreen(devices: devices, settings: deviceSettings, select: select)
-                case .widgets: WidgetsScreen(battery: battery, devices: devices, settings: deviceSettings)
-                case .appUsage: AppUsageScreen(appEnergy: appEnergy)
-                case .battery: BatteryScreen(battery: battery, history: history)
+                case .devices: DevicesScreen(devices: devices, settings: deviceSettings, settingsLog: settingsLog, select: select)
+                case .widgets: WidgetsScreen(battery: battery, devices: devices, settings: deviceSettings, widgetsLog: widgetsLog)
+                case .appUsage: AppUsageScreen(appEnergy: appEnergy, log: appEnergyLog)
+                case .battery: BatteryScreen(battery: battery, history: history, log: historyLog)
                 case .iphoneIpad: EmptyState(screen: screen).padding(.top, 60)
                 }
             }

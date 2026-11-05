@@ -16,7 +16,7 @@ import OSLog
     }
 
     override convenience init() {
-        self.init(termination: TerminationLog(), panel: StatusItemPanel(item: .live), record: { Self.log.notice("\($0, privacy: .public)") })
+        self.init(termination: TerminationLog(), panel: StatusItemPanel(item: .live(log: Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey"))), record: { Self.log.notice("\($0, privacy: .public)") })
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {

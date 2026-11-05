@@ -19,7 +19,7 @@ import Testing
         try store.apply(HistoryWrite(sample: sample(0, hour: 20, health: 0.96)))
         try store.apply(HistoryWrite(sample: sample(1, hour: 9, health: 0.95), days: [day(1): DayUsage(dischargedPercent: 20, screenOn: 4 * 3600)]))
         try store.apply(HistoryWrite(sample: sample(2, hour: 9, health: 0.94), days: [day(2): DayUsage(dischargedPercent: 10, screenOn: 3 * 3600)]))
-        return BatteryHistory(store: store, timekeeper: BatteryHistoryTests.Clock(day(2).addingTimeInterval(9 * 3600 + 120)), calendar: BatteryHistoryTests.utc)
+        return BatteryHistory(store: store, log: .unread, timekeeper: BatteryHistoryTests.Clock(day(2).addingTimeInterval(9 * 3600 + 120)), calendar: BatteryHistoryTests.utc)
     }
 
     @Test func eachStoredDayIsOneEntryWithThatDaysDischargeAndScreenTime() throws {
@@ -78,7 +78,7 @@ import Testing
 
     @Test func aNewHistoryIsAnEmptyOverviewThatIsBuilding() throws {
         let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
-        let overview = try BatteryHistory(store: store, timekeeper: BatteryHistoryTests.Clock(Self.day(0)), calendar: BatteryHistoryTests.utc).overview()
+        let overview = try BatteryHistory(store: store, log: .unread, timekeeper: BatteryHistoryTests.Clock(Self.day(0)), calendar: BatteryHistoryTests.utc).overview()
         #expect(overview.days.isEmpty && overview.health.isEmpty && overview.collectedAt == nil)
         #expect(overview.isBuildingUsage && overview.isBuildingHealth)
     }

@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// The panel the status item opens: stacked rounded cards on a dark ground.
@@ -6,6 +7,7 @@ struct PanelView: View {
     let devices: DevicesModel
     let deviceSettings: DeviceSettingsModel
     let appEnergy: Result<AppEnergyHistory, any Error>
+    let appEnergyLog: Logger
     let sections: PanelSections
     let lowPowerMode: LowPowerMode
     let updates: AppUpdater
@@ -27,7 +29,7 @@ struct PanelView: View {
             }
             CollapsibleCard(title: "Apps Using Significant Energy", symbol: "bolt.circle.fill", symbolColor: .orange,
                             section: .appsUsingSignificantEnergy, sections: sections) {
-                SignificantEnergyView(appEnergy: appEnergy)
+                SignificantEnergyView(appEnergy: appEnergy, log: appEnergyLog)
             }
             let connected = ConnectedDevices(devices.list, settings: deviceSettings.value)
             if connected.isShown {

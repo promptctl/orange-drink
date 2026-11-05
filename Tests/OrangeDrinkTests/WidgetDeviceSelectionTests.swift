@@ -135,7 +135,7 @@ import WidgetKit
     // MARK: the settings and the log
 
     @Test func aWidgetWithNoSavedChoiceIsAutomaticAndEachChoiceKeepsItsName() {
-        #expect(AllBatteriesSettings(AllBatteriesIntent()).devices == .automatic)
+        #expect(AllBatteriesSettings(AllBatteriesIntent(), log: .unread).devices == .automatic)
         #expect(WidgetDeviceChoice.allCases.map(\.rawValue) == ["automatic", "custom", "sameAsMenuBar"])
     }
 
@@ -194,7 +194,7 @@ import WidgetKit
         }))
         #expect(try await eventually { try sameAsMenuBarSays() == ["40%", "60%"] })
 
-        let screen = DevicesScreen(devices: model, settings: settings, select: { _ in })
+        let screen = DevicesScreen(devices: model, settings: settings, settingsLog: .unread, select: { _ in })
         asked = []
         try Self.pinButton("Pin Device C to the menu bar", of: screen).tap()
         #expect(try await eventually { try sameAsMenuBarSays() == ["40%", "60%", "50%"] })

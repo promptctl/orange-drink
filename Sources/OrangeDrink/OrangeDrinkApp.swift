@@ -29,8 +29,28 @@ struct OrangeDrinkApp: App {
     private let keyboard: PanelKeyboard
     private let history: Result<BatteryHistory, any Error>
     private let appEnergy: Result<AppEnergyHistory, any Error>
+    private let logs: ViewLogs
+
+    /// The loggers the views write through, each the one its subject's category has.
+    private struct ViewLogs {
+        let settings: Logger
+        let history: Logger
+        let appEnergy: Logger
+        let widgets: Logger
+    }
 
     init() {
+        // [LAW:one-source-of-truth] Each subject's one logger, bound once here, so every part of a subject writes to the
+        // same category and a test hands the same subject a log of its own.
+        func logger(_ category: String) -> Logger { Logger(subsystem: IOKitBattery.logSubsystem, category: category) }
+        let alertsLog = logger("alerts")
+        let devicesLog = logger("devices")
+        let batteryLog = logger("battery")
+        let hotKeyLog = logger("hotkey")
+        let historyLog = logger("history")
+        let appEnergyLog = logger("app-energy")
+        let settingsLog = logger("settings")
+        logs = ViewLogs(settings: settingsLog, history: historyLog, appEnergy: appEnergyLog, widgets: ShelfLog.log)
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
         let alerts: AlertCenter
         let appearance: NotificationAppearanceModel
@@ -43,7 +63,7 @@ struct OrangeDrinkApp: App {
         let chargeLimit: ChargeLimitModel
         let systemNotifications: SystemNotificationSettingsModel
         let pills: PillController
-        let sounds = AlertSounds()
+        let sounds = AlertSounds(play: AlertSounds.systemChime(log: alertsLog))
         do {
             appearance = try NotificationAppearanceModel(defaults: .standard)
             deviceSettings = try DeviceSettingsModel(defaults: .standard)
@@ -54,9 +74,9 @@ struct OrangeDrinkApp: App {
             shortcutsModel = try ShortcutsModel(defaults: .standard)
             chargeLimit = try ChargeLimitModel(defaults: .standard)
             systemNotifications = try SystemNotificationSettingsModel(defaults: .standard)
-            pills = PillController(appearance: appearance, language: language, orderFront: { $0.orderFrontRegardless() }, log: PillController.log)
+            pills = PillController(appearance: appearance, language: language, orderFront: { $0.orderFrontRegardless() }, log: alertsLog)
             pills.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
-            alerts = try AlertCenter(defaults: .standard, deliver: {
+            alerts = try AlertCenter(defaults: .standard, log: alertsLog, deliver: {
                 pills.deliver($0, reading: $1)
                 sounds.deliver($0)
             }, deliverDevice: {
@@ -71,9 +91,6 @@ struct OrangeDrinkApp: App {
         let shelf: URL
         do { shelf = try WidgetShelf.groupContainer() } catch { fatalError("no widget shelf: \(error)") }
         let reload: @MainActor (WidgetKind) -> Void = { WidgetCenter.shared.reloadTimelines(ofKind: $0.rawValue) }
-        // Each subject's one logger, bound once, so every part of a subject writes to the same category.
-        let devicesLog = BluetoothDevices.log
-        let batteryLog = IOKitBattery.log
         let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: ShelfLog.log, reload: reload)
         let deviceWidgets = ShelfPublisher<Shelved<WidgetDeviceList>>(item: .devices, directory: shelf, log: ShelfLog.log, reload: reload)
         let seenShelf = ShelfPublisher<SeenDevices>(item: .seenDevices, directory: shelf, log: ShelfLog.log, reload: reload)
@@ -82,14 +99,13 @@ struct OrangeDrinkApp: App {
         })
         _devices = State(initialValue: devices)
         // [LAW:no-silent-failure] A shortcut the system will not give us is logged, and the app runs without it.
-        let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "hotkey")
         let hotKeys: any HotKeys
         do { hotKeys = try CarbonHotKeys.shared() } catch let error as HotKeyError {
-            log.error("no global shortcuts: \(error)")
+            hotKeyLog.error("no global shortcuts: \(error)")
             hotKeys = UnavailableHotKeys(cause: error)
         } catch { fatalError("CarbonHotKeys.shared() throws only HotKeyError: \(error)") }
-        shortcuts = ShortcutsController(model: shortcutsModel, hotKeys: hotKeys, panel: StatusItemPanel(item: .live))
-        do { try shortcuts.start() } catch { log.error("no global shortcut to open the panel: \(error)") }
+        shortcuts = ShortcutsController(model: shortcutsModel, hotKeys: hotKeys, panel: StatusItemPanel(item: .live(log: hotKeyLog)))
+        do { try shortcuts.start() } catch { hotKeyLog.error("no global shortcut to open the panel: \(error)") }
         _deviceSettings = State(initialValue: deviceSettings)
         _alerts = State(initialValue: alerts)
         _appearance = State(initialValue: appearance)
@@ -100,7 +116,7 @@ struct OrangeDrinkApp: App {
         let lowPowerMode = LowPowerMode(helper: HelperAccess(daemon: HelperRegistration.daemon))
         _lowPowerMode = State(initialValue: lowPowerMode)
         _updates = State(initialValue: AppUpdater.live())
-        keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents())
+        keyboard = PanelKeyboard(sections: sections, lowPowerMode: lowPowerMode, shortcuts: shortcutsModel, events: NSKeyEvents(log: hotKeyLog))
         _language = State(initialValue: language)
         _chargeLimit = State(initialValue: chargeLimit)
         _batteryNotifications = State(initialValue: BatteryNotificationDismissal(settings: systemNotifications, effects: .live, warningChanges: BatteryMonitor.warningChanges(log: batteryLog), center: .default,
@@ -109,10 +125,10 @@ struct OrangeDrinkApp: App {
         // the Battery screen holds the failure, so it can say so instead of showing an empty chart.
         let store = Result { try HistoryStore(url: HistoryStore.defaultURL()) }
         let changes = HistoryChanges()
-        let history = store.map { BatteryHistory(store: $0, changes: changes) }
+        let history = store.map { BatteryHistory(store: $0, log: historyLog, changes: changes) }
         switch history {
         case .success(let recording): recording.follow(screen: ScreenMonitor.changes())
-        case .failure(let error): log.error("no battery history: \(error)")
+        case .failure(let error): historyLog.error("no battery history: \(error)")
         }
         self.history = history
         // [LAW:no-ambient-temporal-coupling] The one place the app's state is saved at its normal end: a menu
@@ -128,8 +144,8 @@ struct OrangeDrinkApp: App {
         }
         // [LAW:no-silent-failure] App energy needs the history store and the system's responsibility symbol;
         // without either the app runs without it, and says so in the log.
-        appEnergy = Result { try AppEnergyHistory(store: store.get(), changes: changes, source: RusageEnergySource()) }
-        if case .failure(let error) = appEnergy { log.error("no app energy history: \(error)") }
+        appEnergy = Result { try AppEnergyHistory(store: store.get(), log: appEnergyLog, changes: changes, source: RusageEnergySource()) }
+        if case .failure(let error) = appEnergy { appEnergyLog.error("no app energy history: \(error)") }
         // [LAW:no-ambient-temporal-coupling] Before the battery model: its init hands the hold the first state at
         // once, and the hold's first ask waits for the registration's steps, which passes at once while there are
         // none, so the launch's step must be queued before any ask can exist.
@@ -153,13 +169,13 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, updates: updates, keyboard: keyboard, look: look, language: language)
+            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, appEnergyLog: logs.appEnergy, sections: sections, lowPowerMode: lowPowerMode, updates: updates, keyboard: keyboard, look: look, language: language)
         } label: {
             StatusItemLabel(state: battery.state, icon: menuBarIcon, language: language, halo: statusItemHalo)
         }
         .menuBarExtraStyle(.window)
 
-        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy) }
+        Window("\(appName) Settings", id: SettingsWindow.id) { SettingsView(alerts: alerts, appearance: appearance, look: look, language: language, launchAtLogin: launchAtLogin, batteryNotifications: batteryNotifications, shortcuts: shortcuts, menuBarIcon: menuBarIcon, devices: devices, deviceSettings: deviceSettings, chargeLimit: chargeLimit, chargeHold: chargeHold, battery: battery, history: history, appEnergy: appEnergy, settingsLog: logs.settings, historyLog: logs.history, appEnergyLog: logs.appEnergy, widgetsLog: logs.widgets) }
     }
 }
 

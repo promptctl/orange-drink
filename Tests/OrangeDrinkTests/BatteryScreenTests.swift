@@ -68,7 +68,7 @@ import Testing
     @Test func aStoredHistoryChartsThroughTheScreensOwnQuery() throws {
         let store = try HistoryStore(url: BatteryHistoryTests.tempFile())
         for sample in Self.twoSessions { try store.apply(HistoryWrite(sample: sample)) }
-        let history = BatteryHistory(store: store, timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
+        let history = BatteryHistory(store: store, log: .unread, timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
         #expect(try history.timeline(range: .day).points.map(\.level) == [30, 55, 79, 77])
         #expect(try history.timeline(range: .day).lastCharged?.level == 79)
         #expect(try history.timeline(range: .week).points.count == 7)
@@ -76,7 +76,7 @@ import Testing
     }
 
     @Test func theWritesThatReachTheStoreAreCountedForTheScreenToReloadOn() throws {
-        let history = BatteryHistory(store: try HistoryStore(url: BatteryHistoryTests.tempFile()), timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
+        let history = BatteryHistory(store: try HistoryStore(url: BatteryHistoryTests.tempFile()), log: .unread, timekeeper: BatteryHistoryTests.Clock(Self.now), calendar: BatteryHistoryTests.utc)
         #expect(history.changes.revision == 0)
         history.observe(try BatteryHistoryTests.onBattery(80))
         #expect(history.changes.revision == 1)

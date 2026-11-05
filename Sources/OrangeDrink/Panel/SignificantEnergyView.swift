@@ -6,8 +6,8 @@ import SwiftUI
 /// Built only while the card is open, so a closed card reads nothing; it reloads when a new interval is stored.
 struct SignificantEnergyView: View {
     let appEnergy: Result<AppEnergyHistory, any Error>
+    let log: Logger
     @State private var loaded: Result<RightNow, any Error>?
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "app-energy")
 
     var body: some View {
         Group {
@@ -29,7 +29,7 @@ struct SignificantEnergyView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .task(id: (try? appEnergy.get())?.changes.revision) {
             let shares = Result { try appEnergy.get().rightNow() }
-            if case .failure(let error) = shares { Self.log.error("panel app energy unreadable: \(String(describing: error), privacy: .public)") }
+            if case .failure(let error) = shares { log.error("panel app energy unreadable: \(String(describing: error), privacy: .public)") }
             loaded = shares
         }
     }

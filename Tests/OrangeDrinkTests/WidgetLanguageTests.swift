@@ -144,7 +144,7 @@ import WidgetKit
     }
 
     @Test func thePreviewSpeaksTheAppsLanguage() throws {
-        let preview = WidgetPreview(kind: .macBattery, size: .small, mac: .noBattery, devices: .connected([], pinned: []), device: nil)
+        let preview = WidgetPreview(kind: .macBattery, size: .small, mac: .noBattery, devices: .connected([], pinned: []), device: nil, log: .unread)
         #expect(try Self.drawn(preview.speaking(AppLanguage(code: "fr"))) != Self.drawn(preview.speaking(AppLanguage(code: "en"))))
     }
 

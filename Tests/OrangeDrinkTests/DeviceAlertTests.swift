@@ -126,7 +126,7 @@ import Testing
 
     private func center(_ delivered: Box) throws -> AlertCenter {
         let defaults = scratchDefaults()
-        let center = try AlertCenter(defaults: defaults, deliver: { _, _ in },
+        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in },
                                      deliverDevice: { delivered.firings.append($0) })
         try center.model.update { $0.alerts = [alert] }
         return center

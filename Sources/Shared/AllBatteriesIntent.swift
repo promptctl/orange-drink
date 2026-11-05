@@ -1,4 +1,5 @@
 import AppIntents
+import os
 
 // Compiled into the app and its widget extension, so a test reaches what a placed widget's settings hold.
 
@@ -78,11 +79,11 @@ struct AllBatteriesSettings: Equatable, Sendable {
     let includeMac: Bool
     let appearance: WidgetAppearance
 
-    init(_ intent: AllBatteriesIntent) {
+    init(_ intent: AllBatteriesIntent, log: Logger) {
         (style, showNames, includeMac, appearance) = (intent.style, intent.showNames, intent.includeMac, intent.appearance)
         devices = switch intent.devices {
         case .automatic: .automatic
-        case .custom: .custom(DeviceEntity.identities(of: intent.chosen ?? []))
+        case .custom: .custom(DeviceEntity.identities(of: intent.chosen ?? [], log: log))
         case .sameAsMenuBar: .sameAsMenuBar
         }
     }

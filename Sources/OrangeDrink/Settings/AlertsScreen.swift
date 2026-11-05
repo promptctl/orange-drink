@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// design-docs/alerts.md: the master switch, the two threshold lists, and the power source alerts.
@@ -6,9 +7,10 @@ struct AlertsScreen: View {
     private static let tint = Color.green
 
     let center: AlertCenter
+    let settingsLog: Logger
 
     var body: some View {
-        SettingEditor(center.model) { edits in
+        SettingEditor(center.model, log: settingsLog) { edits in
             let settings = edits.value
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {

@@ -7,9 +7,8 @@ import OSLog
 /// [LAW:composability] It is handed its store, its clock, and its screen, so a test runs a
 /// simulated day through it and a relaunch is a second store opened on the same file.
 @Observable @MainActor final class BatteryHistory {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "history")
-
     let changes: HistoryChanges
+    @ObservationIgnored private let log: Logger
     @ObservationIgnored private let store: HistoryStore
     @ObservationIgnored private let timekeeper: any Timekeeper
     @ObservationIgnored private let calendar: Calendar
@@ -17,8 +16,9 @@ import OSLog
     /// [LAW:types-are-the-program] exception: assigned after init by `follow`, which needs `self`.
     @ObservationIgnored nonisolated(unsafe) private var screenTask: Task<Void, Never>?
 
-    init(store: HistoryStore, changes: HistoryChanges = HistoryChanges(), timekeeper: any Timekeeper = SystemTimekeeper(), calendar: Calendar = .current) {
+    init(store: HistoryStore, log: Logger, changes: HistoryChanges = HistoryChanges(), timekeeper: any Timekeeper = SystemTimekeeper(), calendar: Calendar = .current) {
         self.store = store
+        self.log = log
         self.changes = changes
         self.timekeeper = timekeeper
         self.calendar = calendar
@@ -50,13 +50,13 @@ import OSLog
     }
 
     func follow<Changes: AsyncSequence & Sendable>(screen changes: Changes) where Changes.Element == Bool {
-        screenTask = Task { [weak self] in
+        screenTask = Task { [weak self, log] in
             do {
                 for try await on in changes {
                     guard let self else { return }
                     self.screenChanged(on: on)
                 }
-            } catch { Self.log.error("screen changes ended: \(String(describing: error), privacy: .public)") }
+            } catch { log.error("screen changes ended: \(String(describing: error), privacy: .public)") }
         }
     }
 
@@ -66,7 +66,7 @@ import OSLog
             try store.apply(write)
             changes.wrote()
         } catch {
-            Self.log.error("history write failed: \(String(describing: error), privacy: .public)")
+            log.error("history write failed: \(String(describing: error), privacy: .public)")
             recorder.restore(write)
         }
     }

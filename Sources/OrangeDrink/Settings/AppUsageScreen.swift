@@ -6,10 +6,10 @@ import SwiftUI
 /// and the Top Energy Consumers list, all read from the one ranking.
 struct AppUsageScreen: View {
     let appEnergy: Result<AppEnergyHistory, any Error>
+    let log: Logger
     @State private var range = AppUsageRange.day
     @State private var loaded: Result<AppUsageRanking, any Error>?
     @State private var detail: AppDetailSheet.Subject?
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "app-energy")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -37,7 +37,7 @@ struct AppUsageScreen: View {
             // A pill tapped again while this ran has cancelled it; its range is no longer the one selected.
             guard !Task.isCancelled else { return }
             loaded = ranking
-            if case .failure(let error)? = loaded { Self.log.error("app usage unreadable: \(String(describing: error), privacy: .public)") }
+            if case .failure(let error)? = loaded { log.error("app usage unreadable: \(String(describing: error), privacy: .public)") }
         }
     }
 

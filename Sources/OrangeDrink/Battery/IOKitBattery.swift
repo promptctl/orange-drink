@@ -7,7 +7,6 @@ import os
 /// dictionaries and hands them to the pure parser.
 enum IOKitBattery {
     static let logSubsystem = Bundle.main.bundleIdentifier!
-    static let log = Logger(subsystem: logSubsystem, category: "battery")
 
     /// nil when this Mac has no battery: a desktop, or a laptop whose battery is gone, is a
     /// legal host, not an error. Every outcome leaves one line in the log.

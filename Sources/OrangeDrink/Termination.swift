@@ -93,9 +93,8 @@ struct QuitRecords {
 /// app's normal end runs, this record names the sender, and `exit()` releases the helper's record
 /// (HelperRegistration). A crash or SIGKILL still skips all of that.
 @MainActor final class TerminationLog {
-    private static let log = Logger(subsystem: IOKitBattery.logSubsystem, category: "termination")
-
     private let records: QuitRecords
+    private let log: Logger
     private let signal: Int32
     private let terminate: @MainActor () -> Void
     private var signals: (any DispatchSourceRead)?
@@ -103,14 +102,15 @@ struct QuitRecords {
     /// `applicationShouldTerminate` synchronously, so this is set directly before that call.
     private var signalled: TerminationRequest?
 
-    init(records: QuitRecords, signal: Int32, terminate: @escaping @MainActor () -> Void) {
+    init(records: QuitRecords, signal: Int32, log: Logger, terminate: @escaping @MainActor () -> Void) {
         self.records = records
         self.signal = signal
+        self.log = log
         self.terminate = terminate
     }
 
     convenience init() {
-        self.init(records: .standard, signal: SIGTERM, terminate: { NSApplication.shared.terminate(nil) })
+        self.init(records: .standard, signal: SIGTERM, log: Logger(subsystem: IOKitBattery.logSubsystem, category: "termination"), terminate: { NSApplication.shared.terminate(nil) })
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -129,11 +129,11 @@ struct QuitRecords {
     /// quit among everything else `log show` prints, and the file keeps it.
     func record(_ request: TerminationRequest, stack: [String], at date: Date) {
         let lines = request.lines(stack: stack)
-        for line in lines { Self.log.notice("\(line, privacy: .public)") }
+        for line in lines { log.notice("\(line, privacy: .public)") }
         // [LAW:no-silent-failure] Said where it can still be read, and the quit goes on: a record is never why
         // the app cannot end.
         do { try records.append(lines, at: date) } catch {
-            Self.log.error("no quit record at \(self.records.url.path, privacy: .public): \(error, privacy: .public)")
+            log.error("no quit record at \(self.records.url.path, privacy: .public): \(error, privacy: .public)")
         }
     }
 }
