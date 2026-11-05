@@ -72,10 +72,9 @@ struct OrangeDrinkApp: App {
                 if key { panel.makeKey() }
             }, log: alertsLog)
             cover.follow(layout: ScreenMonitor.layout())
-            let presenter = AlertPresenter(pills: pills, cover: cover)
+            let presenter = AlertPresenter(pills: pills, cover: cover, sounds: sounds, log: alertsLog)
             alerts = try AlertCenter(defaults: .standard, log: alertsLog, deliver: {
-                presenter.deliver($0, reading: $1)
-                sounds.deliver($0)
+                presenter.deliver($0)
             }, deliverDevice: {
                 pills.deliver($0)
                 sounds.deliver($0)

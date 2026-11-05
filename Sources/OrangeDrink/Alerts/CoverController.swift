@@ -21,6 +21,23 @@ struct CoverDisplay: Equatable {
 enum CoverEnd: String {
     case dismissButton = "Dismiss"
     case escape = "Esc"
+    /// The adapter was connected under a low alert, or disconnected under a charged one: the alert has been answered.
+    case adapterConnected = "adapter connected"
+    case adapterDisconnected = "adapter disconnected"
+
+    /// [LAW:one-source-of-truth] The one rule for what answers an alert: the adapter connected answers
+    /// a low alert, disconnected a charged one. nil when none of `changes` answers `kind`.
+    init?(answering kind: Alert.Kind, in changes: [BatteryEvent]) {
+        let answer = changes.lazy.compactMap { change -> CoverEnd? in
+            switch (change, kind) {
+            case (.plugged, .low): .adapterConnected
+            case (.unplugged, .charged): .adapterDisconnected
+            case (.plugged, .charged), (.unplugged, .low), (.levelChanged, _): nil
+            }
+        }.first
+        guard let answer else { return nil }
+        self = answer
+    }
 }
 
 /// The cover's window on one display: it takes keyboard focus, and the clicks on it land on it.
@@ -40,7 +57,7 @@ final class CoverPanel: OverlayPanel {
         self.onDismiss = onDismiss
         // A press that never passes `sendEvent` — VoiceOver's, Switch Control's — is held off here.
         hosted = AnyView(CoverView(content: content, onDismiss: { if accepting() { onDismiss(.dismissButton) } }).speaking(language))
-        super.init(frame: frame, level: .pill, hosting: FirstClickHostingView(rootView: hosted))
+        super.init(frame: frame, level: .cover, hosting: FirstClickHostingView(rootView: hosted))
         hasShadow = false
     }
 
@@ -86,12 +103,14 @@ final class CoverPanel: OverlayPanel {
     nonisolated static let unarmedFor: Duration = .seconds(1)
 
     @MainActor private final class Cover {
+        /// The alert up, whose kind decides the adapter change that answers it.
+        let alert: Alert
         let content: CoverContent
         var accepting = false
         var panels: [CoverPanel] = []
         var arming: Task<Void, any Error>?
 
-        init(content: CoverContent) { self.content = content }
+        init(alert: Alert, content: CoverContent) { self.alert = alert; self.content = content }
 
         func close() { arming?.cancel(); panels.forEach { $0.close() } }
     }
@@ -124,9 +143,11 @@ final class CoverPanel: OverlayPanel {
     /// Whether the cover up takes keys and clicks yet.
     var shownAccepting: Bool? { up?.accepting }
 
-    func show(_ content: CoverContent) {
+    /// Puts up the cover for `alert`, which `reading` fired.
+    func show(_ alert: Alert, reading: BatteryReading) {
         take(down: "replaced")
-        let cover = Cover(content: content)
+        let content = CoverContent(alert, reading: reading)
+        let cover = Cover(alert: alert, content: content)
         up = cover
         draw(cover)
         log.info("cover shown on \(cover.panels.count) displays: \(content.headline.english, privacy: .private)")
@@ -151,6 +172,13 @@ final class CoverPanel: OverlayPanel {
     }
 
     func dismiss(_ end: CoverEnd) { take(down: "dismissed: \(end.rawValue)") }
+
+    /// The changes a new reading of the Mac's battery brought. The adapter change that answers the
+    /// cover's alert takes it down; a low alert fired with the adapter already connected waits for
+    /// Dismiss or Esc, as no change answers it.
+    func observe(_ changes: [BatteryEvent]) {
+        if let up, let answer = CoverEnd(answering: up.alert.kind, in: changes) { dismiss(answer) }
+    }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.
     private func draw(_ cover: Cover) {

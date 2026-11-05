@@ -27,7 +27,7 @@ import ViewInspector
 
         /// Shows a cover for the reading and lets its first second pass.
         func showArmed(_ percent: Int) async throws {
-            cover.show(CoverContent(CoverTests.critical, reading: try PillTests.reading(percent)))
+            cover.show(CoverTests.critical, reading: try PillTests.reading(percent))
             await clock.asleep()
             clock.advance(by: CoverController.unarmedFor)
             try await armed()
@@ -61,7 +61,7 @@ import ViewInspector
 
     @Test func itCoversEveryDisplayAndTakesFocusOnThePrimaryOne() throws {
         let rig = Rig([Self.side, Self.primary])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
 
         #expect(rig.cover.shownPanels.map(\.frame) == [Self.side.frame, Self.primary.frame])
@@ -71,10 +71,10 @@ import ViewInspector
     /// docs/testing.md: what macOS does with a window is asserted by how it is built.
     @Test func itIsAWindowMacOSShowsOverFullScreenAppsThatTakesKeysAndClicks() throws {
         let rig = Rig([Self.primary])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
         let panel = try #require(rig.cover.shownPanels.first)
-        #expect(panel.level == .pill && panel.level.rawValue > NSWindow.Level.mainMenu.rawValue + 1)
+        #expect(panel.level == .cover && panel.level.rawValue > NSWindow.Level.mainMenu.rawValue + 1)
         #expect(panel.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]))
         #expect(panel.canBecomeKey && !panel.ignoresMouseEvents)
         // A click on a display without focus reaches Dismiss rather than only making its panel key.
@@ -90,7 +90,7 @@ import ViewInspector
 
     @Test func escIsIgnoredForTheFirstSecondThenDismissesIt() async throws {
         let rig = Rig([Self.primary])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         await rig.clock.asleep()
         let panel = try #require(rig.cover.shownPanels.first)
 
@@ -127,7 +127,7 @@ import ViewInspector
 
     @Test func aCoverFiredWithNoDisplayIsDrawnOnTheNextOneConnected() async throws {
         let rig = Rig([])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
         #expect(rig.cover.shownPanels.isEmpty && rig.cover.shown != nil)
         // An arming started at `show` would be asleep by now, and this advance would wake it.
@@ -147,7 +147,7 @@ import ViewInspector
         let rig = Rig([Self.primary])
         try await rig.showArmed(2)
         let first = try #require(rig.cover.shownPanels.first)
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(1)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(1))
         defer { rig.cover.dismiss(.dismissButton) }
         #expect(!first.isVisible && rig.cover.shown?.headline.english == "1% Remaining")
         // The newer cover holds input off for its own first second.
@@ -159,8 +159,8 @@ import ViewInspector
         defer { rig.cover.dismiss(.dismissButton) }
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
-        let presenter = AlertPresenter(pills: pills, cover: rig.cover)
-        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { presenter.deliver($0, reading: $1) })
+        let presenter = AlertPresenter(pills: pills, cover: rig.cover, sounds: AlertSounds(play: {}), log: .unread)
+        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { presenter.deliver($0) })
         try center.model.update { $0.alerts = [Self.critical] }
 
         for percent in [4, 2, 1] { center.observe(try PillTests.reading(percent)) }
@@ -168,3 +168,4 @@ import ViewInspector
         #expect(pills.shown == nil)
     }
 }
+

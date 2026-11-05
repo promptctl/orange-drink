@@ -27,7 +27,7 @@ struct AlertEngine: Equatable, Sendable {
     /// panel's `TemperatureState`; this only selects which of them the user asked to hear.
     /// The temperature is followed with its switch off too, as thresholds are, so switching it on
     /// while the battery is hot announces nothing until it has cooled and heated again.
-    mutating func observe(_ reading: BatteryReading, alerts: [Alert], power: PowerSourceAlerts) -> [Firing] {
+    mutating func observe(_ reading: BatteryReading, alerts: [Alert], power: PowerSourceAlerts) -> ReadingAlerts {
         let thresholds = observe(level: reading.chargePercent, alerts: alerts).map(Firing.threshold)
         defer { previous = reading }
         // [LAW:one-source-of-truth] A `Heat` exists exactly when the reading is out of Normal.
@@ -35,8 +35,9 @@ struct AlertEngine: Equatable, Sendable {
         // The first reading disarms a launch already out of Normal, but announces nothing.
         let wasArmed = temperatureArmed
         temperatureArmed = wasArmed ? heat == nil : TemperatureState.isRearmed(by: reading.temperature)
-        guard let previous else { return thresholds }
-        let adapter: [Firing] = BatteryEvent.changes(from: previous, to: reading).compactMap {
+        guard let previous else { return ReadingAlerts(reading: reading, changes: [], firings: thresholds) }
+        let changes = BatteryEvent.changes(from: previous, to: reading)
+        let adapter: [Firing] = changes.compactMap {
             switch $0 {
             case .plugged: power.pluggedIn ? .pluggedIn(sound: power.sound) : nil
             case .unplugged: power.unplugged ? .unplugged(sound: power.sound) : nil
@@ -47,7 +48,7 @@ struct AlertEngine: Equatable, Sendable {
         case (true, let heat?): [.temperatureWarning(heat, sound: power.sound)]
         default: []
         }
-        return thresholds + adapter + temperature
+        return ReadingAlerts(reading: reading, changes: changes, firings: thresholds + adapter + temperature)
     }
 
     /// The alerts this level crosses. An alert met for the first time, or whose kind or threshold

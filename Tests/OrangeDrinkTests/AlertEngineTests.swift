@@ -135,7 +135,7 @@ import Testing
         let defaults = scratchDefaults()
         let log = try await TestLog()
         var delivered: [Firing] = []
-        let center = try AlertCenter(defaults: defaults, log: log.logger, deliver: { firing, _ in delivered.append(firing) })
+        let center = try AlertCenter(defaults: defaults, log: log.logger, deliver: { delivered += $0.firings })
         let alert = AlertEngineTests.low(20)
         try center.model.update { $0.alerts = [alert] }
         center.observe(try Self.reading(21))
@@ -143,13 +143,13 @@ import Testing
         center.observe(nil)
         #expect(delivered == [.threshold(alert)])
         #expect(try await log.messages().contains { $0.hasPrefix("alert fired") })
-        #expect(try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in }).settings.alerts == [alert])
+        #expect(try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in }).settings.alerts == [alert])
     }
 
     @Test func nothingIsDeliveredWithTheMasterSwitchOffAndNothingFiresLateWhenItComesOn() async throws {
         let log = try await TestLog()
         var delivered: [Firing] = []
-        let center = try AlertCenter(defaults: scratchDefaults(), log: log.logger, deliver: { firing, _ in delivered.append(firing) })
+        let center = try AlertCenter(defaults: scratchDefaults(), log: log.logger, deliver: { delivered += $0.firings })
         try center.model.update { $0 = AlertSettings(enabled: false, power: $0.power, alerts: [AlertEngineTests.low(20)]) }
         center.observe(try Self.reading(21))
         center.observe(try Self.reading(19))
@@ -181,7 +181,7 @@ import Testing
     /// Every firing the readings set off, in order, with no threshold alerts configured.
     static func firings(_ readings: [BatteryReading], power: PowerSourceAlerts = both) -> [Firing] {
         var engine = AlertEngine()
-        return readings.flatMap { engine.observe($0, alerts: [], power: power) }
+        return readings.flatMap { engine.observe($0, alerts: [], power: power).firings }
     }
 
     @Test func pluggingAndUnpluggingEachFireOnce() throws {
@@ -210,13 +210,13 @@ import Testing
         let off = PowerSourceAlerts(pluggedIn: true, unplugged: true, temperature: false, sound: true)
         var engine = AlertEngine()
         let readings = [(normal, off), (hot, off), (hot, Self.both), (normal, Self.both), (hot, Self.both)]
-        #expect(readings.flatMap { engine.observe($0, alerts: [], power: $1) } == [.temperatureWarning(.hot, sound: true)])
+        #expect(readings.flatMap { engine.observe($0, alerts: [], power: $1).firings } == [.temperatureWarning(.hot, sound: true)])
     }
 
     @Test func theMasterSwitchSilencesEveryPowerAndTemperatureAlert() throws {
         var delivered: [Firing] = []
         let center = try AlertCenter(
-            defaults: scratchDefaults(), log: .unread, deliver: { firing, _ in delivered.append(firing) })
+            defaults: scratchDefaults(), log: .unread, deliver: { delivered += $0.firings })
         try center.model.update { $0.enabled = false }
         for reading in [try Self.battery(), try Self.adapter(), try Self.battery(celsius: 41)] { center.observe(reading) }
         #expect(delivered == [])
@@ -268,7 +268,7 @@ import Testing
         plugged[kIOPSCurrentCapacityKey] = 49
         var engine = AlertEngine()
         _ = engine.observe(try Self.battery(), alerts: [alert], power: Self.both)
-        #expect(engine.observe(try Self.reading(plugged, celsius: 41), alerts: [alert], power: Self.both)
+        #expect(engine.observe(try Self.reading(plugged, celsius: 41), alerts: [alert], power: Self.both).firings
             == [.threshold(alert), .pluggedIn(sound: true), .temperatureWarning(.hot, sound: true)])
     }
 
@@ -287,9 +287,9 @@ import Testing
     @Test func theSwitchesAndSoundComeBackFromARelaunch() throws {
         let defaults = scratchDefaults()
         let power = PowerSourceAlerts(pluggedIn: false, unplugged: true, temperature: false, sound: false)
-        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         try center.model.update { $0.power = power }
-        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         #expect(relaunched.settings.power == power)
     }
 }

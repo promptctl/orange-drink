@@ -33,3 +33,12 @@ extension Firing {
         }
     }
 }
+
+/// What one reading of the Mac's battery sets off, handed over whole, so whoever shows it sees
+/// every firing of the reading and the adapter change between it and the one before.
+struct ReadingAlerts: Equatable, Sendable {
+    let reading: BatteryReading
+    /// Between the reading before and this one; none on the first reading.
+    let changes: [BatteryEvent]
+    let firings: [Firing]
+}

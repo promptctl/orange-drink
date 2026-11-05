@@ -17,7 +17,7 @@ import ViewInspector
         let center = try AlertCenter(
             defaults: scratchDefaults(),
             log: .unread,
-            deliver: { pills.deliver($0, reading: $1) })
+            deliver: { pills.deliver($0) })
         try center.model.update { $0.alerts = alerts }
         return center
     }
@@ -407,5 +407,12 @@ extension NotificationAppearanceModel {
     /// An appearance over a throwaway suite, starting from the defaults.
     static func scratch(_ defaults: UserDefaults = scratchDefaults()) -> NotificationAppearanceModel {
         try! NotificationAppearanceModel(defaults: defaults)
+    }
+}
+
+extension PillController {
+    /// Every firing of one reading, as pills: the sink for a test with no cover.
+    func deliver(_ fired: ReadingAlerts) {
+        for firing in fired.firings { deliver(firing, reading: fired.reading) }
     }
 }

@@ -11,7 +11,7 @@ import Testing
         let center = try AlertCenter(
             defaults: scratchDefaults(),
             log: .unread,
-            deliver: { firing, _ in sounds.deliver(firing) })
+            deliver: { $0.firings.forEach { sounds.deliver($0) } })
         try center.model.update {
             $0.alerts = [
                 Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: true),
@@ -31,7 +31,7 @@ import Testing
         for (sound, expected) in [(true, 1), (false, 0)] {
             var chimes = 0
             let sounds = AlertSounds(play: { chimes += 1 })
-            let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { firing, _ in sounds.deliver(firing) })
+            let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { $0.firings.forEach { sounds.deliver($0) } })
             try center.model.update {
                 $0.alerts = []
                 $0.power = PowerSourceAlerts(pluggedIn: false, unplugged: false, temperature: true, sound: sound)
