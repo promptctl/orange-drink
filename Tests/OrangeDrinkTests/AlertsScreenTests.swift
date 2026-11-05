@@ -27,9 +27,12 @@ import ViewInspector
         defaults.set(Data(saved.utf8), forKey: AlertSettings.storageKey)
 
         let loaded = try AlertSettingsModel(defaults: defaults).value.alerts
-        #expect(loaded.map(\.position) == [.center, .top])
-        #expect(loaded.map(\.glow) == [true, false] && loaded.map(\.sound) == [true, false])
-        #expect(loaded.map(\.threshold) == [3, 80] && loaded.map(\.kind) == [.low, .charged])
+        #expect(loaded == [
+            Alert(id: try #require(UUID(uuidString: "6A1E2B3C-0000-4000-8000-000000000001")),
+                  kind: .low, threshold: 3, position: .center, glow: true, sound: true),
+            Alert(id: try #require(UUID(uuidString: "6A1E2B3C-0000-4000-8000-000000000002")),
+                  kind: .charged, threshold: 80, position: .top, glow: false, sound: false),
+        ])
     }
 
     @Test func aFullScreenChoiceAndItsKeptGlowSurviveARelaunch() throws {

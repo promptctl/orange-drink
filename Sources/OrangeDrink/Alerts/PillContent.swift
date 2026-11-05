@@ -84,10 +84,7 @@ struct PillContent: Equatable, Sendable {
     /// the centre. Every full-screen firing, the Mac's own included, comes here until the Mac's are
     /// routed to the cover.
     static func placement(_ alert: Alert) -> (position: Position, glow: Bool) {
-        switch alert.position {
-        case .center, .fullScreen: (.center, alert.showsGlow)
-        case .top: (.top, alert.showsGlow)
-        }
+        (alert.position == .top ? .top : .center, alert.showsGlow)
     }
 
     // [LAW:one-source-of-truth] The pill's sentences are said here once; the real pill and the

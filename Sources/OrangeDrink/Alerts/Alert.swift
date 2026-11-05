@@ -29,7 +29,7 @@ struct Alert: Codable, Equatable, Identifiable, Sendable {
     var sound: Bool
 
     /// Whether the alert shows the Border Glow. A full-screen alert keeps its stored `glow` for a
-    /// return to a pill position but never shows it, since the editor hides the switch (design-docs/alerts.md).
+    /// return to a pill position but never shows it: design-docs/alerts.md gives full screen no Border Glow.
     var showsGlow: Bool { glow && position != .fullScreen }
 
     /// The level is on the firing side of the threshold.
