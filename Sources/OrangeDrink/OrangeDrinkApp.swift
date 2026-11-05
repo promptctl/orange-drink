@@ -41,7 +41,7 @@ struct OrangeDrinkApp: App {
         let historyLog = Logger(.history)
         let appEnergyLog = Logger(.appEnergy)
         let widgetsLog = Logger(.widgets)
-        logs = ViewLogs(settings: Logger(.settings), history: historyLog, appEnergy: appEnergyLog, widgets: widgetsLog, hotkey: hotKeyLog)
+        logs = ViewLogs(settings: Logger(.settings), widgets: widgetsLog, hotkey: hotKeyLog)
         // [LAW:no-silent-failure] Alerts the app cannot load are a launch that says so.
         let alerts: AlertCenter
         let appearance: NotificationAppearanceModel
@@ -160,7 +160,7 @@ struct OrangeDrinkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, logs: logs, sections: sections, lowPowerMode: lowPowerMode, updates: updates, keyboard: keyboard, look: look, language: language)
+            PanelView(battery: battery, devices: devices, deviceSettings: deviceSettings, appEnergy: appEnergy, sections: sections, lowPowerMode: lowPowerMode, updates: updates, keyboard: keyboard, look: look, language: language)
         } label: {
             StatusItemLabel(state: battery.state, icon: menuBarIcon, language: language, halo: statusItemHalo)
         }

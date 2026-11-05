@@ -4,8 +4,6 @@ import SwiftUI
 /// The loggers the views write through, each the one its subject's category has.
 struct ViewLogs {
     let settings: Logger
-    let history: Logger
-    let appEnergy: Logger
     let widgets: Logger
     let hotkey: Logger
 }
@@ -130,8 +128,8 @@ private struct ScreenView: View {
                 case .shortcuts: ShortcutsScreen(controller: shortcuts, log: logs.hotkey)
                 case .devices: DevicesScreen(devices: devices, settings: deviceSettings, settingsLog: logs.settings, select: select)
                 case .widgets: WidgetsScreen(battery: battery, devices: devices, settings: deviceSettings, widgetsLog: logs.widgets)
-                case .appUsage: AppUsageScreen(appEnergy: appEnergy, log: logs.appEnergy)
-                case .battery: BatteryScreen(battery: battery, history: history, log: logs.history)
+                case .appUsage: AppUsageScreen(appEnergy: appEnergy)
+                case .battery: BatteryScreen(battery: battery, history: history)
                 case .iphoneIpad: EmptyState(screen: screen).padding(.top, 60)
                 }
             }

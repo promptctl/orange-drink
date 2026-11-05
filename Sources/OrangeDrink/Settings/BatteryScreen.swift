@@ -1,12 +1,10 @@
 import Charts
-import OSLog
 import SwiftUI
 
 /// design-docs/battery.md: the stat tiles, the Battery Level card, and the Daily Usage and Battery Health cards.
 struct BatteryScreen: View {
     let battery: BatteryModel
     let history: Result<BatteryHistory, any Error>
-    let log: Logger
     @State private var range = HistoryRange.day
     @State private var loaded: Result<BatteryLevelTimeline, any Error>?
     @State private var overview: Result<BatteryOverview, any Error>?
@@ -33,19 +31,9 @@ struct BatteryScreen: View {
 
     private struct Refresh: Equatable { let range: HistoryRange; let revision: Int? }
 
-    private func loadTimeline() {
-        loaded = Result { try history.get().timeline(range: range) }
-        report(loaded?.failure)
-    }
+    private func loadTimeline() { loaded = Result { try history.get().timeline(range: range) } }
 
-    private func loadOverview() {
-        overview = Result { try history.get().overview() }
-        report(overview?.failure)
-    }
-
-    private func report(_ failure: (any Error)?) {
-        if let failure { log.error("battery history unreadable: \(String(describing: failure), privacy: .public)") }
-    }
+    private func loadOverview() { overview = Result { try history.get().overview() } }
 
     @ViewBuilder private var tiles: some View {
         switch battery.state {
