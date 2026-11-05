@@ -25,13 +25,29 @@ import ViewInspector
     }
 
     /// The model the app builds, its states published the way the app publishes them.
-    static func model(readings: AsyncThrowingStream<BatteryReading?, any Error>, shelf: URL, reloads: Reloads) -> BatteryModel {
+    static func model(readings: AsyncThrowingStream<BatteryRead, any Error>, shelf: URL, reloads: Reloads) -> BatteryModel {
         let widgets = ShelfPublisher<Shelved<MacBattery>>(item: .macBattery, directory: shelf, log: .unread) { if $0 == .macBattery { reloads.count += 1 } }
-        return BatteryModel(readings: readings, read: { nil }, log: .unread, onState: { widgets.publish(.running(MacBattery($0))) })
+        return BatteryModel(readings: readings, read: { .success(nil) }, log: .unread, onState: { widgets.publish(.running(MacBattery($0))) })
+    }
+
+    /// A read that gave no reading is not drawn as the reading before it, and the next reading is drawn when it comes.
+    @Test func theWidgetSaysUnavailableWhileTheLatestReadGaveNoReadingThenReadsTheNext() async throws {
+        let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryRead.self)
+        let model = Self.model(readings: readings, shelf: shelf, reloads: Reloads())
+        feed.yield(try BatteryHistoryTests.charging(80))
+        _ = await model.state(once: BatteryModel.isKnown)
+
+        feed.yield(.unanswered)
+        _ = await model.state(once: BatteryModel.isUnread)
+        #expect(try WidgetShelf.read(.macBattery, from: shelf).get() == .running(.ended))
+
+        feed.yield(try BatteryHistoryTests.onBattery(79))
+        _ = await model.state(once: BatteryModel.isKnown)
+        #expect(try WidgetShelf.read(.macBattery, from: shelf).get() == .running(.level(percent: 79, charging: false)))
     }
 
     @Test func theWidgetReadsEachReadingInTurnThenTheEnd() async throws {
-        let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryReading?.self)
+        let (readings, feed) = AsyncThrowingStream.makeStream(of: BatteryRead.self)
         let model = Self.model(readings: readings, shelf: shelf, reloads: Reloads())
         #expect(try WidgetShelf.read(.macBattery, from: shelf).get() == .running(.waiting))
 

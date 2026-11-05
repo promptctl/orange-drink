@@ -53,6 +53,7 @@ struct BatteryScreen: View {
             HStack(spacing: 12) { ForEach(StatTiles(reading).all, id: \.label.key) { StatTile(tile: $0) } }
         case .known(nil): PhraseText(BatteryStateNote.noBattery).foregroundStyle(.secondary)
         case .unknown: PhraseText(BatteryStateNote.unknown).foregroundStyle(.secondary)
+        case .unread: PhraseText(BatteryStateNote.unread).foregroundStyle(.secondary)
         case .ended: PhraseText(BatteryStateNote.ended).foregroundStyle(.secondary)
         }
     }

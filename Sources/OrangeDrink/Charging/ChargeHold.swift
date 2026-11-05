@@ -15,6 +15,8 @@ enum ChargeWant: Equatable, Sendable {
         case noBattery = "no battery"
         case noReadingYet = "no reading yet"
         case readingsEnded = "readings ended"
+        /// A level the hold cannot see is no reason to hold charging off, however long the reads keep failing.
+        case readingUnread = "reading unread"
     }
 
     /// [LAW:one-source-of-truth] The decision and its reason are one answer: charging pauses only for a reading on the
@@ -23,6 +25,7 @@ enum ChargeWant: Equatable, Sendable {
         guard limit.isOn else { return .allow(.limitOff) }
         switch battery {
         case .unknown: return .allow(.noReadingYet)
+        case .unread: return .allow(.readingUnread)
         case .ended: return .allow(.readingsEnded)
         case .known(nil): return .allow(.noBattery)
         case .known(let reading?):

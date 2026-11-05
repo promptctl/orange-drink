@@ -14,7 +14,7 @@ struct UnreadReasonWordsTests {
     }
 
     private static let devices = DeviceKind.accessory.symbol
-    private static let warns = MacBattery.stoppedGlyph
+    private static let warns = MacBattery.unavailableGlyph
 
     private static let all: [Words] = [
         Words(source: .bluetooth(.waiting), widget: "Reading devices…", panel: "Reading your Bluetooth devices…", glyph: devices),

@@ -10,7 +10,8 @@ extension MacBattery {
         case .unknown: .waiting
         case .known(nil): .noBattery
         case .known(let reading?): .level(percent: reading.chargePercent, charging: reading.power.isCharging)
-        case .ended: .ended
+        // The widget says one thing for both: it has no reading, and names no next step.
+        case .unread, .ended: .ended
         }
     }
 }

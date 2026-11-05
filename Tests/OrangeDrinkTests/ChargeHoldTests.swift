@@ -284,6 +284,18 @@ final class FakeChargeHelper: @unchecked Sendable {
         #expect(events.all.last == .asked(.release(.readingsEnded), limit: Self.on80, percent: nil, failure: nil))
     }
 
+    /// A level the hold cannot see is no reason to hold charging off, so a pause is let go once and nothing more is
+    /// asked however long the reads keep failing; the next reading at the limit pauses it again.
+    @Test func readsThatGiveNoReadingReleaseThePauseOnceAndTheNextReadingPausesAgain() async throws {
+        let helper = FakeChargeHelper(), events = Events()
+        let hold = Self.hold(Self.on80, helper, events)
+        await Self.feed(hold, [try Self.adapter(85), .unread, .unread, .unread])
+        #expect(helper.calls == ["pause", "release"])
+        #expect(events.all.last == .asked(.release(.readingUnread), limit: Self.on80, percent: nil, failure: nil))
+        await Self.feed(hold, [try Self.adapter(85)])
+        #expect(helper.calls == ["pause", "release", "pause"])
+    }
+
     @Test func unpluggingReleasesThePause() async throws {
         let helper = FakeChargeHelper(), events = Events()
         let hold = Self.hold(Self.on80, helper, events)
@@ -309,6 +321,7 @@ final class FakeChargeHelper: @unchecked Sendable {
     @Test func theWantAndItsReasonForEachInput() throws {
         #expect(ChargeWant.of(limit: Self.off, battery: try Self.adapter(90)) == .allow(.limitOff))
         #expect(ChargeWant.of(limit: Self.on80, battery: .unknown) == .allow(.noReadingYet))
+        #expect(ChargeWant.of(limit: Self.on80, battery: .unread) == .allow(.readingUnread))
         #expect(ChargeWant.of(limit: Self.on80, battery: .ended(nil)) == .allow(.readingsEnded))
         #expect(ChargeWant.of(limit: Self.on80, battery: .known(nil)) == .allow(.noBattery))
         #expect(ChargeWant.of(limit: Self.on80, battery: try Self.battery(90)) == .allow(.onBattery))

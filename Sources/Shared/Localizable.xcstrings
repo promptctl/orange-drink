@@ -2466,6 +2466,28 @@
         }
       }
     },
+    "Can't read the battery right now. Trying again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't read the battery right now. Trying again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire la batterie pour le moment. Nouvelle tentative en cours."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede leer la batería en este momento. Reintentando."
+          }
+        }
+      }
+    },
     "Every device is hidden. Show them again in Settings → Devices.": {
       "localizations": {
         "en": {

@@ -244,7 +244,7 @@ struct MacBatteryView: View {
 
     @ViewBuilder private var content: some View {
         switch entry.battery {
-        case .success(.running(.ended)): Message(glyph: MacBattery.stoppedGlyph, text: "Battery unavailable")
+        case .success(.running(.ended)): Message(glyph: MacBattery.unavailableGlyph, text: "Battery unavailable")
         case .success(.running(let mac)):
             if let battery = mac.battery {
                 BatteryRing(battery: battery)

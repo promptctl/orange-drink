@@ -117,6 +117,9 @@ import ViewInspector
         #expect(said(.unknown) == "App, Reading the battery…")
         #expect(said(.known(nil)) == "App, This Mac has no battery.")
         #expect(said(.ended(nil)) == "App, Battery readings stopped. Quit and reopen the app.")
+        #expect(said(.unread) == "App, Can't read the battery right now. Trying again.")
+        #expect(said(.unread, in: "fr") == "App, Impossible de lire la batterie pour le moment. Nouvelle tentative en cours.")
+        #expect(said(.unread, in: "es") == "App, No se puede leer la batería en este momento. Reintentando.")
         #expect(said(.known(charging), in: "fr") == "App, 75\u{a0}%, En charge")
         #expect(said(.unknown, in: "fr") == "App, Lecture de la batterie…")
     }
@@ -154,9 +157,11 @@ import ViewInspector
         #expect(symbol(.unknown) == "battery.0percent")
         #expect(symbol(.known(nil)) == "powerplug")
         #expect(symbol(.ended(nil)) == "exclamationmark.triangle")
+        #expect(symbol(.unread) == "exclamationmark.triangle")
         try model.update { $0.style = .logo; $0.glyph = .jar }
         #expect(symbol(.unknown) == "battery.0percent")
         #expect(symbol(.ended(nil)) == "exclamationmark.triangle")
+        #expect(symbol(.unread) == "exclamationmark.triangle")
         #expect(try Self.statusIcon(model, state: .known(nil)).shape == .logo(.jar, nil))
     }
 
