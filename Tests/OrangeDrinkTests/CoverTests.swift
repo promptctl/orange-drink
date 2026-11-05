@@ -30,13 +30,18 @@ import ViewInspector
             cover.show(CoverContent(CoverTests.critical, reading: try PillTests.reading(percent)))
             await clock.asleep()
             clock.advance(by: CoverController.unarmedFor)
-            await Task.yield()
+            await armed()
+        }
+
+        /// Waits for the arming task, which resumes off the main actor and hops back, to take input.
+        func armed() async {
+            for _ in 0..<1000 where cover.shownAccepting != true { await Task.yield() }
         }
     }
 
-    static func escape() throws -> NSEvent {
-        try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
-                                      characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: UInt16(kVK_Escape)))
+    static func escape(repeating: Bool = false, modifiers: NSEvent.ModifierFlags = []) throws -> NSEvent {
+        try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0, windowNumber: 0, context: nil,
+                                      characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: repeating, keyCode: UInt16(kVK_Escape)))
     }
 
     static func pressDismiss(_ panel: CoverPanel) throws {
@@ -71,6 +76,8 @@ import ViewInspector
         #expect(panel.level == .pill && panel.level.rawValue > NSWindow.Level.mainMenu.rawValue + 1)
         #expect(panel.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]))
         #expect(panel.canBecomeKey && !panel.ignoresMouseEvents)
+        // A click on a display without focus reaches Dismiss rather than only making its panel key.
+        #expect(panel.contentView?.acceptsFirstMouse(for: nil) == true)
     }
 
     @Test func dismissOnAnyDisplayClearsEveryDisplay() async throws {
@@ -90,8 +97,11 @@ import ViewInspector
         #expect(rig.cover.shown != nil)
 
         rig.clock.advance(by: CoverController.unarmedFor)
-        await Task.yield()
+        await rig.armed()
         #expect(rig.cover.shownAccepting == true)
+        panel.sendEvent(try Self.escape(repeating: true))
+        panel.sendEvent(try Self.escape(modifiers: .command))
+        #expect(rig.cover.shown != nil)
         panel.sendEvent(try Self.escape())
         #expect(rig.cover.shown == nil)
     }

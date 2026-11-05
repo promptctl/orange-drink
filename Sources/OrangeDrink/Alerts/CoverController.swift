@@ -41,6 +41,18 @@ final class CoverPanel: OverlayPanel {
         hosted = AnyView(CoverView(content: content, onDismiss: { onDismiss(.dismissButton) }).speaking(language))
         super.init(frame: frame, level: .pill, content: hosted)
         hasShadow = false
+        contentView = FirstClickHostingView(rootView: hosted)
+    }
+
+    /// Takes the click that makes its panel key, so Dismiss on a display without focus is one click.
+    private final class FirstClickHostingView: NSHostingView<AnyView> {
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    }
+
+    /// A fresh press of Esc alone: a held Esc that began before the cover, or a chord with Esc, is not one.
+    private static func isEscape(_ event: NSEvent) -> Bool {
+        event.type == .keyDown && Int(event.keyCode) == kVK_Escape && !event.isARepeat
+            && event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
     }
 
     override var canBecomeKey: Bool { true }
@@ -49,7 +61,7 @@ final class CoverPanel: OverlayPanel {
     /// cover only once it accepts input, and Esc is read here, so it is held off with the rest.
     override func sendEvent(_ event: NSEvent) {
         guard accepting() || !Self.input.contains(event.type) else { return }
-        if event.type == .keyDown && Int(event.keyCode) == kVK_Escape { onDismiss(.escape) } else { super.sendEvent(event) }
+        if Self.isEscape(event) { onDismiss(.escape) } else { super.sendEvent(event) }
     }
 }
 
@@ -126,6 +138,7 @@ final class CoverPanel: OverlayPanel {
 
     /// Feeds the controller each change of displays, for as long as it lives.
     func follow(layout: AsyncStream<Void>) {
+        following?.cancel()
         following = Task { [weak self] in
             for await _ in layout {
                 guard let self else { return }
