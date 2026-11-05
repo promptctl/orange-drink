@@ -76,7 +76,7 @@ It has no countdown. Its ring, headline and second line follow the battery while
 
 **Several displays.** It covers every connected display, each with the same centred block. Dismissing it on any display clears every one. A display connected while it is up gets covered too, and a display removed takes its cover with it. Keyboard focus sits on the cover of the primary display, the one System Settings › Displays marks as main.
 
-**Full-screen apps.** It covers them as it covers the desktop, joining every Space as the pill and glow do, at the pill's level, so nothing of Orange Drink's sits above it except the temperature and device pills.
+**Full-screen apps.** It covers them as it covers the desktop, joining every Space as the pill and glow do, just under the pill's and glow's levels, so nothing of Orange Drink's sits above it except the temperature and device pills.
 
 **Screen sharing.** It does nothing special: someone watching a shared screen sees it as the person sharing does. A battery level is not private, and a cover the sharer sees but viewers don't would make the sharer's screen and the shared one disagree.
 

@@ -55,10 +55,13 @@ private final class PillPanel: OverlayPanel {
 enum PillEnd {
     case closeButton
     case timedOut
+    /// A full-screen alert came up, which says more than a low or charged pill for the Mac would.
+    case covered
 
     var said: String {
         switch self {
         case .closeButton: "×"
+        case .covered: "under a full-screen alert"
         case .timedOut: "timed out after \(PillController.shownFor)"
         }
     }
@@ -77,6 +80,8 @@ enum PillEnd {
 
     @MainActor private struct Up {
         let content: PillContent
+        /// The Mac's firing the pill announces; nil for a watched device's.
+        let firing: Firing?
         /// The bubble size the pill was built at, which a move to another screen keeps.
         let scale: Double
         let panel: PillPanel
@@ -137,18 +142,22 @@ enum PillEnd {
 
     /// The sink an `AlertCenter` delivers to.
     func deliver(_ firing: Firing, reading: BatteryReading) {
-        switch firing {
-        case .threshold(let alert): show(PillContent(alert, reading: reading))
-        case .pluggedIn: show(.power("Plugged In", severity: .green, reading: reading))
-        case .unplugged: show(.power("On Battery", severity: .orange, reading: reading))
-        case .temperatureWarning(let heat, _): show(.temperature(heat, reading: reading))
+        let content: PillContent = switch firing {
+        case .threshold(let alert): PillContent(alert, reading: reading)
+        case .pluggedIn: .power("Plugged In", severity: .green, reading: reading)
+        case .unplugged: .power("On Battery", severity: .orange, reading: reading)
+        case .temperatureWarning(let heat, _): .temperature(heat, reading: reading)
         }
+        show(content, from: firing)
     }
 
     /// The sink an `AlertCenter` delivers a watched device's firing to.
     func deliver(_ firing: DeviceFiring) { show(PillContent(firing)) }
 
-    func show(_ content: PillContent) {
+    /// The Mac's firing the pill up announces: nil with no pill up, or a watched device's.
+    var shownFiring: Firing? { up?.firing }
+
+    func show(_ content: PillContent, from firing: Firing? = nil) {
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
         // alert is logged. A pill already up stays, with the countdown `hidden` gave it.
         guard let area = currentScreen() else {
@@ -161,7 +170,7 @@ enum PillEnd {
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, frame: area.frame) : nil
-        let pill = Up(content: content, scale: look.bubbleSize.scale, panel: panel, glow: glow, countdown: countdown())
+        let pill = Up(content: content, firing: firing, scale: look.bubbleSize.scale, panel: panel, glow: glow, countdown: countdown())
         up = pill
         // Their levels stack the glow under the pill, whichever is ordered front first.
         shownPanels.forEach(orderFront)

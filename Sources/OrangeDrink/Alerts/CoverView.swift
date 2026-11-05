@@ -11,6 +11,8 @@ struct CoverContent: Equatable, Sendable {
     let severity: Alert.Severity
     /// How far the ring is filled: the remaining charge, 0...1.
     let progress: Double
+    /// The alert's kind, which decides the adapter change that answers it.
+    let kind: Alert.Kind
 
     init(_ alert: Alert, reading: BatteryReading) {
         let pill = PillContent(alert, reading: reading)
@@ -18,6 +20,7 @@ struct CoverContent: Equatable, Sendable {
         subline = pill.subline
         severity = pill.severity
         progress = pill.progress
+        kind = alert.kind
     }
 }
 

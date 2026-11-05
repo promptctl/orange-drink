@@ -27,7 +27,7 @@ import ViewInspector
 
         /// Shows a cover for the reading and lets its first second pass.
         func showArmed(_ percent: Int) async throws {
-            cover.show(CoverContent(CoverTests.critical, reading: try PillTests.reading(percent)))
+            cover.show(CoverTests.critical, reading: try PillTests.reading(percent))
             await clock.asleep()
             clock.advance(by: CoverController.unarmedFor)
             try await armed()
@@ -61,7 +61,7 @@ import ViewInspector
 
     @Test func itCoversEveryDisplayAndTakesFocusOnThePrimaryOne() throws {
         let rig = Rig([Self.side, Self.primary])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
 
         #expect(rig.cover.shownPanels.map(\.frame) == [Self.side.frame, Self.primary.frame])
@@ -71,10 +71,10 @@ import ViewInspector
     /// docs/testing.md: what macOS does with a window is asserted by how it is built.
     @Test func itIsAWindowMacOSShowsOverFullScreenAppsThatTakesKeysAndClicks() throws {
         let rig = Rig([Self.primary])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
         let panel = try #require(rig.cover.shownPanels.first)
-        #expect(panel.level == .pill && panel.level.rawValue > NSWindow.Level.mainMenu.rawValue + 1)
+        #expect(panel.level == .cover && panel.level.rawValue > NSWindow.Level.mainMenu.rawValue + 1)
         #expect(panel.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]))
         #expect(panel.canBecomeKey && !panel.ignoresMouseEvents)
         // A click on a display without focus reaches Dismiss rather than only making its panel key.
@@ -90,7 +90,7 @@ import ViewInspector
 
     @Test func escIsIgnoredForTheFirstSecondThenDismissesIt() async throws {
         let rig = Rig([Self.primary])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         await rig.clock.asleep()
         let panel = try #require(rig.cover.shownPanels.first)
 
@@ -127,7 +127,7 @@ import ViewInspector
 
     @Test func aCoverFiredWithNoDisplayIsDrawnOnTheNextOneConnected() async throws {
         let rig = Rig([])
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
         #expect(rig.cover.shownPanels.isEmpty && rig.cover.shown != nil)
         // An arming started at `show` would be asleep by now, and this advance would wake it.
@@ -147,7 +147,7 @@ import ViewInspector
         let rig = Rig([Self.primary])
         try await rig.showArmed(2)
         let first = try #require(rig.cover.shownPanels.first)
-        rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(1)))
+        rig.cover.show(Self.critical, reading: try PillTests.reading(1))
         defer { rig.cover.dismiss(.dismissButton) }
         #expect(!first.isVisible && rig.cover.shown?.headline.english == "1% Remaining")
         // The newer cover holds input off for its own first second.
@@ -159,12 +159,102 @@ import ViewInspector
         defer { rig.cover.dismiss(.dismissButton) }
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
-        let presenter = AlertPresenter(pills: pills, cover: rig.cover)
+        let presenter = AlertPresenter(pills: pills, cover: rig.cover, sounds: AlertSounds(play: {}), log: .unread)
         let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { presenter.deliver($0, reading: $1) })
         try center.model.update { $0.alerts = [Self.critical] }
 
         for percent in [4, 2, 1] { center.observe(try PillTests.reading(percent)) }
         #expect(rig.cover.shown?.headline.english == "2% Remaining" && rig.ordered.count == 1)
         #expect(pills.shown == nil)
+    }
+}
+
+// [LAW:behavior-not-structure] The contract is what answers a full-screen alert, and which pills and
+// sounds wait while it is up (design-docs/alerts.md, What dismisses it).
+@MainActor @Suite(.serialized) struct CoverPresenterTests {
+    static let full = Alert(kind: .charged, threshold: 95, position: .fullScreen, glow: false, sound: true)
+    static let lowPill = Alert(kind: .low, threshold: 20, position: .top, glow: true, sound: true)
+
+    static func onBattery(_ percent: Int) throws -> BatteryReading { try PillTests.reading(percent) }
+    static func onAdapter(_ percent: Int) throws -> BatteryReading {
+        try BatteryEvents.reading(BatteryEvents.Fixtures.onACNotCharging(charged: false), percent: percent)
+    }
+
+    /// A presenter over a cover on one display and a pill controller, counting the chimes it plays.
+    @MainActor final class Rig {
+        let covers = CoverTests.Rig([CoverTests.primary])
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
+        var chimes = 0
+        var presenter: AlertPresenter!
+
+        init() { presenter = AlertPresenter(pills: pills, cover: covers.cover, sounds: AlertSounds(play: { [unowned self] in chimes += 1 }), log: .unread) }
+
+        func close() { covers.cover.dismiss(.dismissButton); pills.close(.closeButton) }
+    }
+
+    @Test func connectingTheAdapterTakesALowCoverDown() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(.threshold(CoverTests.critical), reading: try Self.onBattery(2))
+        rig.presenter.observe(try Self.onBattery(1))
+        #expect(rig.covers.cover.shown != nil)
+
+        rig.presenter.observe(try Self.onAdapter(1))
+        #expect(rig.covers.cover.shown == nil)
+    }
+
+    @Test func disconnectingTheAdapterTakesAChargedCoverDown() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(.threshold(Self.full), reading: try Self.onAdapter(95))
+        rig.presenter.observe(try Self.onAdapter(96))
+        #expect(rig.covers.cover.shown != nil)
+
+        rig.presenter.observe(try Self.onBattery(96))
+        #expect(rig.covers.cover.shown == nil)
+    }
+
+    @Test func aLowCoverFiredOnTheAdapterWaitsForDismissOrEsc() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(.threshold(CoverTests.critical), reading: try Self.onAdapter(2))
+        rig.presenter.observe(try Self.onAdapter(2))
+        rig.presenter.observe(try Self.onAdapter(3))
+        #expect(rig.covers.cover.shown != nil)
+    }
+
+    @Test func aLowPillFiredUnderTheCoverIsNeitherShownNorPlayed() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(.threshold(CoverTests.critical), reading: try Self.onBattery(2))
+        let chimes = rig.chimes
+
+        rig.presenter.deliver(.threshold(Self.lowPill), reading: try Self.onBattery(2))
+        #expect(rig.pills.shown == nil && rig.chimes == chimes)
+    }
+
+    @Test func aTemperaturePillShowsAndSoundsOverTheCover() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(.threshold(CoverTests.critical), reading: try Self.onBattery(2))
+        let chimes = rig.chimes
+
+        rig.presenter.deliver(.temperatureWarning(.hot, sound: true), reading: try Self.onBattery(2))
+        #expect(rig.pills.shown?.headline.english == "Battery Hot" && rig.chimes == chimes + 1)
+        // Stacked by level, not by which window was ordered front last.
+        let cover = try #require(rig.covers.cover.shownPanels.first)
+        #expect(rig.pills.shownPanels.allSatisfy { $0.level.rawValue > cover.level.rawValue })
+    }
+
+    @Test func theCoverTakesDownALowPillAlreadyUpButNotATemperaturePill() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(.threshold(Self.lowPill), reading: try Self.onBattery(19))
+        rig.presenter.deliver(.threshold(CoverTests.critical), reading: try Self.onBattery(2))
+        #expect(rig.pills.shown == nil && rig.covers.cover.shown != nil)
+
+        rig.presenter.deliver(.temperatureWarning(.warm, sound: false), reading: try Self.onBattery(2))
+        rig.presenter.deliver(.threshold(Self.full), reading: try Self.onBattery(2))
+        #expect(rig.pills.shown?.headline.english == "Battery Warm")
     }
 }
