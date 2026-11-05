@@ -10,10 +10,10 @@ import Testing
     static func unreadable(_ url: URL) throws -> HistoryStore {
         let store = try HistoryStore(url: url)
         var db: OpaquePointer?
-        #expect(sqlite3_open(url.path, &db) == SQLITE_OK)
         defer { sqlite3_close(db) }
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
         let dropped = sqlite3_exec(db, "DROP TABLE appEnergy; DROP TABLE appEnergyInterval; DROP TABLE batterySample; DROP TABLE dailyUsage;", nil, nil, nil)
-        #expect(dropped == SQLITE_OK, "\(String(cString: sqlite3_errmsg(db)))")
+        try #require(dropped == SQLITE_OK, "\(String(cString: sqlite3_errmsg(db)))")
         return store
     }
 

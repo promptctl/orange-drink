@@ -40,12 +40,12 @@ import OSLog
     func timeline(range: HistoryRange) throws -> BatteryLevelTimeline {
         let now = timekeeper.now()
         return BatteryLevelTimeline(
-            range: range, now: now, samples: try log.read("battery timeline") { try store.samples(since: now.addingTimeInterval(-BatteryLevelTimeline.lookback)) })
+            range: range, now: now, samples: try log.loggingFailure(of: "battery timeline") { try store.samples(since: now.addingTimeInterval(-BatteryLevelTimeline.lookback)) })
     }
 
     /// What the Daily Usage and Battery Health cards show, read from the store as of now.
     func overview() throws -> BatteryOverview {
-        let rows = try log.read("battery overview") { try store.overviewRows() }
+        let rows = try log.loggingFailure(of: "battery overview") { try store.overviewRows() }
         return BatteryOverview(usage: rows.usage, healthSamples: rows.healthSamples, calendar: calendar, collectedAt: rows.latestSample)
     }
 
