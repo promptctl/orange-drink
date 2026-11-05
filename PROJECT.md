@@ -28,7 +28,7 @@ You set alerts at any charge level, as many as you want, on the way down and on 
 - Last-chance alerts at 2% and 1%, so a video call doesn't drop without warning.
 - A high-charge alert at 80% (see lifecycle alerts).
 
-Each alert fires once when its threshold is crossed, not every minute. Each alert sets its own position (centre or top of screen), screen-edge glow, and sound. Separate alerts fire when the power adapter is connected or disconnected. A master switch turns all alerts off, and an option closes the system's own battery notifications automatically so they don't double up.
+Each alert fires once when its threshold is crossed, not every minute. Each alert sets its own position (centre or top of screen, or full screen for critical levels), screen-edge glow, and sound. Separate alerts fire when the power adapter is connected or disconnected. A master switch turns all alerts off, and an option closes the system's own battery notifications automatically so they don't double up.
 
 ### Notification styles
 
