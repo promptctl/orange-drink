@@ -204,6 +204,23 @@ import Testing
         #expect(seen.names.isEmpty)
     }
 
+    /// The date lags the last sighting by up to `stampEvery`, so the window is counted from the date and not the sighting.
+    @Test func aDeviceSeenLateInTheDayIsLetGoUpToADayEarly() {
+        var seen = SeenDevices()
+        seen.see(Self.list([Self.buds]), at: Self.start)
+        seen.see(Self.list([Self.buds]), at: Self.start + SeenDevices.stampEvery - 1)
+
+        #expect(seen.see(Self.list([]), at: Self.start + SeenDevices.retention + 1) == 1)
+    }
+
+    /// A sighting dates a device from before dates, so a launch's dating is not the only thing that starts its window.
+    @Test func aSightingDatesADeviceFromBeforeDates() {
+        var seen = SeenDevices(devices: [.bluetooth("BB"): SeenDevice(name: "Earbuds")])
+        seen.see(Self.list([Self.buds]), at: Self.start)
+
+        #expect(seen.devices[.bluetooth("BB")]?.lastConnected == Self.start)
+    }
+
     /// A clock set back must not leave a device dated beyond the window's reach.
     @Test func aDateInTheFutureIsRenewedByTheNextSighting() {
         var seen = SeenDevices()
