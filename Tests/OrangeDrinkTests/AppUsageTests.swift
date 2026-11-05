@@ -22,9 +22,9 @@ import Testing
 
     @Test func sharesReadWithTwoSignificantFiguresBelowTenAndWholeFromTen() {
         let us = Locale(identifier: "en_US")
-        #expect([45, 9.1, 1.7, 0.95, 0.9].map { ShareFormat.text(percent: $0, locale: us) } == ["45%", "9.1%", "1.7%", "0.95%", "0.90%"])
-        #expect(ShareFormat.text(percent: 9.96, locale: us) == "10%")
-        #expect(ShareFormat.text(percent: 0, locale: us) == "0%")
+        #expect([45, 9.1, 1.7, 0.95, 0.9].map { ShareFormat.text(percent: $0, locale: us).english } == ["45%", "9.1%", "1.7%", "0.95%", "0.90%"])
+        #expect(ShareFormat.text(percent: 9.96, locale: us).english == "10%")
+        #expect(ShareFormat.text(percent: 0, locale: us).english == "0%")
     }
 
     @Test func topDrainersListsEachRangesTopFiveInOrderUnderItsHeader() {

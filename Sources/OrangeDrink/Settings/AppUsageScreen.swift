@@ -126,7 +126,7 @@ private struct ConsumersSection: View {
             .frame(width: 180, alignment: .leading)
             Sparkline(values: consumer.slices.map(Double.init)).frame(maxWidth: .infinity).frame(height: 32).accessibilityHidden(true)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(ShareFormat.text(percent: consumer.share.share * 100, locale: language.locale)).fontWeight(.bold)
+                PhraseText(ShareFormat.text(percent: consumer.share.share * 100, locale: language.locale)).fontWeight(.bold)
                 PhraseText("of total").font(.caption).foregroundStyle(.secondary)
             }
             .frame(width: 64, alignment: .trailing)

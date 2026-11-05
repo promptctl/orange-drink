@@ -15,7 +15,7 @@ struct StatTiles: Equatable {
     struct Tile: Equatable {
         let label: Phrase
         let symbol: String
-        let value: String
+        let value: Phrase
         let status: Phrase
         let tone: Tone
     }
@@ -29,7 +29,7 @@ struct StatTiles: Equatable {
     init(_ reading: BatteryReading) {
         let info = BatteryInformation(reading)
         health = Tile(label: "HEALTH", symbol: "heart.fill", value: info.health.percent, status: info.health.label, tone: .condition(info.health.condition))
-        temperature = Tile(label: "TEMPERATURE", symbol: "thermometer.medium", value: info.temperature.celsius,
+        temperature = Tile(label: "TEMPERATURE", symbol: "thermometer.medium", value: "\(info.temperature.celsius)",
                            status: info.temperature.status, tone: .condition(info.temperature.condition))
         cycles = Tile(label: "CYCLES", symbol: "arrow.triangle.2.circlepath", value: "\(reading.cycles.count)",
                       status: "of \(reading.cycles.rated) rated", tone: .info)

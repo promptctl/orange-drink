@@ -152,11 +152,12 @@ struct RightNow: Equatable, Sendable {
 
 /// How a share reads: whole numbers from 10% up, two significant figures below.
 enum ShareFormat {
-    static func text(percent: Double, locale: Locale) -> String {
+    static func text(percent: Double, locale: Locale) -> Phrase {
         let rounded = percent < 10 && percent > 0 ? Self.twoSignificant(percent) : percent.rounded()
         // Rounding to two significant figures can land on 10, which then reads as a whole number.
         let decimals = rounded >= 10 || rounded == 0 ? 0 : max(0, 1 - Int(floor(log10(rounded))))
-        return rounded.formatted(.number.precision(.fractionLength(decimals)).locale(locale)) + "%"
+        let number = rounded.formatted(.number.precision(.fractionLength(decimals)).locale(locale))
+        return "\(number)%"
     }
 
     private static func twoSignificant(_ value: Double) -> Double {

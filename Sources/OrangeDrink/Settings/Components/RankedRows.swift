@@ -24,7 +24,7 @@ struct RankedRows: View {
                             }
                             .frame(height: 4)
                         }
-                        Text(ShareFormat.text(percent: entry.share * 100, locale: language.locale)).fontWeight(.bold)
+                        PhraseText(ShareFormat.text(percent: entry.share * 100, locale: language.locale)).fontWeight(.bold)
                             .foregroundStyle(highlightFirst && index == 0 ? .orange : .primary)
                     }
                     .accessibilityElement(children: .combine)

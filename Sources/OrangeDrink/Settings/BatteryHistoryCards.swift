@@ -46,14 +46,14 @@ struct DailyUsageCard: View {
             Chart(overview.shownDays, id: \.day) {
                 BarMark(x: .value("Day", $0.day, unit: .day), y: .value("Used", $0.usage.dischargedPercent)).foregroundStyle(.green)
             }
-            .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, suffix: "%") } } }
+            .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, format: TickFormat.percent) } } }
             .frame(height: 110)
             .accessibilityLabel(Phrase("Battery used").text(in: language))
             PhraseText("Screen on").font(.caption).foregroundStyle(.secondary)
             Chart(overview.shownDays, id: \.day) {
                 BarMark(x: .value("Day", $0.day, unit: .day), y: .value("Hours", $0.usage.screenOn / 3600)).foregroundStyle(.blue)
             }
-            .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, suffix: "h") } } }
+            .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, format: TickFormat.hours) } } }
             .frame(height: 110)
             .accessibilityLabel(Phrase("Screen on").text(in: language))
         }
@@ -77,7 +77,7 @@ struct BatteryHealthCard: View {
                     InfoButton(text: "How much charge the battery holds today compared with when it was new.")
                 }
                 HStack(alignment: .firstTextBaseline) {
-                    Text(info.health.percent).font(.system(size: 28, weight: .bold))
+                    PhraseText(info.health.percent).font(.system(size: 28, weight: .bold))
                     PhraseText(info.health.label).foregroundStyle(color)
                     Spacer()
                     Text(reading.capacityText(locale: language.locale)).foregroundStyle(.secondary)
@@ -103,7 +103,7 @@ struct BatteryHealthCard: View {
             PointMark(x: .value("Day", $0.day, unit: .day), y: .value("Health", $0.health * 100)).symbolSize(16).foregroundStyle(color)
         }
         .chartYScale(domain: .automatic(includesZero: false))
-        .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, suffix: "%") } } }
+        .chartYAxis { AxisMarks { value in AxisGridLine(); AxisValueLabel { TickLabel(value: value, format: TickFormat.percent) } } }
         .frame(height: 140)
         .accessibilityLabel(Phrase("Battery health over time").text(in: language))
     }
@@ -112,12 +112,25 @@ struct BatteryHealthCard: View {
 /// A tick's number as it is, so a quarter-hour tick is not "0h", and its unit.
 private struct TickLabel: View {
     let value: AxisValue
-    let suffix: String
+    let format: (Double, Locale) -> Phrase
     @Environment(\.appLanguage) private var language
 
     var body: some View {
         if let number = value.as(Double.self) {
-            Text(verbatim: number.formatted(.number.precision(.fractionLength(0...1)).grouping(.never).locale(language.locale)) + suffix)
+            PhraseText(format(number, language.locale))
         }
     }
+}
+
+/// How a chart tick's number is written, apart from the view so a test can say what a tick draws.
+enum TickFormat {
+    static func number(_ value: Double, locale: Locale) -> String {
+        value.formatted(.number.precision(.fractionLength(0...1)).grouping(.never).locale(locale))
+    }
+
+    /// A tick on a percent axis: the number, then the sign the way the language writes it.
+    static func percent(_ value: Double, locale: Locale) -> Phrase { "\(number(value, locale: locale))%" }
+
+    /// A tick on an hours axis: the number, then the unit the way the language writes it ("2 h" in French and Spanish).
+    static func hours(_ value: Double, locale: Locale) -> Phrase { "\(number(value, locale: locale))h" }
 }

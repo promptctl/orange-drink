@@ -22,7 +22,7 @@ import Testing
 
     @Test func healthIsFullCapacityOverDesignWithItsCycles() throws {
         let info = try Self.reference()
-        #expect(info.health.percent == "95%")
+        #expect(info.health.percent.english == "95%")
         #expect(info.health.label == "Good")
         #expect(info.health.cycles == "84/1000")
         #expect(abs(info.health.fraction - 5942.0 / 6249.0) < 1e-9)

@@ -9,7 +9,7 @@ struct BatteryInformation: Equatable {
     enum Condition: Equatable { case good, warning, bad }
 
     struct Health: Equatable {
-        let percent: String
+        let percent: Phrase
         let fraction: Double
         let label: Phrase
         let condition: Condition
