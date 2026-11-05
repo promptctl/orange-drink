@@ -38,7 +38,8 @@ final class CoverPanel: OverlayPanel {
     init(_ content: CoverContent, language: AppLanguage, frame: CGRect, accepting: @escaping () -> Bool, onDismiss: @escaping (CoverEnd) -> Void) {
         self.accepting = accepting
         self.onDismiss = onDismiss
-        hosted = AnyView(CoverView(content: content, onDismiss: { onDismiss(.dismissButton) }).speaking(language))
+        // A press that never passes `sendEvent` — VoiceOver's, Switch Control's — is held off here.
+        hosted = AnyView(CoverView(content: content, onDismiss: { if accepting() { onDismiss(.dismissButton) } }).speaking(language))
         super.init(frame: frame, level: .pill, hosting: FirstClickHostingView(rootView: hosted))
         hasShadow = false
     }
@@ -64,6 +65,11 @@ final class CoverPanel: OverlayPanel {
     }
 
     override func sendEvent(_ event: NSEvent) {
+        // Esc closes this panel and drops the controller's hold on it while AppKit is still in this call.
+        withExtendedLifetime(self) { dispatch(event) }
+    }
+
+    private func dispatch(_ event: NSEvent) {
         guard accepting() || !Self.input.contains(event.type) else { return }
         if Self.isEscape(event) { onDismiss(.escape) } else { super.sendEvent(event) }
     }

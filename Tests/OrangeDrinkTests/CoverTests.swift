@@ -95,6 +95,7 @@ import ViewInspector
         let panel = try #require(rig.cover.shownPanels.first)
 
         panel.sendEvent(try Self.escape())
+        try Self.pressDismiss(panel)
         #expect(panel.performKeyEquivalent(with: try Self.escape(modifiers: .command)))
         #expect(rig.cover.shown != nil)
 
@@ -129,6 +130,8 @@ import ViewInspector
         rig.cover.show(CoverContent(Self.critical, reading: try PillTests.reading(2)))
         defer { rig.cover.dismiss(.dismissButton) }
         #expect(rig.cover.shownPanels.isEmpty && rig.cover.shown != nil)
+        // An arming started at `show` would be asleep by now, and this advance would wake it.
+        for _ in 0..<100 { await Task.yield() }
         rig.clock.advance(by: CoverController.unarmedFor * 2)
         for _ in 0..<100 { await Task.yield() }
         rig.displays = [Self.primary]
