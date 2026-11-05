@@ -404,14 +404,14 @@ let allBatteriesContents = allBatteriesSizes.map { family, size in
         #expect(try !Self.texts(named).contains(MacBattery.name.english))
     }
 
-    @Test(arguments: UnreadDevices.allCases) func includeThisMacOffDropsTheMacFromBesideAReason(reason: UnreadDevices) {
-        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unlisted(mac: nil, .unread(.bluetooth(reason))))
+    @Test(arguments: UnreadSource.all) func includeThisMacOffDropsTheMacFromBesideAReason(reason: UnreadSource) {
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.includeMac = false }) == .unlisted(mac: nil, .unread(reason)))
     }
 
-    @Test(arguments: UnreadDevices.allCases) func theMacBesideAReasonIsDrawnByTheOptions(reason: UnreadDevices) {
+    @Test(arguments: UnreadSource.all) func theMacBesideAReasonIsDrawnByTheOptions(reason: UnreadSource) {
         let level = BatteryLevel(percent: 80, approximate: false)
         let mac = WidgetBattery(glyph: MacBattery.glyph, level: level, charging: true, name: MacBattery.name, appearance: .monochrome)
-        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unlisted(mac: mac, .unread(.bluetooth(reason))))
+        #expect(AllBatteries(mac: Self.charging, devices: .unread(reason), settings: Self.settings { $0.showNames = true; $0.appearance = .monochrome }) == .unlisted(mac: mac, .unread(reason)))
     }
 
     @Test(arguments: WidgetStyle.allCases) func monochromeDrawsNoGreen(style: WidgetStyle) throws {

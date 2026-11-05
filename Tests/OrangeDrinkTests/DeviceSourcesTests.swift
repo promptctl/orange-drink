@@ -26,10 +26,10 @@ struct DeviceSourcesListTests {
 
     @Test func aSourceThatHasNotSpokenIsWaitingNotRead() {
         var list = DeviceList(sources: DeviceSource.allCases)
-        #expect(list.unread(of: .iPhone) == .waiting)
+        #expect(list.unread(of: .iPhone) == .iPhone(.waiting))
         list.apply(.swept([Fleet.mouse]), from: .bluetooth)
         #expect(list.unread(of: .bluetooth) == nil)
-        #expect(list.unread(of: .iPhone) == .waiting)
+        #expect(list.unread(of: .iPhone) == .iPhone(.waiting))
     }
 
     @Test func oneSourcesSweepLeavesTheOthersDevices() {
@@ -44,13 +44,13 @@ struct DeviceSourcesListTests {
         var ended = both()
         ended.end(.bluetooth)
         #expect(Set(ended.devices.map(\.id)) == [Fleet.phone.id, Fleet.tablet.id])
-        #expect(ended.unread(of: .bluetooth) == .ended)
+        #expect(ended.unread(of: .bluetooth) == .bluetooth(.ended))
         #expect(ended.unread(of: .iPhone) == nil)
 
         var denied = both()
         denied.apply(.permission(.denied), from: .bluetooth)
         #expect(Set(denied.devices.map(\.id)) == [Fleet.phone.id, Fleet.tablet.id])
-        #expect(denied.unread(of: .bluetooth) == .denied)
+        #expect(denied.unread(of: .bluetooth) == .bluetooth(.denied))
     }
 
     @Test func aSourceCannotAddRemoveOrKeepAnotherSourcesDevice() {
@@ -67,7 +67,7 @@ struct DeviceSourcesListTests {
 
     // What a list says is missing: each source that has not swept, with its own reason, in `DeviceSource.allCases` order, and
     // nothing for a source that has. Only Bluetooth has a permission, so only it is ever denied.
-    static let reasons: [(bluetooth: UnreadDevices?, iPhone: UnreadDevices?)] = [
+    static let reasons: [(bluetooth: BluetoothNoList?, iPhone: IPhoneNoList?)] = [
         (nil, nil),
         (nil, .ended),
         (.denied, nil),
@@ -80,21 +80,21 @@ struct DeviceSourcesListTests {
     ]
 
     @Test(arguments: reasons)
-    func eachSourceNotYetSweptIsListedWithItsOwnReason(bluetooth: UnreadDevices?, iPhone: UnreadDevices?) {
+    func eachSourceNotYetSweptIsListedWithItsOwnReason(bluetooth: BluetoothNoList?, iPhone: IPhoneNoList?) {
         var list = DeviceList(sources: DeviceSource.allCases)
-        for (source, state) in [(DeviceSource.bluetooth, bluetooth), (.iPhone, iPhone)] {
-            switch state {
-            case nil: list.apply(.swept([]), from: source)
-            case .denied?: list.apply(.permission(.denied), from: source)
-            case .ended?: list.end(source)
-            case .unanswered?: list.apply(.permission(.notDetermined), from: source)
-            case .waiting?: break
-            }
+        switch bluetooth {
+        case nil: list.apply(.swept([]), from: .bluetooth)
+        case .denied?: list.apply(.permission(.denied), from: .bluetooth)
+        case .ended?: list.end(.bluetooth)
+        case .unanswered?: list.apply(.permission(.notDetermined), from: .bluetooth)
+        case .waiting?: break
         }
-        let expected = [(DeviceSource.bluetooth, bluetooth), (.iPhone, iPhone)].compactMap { source, reason in
-            reason.map { UnreadSource(source: source, reason: $0) }
+        switch iPhone {
+        case nil: list.apply(.swept([]), from: .iPhone)
+        case .ended?: list.end(.iPhone)
+        case .waiting?: break
         }
-        #expect(list.unreadSources == expected)
+        #expect(list.unreadSources == [bluetooth.map(UnreadSource.bluetooth), iPhone.map(UnreadSource.iPhone)].compactMap(\.self))
     }
 
     /// A device a source reported ahead of its first sweep is listed with the rest, as the panel has always listed it, and its
@@ -171,7 +171,7 @@ struct DeviceSourcesListTests {
 
         let failure = StandIn(reason: "the Bluetooth stand-in failed")
         sendBluetooth.finish(throwing: failure)
-        let after = await list(of: model) { $0.unread(of: .bluetooth) == .ended }
+        let after = await list(of: model) { $0.unread(of: .bluetooth) == .bluetooth(.ended) }
         #expect(after.devices == [Fleet.phone.device])
         #expect(after.unreadSources == [.bluetooth(.ended)])
         #expect(after.unread(of: .iPhone) == nil)
@@ -193,7 +193,7 @@ struct DeviceSourcesListTests {
 
         let failure = StandIn(reason: "the iPhone stand-in failed")
         sendIPhone.finish(throwing: failure)
-        let after = await list(of: model) { $0.unread(of: .iPhone) == .ended }
+        let after = await list(of: model) { $0.unread(of: .iPhone) == .iPhone(.ended) }
         #expect(after.devices == [Fleet.mouse.device])
         #expect(after.unreadSources == [.iPhone(.ended)])
         #expect(try await log.logged("device source ended: iphone: \(String(describing: failure))"))
@@ -224,5 +224,19 @@ struct DeviceSourcesListTests {
         let list = await list(of: model) { !$0.devices.isEmpty }
         #expect(list.devices == [Fleet.mouse.device])
         #expect(try await log.logged("device source bluetooth reported a device of iphone; ignored"))
+    }
+
+    // A permission is Bluetooth's. One on another source's stream changes no reading, and is said in the log.
+    @Test func aPermissionOnAnotherSourcesStreamIsIgnoredAndLogged() async throws {
+        let log = try await TestLog()
+        let (bluetooth, _) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let (iPhone, sendIPhone) = AsyncThrowingStream.makeStream(of: DeviceEvent.self)
+        let model = model(bluetooth, iPhone, log: log.logger)
+        sendIPhone.yield(.permission(.denied))
+        sendIPhone.yield(.swept([Fleet.phone]))
+        let list = await list(of: model) { !$0.devices.isEmpty }
+        #expect(list.unreadSources == [.bluetooth(.waiting)])
+        #expect(list.devices == [Fleet.phone.device])
+        #expect(try await log.logged("device source iphone reported a Bluetooth permission; ignored"))
     }
 }

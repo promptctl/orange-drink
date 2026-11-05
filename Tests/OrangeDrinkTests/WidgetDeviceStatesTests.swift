@@ -177,12 +177,11 @@ private let unreadStates = [
     // MARK: the drawing
 
     /// Every reason a widget can give, each reached the way a placed widget reaches it.
-    static let unreadSources = DeviceSource.allCases.flatMap { source in UnreadDevices.allCases.map { UnreadSource(source: source, reason: $0) } }
-    static let reasons = unreadSources.map(NoDevicesListed.unread) + [.noneChosen, .nonePinned, .noneReporting]
+    static let reasons = UnreadSource.all.map(NoDevicesListed.unread) + [.noneChosen, .nonePinned, .noneReporting]
 
     static func entry(_ reason: NoDevicesListed, mac: MacBattery, style: WidgetStyle = .rings) -> AllBatteriesEntry {
         let (devices, choice): (WidgetDeviceList, WidgetDeviceChoice) = switch reason {
-        case .unread(let unread): (.unread(unread.reason, of: unread.source), .automatic)
+        case .unread(let unread): (.unread(unread), .automatic)
         case .noneChosen: (.connected(AllBatteriesWidgetTests.three, pinned: []), .custom)
         case .nonePinned: (.connected(AllBatteriesWidgetTests.three, pinned: []), .sameAsMenuBar)
         case .noneReporting: (.connected(AllBatteriesWidgetTests.three, pinned: [.bluetooth("gone")]), .sameAsMenuBar)
@@ -250,7 +249,7 @@ private let unreadStates = [
     /// text clipped by its frame draws as if it fit: its natural width at the floor has to fit the widget, and its height the row.
     @Test(arguments: WidgetStyle.allCases, allBatteriesContents) func everyUnreadCaptionIsWholeAtItsFloorInEveryLanguage(style: WidgetStyle, size: (family: WidgetFamily, content: CGSize)) throws {
         let cell = BatteryGrid(size.family, style).cell(in: size.content)
-        for source in Self.unreadSources {
+        for source in UnreadSource.all {
             for language in WidgetLanguageTests.shipped {
                 let natural = ImageRenderer(content: PhraseText(source.text).font(.caption).lineLimit(1).fixedSize().speaking(language))
                 let image = try #require(natural.nsImage)

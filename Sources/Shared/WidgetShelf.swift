@@ -74,9 +74,10 @@ extension WidgetBattery {
     }
 }
 
-/// Why the app has no list of what is connected. [LAW:types-are-the-program] Each is a list the app could not
-/// give, so none of them can reach a widget as a list with nothing on it.
-enum UnreadDevices: String, CaseIterable, Codable, Equatable, Sendable {
+/// Why the Bluetooth list has not arrived. [LAW:types-are-the-program] Each is a list the app could not give, so none of them
+/// can reach a widget as a list with nothing on it. Each source names its own reasons: a pair of a source and a reason that
+/// means nothing cannot be written.
+enum BluetoothNoList: String, CaseIterable, Codable, Equatable, Sendable {
     /// Nothing has read the list yet.
     case waiting
     /// The Bluetooth prompt is open.
@@ -87,37 +88,190 @@ enum UnreadDevices: String, CaseIterable, Codable, Equatable, Sendable {
     case ended
 }
 
-extension UnreadDevices {
+/// Why the iPhone list has not arrived: a source with no permission, so it is only ever waiting or ended.
+enum IPhoneNoList: String, CaseIterable, Codable, Equatable, Sendable {
+    case waiting
+    case ended
+}
+
+/// A device missing from the iPhone list that did arrive, and why. A different fact from `IPhoneNoList`: that source has
+/// delivered, and it is a device of it the app could not give. No reason is known yet, so there is no case, and no value;
+/// orange-device-sources-rec.70o adds its cases, and the `switch`es over `UnreadSource` that need an arm for each fail to
+/// compile until they have one. It stands in `RawRepresentable` by hand because an enum with no cases cannot declare a raw type.
+enum IPhoneMissing: Equatable, Sendable, CaseIterable, RawRepresentable {
+    init?(rawValue: String) { nil }
+    var rawValue: String { switch self {} }
+}
+
+/// Why one source's list has not arrived: the source and its own reason, held together.
+enum NoList: Equatable, Sendable {
+    case bluetooth(BluetoothNoList)
+    case iPhone(IPhoneNoList)
+
+    var source: DeviceSource {
+        switch self {
+        case .bluetooth: .bluetooth
+        case .iPhone: .iPhone
+        }
+    }
+
+    /// Every source has a list that has not been read yet, and one whose readings stopped.
+    static func waiting(of source: DeviceSource) -> NoList {
+        switch source {
+        case .bluetooth: .bluetooth(.waiting)
+        case .iPhone: .iPhone(.waiting)
+        }
+    }
+
+    static func ended(of source: DeviceSource) -> NoList {
+        switch source {
+        case .bluetooth: .bluetooth(.ended)
+        case .iPhone: .iPhone(.ended)
+        }
+    }
+
+    var isWaiting: Bool { self == .waiting(of: source) }
+
+    /// The wire form of the reason, with its source beside it in `UnreadSource`'s file.
+    var reason: String {
+        switch self {
+        case .bluetooth(let reason): reason.rawValue
+        case .iPhone(let reason): reason.rawValue
+        }
+    }
+
+    /// [LAW:parse-dont-validate] nil for a reason the source has no case for, so a pair that means nothing is not a value.
+    init?(source: DeviceSource, reason: String) {
+        switch source {
+        case .bluetooth: guard let reason = BluetoothNoList(rawValue: reason) else { return nil }; self = .bluetooth(reason)
+        case .iPhone: guard let reason = IPhoneNoList(rawValue: reason) else { return nil }; self = .iPhone(reason)
+        }
+    }
+
     /// A reading that is coming keeps the devices' glyph; one that will not come warns, as a stopped Mac does.
+    var glyph: String {
+        switch self {
+        case .bluetooth(let reason): reason.glyph
+        case .iPhone(let reason): reason.glyph
+        }
+    }
+
+    /// What a widget says for it. A widget is too small for the panel's sentences, and the panel says why at length.
+    var text: Phrase {
+        switch self {
+        case .bluetooth(let reason): reason.text
+        case .iPhone(let reason): reason.text
+        }
+    }
+}
+
+extension BluetoothNoList {
     var glyph: String {
         switch self {
         case .waiting, .unanswered: DeviceKind.accessory.symbol
         case .denied, .ended: MacBattery.stoppedGlyph
         }
     }
+
+    var text: Phrase {
+        switch self {
+        case .waiting: "Reading devices…"
+        case .unanswered: "Answer the Bluetooth prompt"
+        case .denied: "Bluetooth is not allowed"
+        case .ended: "Bluetooth unavailable"
+        }
+    }
 }
 
-/// One source's list the app could not give, and why. [LAW:types-are-the-program] The reason is held with the source it is
-/// about, so a surface that has devices beside an unread source says which, and the reasons of several sources are a list and
-/// not one verdict picked among them.
-struct UnreadSource: Codable, Equatable, Sendable {
-    let source: DeviceSource
-    let reason: UnreadDevices
+extension IPhoneNoList {
+    var glyph: String {
+        switch self {
+        case .waiting: DeviceKind.accessory.symbol
+        case .ended: MacBattery.stoppedGlyph
+        }
+    }
+
+    var text: Phrase {
+        switch self {
+        case .waiting: "Reading iPhones…"
+        case .ended: "iPhones unavailable"
+        }
+    }
+}
+
+/// What a source could not give the app, and why. [LAW:types-are-the-program] A source's list that has not arrived
+/// (`noList`) and a device missing from a list that did (`iPhoneMissing`) are different facts, so they are different cases.
+/// The reason is held with the source it is about, so a surface that has devices beside an unread source says which, and the
+/// reasons of several sources are a list and not one verdict picked among them. A new reason is a case of one source's own
+/// type, and the `switch`es below name every arm that then needs words.
+enum UnreadSource: Equatable, Sendable {
+    case noList(NoList)
+    case iPhoneMissing(IPhoneMissing)
+
+    static func bluetooth(_ reason: BluetoothNoList) -> UnreadSource { .noList(.bluetooth(reason)) }
+    static func iPhone(_ reason: IPhoneNoList) -> UnreadSource { .noList(.iPhone(reason)) }
 }
 
 extension UnreadSource {
-    var glyph: String { reason.glyph }
+    var source: DeviceSource {
+        switch self {
+        case .noList(let list): list.source
+        case .iPhoneMissing: .iPhone
+        }
+    }
 
-    /// What a widget says for it. A widget is too small for the panel's sentences, and the panel says why at length.
-    /// `.unanswered` and `.denied` are Bluetooth's: the only source with a permission, which `DeviceList` enforces.
+    var glyph: String {
+        switch self {
+        case .noList(let list): list.glyph
+        }
+    }
+
     var text: Phrase {
-        switch (reason, source) {
-        case (.waiting, .bluetooth): "Reading devices…"
-        case (.waiting, .iPhone): "Reading iPhones…"
-        case (.unanswered, _): "Answer the Bluetooth prompt"
-        case (.denied, _): "Bluetooth is not allowed"
-        case (.ended, .bluetooth): "Bluetooth unavailable"
-        case (.ended, .iPhone): "iPhones unavailable"
+        switch self {
+        case .noList(let list): list.text
+        }
+    }
+
+    /// True for a source that has not delivered its first reading, which is no failure.
+    var isWaiting: Bool {
+        switch self {
+        case .noList(let list): list.isWaiting
+        }
+    }
+}
+
+/// The widget file holds `{"source": <DeviceSource>, "reason": <string>}`, as every release since sources has written it.
+/// [LAW:parse-dont-validate] The one crossing: the reason is read as its source's own type, and a pair that means nothing
+/// fails the file loudly, as any unreadable shelf does, instead of being a value.
+extension UnreadSource: Codable {
+    private enum Keys: String, CodingKey { case source, reason }
+
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: Keys.self)
+        let source = try values.decode(DeviceSource.self, forKey: .source)
+        let reason = try values.decode(String.self, forKey: .reason)
+        if let list = NoList(source: source, reason: reason) {
+            self = .noList(list)
+        } else if let missing = Self.missing(source: source, reason: reason) {
+            self = missing
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .reason, in: values, debugDescription: "\(source.rawValue) has no reason \(reason)")
+        }
+    }
+
+    private static func missing(source: DeviceSource, reason: String) -> UnreadSource? {
+        switch source {
+        case .bluetooth: nil
+        case .iPhone: IPhoneMissing(rawValue: reason).map(UnreadSource.iPhoneMissing)
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: Keys.self)
+        try values.encode(source, forKey: .source)
+        switch self {
+        case .noList(let list): try values.encode(list.reason, forKey: .reason)
+        case .iPhoneMissing(let missing): try values.encode(missing.rawValue, forKey: .reason)
         }
     }
 }
@@ -125,7 +279,7 @@ extension UnreadSource {
 extension [UnreadSource] {
     /// The one source a one-line widget surface speaks for: the first, in source order, that is not merely waiting for its
     /// first reading, else the first. A presentation choice at the narrowest surface; nothing stores it.
-    var headline: UnreadSource? { first { $0.reason != .waiting } ?? first }
+    var headline: UnreadSource? { first { !$0.isWaiting } ?? first }
 }
 
 /// The devices pinned to the menu bar, in the order their items sit there, connected or not.
@@ -206,8 +360,8 @@ extension WidgetDeviceList {
             self = try previous.decode(Boxed<WidgetDeviceList>.self, forKey: .connected)._0
         } else if previous.contains(.unread) {
             // The previous release had one source, Bluetooth, and its unread file carried no devices and no pins.
-            let reason = try previous.decode(Boxed<UnreadDevices>.self, forKey: .unread)._0
-            self.init(ranked: [], pinned: WidgetPins(ids: []), unlevelled: [], unreadSources: [UnreadSource(source: .bluetooth, reason: reason)])
+            let reason = try previous.decode(Boxed<BluetoothNoList>.self, forKey: .unread)._0
+            self.init(ranked: [], pinned: WidgetPins(ids: []), unlevelled: [], unreadSources: [.bluetooth(reason)])
         } else {
             let values = try decoder.container(keyedBy: Keys.self)
             // A list the previous release wrapped in `connected` has no unread sources.

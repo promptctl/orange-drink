@@ -20,14 +20,17 @@ extension WidgetDeviceList {
 
 extension WidgetDeviceList {
     /// A list with nothing to show and one source unread: what a widget draws when no device has been read yet.
-    static func unread(_ reason: UnreadDevices, of source: DeviceSource = .bluetooth) -> WidgetDeviceList {
-        WidgetDeviceList(ranked: [], pinned: [], unlevelled: [], unreadSources: [UnreadSource(source: source, reason: reason)])
+    static func unread(_ source: UnreadSource) -> WidgetDeviceList {
+        WidgetDeviceList(ranked: [], pinned: [], unlevelled: [], unreadSources: [source])
     }
+
+    static func unread(_ reason: BluetoothNoList) -> WidgetDeviceList { unread(.bluetooth(reason)) }
 }
 
 extension UnreadSource {
-    static func bluetooth(_ reason: UnreadDevices) -> UnreadSource { UnreadSource(source: .bluetooth, reason: reason) }
-    static func iPhone(_ reason: UnreadDevices) -> UnreadSource { UnreadSource(source: .iPhone, reason: reason) }
+    /// Every reason of every source, each source's own and no pair that is not one. A source's new reason is in it with no edit.
+    static let all: [UnreadSource] = BluetoothNoList.allCases.map(UnreadSource.bluetooth) + IPhoneNoList.allCases.map(UnreadSource.iPhone)
+        + IPhoneMissing.allCases.map(UnreadSource.iPhoneMissing)
 }
 
 extension ListNotes {
