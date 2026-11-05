@@ -262,4 +262,40 @@ import ViewInspector
         #expect(settings.alerts(.low).map(\.id) == order)
         #expect(Set(order).count == 5)
     }
+
+    private func editor(_ alert: Alert, _ center: AlertCenter) throws -> InspectableView<ViewType.ClassifiedView> {
+        try AlertEditor(alert: alert, draftThreshold: .constant(nil), onEdit: { change in
+            do { try center.model.update { $0.edit(alert.id, change) } } catch { Issue.record(error) }
+        }).inspect()
+    }
+
+    private func toggleNames(_ view: InspectableView<ViewType.ClassifiedView>) throws -> [String] {
+        try view.findAll(ViewType.Toggle.self).map { try $0.labelView().text().string() }
+    }
+
+    @Test func choosingFullScreenOnOneAlertChangesOnlyThatAlertAndSurvivesARelaunch() throws {
+        let defaults = scratchDefaults()
+        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let before = center.settings.alerts
+        let chosen = center.settings.alerts(.low)[0]
+
+        try editor(chosen, center).find(button: "Full Screen").tap()
+
+        let after = center.settings.alerts
+        #expect(after.first { $0.id == chosen.id }?.position == .fullScreen)
+        #expect(after.filter { $0.id != chosen.id } == before.filter { $0.id != chosen.id })
+        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        #expect(relaunched.settings.alerts == after)
+    }
+
+    @Test func aFullScreenAlertsEditorSelectsFullScreenAndHidesBorderGlow() throws {
+        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { _, _ in })
+        var alert = center.settings.alerts(.low)[0]
+        #expect(try toggleNames(editor(alert, center)) == ["Border Glow", "Sound"])
+
+        alert.position = .fullScreen
+        let view = try editor(alert, center)
+        #expect(try toggleNames(view) == ["Sound"])
+        #expect(try view.find(button: "Full Screen").accessibilityTraits().contains(.isSelected))
+    }
 }

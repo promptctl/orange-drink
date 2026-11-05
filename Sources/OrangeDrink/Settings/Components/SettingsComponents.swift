@@ -65,9 +65,31 @@ struct SettingRow<Control: View>: View {
             Spacer(minLength: 12)
             control()
         }
-        .padding(12)
-        .overlay(alignment: .bottom) { Divider().padding(.leading, 56) }
-        .accessibilityElement(children: .contain)
+        .settingRowChrome()
+    }
+}
+
+/// A bold title over a control that takes the row's whole width, for a control too wide to sit beside its title.
+struct StackedSettingRow<Control: View>: View {
+    let title: LocalizedStringKey
+    @ViewBuilder let control: () -> Control
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).fontWeight(.bold)
+            control()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .settingRowChrome()
+    }
+}
+
+extension View {
+    /// A setting row's padding, its hairline below, and one accessibility group, shared by every row shape.
+    fileprivate func settingRowChrome() -> some View {
+        padding(12)
+            .overlay(alignment: .bottom) { Divider().padding(.leading, 56) }
+            .accessibilityElement(children: .contain)
     }
 }
 

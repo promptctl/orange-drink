@@ -138,9 +138,9 @@ private struct AlertCard: View {
     }
 }
 
-/// The editor behind a card's gear: the alert's threshold, position, Border Glow, and Sound.
+/// The editor behind a card's gear: the alert's threshold, position, Border Glow where the position has one, and Sound.
 /// Each control changes its one field and the card follows; the threshold waits for the popover to close.
-private struct AlertEditor: View {
+struct AlertEditor: View {
     let alert: Alert
     @Binding var draftThreshold: Int?
     let onEdit: (@escaping (inout Alert) -> Void) -> Void
@@ -150,11 +150,13 @@ private struct AlertEditor: View {
             SettingRow(title: "Threshold", description: alert.kind == .low ? "Below this level" : "At or above this level") {
                 Stepper("\(threshold.wrappedValue)%", value: threshold, in: 1...100)
             }
-            SettingRow(title: "Position") {
-                SegmentedPills(selection: binding(\.position), options: [Alert.Position.center, .top], accent: .green, title: \.title)
+            StackedSettingRow(title: "Position") {
+                SegmentedPills(selection: binding(\.position), options: Alert.Position.allCases, accent: .green, title: \.title)
             }
-            SettingRow(title: "Border Glow", description: "Light the screen edges") {
-                AccentSwitch(isOn: binding(\.glow), tint: .green, label: "Border Glow")
+            if alert.position.glows {
+                SettingRow(title: "Border Glow", description: "Light the screen edges") {
+                    AccentSwitch(isOn: binding(\.glow), tint: .green, label: "Border Glow")
+                }
             }
             SettingRow(title: "Sound", description: "Play a sound") {
                 AccentSwitch(isOn: binding(\.sound), tint: .green, label: "Sound")
