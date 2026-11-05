@@ -318,8 +318,8 @@ struct WidgetPins: Codable, Equatable, Sendable, ExpressibleByArrayLiteral, Cust
 /// has one key and a device cannot be named without a place in the list's expiry.
 struct SeenDevice: Codable, Equatable, Sendable {
     var name: String
-    /// When the app last saw it connected, to the day: the clock a device's place in the list expires by, so a device
-    /// seen again within the day leaves this value equal. Not the time a level was read. nil for a device the app has not
+    /// When the app last saw it connected, renewed no oftener than a day: the clock a device's place in the list expires by,
+    /// so a device seen again within the day leaves this value equal. Not the time a level was read. nil for a device the app has not
     /// dated yet, which never expires.
     var lastConnected: Date?
 }
