@@ -97,15 +97,14 @@ final class CoverPanel: OverlayPanel {
     nonisolated static let unarmedFor: Duration = .seconds(1)
 
     @MainActor private final class Cover {
+        /// The alert up, whose kind decides the adapter change that answers it.
+        let alert: Alert
         let content: CoverContent
-        /// The latest reading the cover has seen, starting with the one that fired it: an adapter
-        /// change is between this and the next.
-        var reading: BatteryReading
         var accepting = false
         var panels: [CoverPanel] = []
         var arming: Task<Void, any Error>?
 
-        init(content: CoverContent, reading: BatteryReading) { self.content = content; self.reading = reading }
+        init(alert: Alert, content: CoverContent) { self.alert = alert; self.content = content }
 
         func close() { arming?.cancel(); panels.forEach { $0.close() } }
     }
@@ -142,7 +141,7 @@ final class CoverPanel: OverlayPanel {
     func show(_ alert: Alert, reading: BatteryReading) {
         take(down: "replaced")
         let content = CoverContent(alert, reading: reading)
-        let cover = Cover(content: content, reading: reading)
+        let cover = Cover(alert: alert, content: content)
         up = cover
         draw(cover)
         log.info("cover shown on \(cover.panels.count) displays: \(content.headline.english, privacy: .private)")
@@ -168,22 +167,11 @@ final class CoverPanel: OverlayPanel {
 
     func dismiss(_ end: CoverEnd) { take(down: "dismissed: \(end.rawValue)") }
 
-    /// A new reading of the Mac's battery. The adapter change that answers the cover's alert takes it
-    /// down; a low alert fired with the adapter already connected waits for Dismiss or Esc, as no
-    /// change answers it.
-    func observe(_ reading: BatteryReading) {
-        guard let up else { return }
-        let previous = up.reading
-        up.reading = reading
-        let changes: [CoverEnd] = BatteryEvent.changes(from: previous, to: reading).compactMap {
-            switch $0 {
-            case .plugged: .adapterConnected
-            case .unplugged: .adapterDisconnected
-            case .levelChanged: nil
-            }
-        }
-        let answer = CoverEnd.answering(up.content.kind)
-        if changes.contains(answer) { dismiss(answer) }
+    /// The changes a new reading of the Mac's battery brought. The adapter change that answers the
+    /// cover's alert takes it down; a low alert fired with the adapter already connected waits for
+    /// Dismiss or Esc, as no change answers it.
+    func observe(_ changes: [BatteryEvent]) {
+        if let up, up.alert.isAnswered(by: changes) { dismiss(.answering(up.alert.kind)) }
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.

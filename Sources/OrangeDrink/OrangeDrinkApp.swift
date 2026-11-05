@@ -75,7 +75,7 @@ struct OrangeDrinkApp: App {
             cover.follow(layout: ScreenMonitor.layout())
             presenter = AlertPresenter(pills: pills, cover: cover, sounds: sounds, log: alertsLog)
             alerts = try AlertCenter(defaults: .standard, log: alertsLog, deliver: {
-                presenter.deliver($0, reading: $1)
+                presenter.deliver($0)
             }, deliverDevice: {
                 pills.deliver($0)
                 sounds.deliver($0)
@@ -156,7 +156,6 @@ struct OrangeDrinkApp: App {
                 // Every state, a read that gave no reading and an ended stream included: no reading lets charging run.
                 chargeHold.observe(state)
                 guard case .known(let reading) = state else { return }
-                if let reading { presenter.observe(reading) }
                 alerts.observe(reading)
                 if case .success(let recording) = history { recording.observe(reading) }
             }))

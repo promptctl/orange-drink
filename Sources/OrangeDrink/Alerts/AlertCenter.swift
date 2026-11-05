@@ -12,14 +12,14 @@ import os
     var settings: AlertSettings { model.value }
     @ObservationIgnored private var engine = AlertEngine()
     @ObservationIgnored private var deviceEngine = DeviceAlertEngine()
-    /// Where a firing goes to be shown; the pill, glow, and sound subscribe here.
-    @ObservationIgnored private let deliver: @MainActor (Firing, BatteryReading) -> Void
+    /// Where each reading's firings go to be shown, with the adapter change it brought.
+    @ObservationIgnored private let deliver: @MainActor (ReadingAlerts) -> Void
     /// Where a watched device's firing goes to be shown.
     @ObservationIgnored private let deliverDevice: @MainActor (DeviceFiring) -> Void
 
     /// [LAW:no-silent-failure] Stored settings that do not decode fail the launch loudly.
     init(
-        defaults: UserDefaults, log: Logger, deliver: @escaping @MainActor (Firing, BatteryReading) -> Void,
+        defaults: UserDefaults, log: Logger, deliver: @escaping @MainActor (ReadingAlerts) -> Void,
         deliverDevice: @escaping @MainActor (DeviceFiring) -> Void = { _ in }
     ) throws {
         self.log = log
@@ -33,15 +33,16 @@ import os
         guard let reading else { return }
         let fired = engine.observe(reading, alerts: settings.alerts, power: settings.power)
         // [LAW:dataflow-not-control-flow] The engine tracks crossings with the switch off too, so
-        // switching it on at 15% does not fire a stale 20% alert; the switch only empties delivery.
-        let delivered = settings.enabled ? fired : []
-        for firing in fired {
+        // switching it on at 15% does not fire a stale 20% alert; the switch only empties the firings,
+        // so the adapter change still reaches a full-screen alert already up.
+        let delivered = settings.enabled ? fired.firings : []
+        for firing in fired.firings {
             log.info("""
                 alert \(delivered.isEmpty ? "suppressed by master switch" : "fired", privacy: .public): \
                 \(firing.description, privacy: .public) at \(reading.chargePercent)%
                 """)
         }
-        for firing in delivered { deliver(firing, reading) }
+        deliver(ReadingAlerts(reading: reading, changes: fired.changes, firings: delivered))
     }
 
     /// The devices whose bell is on, held to the low alerts. [LAW:dataflow-not-control-flow] As with

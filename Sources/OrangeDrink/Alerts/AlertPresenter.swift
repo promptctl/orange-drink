@@ -1,6 +1,7 @@
 import os
 
-/// The sink an `AlertCenter` delivers the Mac's firings to: each goes to the cover or the pill, with its sound.
+/// The sink an `AlertCenter` delivers each reading of the Mac's battery to: every firing goes to the
+/// cover or the pill, with its sound.
 ///
 /// [LAW:single-enforcer] The one place that decides which: a threshold alert set to Full Screen is
 /// the cover; every other firing is a pill. A watched device's firing never reaches here, so it stays
@@ -13,23 +14,35 @@ import os
     let sounds: AlertSounds
     let log: Logger
 
-    func deliver(_ firing: Firing, reading: BatteryReading) {
+    /// [LAW:no-ambient-temporal-coupling] One reading is handed over whole, so the order within it is
+    /// decided here and not by the user's list: the adapter change answers the cover up first, then
+    /// the reading's full-screen alerts show, then its pills meet the cover they fired beside.
+    func deliver(_ fired: ReadingAlerts) {
+        cover.observe(fired.changes)
+        let covers = fired.firings.filter(Self.isCover)
+        for firing in covers + fired.firings.filter({ !Self.isCover($0) }) { deliver(firing, fired) }
+    }
+
+    private func deliver(_ firing: Firing, _ fired: ReadingAlerts) {
         switch firing {
-        case .threshold(let alert) where alert.position == .fullScreen:
+        case .threshold(let alert) where Self.isCover(firing) && alert.isAnswered(by: fired.changes):
+            log.info("full-screen alert answered by the reading that fired it: \(firing.description, privacy: .public)")
+            return
+        case .threshold(let alert) where Self.isCover(firing):
             if let shown = pills.shownFiring, Self.yieldsToCover(shown) { pills.close(.covered) }
-            cover.show(alert, reading: reading)
+            cover.show(alert, reading: fired.reading)
         case _ where cover.shown != nil && Self.yieldsToCover(firing):
             log.info("pill held back by the full-screen alert: \(firing.description, privacy: .public)")
             return
         default:
-            pills.deliver(firing, reading: reading)
+            pills.deliver(firing, reading: fired.reading)
         }
         sounds.deliver(firing)
     }
 
-    /// Every reading of the Mac's battery, before the alerts it fires are delivered: the adapter
-    /// change that answers the cover takes it down first.
-    func observe(_ reading: BatteryReading) { cover.observe(reading) }
+    private static func isCover(_ firing: Firing) -> Bool {
+        if case .threshold(let alert) = firing { alert.position == .fullScreen } else { false }
+    }
 
     /// A low or charged pill for the Mac, which says less than the cover does.
     private static func yieldsToCover(_ firing: Firing) -> Bool {

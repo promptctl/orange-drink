@@ -60,10 +60,10 @@ import ViewInspector
 
     @Test func editsAndTheirSwitchesSurviveARelaunch() throws {
         let defaults = scratchDefaults()
-        let first = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let first = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         try first.model.update { $0.add(.charged); $0.power.pluggedIn = false; $0.enabled = false }
 
-        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         #expect(relaunched.settings == first.settings)
         #expect(relaunched.settings.alerts(.charged).map(\.threshold) == [80, 90])
         #expect(!relaunched.settings.power.pluggedIn && !relaunched.settings.enabled)
@@ -75,7 +75,7 @@ import ViewInspector
         let center = try AlertCenter(
             defaults: scratchDefaults(),
             log: .unread,
-            deliver: { pills.deliver($0, reading: $1) })
+            deliver: { pills.deliver($0) })
         try center.model.update { $0.alerts = [] }
         center.observe(try PowerAndTemperatureAlerts.battery())
         try center.model.update { $0.enabled = false }
@@ -103,7 +103,7 @@ import ViewInspector
 
     /// An `AlertCenter` delivering to a `PillController`, with no threshold alerts to confuse the pills.
     private func temperatureCenter(_ pills: PillController) throws -> AlertCenter {
-        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { pills.deliver($0, reading: $1) })
+        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { pills.deliver($0) })
         try center.model.update { $0.alerts = [] }
         return center
     }
@@ -173,7 +173,7 @@ import ViewInspector
     }
 
     @Test func theTemperatureRowSitsBetweenUnpluggedAndSoundWithItsWordsAndReadsOnByDefault() throws {
-        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { _, _ in })
+        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { _ in })
         let view = try screen(center)
         _ = try view.find(text: "Notify when the battery runs warm or hot")
         #expect(try view.findAll(ViewType.Toggle.self).map { try $0.labelView().text().string() }
@@ -185,7 +185,7 @@ import ViewInspector
         let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
         defer { pills.close(.closeButton) }
         let defaults = scratchDefaults()
-        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { pills.deliver($0, reading: $1) })
+        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { pills.deliver($0) })
         try center.model.update { $0.alerts = [] }
 
         try temperatureSwitch(center).tap()
@@ -194,7 +194,7 @@ import ViewInspector
         center.observe(try PowerAndTemperatureAlerts.battery(celsius: 41))
         #expect(pills.shown == nil)
 
-        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         #expect(try temperatureSwitch(relaunched).isOn() == false)
     }
 
@@ -204,8 +204,8 @@ import ViewInspector
         let center = try AlertCenter(
             defaults: defaults,
             log: .unread,
-            deliver: { firing, reading in
-                if case .threshold = firing { fired.append(reading.chargePercent) }
+            deliver: { reading in
+                for case .threshold in reading.firings { fired.append(reading.reading.chargePercent) }
             })
         try center.model.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
         let id = center.settings.alerts[0].id
@@ -220,7 +220,7 @@ import ViewInspector
         #expect(fired == [11])
 
         #expect(center.settings.alerts(.low).map(\.summary.english) == ["Center of Screen • Border Glow"])
-        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         #expect(relaunched.settings.alerts == [edited])
     }
 
@@ -238,8 +238,8 @@ import ViewInspector
         let center = try AlertCenter(
             defaults: scratchDefaults(),
             log: .unread,
-            deliver: { firing, reading in
-                if case .threshold = firing { fired.append(reading.chargePercent) }
+            deliver: { reading in
+                for case .threshold in reading.firings { fired.append(reading.reading.chargePercent) }
             })
         try center.model.update { $0.alerts = [Alert(kind: .low, threshold: 20, position: .top, glow: false, sound: false)] }
         for percent in [25, 19] { center.observe(try PillTests.reading(percent)) }
@@ -275,7 +275,7 @@ import ViewInspector
 
     @Test func choosingFullScreenOnOneAlertChangesOnlyThatAlertAndSurvivesARelaunch() throws {
         let defaults = scratchDefaults()
-        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let center = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         let before = center.settings.alerts
         let chosen = center.settings.alerts(.low)[0]
 
@@ -284,12 +284,12 @@ import ViewInspector
         let after = center.settings.alerts
         #expect(after.first { $0.id == chosen.id }?.position == .fullScreen)
         #expect(after.filter { $0.id != chosen.id } == before.filter { $0.id != chosen.id })
-        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _, _ in })
+        let relaunched = try AlertCenter(defaults: defaults, log: .unread, deliver: { _ in })
         #expect(relaunched.settings.alerts == after)
     }
 
     @Test func aFullScreenAlertsEditorSelectsFullScreenAndHidesBorderGlow() throws {
-        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { _, _ in })
+        let center = try AlertCenter(defaults: scratchDefaults(), log: .unread, deliver: { _ in })
         var alert = center.settings.alerts(.low)[0]
         #expect(try toggleNames(editor(alert, center)) == ["Border Glow", "Sound"])
 
