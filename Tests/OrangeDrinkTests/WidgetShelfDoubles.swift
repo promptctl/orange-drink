@@ -12,6 +12,12 @@ import os
     return true
 }
 
+/// The level the devices widgets read for a Bluetooth device off the shelf, through their own read path.
+func deviceLevel(_ address: String, on shelf: URL) throws -> Int? {
+    guard case .running(let list) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
+    return list.device(.bluetooth(address))?.level?.percent
+}
+
 extension WidgetDeviceList {
     /// A fully read list for a test whose devices all rank. Only the test target has this: in the app every field is required.
     static func connected(_ ranked: [WidgetDevice], pinned: WidgetPins) -> WidgetDeviceList {

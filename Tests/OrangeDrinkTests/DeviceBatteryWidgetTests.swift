@@ -18,9 +18,9 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 @MainActor @Suite final class DeviceBatteryWidgetTests {
     static let iPhone = SourceDevice(id: DeviceID.bluetooth("AA"), name: "iPhone", kind: .phone,
                                levels: .single(BatteryLevel(percent: 95, approximate: false)))
-    static func earbuds(_ percent: Int) -> SourceDevice {
+    static func earbuds(_ percent: Int, case caseLevel: Int = 80) -> SourceDevice {
         SourceDevice(id: DeviceID.bluetooth("BB"), name: "Earbuds", kind: .accessory,
-               levels: .earbuds(left: BatteryLevel(percent: percent, approximate: false), right: nil, case: BatteryLevel(percent: 80, approximate: false)))
+               levels: .earbuds(left: BatteryLevel(percent: percent, approximate: false), right: nil, case: BatteryLevel(percent: caseLevel, approximate: false)))
     }
 
     final class Reloads { var count = 0 }
@@ -37,8 +37,7 @@ let widgetSizes: [(WidgetFamily, CGSize)] = [
 
     /// What the widget reads for a device, through its own read path.
     func levelRead(_ address: String) throws -> Int? {
-        guard case .running(let list) = try WidgetShelf.read(.devices, from: shelf).get() else { return nil }
-        return list.device(.bluetooth(address))?.level?.percent
+        try deviceLevel(address, on: shelf)
     }
 
     // MARK: the shelf
