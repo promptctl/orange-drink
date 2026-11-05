@@ -53,7 +53,7 @@ struct BatteryScreen: View {
                 }
                 switch loaded {
                 case nil: EmptyView()
-                case .failure: Text("The battery history could not be read. Quit and reopen the app.").foregroundStyle(.secondary)
+                case .failure: PhraseText("The battery history could not be read. Quit and reopen the app.").foregroundStyle(.secondary)
                 case .success(let timeline):
                     summary(timeline)
                     chart(timeline)
