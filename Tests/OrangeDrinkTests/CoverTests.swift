@@ -2,6 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import Foundation
 import os
+import SwiftUI
 import Testing
 import ViewInspector
 @testable import OrangeDrink
@@ -74,6 +75,15 @@ import ViewInspector
             #expect(texts == ["2% Remaining", "5min until empty", "Dismiss"])
         }
         #expect(rig.cover.shownPanels == panels && rig.ordered.count == 2 && rig.cover.shownAccepting == true)
+    }
+
+    /// A reading without an estimate leaves the second line out but keeps its height, so the block it
+    /// sits in, headline included, stays where it was.
+    @Test func theSecondLineKeepsItsHeightWhileMacOSHasNoEstimate() throws {
+        func height(_ subline: Phrase?) -> CGFloat { NSHostingView(rootView: CoverSubline(subline: subline)).fittingSize.height }
+        let shown = try PillTests.reading(2, minutes: 9)
+        let line = try #require(CoverContent(Self.critical, reading: shown).subline)
+        #expect(height(line) > 0 && height(nil) == height(line))
     }
 
     /// A hosting view redraws only when its body read something the change invalidates; a reading that
