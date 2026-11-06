@@ -26,6 +26,8 @@ import ViewInspector
         var deactivated = 0
         var windowsClosed = 0
         var announced: [String] = []
+        /// The priority of each of `announced`.
+        var priorities: [NSAccessibilityPriorityLevel] = []
         var cover: CoverController!
 
         /// `seen` is the screen's first answer, as the hider stream gives it; nil gives none.
@@ -33,7 +35,7 @@ import ViewInspector
             self.displays = displays
             let focus = CoverFocus(frontmost: { [unowned self] in frontmost }, activate: { [unowned self] in activated.append($0) },
                                    deactivate: { [unowned self] in deactivated += 1 },
-                                   closeAppWindows: { [unowned self] in windowsClosed += 1 }, announce: { [unowned self] in announced.append($0) })
+                                   closeAppWindows: { [unowned self] in windowsClosed += 1 }, announce: { [unowned self] in announced.append($0); priorities.append($1) })
             cover = CoverController(language: AppLanguageTests.scratch(), orderFront: { [unowned self] in ordered.append(($0.frame, $1)) },
                                     focus: focus, timekeeper: clock, displays: { [unowned self] in self.displays }, log: .unread)
             if let seen { cover.screen(hidden: seen ? [] : [.locked]) }
@@ -372,16 +374,63 @@ import ViewInspector
         #expect(rig.activated == [Self.editor])
     }
 
-    @Test func voiceOverHearsTheHeadlineAndSecondLineWhenItAppearsAndNotOnARewrite() throws {
+    @Test func voiceOverHearsTheHeadlineAndSecondLineWhenItAppears() throws {
         let rig = Rig([Self.primary])
         rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
-        let language = AppLanguageTests.scratch().value
         let shown = try #require(rig.cover.shown)
         let subline = try #require(shown.subline)
-        #expect(rig.announced == ["\(shown.headline.resolve(in: language)). \(subline.resolve(in: language))"])
-        rig.cover.observe(try PillTests.reading(1), changes: [])
-        #expect(rig.announced.count == 1)
+        #expect(rig.announced == ["\(shown.headline.english). \(subline.english)"] && rig.priorities == [.high])
+    }
+
+    /// The cover's headline and second line, as VoiceOver is told them.
+    static func spoken(_ shown: CoverContent) -> String {
+        let language = AppLanguageTests.scratch().value
+        return [shown.headline, shown.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". ")
+    }
+
+    @Test func voiceOverHearsANewLevelButNotASecondLineThatAloneChanged() throws {
+        let rig = Rig([Self.primary])
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        defer { rig.cover.dismiss(.dismissButton) }
+        let before = try #require(rig.cover.shown)
+        let newer = try PillTests.reading(1)
+        rig.cover.observe(newer, changes: [.levelChanged(newer)])
+        let shown = try #require(rig.cover.shown)
+        #expect(shown.headline.english == "1% Remaining")
+        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
+        // A level that wavers is heard after what VoiceOver is reading, never cutting it off.
+        #expect(rig.priorities == [.high, .medium])
+
+        rig.cover.observe(try PillTests.reading(1, minutes: 4), changes: [])
+        #expect(rig.cover.shown?.subline != shown.subline, "the stand-in reading must change the second line")
+        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
+    }
+
+    @Test func aNewLevelBehindTheLockScreenIsHeardWhenTheCoverIsSeenAgain() throws {
+        let rig = Rig([Self.primary])
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        defer { rig.cover.dismiss(.dismissButton) }
+        let before = try #require(rig.cover.shown)
+        rig.cover.screen(hidden: [.locked])
+        let newer = try PillTests.reading(1)
+        rig.cover.observe(newer, changes: [.levelChanged(newer)])
+        #expect(rig.announced == [Self.spoken(before)])
+        rig.cover.screen(hidden: [])
+        let shown = try #require(rig.cover.shown)
+        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
+    }
+
+    @Test func aNewLevelWithNoDisplayIsHeardWhenADisplayIsConnected() throws {
+        let rig = Rig([])
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        defer { rig.cover.dismiss(.dismissButton) }
+        let newer = try PillTests.reading(1)
+        rig.cover.observe(newer, changes: [.levelChanged(newer)])
+        #expect(rig.announced.isEmpty)
+        rig.displays = [Self.primary]
+        rig.cover.screensChanged()
+        let shown = try #require(rig.cover.shown)
+        #expect(rig.announced == [Self.spoken(shown)])
     }
 }
-
