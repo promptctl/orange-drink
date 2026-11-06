@@ -39,42 +39,18 @@ struct CoverContent: Equatable, Sendable {
     }
 }
 
-/// The full-screen alert of design-docs/alerts.md: a dark translucent cover with the charge ring,
-/// the headline, its second line, and one "Dismiss" button centred on it.
+/// The full-screen alert of design-docs/alerts.md: a dark translucent cover with its block centred on it.
 struct CoverView: View {
-    private static let ring: CGFloat = 14
-
     let shown: CoverShown
     /// The primary display's cover, which holds keyboard focus, takes VoiceOver's too.
     let takesVoiceOverFocus: Bool
     let onDismiss: () -> Void
-    @Environment(\.appLanguage) private var language
     @AccessibilityFocusState private var dismissFocused: Bool
 
     var body: some View {
-        let content = shown.content
-        return ZStack {
+        ZStack {
             Color.black.opacity(0.78).ignoresSafeArea()
-            VStack(spacing: 22) {
-                ZStack {
-                    Circle().stroke(Color(white: 0.22), lineWidth: Self.ring)
-                    Circle().trim(from: 0, to: content.progress)
-                        .stroke(content.severity.color, style: StrokeStyle(lineWidth: Self.ring, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                }
-                .frame(width: 168, height: 168)
-                .accessibilityHidden(true)
-                content.headline.text(in: language).font(.system(size: 56, weight: .bold)).foregroundStyle(.white)
-                CoverSubline(subline: content.subline)
-                Button(action: onDismiss) {
-                    ("Dismiss" as Phrase).text(in: language).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
-                        .padding(.horizontal, 32).padding(.vertical, 12)
-                        .background(Capsule().fill(Color(white: 0.25)))
-                }
-                .buttonStyle(.plain)
-                .accessibilityFocused($dismissFocused)
-                .padding(.top, 12)
-            }
+            CoverBlock(content: shown.content, dismissFocused: $dismissFocused, onDismiss: onDismiss)
         }
         // VoiceOver hears the headline and second line from the controller's announcement, then lands here.
         // A cover drawn behind the lock screen waits to be seen. Each time it is seen, focus is let go
@@ -83,6 +59,40 @@ struct CoverView: View {
         .onChange(of: shown.seen) {
             dismissFocused = false
             Task { @MainActor in dismissFocused = takesVoiceOverFocus }
+        }
+    }
+}
+
+/// The cover's centred block: the charge ring, the headline, its second line, and one "Dismiss"
+/// button. Its fitting size is the area a pill shown over the cover keeps clear of.
+struct CoverBlock: View {
+    private static let ring: CGFloat = 14
+
+    let content: CoverContent
+    let dismissFocused: AccessibilityFocusState<Bool>.Binding
+    let onDismiss: () -> Void
+    @Environment(\.appLanguage) private var language
+
+    var body: some View {
+        VStack(spacing: 22) {
+            ZStack {
+                Circle().stroke(Color(white: 0.22), lineWidth: Self.ring)
+                Circle().trim(from: 0, to: content.progress)
+                    .stroke(content.severity.color, style: StrokeStyle(lineWidth: Self.ring, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: 168, height: 168)
+            .accessibilityHidden(true)
+            content.headline.text(in: language).font(.system(size: 56, weight: .bold)).foregroundStyle(.white)
+            CoverSubline(subline: content.subline)
+            Button(action: onDismiss) {
+                ("Dismiss" as Phrase).text(in: language).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+                    .padding(.horizontal, 32).padding(.vertical, 12)
+                    .background(Capsule().fill(Color(white: 0.25)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityFocused(dismissFocused)
+            .padding(.top, 12)
         }
     }
 }

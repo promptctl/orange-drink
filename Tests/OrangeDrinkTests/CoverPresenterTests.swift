@@ -1,3 +1,4 @@
+import CoreGraphics
 import Testing
 @testable import OrangeDrink
 
@@ -15,7 +16,9 @@ import Testing
     /// A presenter over a cover on one display and a pill controller, counting the chimes it plays.
     @MainActor final class Rig {
         let covers = CoverTests.Rig([CoverTests.primary])
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
+        let screens = PillTests.Screens(CoverPresenterTests.laptop)
+        lazy var pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in },
+                                        screen: { [unowned self] in screens.main }, log: .unread)
         var chimes = 0
         var presenter: AlertPresenter!
         private var last: BatteryReading?
@@ -149,5 +152,59 @@ import Testing
         rig.read(try Self.onBattery(2), firing: [.temperatureWarning(.warm, sound: false)])
         rig.read(try Self.onBattery(2), firing: [.threshold(Self.full)])
         #expect(rig.pills.shown?.headline.english == "Battery Warm")
+    }
+
+    static let mouse = DeviceFiring(
+        alert: Alert(kind: .low, threshold: 20, position: .center, glow: false, sound: false), name: "Magic Mouse",
+        level: BatteryLevel(percent: 19, approximate: false))
+
+    /// The screen the rig's pills go on.
+    static let laptop = CoverPlacementTests.displays[1]
+
+    /// Where a pill at `position` sits on the rig's screen.
+    static func frame(_ position: PillContent.Position, on screen: ScreenArea = laptop) -> CGRect {
+        PillPlacement.frame(position, on: screen.visibleFrame, scale: 1)
+    }
+
+    @Test func aCentrePillShownOverTheCoverSitsAtTheTop() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        let top = Self.frame(.top)
+        rig.read(try Self.onBattery(2), firing: [.threshold(CoverTests.critical)])
+        rig.presenter.deliver(Self.mouse)
+        #expect(rig.pills.shown?.headline.english == "Magic Mouse: 19% Remaining")
+        #expect(rig.pills.shownFrame == top)
+    }
+
+    @Test func aCentrePillUpWhenTheCoverAppearsMovesToTheTopAndStaysThereAfterIt() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        let (top, center) = (Self.frame(.top), Self.frame(.center))
+        rig.presenter.deliver(Self.mouse)
+        #expect(rig.pills.shownFrame == center)
+
+        rig.read(try Self.onBattery(2), firing: [.threshold(CoverTests.critical)])
+        #expect(rig.pills.shownFrame == top)
+        rig.covers.cover.dismiss(.dismissButton)
+        #expect(rig.pills.shown != nil && rig.pills.shownFrame == top)
+    }
+
+    @Test func aCentrePillWithNoCoverUpStaysAtTheCentre() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        let center = Self.frame(.center)
+        rig.presenter.deliver(Self.mouse)
+        #expect(rig.pills.shownFrame == center)
+    }
+
+    @Test func aCentrePillMovedAsideKeepsTheTopWhenTheDisplaysChange() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(Self.mouse)
+        rig.read(try Self.onBattery(2), firing: [.threshold(CoverTests.critical)])
+        let wide = CoverPlacementTests.displays[2]
+        rig.screens.main = wide
+        rig.pills.screensChanged()
+        #expect(rig.pills.shownFrame == Self.frame(.top, on: wide))
     }
 }

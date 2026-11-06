@@ -1,13 +1,14 @@
 import os
 
-/// The sink an `AlertCenter` delivers each reading of the Mac's battery to: every firing goes to the
-/// cover or the pill, with its sound.
+/// The sink an `AlertCenter` delivers each reading of the Mac's battery, and each watched device's
+/// firing, to: every firing goes to the cover or the pill, with its sound.
 ///
 /// [LAW:single-enforcer] The one place that decides which: a threshold alert set to Full Screen is
-/// the cover; every other firing is a pill. A watched device's firing never reaches here, so it stays
+/// the cover; every other firing is a pill. A watched device's Full Screen alert is never a cover; it stays
 /// a pill (design-docs/alerts.md). It is also the one place a cover holds a pill back: while the
 /// cover is up, a low or charged pill for the Mac neither shows nor sounds, and one already up when
-/// the cover appears is taken down. Plug, unplug and temperature pills show over the cover.
+/// the cover appears is taken down. Plug, unplug, temperature and watched-device pills show over the
+/// cover, a centre one at the top, clear of the cover's block.
 @MainActor struct AlertPresenter {
     let pills: PillController
     let cover: CoverController
@@ -45,6 +46,7 @@ import os
 
     private func show(_ alert: Alert, reading: BatteryReading) {
         if let shown = pills.shownFiring, Self.yieldsToCover(shown) { pills.close(.covered) }
+        pills.moveAside()
         cover.show(alert, reading: reading)
         sounds.deliver(.threshold(alert))
     }
@@ -54,7 +56,13 @@ import os
             log.info("pill held back by the full-screen alert: \(firing.description, privacy: .public)")
             return
         }
-        pills.deliver(firing, reading: reading)
+        pills.deliver(firing, reading: reading, covered: cover.shown != nil)
+        sounds.deliver(firing)
+    }
+
+    /// The sink an `AlertCenter` delivers a watched device's firing to: its pill meets the cover as the Mac's other pills do.
+    func deliver(_ firing: DeviceFiring) {
+        pills.deliver(firing, covered: cover.shown != nil)
         sounds.deliver(firing)
     }
 
