@@ -298,9 +298,20 @@ final class CoverPanel: OverlayPanel {
         guard let up else { return }
         if let answer = CoverEnd(answering: up.alert.kind, in: changes) { return dismiss(answer) }
         let was = up.shown.content.headline.english
-        if up.shown.show(CoverContent(up.alert, reading: reading)) {
-            log.info("cover follows the battery: \(was, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)")
+        guard up.shown.show(CoverContent(up.alert, reading: reading)) else { return }
+        log.info("cover follows the battery: \(was, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)")
+        // A new level is spoken while the cover is in sight; the second line alone changes every reading and is not.
+        // Out of sight, the announcement when it is seen again carries the level then.
+        if up.arming != nil, up.shown.content.headline.english != was {
+            announce(up)
+            log.info("cover's new level announced to VoiceOver")
         }
+    }
+
+    /// Tells VoiceOver what the cover says: its headline, then its second line.
+    private func announce(_ cover: Cover) {
+        let content = cover.shown.content, language = language.value
+        focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "))
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.
@@ -333,8 +344,7 @@ final class CoverPanel: OverlayPanel {
         switch (!cover.panels.isEmpty && hidden == [], cover.arming) {
         case (true, nil):
             if case .unread = cover.returnTo { cover.returnTo = .read(focus.frontmost()) }
-            let content = cover.shown.content, language = language.value
-            focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "))
+            announce(cover)
             cover.shown.cameIntoSight()
             log.info("cover seen, announced to VoiceOver")
             cover.arming = Task { [timekeeper, log] in
