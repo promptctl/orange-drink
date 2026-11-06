@@ -16,8 +16,9 @@ import Testing
     /// A presenter over a cover on one display and a pill controller, counting the chimes it plays.
     @MainActor final class Rig {
         let covers = CoverTests.Rig([CoverTests.primary])
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in },
-                                   screen: { CoverPresenterTests.laptop }, log: .unread)
+        let screens = PillTests.Screens(CoverPresenterTests.laptop)
+        lazy var pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in },
+                                        screen: { [unowned self] in screens.main }, log: .unread)
         var chimes = 0
         var presenter: AlertPresenter!
         private var last: BatteryReading?
@@ -161,8 +162,8 @@ import Testing
     static let laptop = CoverPlacementTests.displays[1]
 
     /// Where a pill at `position` sits on the rig's screen.
-    static func frame(_ position: PillContent.Position) -> CGRect {
-        PillPlacement.frame(position, on: laptop.visibleFrame, scale: 1)
+    static func frame(_ position: PillContent.Position, on screen: ScreenArea = laptop) -> CGRect {
+        PillPlacement.frame(position, on: screen.visibleFrame, scale: 1)
     }
 
     @Test func aCentrePillShownOverTheCoverSitsAtTheTop() throws {
@@ -194,5 +195,16 @@ import Testing
         let center = Self.frame(.center)
         rig.presenter.deliver(Self.mouse)
         #expect(rig.pills.shownFrame == center)
+    }
+
+    @Test func aCentrePillMovedAsideKeepsTheTopWhenTheDisplaysChange() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.presenter.deliver(Self.mouse)
+        rig.read(try Self.onBattery(2), firing: [.threshold(CoverTests.critical)])
+        let wide = CoverPlacementTests.displays[2]
+        rig.screens.main = wide
+        rig.pills.screensChanged()
+        #expect(rig.pills.shownFrame == Self.frame(.top, on: wide))
     }
 }

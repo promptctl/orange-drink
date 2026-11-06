@@ -215,13 +215,8 @@ enum PillEnd {
         guard var pill = up, pill.placed != pill.placed.over(cover: true) else { return }
         pill.placed = pill.placed.over(cover: true)
         up = pill
-        // [LAW:no-silent-failure] With no screen the pill keeps its frame, and the next display change places it.
-        guard let area = currentScreen() else {
-            log.error("no screen to move the pill aside on: \(pill.content.headline.english, privacy: .private)")
-            return
-        }
-        pill.place(on: area)
-        log.info("pill at \(pill.placed.rawValue, privacy: .public) clear of the full-screen alert: \(pill.content.headline.english, privacy: .private)")
+        log.info("pill moving to \(pill.placed.rawValue, privacy: .public), clear of the full-screen alert: \(pill.content.headline.english, privacy: .private)")
+        screensChanged()
     }
 
     /// Feeds the controller what hides the screen and when the displays change, for as long as it lives.

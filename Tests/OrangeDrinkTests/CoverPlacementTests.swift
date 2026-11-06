@@ -40,6 +40,10 @@ import Testing
     }
 
     @Test func aTopPillStaysAtTheTopOverTheCover() {
-        #expect(PillContent.Position.top.over(cover: true) == .top && PillContent.Position.center.over(cover: false) == .center)
+        #expect(PillContent.Position.top.over(cover: true) == .top)
+    }
+
+    @Test func aCentrePillWithNoCoverStaysAtTheCentre() {
+        #expect(PillContent.Position.center.over(cover: false) == .center)
     }
 }
