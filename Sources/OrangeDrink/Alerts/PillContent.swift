@@ -23,6 +23,10 @@ struct PillContent: Equatable, Sendable {
     /// Where a pill sits. Narrower than `Alert.Position`, so no pill is full screen.
     enum Position: String, Equatable, Sendable {
         case center, top
+
+        /// Where a pill at this position sits while a full-screen alert is or isn't up: the cover's
+        /// block is centred, so a centre pill over it takes the top slot, clear of its headline.
+        func over(cover: Bool) -> Position { cover ? .top : self }
     }
 
     let headline: Phrase

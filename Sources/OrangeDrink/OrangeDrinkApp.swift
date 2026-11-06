@@ -82,8 +82,7 @@ struct OrangeDrinkApp: App {
             alerts = try AlertCenter(defaults: .standard, log: alertsLog, deliver: {
                 presenter.deliver($0)
             }, deliverDevice: {
-                pills.deliver($0)
-                sounds.deliver($0)
+                presenter.deliver($0)
             })
         } catch {
             fatalError("stored alert, appearance, device, seen device, menu bar, app appearance, app language, shortcut, charge limit, or system notification settings do not decode: \(error)")

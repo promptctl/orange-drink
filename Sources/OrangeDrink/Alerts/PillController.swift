@@ -42,11 +42,11 @@ private final class PillPanel: OverlayPanel {
     /// The view the panel hosts, in the language it was handed.
     let hosted: AnyView
 
-    init(_ content: PillContent, scale: Double, language: AppLanguage, area: ScreenArea, onClose: @escaping () -> Void) {
+    init(_ content: PillContent, at placed: PillContent.Position, scale: Double, language: AppLanguage, area: ScreenArea, onClose: @escaping () -> Void) {
         self.language = language
         hosted = AnyView(PillView(content: content, scale: scale, onClose: onClose).speaking(language))
         super.init(
-            frame: PillPlacement.frame(content.position, on: area.visibleFrame, scale: scale), level: .pill,
+            frame: PillPlacement.frame(placed, on: area.visibleFrame, scale: scale), level: .pill,
             hosting: NSHostingView(rootView: hosted))
     }
 }
@@ -80,6 +80,8 @@ enum PillEnd {
 
     @MainActor private struct Up {
         let content: PillContent
+        /// Where the pill sits: its content's position, or the top while a full-screen alert is up.
+        var placed: PillContent.Position
         /// The Mac's firing the pill announces; nil for a watched device's.
         let firing: Firing?
         /// The bubble size the pill was built at, which a move to another screen keeps.
@@ -93,7 +95,7 @@ enum PillEnd {
         func close() { countdown?.cancel(); panel.close(); glow?.close() }
 
         func place(on area: ScreenArea) {
-            panel.setFrame(PillPlacement.frame(content.position, on: area.visibleFrame, scale: scale), display: true)
+            panel.setFrame(PillPlacement.frame(placed, on: area.visibleFrame, scale: scale), display: true)
             glow?.setFrame(area.frame, display: true)
         }
     }
@@ -141,23 +143,25 @@ enum PillEnd {
     var shownCounting: Bool? { up.map { $0.countdown != nil } }
 
     /// The sink an `AlertCenter` delivers to.
-    func deliver(_ firing: Firing, reading: BatteryReading) {
+    ///
+    /// `covered` says whether a full-screen alert is up, which `AlertPresenter` alone decides.
+    func deliver(_ firing: Firing, reading: BatteryReading, covered: Bool = false) {
         let content: PillContent = switch firing {
         case .threshold(let alert): PillContent(alert, reading: reading)
         case .pluggedIn: .power("Plugged In", severity: .green, reading: reading)
         case .unplugged: .power("On Battery", severity: .orange, reading: reading)
         case .temperatureWarning(let heat, _): .temperature(heat, reading: reading)
         }
-        show(content, from: firing)
+        show(content, from: firing, covered: covered)
     }
 
     /// The sink an `AlertCenter` delivers a watched device's firing to.
-    func deliver(_ firing: DeviceFiring) { show(PillContent(firing)) }
+    func deliver(_ firing: DeviceFiring, covered: Bool = false) { show(PillContent(firing), covered: covered) }
 
     /// The Mac's firing the pill up announces: nil with no pill up, or a watched device's.
     var shownFiring: Firing? { up?.firing }
 
-    func show(_ content: PillContent, from firing: Firing? = nil) {
+    func show(_ content: PillContent, from firing: Firing? = nil, covered: Bool = false) {
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
         // alert is logged. A pill already up stays, with the countdown `hidden` gave it.
         guard let area = currentScreen() else {
@@ -166,16 +170,17 @@ enum PillEnd {
         }
         dismiss("replaced")
         let look = appearance.value
-        let panel = PillPanel(content, scale: look.bubbleSize.scale, language: language.value, area: area, onClose: { [weak self] in self?.close(.closeButton) })
+        let placed = content.position.over(cover: covered)
+        let panel = PillPanel(content, at: placed, scale: look.bubbleSize.scale, language: language.value, area: area, onClose: { [weak self] in self?.close(.closeButton) })
         // [LAW:dataflow-not-control-flow] The glow is built from the content's flag, so a pill whose
         // alert has Border Glow off is a pill with no glow, whatever the pill before it had.
         let glow = content.glow ? GlowPanel(severity: content.severity, strength: look.glowStrength, frame: area.frame) : nil
-        let pill = Up(content: content, firing: firing, scale: look.bubbleSize.scale, panel: panel, glow: glow, countdown: countdown())
+        let pill = Up(content: content, placed: placed, firing: firing, scale: look.bubbleSize.scale, panel: panel, glow: glow, countdown: countdown())
         up = pill
         // Their levels stack the glow under the pill, whichever is ordered front first.
         shownPanels.forEach(orderFront)
         let counting = pill.countdown == nil ? ", held" : " for \(Self.shownFor)"
-        log.info("pill shown at \(content.position.rawValue, privacy: .public)\(counting, privacy: .public): \(content.headline.english, privacy: .private)")
+        log.info("pill shown at \(placed.rawValue, privacy: .public)\(counting, privacy: .public): \(content.headline.english, privacy: .private)")
     }
 
     /// What hides the screen now. Every change gives the pill up a new countdown from `countdown()`;
@@ -203,6 +208,20 @@ enum PillEnd {
         }
         pill.place(on: area)
         log.info("pill placed in \(String(describing: area.visibleFrame), privacy: .public): \(pill.content.headline.english, privacy: .private)")
+    }
+
+    /// A full-screen alert came up: the pill up moves out from over its block, and stays there until it closes.
+    func moveAside() {
+        guard var pill = up else { return }
+        pill.placed = pill.placed.over(cover: true)
+        up = pill
+        // [LAW:no-silent-failure] With no screen the pill keeps its frame, and the next display change places it.
+        guard let area = currentScreen() else {
+            log.error("no screen to move the pill aside on: \(pill.content.headline.english, privacy: .private)")
+            return
+        }
+        pill.place(on: area)
+        log.info("pill at \(pill.placed.rawValue, privacy: .public) clear of the full-screen alert: \(pill.content.headline.english, privacy: .private)")
     }
 
     /// Feeds the controller what hides the screen and when the displays change, for as long as it lives.
