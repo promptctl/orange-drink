@@ -33,8 +33,8 @@ struct CoverFocus {
     let deactivate: @MainActor () -> Void
     /// Closes the panel, Settings, and any other window of this app that is not an alert's.
     let closeAppWindows: @MainActor () -> Void
-    /// Says the text to VoiceOver, ahead of what it was reading.
-    let announce: @MainActor (String) -> Void
+    /// Says the text to VoiceOver: at `.high` ahead of what it was reading, at `.medium` after it.
+    let announce: @MainActor (String, NSAccessibilityPriorityLevel) -> Void
 
     /// A window of this app the cover closes: a visible titled one, Settings among them. The menu
     /// bar's and the alerts' are untitled, and an alert's own panel is never closed.
@@ -61,9 +61,9 @@ struct CoverFocus {
                 panel.close()
                 NSApp.windows.filter(closesUnderCover).forEach { $0.close() }
             },
-            announce: { text in
+            announce: { text, priority in
                 NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
-                                     userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+                                     userInfo: [.announcement: text, .priority: priority.rawValue])
             })
     }
 }
@@ -294,7 +294,8 @@ final class CoverPanel: OverlayPanel {
     /// the cover's alert takes it down; a low alert fired with the adapter already connected waits for
     /// Dismiss or Esc, as no change answers it. Otherwise the cover says what the reading says, in
     /// place: it is not drawn or armed again, and its sound is not played again. A new headline in
-    /// sight is told to VoiceOver; the second line alone changes every reading and is not.
+    /// sight is told to VoiceOver after what it is reading, so a level that wavers never cuts it off;
+    /// a change to the second line alone is not told.
     func observe(_ reading: BatteryReading, changes: [BatteryEvent]) {
         guard let up else { return }
         if let answer = CoverEnd(answering: up.alert.kind, in: changes) { return dismiss(answer) }
@@ -302,7 +303,7 @@ final class CoverPanel: OverlayPanel {
         guard up.shown.show(CoverContent(up.alert, reading: reading)) else { return }
         // Out of sight, the announcement when it is seen again carries the level then.
         let heard = inSight(up) && up.shown.content.headline != was
-        if heard { announce(up) }
+        if heard { announce(up, .medium) }
         log.info("cover follows the battery: \(was.english, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)\(heard ? ", announced to VoiceOver" : "", privacy: .public)")
     }
 
@@ -310,9 +311,9 @@ final class CoverPanel: OverlayPanel {
     private func inSight(_ cover: Cover) -> Bool { !cover.panels.isEmpty && hidden == [] }
 
     /// Tells VoiceOver what the cover says: its headline, then its second line.
-    private func announce(_ cover: Cover) {
+    private func announce(_ cover: Cover, _ priority: NSAccessibilityPriorityLevel) {
         let content = cover.shown.content, language = language.value
-        focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "))
+        focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "), priority)
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.
@@ -345,7 +346,7 @@ final class CoverPanel: OverlayPanel {
         switch (inSight(cover), cover.arming) {
         case (true, nil):
             if case .unread = cover.returnTo { cover.returnTo = .read(focus.frontmost()) }
-            announce(cover)
+            announce(cover, .high)
             cover.shown.cameIntoSight()
             log.info("cover seen, announced to VoiceOver")
             cover.arming = Task { [timekeeper, log] in
