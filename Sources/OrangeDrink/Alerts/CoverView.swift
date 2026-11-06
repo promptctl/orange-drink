@@ -21,17 +21,24 @@ struct CoverContent: Equatable, Sendable {
     }
 }
 
+/// The content of the cover up, which every display's view reads, so a newer reading rewrites them all in place.
+@MainActor @Observable final class CoverShown {
+    var content: CoverContent
+    init(_ content: CoverContent) { self.content = content }
+}
+
 /// The full-screen alert of design-docs/alerts.md: a dark translucent cover with the charge ring,
 /// the headline, its second line, and one "Dismiss" button centred on it.
 struct CoverView: View {
     private static let ring: CGFloat = 14
 
-    let content: CoverContent
+    let shown: CoverShown
     let onDismiss: () -> Void
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        ZStack {
+        let content = shown.content
+        return ZStack {
             Color.black.opacity(0.78).ignoresSafeArea()
             VStack(spacing: 22) {
                 ZStack {

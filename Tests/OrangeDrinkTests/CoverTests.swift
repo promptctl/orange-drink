@@ -54,9 +54,25 @@ import ViewInspector
         #expect(content.headline.english == "2% Remaining" && content.subline?.english == "9min until empty")
         #expect(content.severity == .red && content.progress == 0.02)
 
-        let view = CoverView(content: content, onDismiss: {})
+        let view = CoverView(shown: CoverShown(content), onDismiss: {})
         let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
         #expect(texts == ["2% Remaining", "9min until empty", "Dismiss"])
+    }
+
+    @Test func aNewerReadingRewritesTheCoverOnEveryDisplayWithoutDrawingOrArmingItAgain() async throws {
+        let rig = Rig([Self.primary, Self.side])
+        try await rig.showArmed(3)
+        defer { rig.cover.dismiss(.dismissButton) }
+        let panels = rig.cover.shownPanels
+        let newer = try PillTests.reading(2, minutes: 5)
+
+        rig.cover.observe(newer, changes: [.levelChanged(newer)])
+        #expect(rig.cover.shown == CoverContent(Self.critical, reading: newer) && rig.cover.shown?.progress == 0.02)
+        for panel in panels {
+            let texts = try panel.hosted.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+            #expect(texts == ["2% Remaining", "5min until empty", "Dismiss"])
+        }
+        #expect(rig.cover.shownPanels == panels && rig.ordered.count == 2 && rig.cover.shownAccepting == true)
     }
 
     @Test func itCoversEveryDisplayAndTakesFocusOnThePrimaryOne() throws {
@@ -164,7 +180,8 @@ import ViewInspector
         try center.model.update { $0.alerts = [Self.critical] }
 
         for percent in [4, 2, 1] { center.observe(try PillTests.reading(percent)) }
-        #expect(rig.cover.shown?.headline.english == "2% Remaining" && rig.ordered.count == 1)
+        // Fired once, at 2%, and following the battery since.
+        #expect(rig.cover.shown?.headline.english == "1% Remaining" && rig.ordered.count == 1)
         #expect(pills.shown == nil)
     }
 }

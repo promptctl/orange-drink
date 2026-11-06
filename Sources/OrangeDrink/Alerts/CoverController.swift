@@ -52,11 +52,11 @@ final class CoverPanel: OverlayPanel {
     private let accepting: () -> Bool
     private let onDismiss: (CoverEnd) -> Void
 
-    init(_ content: CoverContent, language: AppLanguage, frame: CGRect, accepting: @escaping () -> Bool, onDismiss: @escaping (CoverEnd) -> Void) {
+    init(_ shown: CoverShown, language: AppLanguage, frame: CGRect, accepting: @escaping () -> Bool, onDismiss: @escaping (CoverEnd) -> Void) {
         self.accepting = accepting
         self.onDismiss = onDismiss
         // A press that never passes `sendEvent` — VoiceOver's, Switch Control's — is held off here.
-        hosted = AnyView(CoverView(content: content, onDismiss: { if accepting() { onDismiss(.dismissButton) } }).speaking(language))
+        hosted = AnyView(CoverView(shown: shown, onDismiss: { if accepting() { onDismiss(.dismissButton) } }).speaking(language))
         super.init(frame: frame, level: .cover, hosting: FirstClickHostingView(rootView: hosted))
         hasShadow = false
     }
@@ -105,12 +105,12 @@ final class CoverPanel: OverlayPanel {
     @MainActor private final class Cover {
         /// The alert up, whose kind decides the adapter change that answers it.
         let alert: Alert
-        let content: CoverContent
+        let shown: CoverShown
         var accepting = false
         var panels: [CoverPanel] = []
         var arming: Task<Void, any Error>?
 
-        init(alert: Alert, content: CoverContent) { self.alert = alert; self.content = content }
+        init(alert: Alert, content: CoverContent) { self.alert = alert; shown = CoverShown(content) }
 
         func close() { arming?.cancel(); panels.forEach { $0.close() } }
     }
@@ -137,7 +137,7 @@ final class CoverPanel: OverlayPanel {
 
     deinit { following?.cancel() }
 
-    var shown: CoverContent? { up?.content }
+    var shown: CoverContent? { up?.shown.content }
     /// The cover's panels, one per display it is drawn on.
     var shownPanels: [CoverPanel] { up?.panels ?? [] }
     /// Whether the cover up takes keys and clicks yet.
@@ -157,7 +157,7 @@ final class CoverPanel: OverlayPanel {
     func screensChanged() {
         guard let up else { return }
         draw(up)
-        log.info("cover drawn again on \(up.panels.count) displays: \(up.content.headline.english, privacy: .private)")
+        log.info("cover drawn again on \(up.panels.count) displays: \(up.shown.content.headline.english, privacy: .private)")
     }
 
     /// Feeds the controller each change of displays, for as long as it lives.
@@ -173,11 +173,14 @@ final class CoverPanel: OverlayPanel {
 
     func dismiss(_ end: CoverEnd) { take(down: "dismissed: \(end.rawValue)") }
 
-    /// The changes a new reading of the Mac's battery brought. The adapter change that answers the
-    /// cover's alert takes it down; a low alert fired with the adapter already connected waits for
-    /// Dismiss or Esc, as no change answers it.
-    func observe(_ changes: [BatteryEvent]) {
-        if let up, let answer = CoverEnd(answering: up.alert.kind, in: changes) { dismiss(answer) }
+    /// A new reading of the Mac's battery and the changes it brought. The adapter change that answers
+    /// the cover's alert takes it down; a low alert fired with the adapter already connected waits for
+    /// Dismiss or Esc, as no change answers it. Otherwise the cover says what the reading says, in
+    /// place: it is not drawn or armed again, and its sound is not played again.
+    func observe(_ reading: BatteryReading, changes: [BatteryEvent]) {
+        guard let up else { return }
+        if let answer = CoverEnd(answering: up.alert.kind, in: changes) { return dismiss(answer) }
+        up.shown.content = CoverContent(up.alert, reading: reading)
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.
@@ -185,7 +188,7 @@ final class CoverPanel: OverlayPanel {
         cover.panels.forEach { $0.close() }
         let displays = displays()
         cover.panels = displays.map { display in
-            CoverPanel(cover.content, language: language.value, frame: display.frame, accepting: { [weak cover] in cover?.accepting == true },
+            CoverPanel(cover.shown, language: language.value, frame: display.frame, accepting: { [weak cover] in cover?.accepting == true },
                        onDismiss: { [weak self] in self?.dismiss($0) })
         }
         for (panel, display) in zip(cover.panels, displays) { orderFront(panel, display.isPrimary) }
@@ -200,12 +203,12 @@ final class CoverPanel: OverlayPanel {
             }
         }
         // [LAW:no-silent-failure] With every display gone the cover is kept, and the next display connected draws it.
-        if displays.isEmpty { log.error("no display to draw the cover on: \(cover.content.headline.english, privacy: .private)") }
+        if displays.isEmpty { log.error("no display to draw the cover on: \(cover.shown.content.headline.english, privacy: .private)") }
     }
 
     private func take(down why: String) {
         if let up {
-            log.info("cover \(why, privacy: .public): \(up.content.headline.english, privacy: .private)")
+            log.info("cover \(why, privacy: .public): \(up.shown.content.headline.english, privacy: .private)")
             up.close()
         }
         up = nil
