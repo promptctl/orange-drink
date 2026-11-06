@@ -43,6 +43,7 @@ struct CoverView: View {
     let shown: CoverShown
     let onDismiss: () -> Void
     @Environment(\.appLanguage) private var language
+    @AccessibilityFocusState private var dismissFocused: Bool
 
     var body: some View {
         let content = shown.content
@@ -65,9 +66,12 @@ struct CoverView: View {
                         .background(Capsule().fill(Color(white: 0.25)))
                 }
                 .buttonStyle(.plain)
+                .accessibilityFocused($dismissFocused)
                 .padding(.top, 12)
             }
         }
+        // VoiceOver hears the headline and second line from the controller's announcement, then lands here.
+        .onAppear { dismissFocused = true }
     }
 }
 

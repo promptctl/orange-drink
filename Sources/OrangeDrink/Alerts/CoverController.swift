@@ -17,6 +17,49 @@ struct CoverDisplay: Equatable {
     }
 }
 
+/// An app other than this one, frontmost before the cover came up, which it hands focus back to.
+struct FrontApp: Equatable {
+    let pid: pid_t
+    let name: String
+}
+
+/// [LAW:effects-at-boundaries] What the cover does to the rest of the Mac's focus: the app in front,
+/// the app's own windows, and VoiceOver. None has a default, so a test records each instead of acting.
+struct CoverFocus {
+    /// The app in front now; nil when it is this one.
+    let frontmost: @MainActor () -> FrontApp?
+    let activate: @MainActor (FrontApp) -> Void
+    /// Closes the panel, Settings, and any other window of this app that is not an alert's.
+    let closeAppWindows: @MainActor () -> Void
+    /// Says the text to VoiceOver, ahead of what it was reading.
+    let announce: @MainActor (String) -> Void
+
+    @MainActor static func live(panel: any Panel, log: Logger) -> CoverFocus {
+        CoverFocus(
+            frontmost: {
+                NSWorkspace.shared.frontmostApplication.flatMap { app in
+                    app.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil
+                        : FrontApp(pid: app.processIdentifier, name: app.localizedName ?? app.bundleIdentifier ?? "pid \(app.processIdentifier)")
+                }
+            },
+            activate: { app in
+                // [LAW:no-silent-failure] An app that quit while the cover was up has nothing to take focus, and the log says so.
+                guard let running = NSRunningApplication(processIdentifier: app.pid), running.activate() else {
+                    return log.error("cover could not return focus to \(app.name, privacy: .public): it is not running or refused")
+                }
+            },
+            closeAppWindows: {
+                panel.close()
+                // The titled windows are the app's own, Settings among them; the menu bar's and the alerts' are untitled.
+                NSApp.windows.filter { $0.isVisible && $0.styleMask.contains(.titled) && !($0 is OverlayPanel) }.forEach { $0.close() }
+            },
+            announce: { text in
+                NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+                                     userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+            })
+    }
+}
+
 /// Why the cover came down, as its log line says it.
 enum CoverEnd: String {
     case dismissButton = "Dismiss"
@@ -106,11 +149,19 @@ final class CoverPanel: OverlayPanel {
         /// The alert up, whose kind decides the adapter change that answers it.
         let alert: Alert
         let shown: CoverShown
+        /// The app in front before the first of a run of covers; a cover replacing this one takes it over.
+        var returnTo: FrontApp?
         var accepting = false
         var panels: [CoverPanel] = []
+        /// The panel on the primary display, which holds keyboard focus.
+        var keyPanel: CoverPanel?
         var arming: Task<Void, any Error>?
 
-        init(alert: Alert, content: CoverContent) { self.alert = alert; shown = CoverShown(content) }
+        init(alert: Alert, content: CoverContent, returnTo: FrontApp?) {
+            self.alert = alert
+            shown = CoverShown(content)
+            self.returnTo = returnTo
+        }
 
         func close() { arming?.cancel(); panels.forEach { $0.close() } }
     }
@@ -119,23 +170,27 @@ final class CoverPanel: OverlayPanel {
     private let timekeeper: any Timekeeper
     private let displays: @MainActor () -> [CoverDisplay]
     private let orderFront: @MainActor (CoverPanel, _ key: Bool) -> Void
+    private let focus: CoverFocus
     private let log: Logger
     private var up: Cover?
-    nonisolated(unsafe) private var following: Task<Void, Never>?
+    /// What hides the screen now. It outlives any one cover, so a cover shown behind the lock screen starts unarmed.
+    private var hidden: Set<ScreenHider> = []
+    nonisolated(unsafe) private var following: [Task<Void, Never>] = []
 
     /// [LAW:effects-at-boundaries] `orderFront` puts a built panel on the screen, making it key when
-    /// asked; it has no default, so a test holds the panels and asserts on them without showing them.
-    init(language: AppLanguageModel, orderFront: @escaping @MainActor (CoverPanel, _ key: Bool) -> Void,
+    /// asked; it and `focus` have no default, so a test holds what they are handed without acting on the Mac.
+    init(language: AppLanguageModel, orderFront: @escaping @MainActor (CoverPanel, _ key: Bool) -> Void, focus: CoverFocus,
          timekeeper: any Timekeeper = SystemTimekeeper(), displays: @escaping @MainActor () -> [CoverDisplay] = CoverDisplay.connected,
          log: Logger) {
         self.language = language
         self.orderFront = orderFront
+        self.focus = focus
         self.timekeeper = timekeeper
         self.displays = displays
         self.log = log
     }
 
-    deinit { following?.cancel() }
+    deinit { following.forEach { $0.cancel() } }
 
     var shown: CoverContent? { up?.shown.content }
     /// The cover's panels, one per display it is drawn on.
@@ -146,13 +201,44 @@ final class CoverPanel: OverlayPanel {
     var shownModel: CoverShown? { up?.shown }
 
     /// Puts up the cover for `alert`, which `reading` fired.
+    ///
+    /// [LAW:dataflow-not-control-flow] The app to return to moves from a replaced cover to its
+    /// replacement, so taking a cover down always returns to the one it holds.
     func show(_ alert: Alert, reading: BatteryReading) {
+        let returnTo = up.map(\.returnTo) ?? focus.frontmost()
+        up?.returnTo = nil
         take(down: "replaced")
         let content = CoverContent(alert, reading: reading)
-        let cover = Cover(alert: alert, content: content)
+        let cover = Cover(alert: alert, content: content, returnTo: returnTo)
         up = cover
+        focus.closeAppWindows()
         draw(cover)
-        log.info("cover shown on \(cover.panels.count) displays: \(content.headline.english, privacy: .private)")
+        log.info("cover shown on \(cover.panels.count) displays, app windows closed: \(content.headline.english, privacy: .private)")
+        let language = language.value
+        focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "))
+        log.info("cover announced to VoiceOver")
+    }
+
+    /// A window of this app became key. While the cover is up only the cover may be: any other is
+    /// closed, and the cover takes focus back.
+    func windowCameForward(isCover: Bool) {
+        guard let up, !isCover else { return }
+        focus.closeAppWindows()
+        up.keyPanel.map { orderFront($0, true) }
+        log.info("cover closed app windows: another came forward")
+    }
+
+    /// What hides the screen changed. Hidden, the cover takes no input; seen again, it takes focus
+    /// back and holds input off for a fresh `unarmedFor`.
+    func screen(hidden now: Set<ScreenHider>) {
+        let seenAgain = !hidden.isEmpty && now.isEmpty
+        hidden = now
+        guard let up else { return }
+        if seenAgain, let key = up.keyPanel {
+            orderFront(key, true)
+            log.info("cover takes focus again: screen seen")
+        }
+        arm(up)
     }
 
     /// The displays changed: the cover up is drawn again on the displays connected now.
@@ -162,15 +248,23 @@ final class CoverPanel: OverlayPanel {
         log.info("cover drawn again on \(up.panels.count) displays: \(up.shown.content.headline.english, privacy: .private)")
     }
 
-    /// Feeds the controller each change of displays, for as long as it lives.
-    func follow(layout: AsyncStream<Void>) {
-        following?.cancel()
-        following = Task { [weak self] in
-            for await _ in layout {
-                guard let self else { return }
-                self.screensChanged()
-            }
-        }
+    /// Feeds the controller each change of what hides the screen and of displays, for as long as it lives.
+    func follow(screen hiders: AsyncStream<Set<ScreenHider>>, layout: AsyncStream<Void>) {
+        following.forEach { $0.cancel() }
+        following = [
+            Task { [weak self] in
+                for await hidden in hiders {
+                    guard let self else { return }
+                    self.screen(hidden: hidden)
+                }
+            },
+            Task { [weak self] in
+                for await _ in layout {
+                    guard let self else { return }
+                    self.screensChanged()
+                }
+            },
+        ]
     }
 
     func dismiss(_ end: CoverEnd) { take(down: "dismissed: \(end.rawValue)") }
@@ -196,25 +290,47 @@ final class CoverPanel: OverlayPanel {
             CoverPanel(cover.shown, language: language.value, frame: display.frame, accepting: { [weak cover] in cover?.accepting == true },
                        onDismiss: { [weak self] in self?.dismiss($0) })
         }
+        cover.keyPanel = zip(cover.panels, displays).first { $0.1.isPrimary }?.0
         for (panel, display) in zip(cover.panels, displays) { orderFront(panel, display.isPrimary) }
-        // [LAW:no-ambient-temporal-coupling] The unarmed second starts when the cover is first seen, so
-        // one fired with no display holds input off once a display shows it. The arming belongs to the
-        // cover, which cancels it on any dismissal or replacement.
-        if cover.arming == nil && !cover.panels.isEmpty {
-            cover.arming = Task { [timekeeper] in
+        arm(cover)
+        // [LAW:no-silent-failure] With every display gone the cover is kept, and the next display connected draws it.
+        if displays.isEmpty { log.error("no display to draw the cover on: \(cover.shown.content.headline.english, privacy: .private)") }
+    }
+
+    /// [LAW:single-enforcer] The one place arming starts or stops, from two facts: the cover is on a
+    /// display, and nothing hides the screen.
+    ///
+    /// [LAW:no-ambient-temporal-coupling] The unarmed second starts when the cover is seen, so one
+    /// fired with no display, or behind the lock screen, holds input off once it is seen; a display
+    /// change while the screen is hidden cannot arm it, whichever stream delivers first. The arming
+    /// belongs to the cover, which cancels it on any dismissal or replacement.
+    private func arm(_ cover: Cover) {
+        switch (!cover.panels.isEmpty && hidden.isEmpty, cover.arming) {
+        case (true, nil):
+            cover.arming = Task { [timekeeper, log] in
                 try await timekeeper.sleep(for: Self.unarmedFor)
                 try Task.checkCancellation()
                 cover.accepting = true
+                log.info("cover armed")
             }
+        case (true, .some): break
+        case (false, let arming):
+            arming?.cancel()
+            cover.arming = nil
+            cover.accepting = false
+            let why = cover.panels.isEmpty ? "no display" : hidden.map(\.rawValue).sorted().joined(separator: ", ")
+            log.info("cover disarmed: \(why, privacy: .public)")
         }
-        // [LAW:no-silent-failure] With every display gone the cover is kept, and the next display connected draws it.
-        if displays.isEmpty { log.error("no display to draw the cover on: \(cover.shown.content.headline.english, privacy: .private)") }
     }
 
     private func take(down why: String) {
         if let up {
             log.info("cover \(why, privacy: .public): \(up.shown.content.headline.english, privacy: .private)")
             up.close()
+            up.returnTo.map { app in
+                log.info("cover returns focus to \(app.name, privacy: .public)")
+                focus.activate(app)
+            }
         }
         up = nil
     }

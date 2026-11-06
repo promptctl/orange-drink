@@ -70,8 +70,14 @@ struct OrangeDrinkApp: App {
             let cover = CoverController(language: language, orderFront: { panel, key in
                 panel.orderFrontRegardless()
                 if key { panel.makeKey() }
-            }, log: alertsLog)
-            cover.follow(layout: ScreenMonitor.layout())
+            }, focus: .live(panel: StatusItemPanel(item: .live(log: alertsLog)), log: alertsLog), log: alertsLog)
+            cover.follow(screen: ScreenMonitor.hidden(), layout: ScreenMonitor.layout())
+            // [LAW:single-enforcer] Every way the panel or Settings opens ends in its window becoming key, so this one
+            // observer keeps them shut while the cover is up, whichever path opened them.
+            NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { note in
+                let isCover = note.object is CoverPanel
+                MainActor.assumeIsolated { cover.windowCameForward(isCover: isCover) }
+            }
             let presenter = AlertPresenter(pills: pills, cover: cover, sounds: sounds, log: alertsLog)
             alerts = try AlertCenter(defaults: .standard, log: alertsLog, deliver: {
                 presenter.deliver($0)
