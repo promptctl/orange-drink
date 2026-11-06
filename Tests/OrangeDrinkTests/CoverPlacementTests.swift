@@ -20,10 +20,12 @@ import Testing
         ScreenArea(frame: CGRect(x: -3008, y: 0, width: 3008, height: 1692), visibleFrame: CGRect(x: -3008, y: 80, width: 3008, height: 1587)),
     ]
 
-    /// The block's rectangle on a display: its fitting size, centred on the whole screen as the cover centres it.
+    /// The block's fitting size, the same on every display.
+    static let size = Result { NSHostingView(rootView: Measured(content: CoverContent(CoverTests.critical, reading: try PillTests.reading(2)))).fittingSize }
+
+    /// The block's rectangle on a display, centred on the whole screen as the cover centres it.
     static func block(on display: ScreenArea) throws -> CGRect {
-        let content = CoverContent(CoverTests.critical, reading: try PillTests.reading(2))
-        let size = NSHostingView(rootView: Measured(content: content)).fittingSize
+        let size = try size.get()
         return CGRect(x: display.frame.midX - size.width / 2, y: display.frame.midY - size.height / 2, width: size.width, height: size.height)
     }
 

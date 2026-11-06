@@ -142,10 +142,10 @@ enum PillEnd {
     /// Whether the shown pill's `shownFor` is running: not while the screen is hidden.
     var shownCounting: Bool? { up.map { $0.countdown != nil } }
 
-    /// The sink an `AlertCenter` delivers to.
+    /// Shows the Mac's firing as a pill.
     ///
     /// `covered` says whether a full-screen alert is up, which `AlertPresenter` alone decides.
-    func deliver(_ firing: Firing, reading: BatteryReading, covered: Bool = false) {
+    func deliver(_ firing: Firing, reading: BatteryReading, covered: Bool) {
         let content: PillContent = switch firing {
         case .threshold(let alert): PillContent(alert, reading: reading)
         case .pluggedIn: .power("Plugged In", severity: .green, reading: reading)
@@ -155,13 +155,13 @@ enum PillEnd {
         show(content, from: firing, covered: covered)
     }
 
-    /// The sink an `AlertCenter` delivers a watched device's firing to.
-    func deliver(_ firing: DeviceFiring, covered: Bool = false) { show(PillContent(firing), covered: covered) }
+    /// Shows a watched device's firing as a pill.
+    func deliver(_ firing: DeviceFiring, covered: Bool) { show(PillContent(firing), covered: covered) }
 
     /// The Mac's firing the pill up announces: nil with no pill up, or a watched device's.
     var shownFiring: Firing? { up?.firing }
 
-    func show(_ content: PillContent, from firing: Firing? = nil, covered: Bool = false) {
+    func show(_ content: PillContent, from firing: Firing? = nil, covered: Bool) {
         // [LAW:no-silent-failure] A Mac with every display gone is a state to live through, but the lost
         // alert is logged. A pill already up stays, with the countdown `hidden` gave it.
         guard let area = currentScreen() else {
@@ -212,7 +212,7 @@ enum PillEnd {
 
     /// A full-screen alert came up: the pill up moves out from over its block, and stays there until it closes.
     func moveAside() {
-        guard var pill = up else { return }
+        guard var pill = up, pill.placed != pill.placed.over(cover: true) else { return }
         pill.placed = pill.placed.over(cover: true)
         up = pill
         // [LAW:no-silent-failure] With no screen the pill keeps its frame, and the next display change places it.

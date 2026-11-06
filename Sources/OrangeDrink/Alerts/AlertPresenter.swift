@@ -1,10 +1,10 @@
 import os
 
-/// The sink an `AlertCenter` delivers each reading of the Mac's battery to: every firing goes to the
-/// cover or the pill, with its sound.
+/// The sink an `AlertCenter` delivers each reading of the Mac's battery, and each watched device's
+/// firing, to: every firing goes to the cover or the pill, with its sound.
 ///
 /// [LAW:single-enforcer] The one place that decides which: a threshold alert set to Full Screen is
-/// the cover; every other firing is a pill. A watched device's firing never reaches here, so it stays
+/// the cover; every other firing is a pill. A watched device's Full Screen alert is never a cover; it stays
 /// a pill (design-docs/alerts.md). It is also the one place a cover holds a pill back: while the
 /// cover is up, a low or charged pill for the Mac neither shows nor sounds, and one already up when
 /// the cover appears is taken down. Plug, unplug, temperature and watched-device pills show over the

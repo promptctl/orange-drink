@@ -415,4 +415,13 @@ extension PillController {
     func deliver(_ fired: ReadingAlerts) {
         for firing in fired.firings { deliver(firing, reading: fired.reading) }
     }
+
+    /// The Mac's firing as a pill, with no cover up.
+    func deliver(_ firing: Firing, reading: BatteryReading) { deliver(firing, reading: reading, covered: false) }
+
+    /// A watched device's firing as a pill, with no cover up.
+    func deliver(_ firing: DeviceFiring) { deliver(firing, covered: false) }
+
+    /// A pill with no cover up.
+    func show(_ content: PillContent) { show(content, covered: false) }
 }

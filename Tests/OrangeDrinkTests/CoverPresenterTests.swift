@@ -16,7 +16,8 @@ import Testing
     /// A presenter over a cover on one display and a pill controller, counting the chimes it plays.
     @MainActor final class Rig {
         let covers = CoverTests.Rig([CoverTests.primary])
-        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in }, log: .unread)
+        let pills = PillController(appearance: NotificationAppearanceModel.scratch(), language: AppLanguageTests.scratch(), orderFront: { _ in },
+                                   screen: { CoverPresenterTests.laptop }, log: .unread)
         var chimes = 0
         var presenter: AlertPresenter!
         private var last: BatteryReading?
@@ -156,45 +157,42 @@ import Testing
         alert: Alert(kind: .low, threshold: 20, position: .center, glow: false, sound: false), name: "Magic Mouse",
         level: BatteryLevel(percent: 19, approximate: false))
 
-    /// Where a pill at `position` sits on the screen pills go on.
-    static func frame(_ position: PillContent.Position) throws -> CGRect {
-        PillPlacement.frame(position, on: try #require(ScreenArea.main()).visibleFrame, scale: 1)
-    }
+    /// The screen the rig's pills go on.
+    static let laptop = CoverPlacementTests.displays[1]
 
-    /// Whether the pill up is at `frame`, within the point AppKit rounds a window's frame to.
-    static func sits(_ pills: PillController, at frame: CGRect) -> Bool {
-        guard let shown = pills.shownFrame else { return false }
-        return [shown.minX - frame.minX, shown.minY - frame.minY, shown.maxX - frame.maxX, shown.maxY - frame.maxY].allSatisfy { abs($0) <= 1 }
+    /// Where a pill at `position` sits on the rig's screen.
+    static func frame(_ position: PillContent.Position) -> CGRect {
+        PillPlacement.frame(position, on: laptop.visibleFrame, scale: 1)
     }
 
     @Test func aCentrePillShownOverTheCoverSitsAtTheTop() throws {
         let rig = Rig()
         defer { rig.close() }
-        let top = try Self.frame(.top)
+        let top = Self.frame(.top)
         rig.read(try Self.onBattery(2), firing: [.threshold(CoverTests.critical)])
         rig.presenter.deliver(Self.mouse)
         #expect(rig.pills.shown?.headline.english == "Magic Mouse: 19% Remaining")
-        #expect(Self.sits(rig.pills, at: top))
+        #expect(rig.pills.shownFrame == top)
     }
 
     @Test func aCentrePillUpWhenTheCoverAppearsMovesToTheTopAndStaysThereAfterIt() throws {
         let rig = Rig()
         defer { rig.close() }
-        let (top, center) = (try Self.frame(.top), try Self.frame(.center))
+        let (top, center) = (Self.frame(.top), Self.frame(.center))
         rig.presenter.deliver(Self.mouse)
-        #expect(Self.sits(rig.pills, at: center))
+        #expect(rig.pills.shownFrame == center)
 
         rig.read(try Self.onBattery(2), firing: [.threshold(CoverTests.critical)])
-        #expect(Self.sits(rig.pills, at: top))
+        #expect(rig.pills.shownFrame == top)
         rig.covers.cover.dismiss(.dismissButton)
-        #expect(rig.pills.shown != nil && Self.sits(rig.pills, at: top))
+        #expect(rig.pills.shown != nil && rig.pills.shownFrame == top)
     }
 
     @Test func aCentrePillWithNoCoverUpStaysAtTheCentre() throws {
         let rig = Rig()
         defer { rig.close() }
-        let center = try Self.frame(.center)
+        let center = Self.frame(.center)
         rig.presenter.deliver(Self.mouse)
-        #expect(Self.sits(rig.pills, at: center))
+        #expect(rig.pills.shownFrame == center)
     }
 }
