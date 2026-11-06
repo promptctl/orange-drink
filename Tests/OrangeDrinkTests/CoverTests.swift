@@ -64,7 +64,7 @@ import ViewInspector
         #expect(content.headline.english == "2% Remaining" && content.subline?.english == "9min until empty")
         #expect(content.severity == .red && content.progress == 0.02)
 
-        let view = CoverView(shown: CoverShown(content), onDismiss: {})
+        let view = CoverView(shown: CoverShown(content), takesVoiceOverFocus: true, onDismiss: {})
         let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
         #expect(texts == ["2% Remaining", "9min until empty", "Dismiss"])
     }
@@ -103,7 +103,7 @@ import ViewInspector
         let shown = try #require(rig.cover.shownModel)
         func redraws(after reading: BatteryReading) -> Bool {
             let invalidated = OSAllocatedUnfairLock(initialState: false)
-            withObservationTracking { _ = CoverView(shown: shown, onDismiss: {}).body } onChange: { invalidated.withLock { $0 = true } }
+            withObservationTracking { _ = CoverView(shown: shown, takesVoiceOverFocus: true, onDismiss: {}).body } onChange: { invalidated.withLock { $0 = true } }
             rig.cover.observe(reading, changes: [.levelChanged(reading)])
             return invalidated.withLock { $0 }
         }
@@ -226,15 +226,30 @@ import ViewInspector
         let rig = Rig([Self.primary])
         try await rig.showArmed(2)
         #expect(rig.windowsClosed == 1 && rig.activated.isEmpty)
+        // Closing Settings left this app in front.
+        rig.frontmost = nil
         rig.cover.shownPanels[0].sendEvent(try Self.escape())
         #expect(rig.activated == [Self.editor])
 
+        rig.frontmost = Self.editor
         try await rig.showArmed(2)
+        rig.frontmost = nil
         try Self.pressDismiss(rig.cover.shownPanels[0])
+        rig.frontmost = Self.editor
         rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        rig.frontmost = nil
         let plugged = try PillTests.reading(2)
         rig.cover.observe(plugged, changes: [.plugged(plugged)])
         #expect(rig.cover.shown == nil && rig.activated == [Self.editor, Self.editor, Self.editor])
+    }
+
+    @Test func anAppThePersonMovedToWhileTheCoverWasUpKeepsFocusWhenItComesDown() throws {
+        let rig = Rig([Self.primary])
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        rig.frontmost = FrontApp(pid: 777, name: "Terminal")
+        let plugged = try PillTests.reading(2)
+        rig.cover.observe(plugged, changes: [.plugged(plugged)])
+        #expect(rig.cover.shown == nil && rig.activated.isEmpty)
     }
 
     @Test func aReplacingCoverReturnsToTheAppInFrontBeforeTheFirstAndNothingWhenItWasThisApp() async throws {
@@ -255,6 +270,8 @@ import ViewInspector
     @Test func aWindowOfThisAppComingForwardWhileTheCoverIsUpIsClosedAndTheCoverTakesFocusBack() throws {
         let rig = Rig([Self.side, Self.primary])
         rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        // VoiceOver lands with keyboard focus, on the primary display's cover.
+        #expect(try rig.cover.shownPanels.map { try $0.hosted.inspect().find(CoverView.self).actualView().takesVoiceOverFocus } == [false, true])
         let before = (closed: rig.windowsClosed, ordered: rig.ordered.count)
         rig.cover.windowCameForward(isCover: true)
         #expect(rig.windowsClosed == before.closed && rig.ordered.count == before.ordered)
@@ -293,16 +310,22 @@ import ViewInspector
     @Test func aCoverShownBehindTheLockScreenIgnoresInputUntilItIsSeen() async throws {
         let rig = Rig([Self.primary])
         rig.cover.screen(hidden: [.locked])
+        // Behind the lock screen the app in front is macOS's own.
+        rig.frontmost = FrontApp(pid: 99, name: "loginwindow")
         rig.cover.show(Self.critical, reading: try PillTests.reading(2))
-        defer { rig.cover.dismiss(.dismissButton) }
         for _ in 0..<100 { await Task.yield() }
         rig.clock.advance(by: CoverController.unarmedFor * 2)
         for _ in 0..<100 { await Task.yield() }
-        #expect(rig.cover.shownAccepting == false)
+        #expect(rig.cover.shownAccepting == false && rig.announced.isEmpty)
+        rig.frontmost = Self.editor
         rig.cover.screen(hidden: [])
+        #expect(rig.announced.count == 1)
         await rig.clock.asleep()
         rig.clock.advance(by: CoverController.unarmedFor)
         try await rig.armed()
+        rig.frontmost = nil
+        rig.cover.dismiss(.dismissButton)
+        #expect(rig.activated == [Self.editor])
     }
 
     @Test func voiceOverHearsTheHeadlineAndSecondLineWhenItAppearsAndNotOnARewrite() throws {

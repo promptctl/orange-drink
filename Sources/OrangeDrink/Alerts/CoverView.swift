@@ -41,6 +41,8 @@ struct CoverView: View {
     private static let ring: CGFloat = 14
 
     let shown: CoverShown
+    /// The primary display's cover, which holds keyboard focus, takes VoiceOver's too.
+    let takesVoiceOverFocus: Bool
     let onDismiss: () -> Void
     @Environment(\.appLanguage) private var language
     @AccessibilityFocusState private var dismissFocused: Bool
@@ -71,7 +73,7 @@ struct CoverView: View {
             }
         }
         // VoiceOver hears the headline and second line from the controller's announcement, then lands here.
-        .onAppear { dismissFocused = true }
+        .onAppear { dismissFocused = takesVoiceOverFocus }
     }
 }
 

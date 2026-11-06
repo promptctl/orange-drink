@@ -95,11 +95,13 @@ final class CoverPanel: OverlayPanel {
     private let accepting: () -> Bool
     private let onDismiss: (CoverEnd) -> Void
 
-    init(_ shown: CoverShown, language: AppLanguage, frame: CGRect, accepting: @escaping () -> Bool, onDismiss: @escaping (CoverEnd) -> Void) {
+    init(_ shown: CoverShown, language: AppLanguage, frame: CGRect, isPrimary: Bool, accepting: @escaping () -> Bool,
+         onDismiss: @escaping (CoverEnd) -> Void) {
         self.accepting = accepting
         self.onDismiss = onDismiss
         // A press that never passes `sendEvent` — VoiceOver's, Switch Control's — is held off here.
-        hosted = AnyView(CoverView(shown: shown, onDismiss: { if accepting() { onDismiss(.dismissButton) } }).speaking(language))
+        hosted = AnyView(CoverView(shown: shown, takesVoiceOverFocus: isPrimary, onDismiss: { if accepting() { onDismiss(.dismissButton) } })
+            .speaking(language))
         super.init(frame: frame, level: .cover, hosting: FirstClickHostingView(rootView: hosted))
         hasShadow = false
     }
@@ -145,19 +147,29 @@ final class CoverPanel: OverlayPanel {
     /// How long a new cover ignores keys and clicks, so a keystroke already on its way does not dismiss it unread.
     nonisolated static let unarmedFor: Duration = .seconds(1)
 
+    /// [LAW:types-are-the-program] Behind the lock screen or the screen saver the app in front is
+    /// macOS's own, so the app to return to is read only once the cover is seen.
+    private enum ReturnTo {
+        case unread
+        /// nil when this app was in front.
+        case read(FrontApp?)
+    }
+
     @MainActor private final class Cover {
         /// The alert up, whose kind decides the adapter change that answers it.
         let alert: Alert
         let shown: CoverShown
-        /// The app in front before the first of a run of covers; a cover replacing this one takes it over.
-        var returnTo: FrontApp?
+        /// The app in front when the first of a run of covers was first seen; a cover replacing this one takes it over.
+        var returnTo: ReturnTo
         var accepting = false
-        var panels: [CoverPanel] = []
+        /// One panel per display it is drawn on, with the display it fills.
+        var drawn: [(panel: CoverPanel, display: CoverDisplay)] = []
+        var panels: [CoverPanel] { drawn.map(\.panel) }
         /// The panel on the primary display, which holds keyboard focus.
-        var keyPanel: CoverPanel?
+        var keyPanel: CoverPanel? { drawn.first { $0.display.isPrimary }?.panel }
         var arming: Task<Void, any Error>?
 
-        init(alert: Alert, content: CoverContent, returnTo: FrontApp?) {
+        init(alert: Alert, content: CoverContent, returnTo: ReturnTo) {
             self.alert = alert
             shown = CoverShown(content)
             self.returnTo = returnTo
@@ -205,18 +217,15 @@ final class CoverPanel: OverlayPanel {
     /// [LAW:dataflow-not-control-flow] The app to return to moves from a replaced cover to its
     /// replacement, so taking a cover down always returns to the one it holds.
     func show(_ alert: Alert, reading: BatteryReading) {
-        let returnTo = up.map(\.returnTo) ?? focus.frontmost()
-        up?.returnTo = nil
+        let returnTo = up.map(\.returnTo) ?? .unread
+        up?.returnTo = .read(nil)
         take(down: "replaced")
         let content = CoverContent(alert, reading: reading)
         let cover = Cover(alert: alert, content: content, returnTo: returnTo)
         up = cover
         focus.closeAppWindows()
+        log.info("cover shown, app windows closed: \(content.headline.english, privacy: .private)")
         draw(cover)
-        log.info("cover shown on \(cover.panels.count) displays, app windows closed: \(content.headline.english, privacy: .private)")
-        let language = language.value
-        focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "))
-        log.info("cover announced to VoiceOver")
     }
 
     /// A window of this app became key. While the cover is up only the cover may be: any other is
@@ -231,6 +240,7 @@ final class CoverPanel: OverlayPanel {
     /// What hides the screen changed. Hidden, the cover takes no input; seen again, it takes focus
     /// back and holds input off for a fresh `unarmedFor`.
     func screen(hidden now: Set<ScreenHider>) {
+        guard now != hidden else { return }
         let seenAgain = !hidden.isEmpty && now.isEmpty
         hidden = now
         guard let up else { return }
@@ -286,12 +296,13 @@ final class CoverPanel: OverlayPanel {
     private func draw(_ cover: Cover) {
         cover.panels.forEach { $0.close() }
         let displays = displays()
-        cover.panels = displays.map { display in
-            CoverPanel(cover.shown, language: language.value, frame: display.frame, accepting: { [weak cover] in cover?.accepting == true },
-                       onDismiss: { [weak self] in self?.dismiss($0) })
+        cover.drawn = displays.map { display in
+            (CoverPanel(cover.shown, language: language.value, frame: display.frame, isPrimary: display.isPrimary,
+                        accepting: { [weak cover] in cover?.accepting == true }, onDismiss: { [weak self] in self?.dismiss($0) }),
+             display)
         }
-        cover.keyPanel = zip(cover.panels, displays).first { $0.1.isPrimary }?.0
-        for (panel, display) in zip(cover.panels, displays) { orderFront(panel, display.isPrimary) }
+        cover.drawn.forEach { orderFront($0.panel, $0.display.isPrimary) }
+        log.info("cover drawn on \(displays.count) displays")
         arm(cover)
         // [LAW:no-silent-failure] With every display gone the cover is kept, and the next display connected draws it.
         if displays.isEmpty { log.error("no display to draw the cover on: \(cover.shown.content.headline.english, privacy: .private)") }
@@ -304,18 +315,25 @@ final class CoverPanel: OverlayPanel {
     /// fired with no display, or behind the lock screen, holds input off once it is seen; a display
     /// change while the screen is hidden cannot arm it, whichever stream delivers first. The arming
     /// belongs to the cover, which cancels it on any dismissal or replacement.
+    ///
+    /// Arming starts when the cover is seen, so that is also when it reads the app to return to,
+    /// if it has not yet, and tells VoiceOver what it says.
     private func arm(_ cover: Cover) {
         switch (!cover.panels.isEmpty && hidden.isEmpty, cover.arming) {
         case (true, nil):
+            if case .unread = cover.returnTo { cover.returnTo = .read(focus.frontmost()) }
+            let content = cover.shown.content, language = language.value
+            focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "))
+            log.info("cover seen, announced to VoiceOver")
             cover.arming = Task { [timekeeper, log] in
                 try await timekeeper.sleep(for: Self.unarmedFor)
                 try Task.checkCancellation()
                 cover.accepting = true
                 log.info("cover armed")
             }
-        case (true, .some): break
-        case (false, let arming):
-            arming?.cancel()
+        case (true, .some), (false, nil): break
+        case (false, .some(let arming)):
+            arming.cancel()
             cover.arming = nil
             cover.accepting = false
             let why = cover.panels.isEmpty ? "no display" : hidden.map(\.rawValue).sorted().joined(separator: ", ")
@@ -327,7 +345,8 @@ final class CoverPanel: OverlayPanel {
         if let up {
             log.info("cover \(why, privacy: .public): \(up.shown.content.headline.english, privacy: .private)")
             up.close()
-            up.returnTo.map { app in
+            // Focus goes back only while this app holds it: an app the person moved to since keeps it.
+            if case .read(let app?) = up.returnTo, focus.frontmost() == nil {
                 log.info("cover returns focus to \(app.name, privacy: .public)")
                 focus.activate(app)
             }
