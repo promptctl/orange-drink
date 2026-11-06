@@ -1,6 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import Foundation
+import os
 import Testing
 import ViewInspector
 @testable import OrangeDrink
@@ -73,6 +74,24 @@ import ViewInspector
             #expect(texts == ["2% Remaining", "5min until empty", "Dismiss"])
         }
         #expect(rig.cover.shownPanels == panels && rig.ordered.count == 2 && rig.cover.shownAccepting == true)
+    }
+
+    /// A hosting view redraws only when its body read something the change invalidates; a reading that
+    /// changes nothing the cover shows invalidates nothing.
+    @Test func theViewRedrawsOnANewerReadingAndOnlyOnOneThatChangesIt() async throws {
+        let rig = Rig([Self.primary])
+        try await rig.showArmed(3)
+        defer { rig.cover.dismiss(.dismissButton) }
+        let shown = try #require(rig.cover.shownModel)
+        func redraws(after reading: BatteryReading) -> Bool {
+            let invalidated = OSAllocatedUnfairLock(initialState: false)
+            withObservationTracking { _ = CoverView(shown: shown, onDismiss: {}).body } onChange: { invalidated.withLock { $0 = true } }
+            rig.cover.observe(reading, changes: [.levelChanged(reading)])
+            return invalidated.withLock { $0 }
+        }
+        let newer = try PillTests.reading(2, minutes: 5)
+        #expect(redraws(after: newer))
+        #expect(!redraws(after: newer))
     }
 
     @Test func itCoversEveryDisplayAndTakesFocusOnThePrimaryOne() throws {

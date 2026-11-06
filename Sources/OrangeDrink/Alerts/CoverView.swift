@@ -31,6 +31,8 @@ struct CoverContent: Equatable, Sendable {
 /// the headline, its second line, and one "Dismiss" button centred on it.
 struct CoverView: View {
     private static let ring: CGFloat = 14
+    private static let sublineSize: CGFloat = 22
+    static let sublineHeight = NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: sublineSize))
 
     let shown: CoverShown
     let onDismiss: () -> Void
@@ -50,9 +52,14 @@ struct CoverView: View {
                 .frame(width: 168, height: 168)
                 .accessibilityHidden(true)
                 content.headline.text(in: language).font(.system(size: 56, weight: .bold)).foregroundStyle(.white)
-                if let subline = content.subline {
-                    subline.text(in: language).font(.system(size: 22)).foregroundStyle(.white.opacity(0.65))
+                // The line's height is kept while macOS recalculates its estimate, so a reading without
+                // one leaves the headline where it was instead of moving the whole block.
+                Group {
+                    if let subline = content.subline {
+                        subline.text(in: language).font(.system(size: Self.sublineSize)).foregroundStyle(.white.opacity(0.65))
+                    }
                 }
+                .frame(minHeight: Self.sublineHeight)
                 Button(action: onDismiss) {
                     ("Dismiss" as Phrase).text(in: language).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
                         .padding(.horizontal, 32).padding(.vertical, 12)

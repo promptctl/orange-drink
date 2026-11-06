@@ -142,6 +142,8 @@ final class CoverPanel: OverlayPanel {
     var shownPanels: [CoverPanel] { up?.panels ?? [] }
     /// Whether the cover up takes keys and clicks yet.
     var shownAccepting: Bool? { up?.accepting }
+    /// What every display's view of the cover up reads.
+    var shownModel: CoverShown? { up?.shown }
 
     /// Puts up the cover for `alert`, which `reading` fired.
     func show(_ alert: Alert, reading: BatteryReading) {
@@ -180,7 +182,9 @@ final class CoverPanel: OverlayPanel {
     func observe(_ reading: BatteryReading, changes: [BatteryEvent]) {
         guard let up else { return }
         if let answer = CoverEnd(answering: up.alert.kind, in: changes) { return dismiss(answer) }
-        up.shown.content = CoverContent(up.alert, reading: reading)
+        // Most readings change only what the cover leaves out, and every write redraws every display.
+        let content = CoverContent(up.alert, reading: reading)
+        if content != up.shown.content { up.shown.content = content }
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.
