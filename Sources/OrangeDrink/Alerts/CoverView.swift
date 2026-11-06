@@ -24,7 +24,11 @@ struct CoverContent: Equatable, Sendable {
 /// The content of the cover up, which every display's view reads, so a newer reading rewrites them all in place.
 @MainActor @Observable final class CoverShown {
     private(set) var content: CoverContent
+    /// How many times the cover has come into sight; each time, VoiceOver is moved to Dismiss.
+    private(set) var seen = 0
     init(_ content: CoverContent) { self.content = content }
+
+    func cameIntoSight() { seen += 1 }
 
     /// Every write redraws every display, so content equal to what is shown is not written.
     /// - Returns: whether the cover changed.
@@ -74,6 +78,7 @@ struct CoverView: View {
         }
         // VoiceOver hears the headline and second line from the controller's announcement, then lands here.
         .onAppear { dismissFocused = takesVoiceOverFocus }
+        .onChange(of: shown.seen) { dismissFocused = takesVoiceOverFocus }
     }
 }
 

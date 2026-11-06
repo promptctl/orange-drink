@@ -29,6 +29,8 @@ struct CoverFocus {
     /// The app in front now; nil when it is this one.
     let frontmost: @MainActor () -> FrontApp?
     let activate: @MainActor (FrontApp) -> Void
+    /// Gives up active status, for the app macOS picks next.
+    let deactivate: @MainActor () -> Void
     /// Closes the panel, Settings, and any other window of this app that is not an alert's.
     let closeAppWindows: @MainActor () -> Void
     /// Says the text to VoiceOver, ahead of what it was reading.
@@ -48,6 +50,7 @@ struct CoverFocus {
                     return log.error("cover could not return focus to \(app.name, privacy: .public): it is not running or refused")
                 }
             },
+            deactivate: { NSApp.deactivate() },
             closeAppWindows: {
                 panel.close()
                 // The titled windows are the app's own, Settings among them; the menu bar's and the alerts' are untitled.
@@ -186,7 +189,8 @@ final class CoverPanel: OverlayPanel {
     private let log: Logger
     private var up: Cover?
     /// What hides the screen now. It outlives any one cover, so a cover shown behind the lock screen starts unarmed.
-    private var hidden: Set<ScreenHider> = []
+    /// nil until the first answer arrives, and a screen not yet known to be seen counts as hidden.
+    private var hidden: Set<ScreenHider>?
     nonisolated(unsafe) private var following: [Task<Void, Never>] = []
 
     /// [LAW:effects-at-boundaries] `orderFront` puts a built panel on the screen, making it key when
@@ -224,7 +228,7 @@ final class CoverPanel: OverlayPanel {
         let cover = Cover(alert: alert, content: content, returnTo: returnTo)
         up = cover
         focus.closeAppWindows()
-        log.info("cover shown, app windows closed: \(content.headline.english, privacy: .private)")
+        log.info("cover shown: \(content.headline.english, privacy: .private)")
         draw(cover)
     }
 
@@ -241,7 +245,7 @@ final class CoverPanel: OverlayPanel {
     /// back and holds input off for a fresh `unarmedFor`.
     func screen(hidden now: Set<ScreenHider>) {
         guard now != hidden else { return }
-        let seenAgain = !hidden.isEmpty && now.isEmpty
+        let seenAgain = now.isEmpty
         hidden = now
         guard let up else { return }
         if seenAgain, let key = up.keyPanel {
@@ -255,7 +259,6 @@ final class CoverPanel: OverlayPanel {
     func screensChanged() {
         guard let up else { return }
         draw(up)
-        log.info("cover drawn again on \(up.panels.count) displays: \(up.shown.content.headline.english, privacy: .private)")
     }
 
     /// Feeds the controller each change of what hides the screen and of displays, for as long as it lives.
@@ -319,11 +322,12 @@ final class CoverPanel: OverlayPanel {
     /// Arming starts when the cover is seen, so that is also when it reads the app to return to,
     /// if it has not yet, and tells VoiceOver what it says.
     private func arm(_ cover: Cover) {
-        switch (!cover.panels.isEmpty && hidden.isEmpty, cover.arming) {
+        switch (!cover.panels.isEmpty && hidden == [], cover.arming) {
         case (true, nil):
             if case .unread = cover.returnTo { cover.returnTo = .read(focus.frontmost()) }
             let content = cover.shown.content, language = language.value
             focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "))
+            cover.shown.cameIntoSight()
             log.info("cover seen, announced to VoiceOver")
             cover.arming = Task { [timekeeper, log] in
                 try await timekeeper.sleep(for: Self.unarmedFor)
@@ -336,7 +340,7 @@ final class CoverPanel: OverlayPanel {
             arming.cancel()
             cover.arming = nil
             cover.accepting = false
-            let why = cover.panels.isEmpty ? "no display" : hidden.map(\.rawValue).sorted().joined(separator: ", ")
+            let why = cover.panels.isEmpty ? "no display" : hidden.map { $0.map(\.rawValue).sorted().joined(separator: ", ") } ?? "screen not yet known"
             log.info("cover disarmed: \(why, privacy: .public)")
         }
     }
@@ -346,9 +350,15 @@ final class CoverPanel: OverlayPanel {
             log.info("cover \(why, privacy: .public): \(up.shown.content.headline.english, privacy: .private)")
             up.close()
             // Focus goes back only while this app holds it: an app the person moved to since keeps it.
-            if case .read(let app?) = up.returnTo, focus.frontmost() == nil {
-                log.info("cover returns focus to \(app.name, privacy: .public)")
-                focus.activate(app)
+            // With no app to return to, this app, whose windows are all closed, steps aside for the one macOS picks.
+            if focus.frontmost() == nil {
+                if case .read(let app?) = up.returnTo {
+                    log.info("cover returns focus to \(app.name, privacy: .public)")
+                    focus.activate(app)
+                } else {
+                    log.info("cover gives up focus: no app to return to")
+                    focus.deactivate()
+                }
             }
         }
         up = nil
