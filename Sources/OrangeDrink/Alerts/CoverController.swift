@@ -293,20 +293,21 @@ final class CoverPanel: OverlayPanel {
     /// A new reading of the Mac's battery and the changes it brought. The adapter change that answers
     /// the cover's alert takes it down; a low alert fired with the adapter already connected waits for
     /// Dismiss or Esc, as no change answers it. Otherwise the cover says what the reading says, in
-    /// place: it is not drawn or armed again, and its sound is not played again.
+    /// place: it is not drawn or armed again, and its sound is not played again. A new headline in
+    /// sight is told to VoiceOver; the second line alone changes every reading and is not.
     func observe(_ reading: BatteryReading, changes: [BatteryEvent]) {
         guard let up else { return }
         if let answer = CoverEnd(answering: up.alert.kind, in: changes) { return dismiss(answer) }
-        let was = up.shown.content.headline.english
+        let was = up.shown.content.headline
         guard up.shown.show(CoverContent(up.alert, reading: reading)) else { return }
-        log.info("cover follows the battery: \(was, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)")
-        // A new level is spoken while the cover is in sight; the second line alone changes every reading and is not.
         // Out of sight, the announcement when it is seen again carries the level then.
-        if up.arming != nil, up.shown.content.headline.english != was {
-            announce(up)
-            log.info("cover's new level announced to VoiceOver")
-        }
+        let heard = inSight(up) && up.shown.content.headline != was
+        if heard { announce(up) }
+        log.info("cover follows the battery: \(was.english, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)\(heard ? ", announced to VoiceOver" : "", privacy: .public)")
     }
+
+    /// [LAW:one-source-of-truth] The cover is in sight when it is on a display and nothing hides the screen.
+    private func inSight(_ cover: Cover) -> Bool { !cover.panels.isEmpty && hidden == [] }
 
     /// Tells VoiceOver what the cover says: its headline, then its second line.
     private func announce(_ cover: Cover) {
@@ -341,7 +342,7 @@ final class CoverPanel: OverlayPanel {
     /// Arming starts when the cover is seen, so that is also when it reads the app to return to,
     /// if it has not yet, and tells VoiceOver what it says.
     private func arm(_ cover: Cover) {
-        switch (!cover.panels.isEmpty && hidden == [], cover.arming) {
+        switch (inSight(cover), cover.arming) {
         case (true, nil):
             if case .unread = cover.returnTo { cover.returnTo = .read(focus.frontmost()) }
             announce(cover)

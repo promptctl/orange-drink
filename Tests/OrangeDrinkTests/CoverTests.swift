@@ -390,27 +390,42 @@ import ViewInspector
         let rig = Rig([Self.primary])
         rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
+        let before = try #require(rig.cover.shown)
         let newer = try PillTests.reading(1)
         rig.cover.observe(newer, changes: [.levelChanged(newer)])
         let shown = try #require(rig.cover.shown)
         #expect(shown.headline.english == "1% Remaining")
-        #expect(rig.announced.count == 2 && rig.announced.last == Self.spoken(shown))
+        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
 
         rig.cover.observe(try PillTests.reading(1, minutes: 4), changes: [])
         #expect(rig.cover.shown?.subline != shown.subline, "the stand-in reading must change the second line")
-        #expect(rig.announced.count == 2)
+        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
     }
 
     @Test func aNewLevelBehindTheLockScreenIsHeardWhenTheCoverIsSeenAgain() throws {
         let rig = Rig([Self.primary])
         rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
+        let before = try #require(rig.cover.shown)
         rig.cover.screen(hidden: [.locked])
         let newer = try PillTests.reading(1)
         rig.cover.observe(newer, changes: [.levelChanged(newer)])
-        #expect(rig.announced.count == 1)
+        #expect(rig.announced == [Self.spoken(before)])
         rig.cover.screen(hidden: [])
         let shown = try #require(rig.cover.shown)
-        #expect(rig.announced.count == 2 && rig.announced.last == Self.spoken(shown))
+        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
+    }
+
+    @Test func aNewLevelWithNoDisplayIsHeardWhenADisplayIsConnected() throws {
+        let rig = Rig([])
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        defer { rig.cover.dismiss(.dismissButton) }
+        let newer = try PillTests.reading(1)
+        rig.cover.observe(newer, changes: [.levelChanged(newer)])
+        #expect(rig.announced.isEmpty)
+        rig.displays = [Self.primary]
+        rig.cover.screensChanged()
+        let shown = try #require(rig.cover.shown)
+        #expect(rig.announced == [Self.spoken(shown)])
     }
 }
