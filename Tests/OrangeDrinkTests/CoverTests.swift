@@ -25,9 +25,8 @@ import ViewInspector
         var activated: [FrontApp] = []
         var deactivated = 0
         var windowsClosed = 0
-        var announced: [String] = []
-        /// The priority of each of `announced`.
-        var priorities: [NSAccessibilityPriorityLevel] = []
+        /// What VoiceOver was told, and how, in order.
+        var heard: [Heard] = []
         var cover: CoverController!
 
         /// `seen` is the screen's first answer, as the hider stream gives it; nil gives none.
@@ -35,7 +34,7 @@ import ViewInspector
             self.displays = displays
             let focus = CoverFocus(frontmost: { [unowned self] in frontmost }, activate: { [unowned self] in activated.append($0) },
                                    deactivate: { [unowned self] in deactivated += 1 },
-                                   closeAppWindows: { [unowned self] in windowsClosed += 1 }, announce: { [unowned self] in announced.append($0); priorities.append($1) })
+                                   closeAppWindows: { [unowned self] in windowsClosed += 1 }, announce: { [unowned self] in heard.append(Heard(text: $0, kind: $1)) })
             cover = CoverController(language: AppLanguageTests.scratch(), orderFront: { [unowned self] in ordered.append(($0.frame, $1)) },
                                     focus: focus, timekeeper: clock, displays: { [unowned self] in self.displays }, log: .unread)
             if let seen { cover.screen(hidden: seen ? [] : [.locked]) }
@@ -281,9 +280,9 @@ import ViewInspector
         for _ in 0..<100 { await Task.yield() }
         rig.clock.advance(by: CoverController.unarmedFor * 2)
         for _ in 0..<100 { await Task.yield() }
-        #expect(rig.cover.shownAccepting == false && rig.announced.isEmpty && rig.cover.shownModel?.seen == 0)
+        #expect(rig.cover.shownAccepting == false && rig.heard.isEmpty && rig.cover.shownModel?.seen == 0)
         rig.cover.screen(hidden: [])
-        #expect(rig.announced.count == 1 && rig.cover.shownModel?.seen == 1)
+        #expect(rig.heard.count == 1 && rig.cover.shownModel?.seen == 1)
     }
 
     @Test func anAppThePersonMovedToWhileTheCoverWasUpKeepsFocusWhenItComesDown() throws {
@@ -343,7 +342,7 @@ import ViewInspector
         rig.cover.screen(hidden: [])
         #expect(rig.ordered.count == ordered + 1 && rig.ordered.last?.key == true && rig.cover.shownAccepting == false)
         // Seen again, VoiceOver hears it again and is moved to Dismiss again.
-        #expect(rig.announced.count == 2 && rig.cover.shownModel?.seen == 2)
+        #expect(rig.heard.count == 2 && rig.cover.shownModel?.seen == 2)
         rig.cover.shownPanels[0].sendEvent(try Self.escape())
         #expect(rig.cover.shown != nil)
         await rig.clock.asleep()
@@ -362,10 +361,10 @@ import ViewInspector
         for _ in 0..<100 { await Task.yield() }
         rig.clock.advance(by: CoverController.unarmedFor * 2)
         for _ in 0..<100 { await Task.yield() }
-        #expect(rig.cover.shownAccepting == false && rig.announced.isEmpty)
+        #expect(rig.cover.shownAccepting == false && rig.heard.isEmpty)
         rig.frontmost = Self.editor
         rig.cover.screen(hidden: [])
-        #expect(rig.announced.count == 1)
+        #expect(rig.heard.count == 1)
         await rig.clock.asleep()
         rig.clock.advance(by: CoverController.unarmedFor)
         try await rig.armed()
@@ -379,8 +378,17 @@ import ViewInspector
         rig.cover.show(Self.critical, reading: try PillTests.reading(2))
         defer { rig.cover.dismiss(.dismissButton) }
         let shown = try #require(rig.cover.shown)
-        let subline = try #require(shown.subline)
-        #expect(rig.announced == ["\(shown.headline.english). \(subline.english)"] && rig.priorities == [.high])
+        #expect(shown.subline != nil)
+        #expect(rig.heard == [Heard(text: Self.spoken(shown), kind: .interrupting)])
+    }
+
+    @Test func aLevelChangeWaitsForVoiceOverAndTheCoverAppearingCutsIn() {
+        #expect(Announcement.afterCurrent.priority == .low && Announcement.interrupting.priority == .high)
+    }
+
+    struct Heard: Equatable {
+        let text: String
+        let kind: Announcement
     }
 
     /// The cover's headline and second line, as VoiceOver is told them.
@@ -398,13 +406,13 @@ import ViewInspector
         rig.cover.observe(newer, changes: [.levelChanged(newer)])
         let shown = try #require(rig.cover.shown)
         #expect(shown.headline.english == "1% Remaining")
-        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
         // A level that wavers is heard after what VoiceOver is reading, never cutting it off.
-        #expect(rig.priorities == [.high, .medium])
+        let heard = [Heard(text: Self.spoken(before), kind: .interrupting), Heard(text: Self.spoken(shown), kind: .afterCurrent)]
+        #expect(rig.heard == heard)
 
         rig.cover.observe(try PillTests.reading(1, minutes: 4), changes: [])
-        #expect(rig.cover.shown?.subline != shown.subline, "the stand-in reading must change the second line")
-        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
+        try #require(rig.cover.shown?.subline != shown.subline, "the stand-in reading must change the second line")
+        #expect(rig.heard == heard)
     }
 
     @Test func aNewLevelBehindTheLockScreenIsHeardWhenTheCoverIsSeenAgain() throws {
@@ -415,10 +423,11 @@ import ViewInspector
         rig.cover.screen(hidden: [.locked])
         let newer = try PillTests.reading(1)
         rig.cover.observe(newer, changes: [.levelChanged(newer)])
-        #expect(rig.announced == [Self.spoken(before)])
+        #expect(rig.heard == [Heard(text: Self.spoken(before), kind: .interrupting)])
         rig.cover.screen(hidden: [])
         let shown = try #require(rig.cover.shown)
-        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
+        #expect(shown.headline.english == "1% Remaining")
+        #expect(rig.heard == [Heard(text: Self.spoken(before), kind: .interrupting), Heard(text: Self.spoken(shown), kind: .interrupting)])
     }
 
     @Test func aNewLevelWithNoDisplayIsHeardWhenADisplayIsConnected() throws {
@@ -427,10 +436,11 @@ import ViewInspector
         defer { rig.cover.dismiss(.dismissButton) }
         let newer = try PillTests.reading(1)
         rig.cover.observe(newer, changes: [.levelChanged(newer)])
-        #expect(rig.announced.isEmpty)
+        #expect(rig.heard.isEmpty)
         rig.displays = [Self.primary]
         rig.cover.screensChanged()
         let shown = try #require(rig.cover.shown)
-        #expect(rig.announced == [Self.spoken(shown)])
+        #expect(shown.headline.english == "1% Remaining")
+        #expect(rig.heard == [Heard(text: Self.spoken(shown), kind: .interrupting)])
     }
 }

@@ -23,6 +23,22 @@ struct FrontApp: Equatable {
     let name: String
 }
 
+/// How a VoiceOver announcement meets the speech under way.
+enum Announcement: Equatable {
+    /// Cuts off what VoiceOver is reading, as the cover appearing does.
+    case interrupting
+    /// Waits for what VoiceOver is reading, so a level that wavers never cuts it off.
+    case afterCurrent
+
+    /// High interrupts and cannot be interrupted; low waits its turn. Medium interrupts too, so it is not used.
+    var priority: NSAccessibilityPriorityLevel {
+        switch self {
+        case .interrupting: .high
+        case .afterCurrent: .low
+        }
+    }
+}
+
 /// [LAW:effects-at-boundaries] What the cover does to the rest of the Mac's focus: the app in front,
 /// the app's own windows, and VoiceOver. None has a default, so a test records each instead of acting.
 struct CoverFocus {
@@ -33,8 +49,8 @@ struct CoverFocus {
     let deactivate: @MainActor () -> Void
     /// Closes the panel, Settings, and any other window of this app that is not an alert's.
     let closeAppWindows: @MainActor () -> Void
-    /// Says the text to VoiceOver: at `.high` ahead of what it was reading, at `.medium` after it.
-    let announce: @MainActor (String, NSAccessibilityPriorityLevel) -> Void
+    /// Says the text to VoiceOver.
+    let announce: @MainActor (String, Announcement) -> Void
 
     /// A window of this app the cover closes: a visible titled one, Settings among them. The menu
     /// bar's and the alerts' are untitled, and an alert's own panel is never closed.
@@ -61,9 +77,9 @@ struct CoverFocus {
                 panel.close()
                 NSApp.windows.filter(closesUnderCover).forEach { $0.close() }
             },
-            announce: { text, priority in
+            announce: { text, kind in
                 NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
-                                     userInfo: [.announcement: text, .priority: priority.rawValue])
+                                     userInfo: [.announcement: text, .priority: kind.priority.rawValue])
             })
     }
 }
@@ -303,17 +319,17 @@ final class CoverPanel: OverlayPanel {
         guard up.shown.show(CoverContent(up.alert, reading: reading)) else { return }
         // Out of sight, the announcement when it is seen again carries the level then.
         let heard = inSight(up) && up.shown.content.headline != was
-        if heard { announce(up, .medium) }
-        log.info("cover follows the battery: \(was.english, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)\(heard ? ", announced to VoiceOver" : "", privacy: .public)")
+        if heard { announce(up, .afterCurrent) }
+        log.info("cover follows the battery: \(was.english, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)\(heard ? ", queued for VoiceOver after what it is reading" : "", privacy: .public)")
     }
 
     /// [LAW:one-source-of-truth] The cover is in sight when it is on a display and nothing hides the screen.
     private func inSight(_ cover: Cover) -> Bool { !cover.panels.isEmpty && hidden == [] }
 
     /// Tells VoiceOver what the cover says: its headline, then its second line.
-    private func announce(_ cover: Cover, _ priority: NSAccessibilityPriorityLevel) {
+    private func announce(_ cover: Cover, _ kind: Announcement) {
         let content = cover.shown.content, language = language.value
-        focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "), priority)
+        focus.announce([content.headline, content.subline].compactMap { $0?.resolve(in: language) }.joined(separator: ". "), kind)
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.
@@ -346,7 +362,7 @@ final class CoverPanel: OverlayPanel {
         switch (inSight(cover), cover.arming) {
         case (true, nil):
             if case .unread = cover.returnTo { cover.returnTo = .read(focus.frontmost()) }
-            announce(cover, .high)
+            announce(cover, .interrupting)
             cover.shown.cameIntoSight()
             log.info("cover seen, announced to VoiceOver")
             cover.arming = Task { [timekeeper, log] in
