@@ -23,8 +23,16 @@ struct CoverContent: Equatable, Sendable {
 
 /// The content of the cover up, which every display's view reads, so a newer reading rewrites them all in place.
 @MainActor @Observable final class CoverShown {
-    var content: CoverContent
+    private(set) var content: CoverContent
     init(_ content: CoverContent) { self.content = content }
+
+    /// Every write redraws every display, so content equal to what is shown is not written.
+    /// - Returns: whether the cover changed.
+    @discardableResult func show(_ new: CoverContent) -> Bool {
+        guard new != content else { return false }
+        content = new
+        return true
+    }
 }
 
 /// The full-screen alert of design-docs/alerts.md: a dark translucent cover with the charge ring,
@@ -63,15 +71,16 @@ struct CoverView: View {
     }
 }
 
-/// The cover's second line. While macOS recalculates its estimate there is none, and an invisible line
-/// of the same font holds its place, so the headline does not move between readings.
+/// The cover's second line. While macOS recalculates its estimate there is none, and an invisible
+/// estimate in the same language and font holds its place, so the headline does not move between readings.
 struct CoverSubline: View {
+    static let stand: Phrase = PillContent.untilEmpty("9min")
+
     let subline: Phrase?
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        let line = subline.map { $0.text(in: language) } ?? Text(verbatim: " ")
-        line.font(.system(size: 22)).foregroundStyle(.white.opacity(0.65))
+        (subline ?? Self.stand).text(in: language).font(.system(size: 22)).foregroundStyle(.white.opacity(0.65))
             .opacity(subline == nil ? 0 : 1)
             .accessibilityHidden(subline == nil)
     }

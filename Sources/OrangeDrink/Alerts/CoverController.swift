@@ -182,9 +182,10 @@ final class CoverPanel: OverlayPanel {
     func observe(_ reading: BatteryReading, changes: [BatteryEvent]) {
         guard let up else { return }
         if let answer = CoverEnd(answering: up.alert.kind, in: changes) { return dismiss(answer) }
-        // Most readings change only what the cover leaves out, and every write redraws every display.
-        let content = CoverContent(up.alert, reading: reading)
-        if content != up.shown.content { up.shown.content = content }
+        let was = up.shown.content.headline.english
+        if up.shown.show(CoverContent(up.alert, reading: reading)) {
+            log.info("cover follows the battery: \(was, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)")
+        }
     }
 
     /// One panel per display connected now, each reading the cover's own `accepting`.
