@@ -24,7 +24,11 @@ struct CoverContent: Equatable, Sendable {
 /// The content of the cover up, which every display's view reads, so a newer reading rewrites them all in place.
 @MainActor @Observable final class CoverShown {
     private(set) var content: CoverContent
+    /// How many times the cover has come into sight; each time, VoiceOver is moved to Dismiss.
+    private(set) var seen = 0
     init(_ content: CoverContent) { self.content = content }
+
+    func cameIntoSight() { seen += 1 }
 
     /// Every write redraws every display, so content equal to what is shown is not written.
     /// - Returns: whether the cover changed.
@@ -41,8 +45,11 @@ struct CoverView: View {
     private static let ring: CGFloat = 14
 
     let shown: CoverShown
+    /// The primary display's cover, which holds keyboard focus, takes VoiceOver's too.
+    let takesVoiceOverFocus: Bool
     let onDismiss: () -> Void
     @Environment(\.appLanguage) private var language
+    @AccessibilityFocusState private var dismissFocused: Bool
 
     var body: some View {
         let content = shown.content
@@ -65,8 +72,17 @@ struct CoverView: View {
                         .background(Capsule().fill(Color(white: 0.25)))
                 }
                 .buttonStyle(.plain)
+                .accessibilityFocused($dismissFocused)
                 .padding(.top, 12)
             }
+        }
+        // VoiceOver hears the headline and second line from the controller's announcement, then lands here.
+        // A cover drawn behind the lock screen waits to be seen. Each time it is seen, focus is let go
+        // and taken again, as writing true over true would not move VoiceOver.
+        .onAppear { dismissFocused = takesVoiceOverFocus && shown.seen > 0 }
+        .onChange(of: shown.seen) {
+            dismissFocused = false
+            Task { @MainActor in dismissFocused = takesVoiceOverFocus }
         }
     }
 }
