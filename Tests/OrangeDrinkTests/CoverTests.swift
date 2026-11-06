@@ -247,6 +247,21 @@ import ViewInspector
         #expect(rig.cover.shown == nil && rig.activated == [Self.editor, Self.editor, Self.editor])
     }
 
+    @Test func theCoverClosesThisAppsVisibleTitledWindowsAndNeverAnAlertsOwn() throws {
+        func window(_ style: NSWindow.StyleMask) -> NSWindow {
+            let window = NSWindow(contentRect: CGRect(x: -4000, y: -4000, width: 200, height: 100), styleMask: style, backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            return window
+        }
+        let settings = window([.titled, .closable]), menuBar = window([.borderless]), hiddenSettings = window([.titled])
+        let rig = Rig([Self.primary])
+        rig.cover.show(Self.critical, reading: try PillTests.reading(2))
+        let cover = try #require(rig.cover.shownPanels.first)
+        [settings, menuBar, cover].forEach { $0.orderFrontRegardless() }
+        defer { [settings, menuBar].forEach { $0.close() }; rig.cover.dismiss(.dismissButton) }
+        #expect([settings, menuBar, hiddenSettings, cover].map(CoverFocus.closesUnderCover) == [true, false, false, false])
+    }
+
     @Test func withThisAppInFrontAndNoAppToReturnToItGivesUpFocusWhenItComesDown() throws {
         let rig = Rig([Self.primary])
         // The person was in Settings, which the cover closed.
@@ -284,7 +299,8 @@ import ViewInspector
         // The first cover is the app in front now; the second must not return to it.
         rig.frontmost = nil
         rig.cover.show(Self.critical, reading: try PillTests.reading(1))
-        #expect(rig.activated.isEmpty)
+        // Replaced, a cover neither returns focus nor gives it up.
+        #expect(rig.activated.isEmpty && rig.deactivated == 0)
         rig.cover.dismiss(.dismissButton)
         #expect(rig.activated == [Self.editor])
 

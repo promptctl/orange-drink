@@ -36,6 +36,12 @@ struct CoverFocus {
     /// Says the text to VoiceOver, ahead of what it was reading.
     let announce: @MainActor (String) -> Void
 
+    /// A window of this app the cover closes: a visible titled one, Settings among them. The menu
+    /// bar's and the alerts' are untitled, and an alert's own panel is never closed.
+    @MainActor static func closesUnderCover(_ window: NSWindow) -> Bool {
+        window.isVisible && window.styleMask.contains(.titled) && !(window is OverlayPanel)
+    }
+
     @MainActor static func live(panel: any Panel, log: Logger) -> CoverFocus {
         CoverFocus(
             frontmost: {
@@ -53,8 +59,7 @@ struct CoverFocus {
             deactivate: { NSApp.deactivate() },
             closeAppWindows: {
                 panel.close()
-                // The titled windows are the app's own, Settings among them; the menu bar's and the alerts' are untitled.
-                NSApp.windows.filter { $0.isVisible && $0.styleMask.contains(.titled) && !($0 is OverlayPanel) }.forEach { $0.close() }
+                NSApp.windows.filter(closesUnderCover).forEach { $0.close() }
             },
             announce: { text in
                 NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
@@ -219,11 +224,13 @@ final class CoverPanel: OverlayPanel {
     /// Puts up the cover for `alert`, which `reading` fired.
     ///
     /// [LAW:dataflow-not-control-flow] The app to return to moves from a replaced cover to its
-    /// replacement, so taking a cover down always returns to the one it holds.
+    /// replacement, and a replaced cover leaves focus alone: only a dismissal hands it on.
     func show(_ alert: Alert, reading: BatteryReading) {
         let returnTo = up.map(\.returnTo) ?? .unread
-        up?.returnTo = .read(nil)
-        take(down: "replaced")
+        if let replaced = up {
+            log.info("cover replaced: \(replaced.shown.content.headline.english, privacy: .private)")
+            replaced.close()
+        }
         let content = CoverContent(alert, reading: reading)
         let cover = Cover(alert: alert, content: content, returnTo: returnTo)
         up = cover
@@ -245,7 +252,8 @@ final class CoverPanel: OverlayPanel {
     /// back and holds input off for a fresh `unarmedFor`.
     func screen(hidden now: Set<ScreenHider>) {
         guard now != hidden else { return }
-        let seenAgain = now.isEmpty
+        // The first answer that the screen is seen is not seeing it again.
+        let seenAgain = now.isEmpty && hidden != nil
         hidden = now
         guard let up else { return }
         if seenAgain, let key = up.keyPanel {

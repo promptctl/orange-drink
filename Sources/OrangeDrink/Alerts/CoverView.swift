@@ -77,8 +77,13 @@ struct CoverView: View {
             }
         }
         // VoiceOver hears the headline and second line from the controller's announcement, then lands here.
-        .onAppear { dismissFocused = takesVoiceOverFocus }
-        .onChange(of: shown.seen) { dismissFocused = takesVoiceOverFocus }
+        // A cover drawn behind the lock screen waits to be seen. Each time it is seen, focus is let go
+        // and taken again, as writing true over true would not move VoiceOver.
+        .onAppear { dismissFocused = takesVoiceOverFocus && shown.seen > 0 }
+        .onChange(of: shown.seen) {
+            dismissFocused = false
+            Task { @MainActor in dismissFocused = takesVoiceOverFocus }
+        }
     }
 }
 
