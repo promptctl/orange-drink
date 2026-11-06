@@ -29,6 +29,14 @@ enum Announcement: Equatable {
     case interrupting
     /// Waits for what VoiceOver is reading, so a level that wavers never cuts it off.
     case afterCurrent
+
+    /// High interrupts and cannot be interrupted; low waits its turn. Medium interrupts too, so it is not used.
+    var priority: NSAccessibilityPriorityLevel {
+        switch self {
+        case .interrupting: .high
+        case .afterCurrent: .low
+        }
+    }
 }
 
 /// [LAW:effects-at-boundaries] What the cover does to the rest of the Mac's focus: the app in front,
@@ -70,10 +78,8 @@ struct CoverFocus {
                 NSApp.windows.filter(closesUnderCover).forEach { $0.close() }
             },
             announce: { text, kind in
-                // High interrupts and cannot be interrupted; low waits its turn. Medium interrupts too, so it is not used.
-                let priority: NSAccessibilityPriorityLevel = switch kind { case .interrupting: .high; case .afterCurrent: .low }
                 NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
-                                     userInfo: [.announcement: text, .priority: priority.rawValue])
+                                     userInfo: [.announcement: text, .priority: kind.priority.rawValue])
             })
     }
 }
@@ -314,7 +320,7 @@ final class CoverPanel: OverlayPanel {
         // Out of sight, the announcement when it is seen again carries the level then.
         let heard = inSight(up) && up.shown.content.headline != was
         if heard { announce(up, .afterCurrent) }
-        log.info("cover follows the battery: \(was.english, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)\(heard ? ", announced to VoiceOver" : "", privacy: .public)")
+        log.info("cover follows the battery: \(was.english, privacy: .private) → \(up.shown.content.headline.english, privacy: .private)\(heard ? ", queued for VoiceOver after what it is reading" : "", privacy: .public)")
     }
 
     /// [LAW:one-source-of-truth] The cover is in sight when it is on a display and nothing hides the screen.

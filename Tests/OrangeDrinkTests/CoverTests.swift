@@ -27,7 +27,6 @@ import ViewInspector
         var windowsClosed = 0
         /// What VoiceOver was told, and how, in order.
         var heard: [Heard] = []
-        var announced: [String] { heard.map(\.text) }
         var cover: CoverController!
 
         /// `seen` is the screen's first answer, as the hider stream gives it; nil gives none.
@@ -281,9 +280,9 @@ import ViewInspector
         for _ in 0..<100 { await Task.yield() }
         rig.clock.advance(by: CoverController.unarmedFor * 2)
         for _ in 0..<100 { await Task.yield() }
-        #expect(rig.cover.shownAccepting == false && rig.announced.isEmpty && rig.cover.shownModel?.seen == 0)
+        #expect(rig.cover.shownAccepting == false && rig.heard.isEmpty && rig.cover.shownModel?.seen == 0)
         rig.cover.screen(hidden: [])
-        #expect(rig.announced.count == 1 && rig.cover.shownModel?.seen == 1)
+        #expect(rig.heard.count == 1 && rig.cover.shownModel?.seen == 1)
     }
 
     @Test func anAppThePersonMovedToWhileTheCoverWasUpKeepsFocusWhenItComesDown() throws {
@@ -343,7 +342,7 @@ import ViewInspector
         rig.cover.screen(hidden: [])
         #expect(rig.ordered.count == ordered + 1 && rig.ordered.last?.key == true && rig.cover.shownAccepting == false)
         // Seen again, VoiceOver hears it again and is moved to Dismiss again.
-        #expect(rig.announced.count == 2 && rig.cover.shownModel?.seen == 2)
+        #expect(rig.heard.count == 2 && rig.cover.shownModel?.seen == 2)
         rig.cover.shownPanels[0].sendEvent(try Self.escape())
         #expect(rig.cover.shown != nil)
         await rig.clock.asleep()
@@ -362,10 +361,10 @@ import ViewInspector
         for _ in 0..<100 { await Task.yield() }
         rig.clock.advance(by: CoverController.unarmedFor * 2)
         for _ in 0..<100 { await Task.yield() }
-        #expect(rig.cover.shownAccepting == false && rig.announced.isEmpty)
+        #expect(rig.cover.shownAccepting == false && rig.heard.isEmpty)
         rig.frontmost = Self.editor
         rig.cover.screen(hidden: [])
-        #expect(rig.announced.count == 1)
+        #expect(rig.heard.count == 1)
         await rig.clock.asleep()
         rig.clock.advance(by: CoverController.unarmedFor)
         try await rig.armed()
@@ -381,6 +380,10 @@ import ViewInspector
         let shown = try #require(rig.cover.shown)
         #expect(shown.subline != nil)
         #expect(rig.heard == [Heard(text: Self.spoken(shown), kind: .interrupting)])
+    }
+
+    @Test func aLevelChangeWaitsForVoiceOverAndTheCoverAppearingCutsIn() {
+        #expect(Announcement.afterCurrent.priority == .low && Announcement.interrupting.priority == .high)
     }
 
     struct Heard: Equatable {
@@ -420,11 +423,11 @@ import ViewInspector
         rig.cover.screen(hidden: [.locked])
         let newer = try PillTests.reading(1)
         rig.cover.observe(newer, changes: [.levelChanged(newer)])
-        #expect(rig.announced == [Self.spoken(before)])
+        #expect(rig.heard == [Heard(text: Self.spoken(before), kind: .interrupting)])
         rig.cover.screen(hidden: [])
         let shown = try #require(rig.cover.shown)
         #expect(shown.headline.english == "1% Remaining")
-        #expect(rig.announced == [Self.spoken(before), Self.spoken(shown)])
+        #expect(rig.heard == [Heard(text: Self.spoken(before), kind: .interrupting), Heard(text: Self.spoken(shown), kind: .interrupting)])
     }
 
     @Test func aNewLevelWithNoDisplayIsHeardWhenADisplayIsConnected() throws {
@@ -433,11 +436,11 @@ import ViewInspector
         defer { rig.cover.dismiss(.dismissButton) }
         let newer = try PillTests.reading(1)
         rig.cover.observe(newer, changes: [.levelChanged(newer)])
-        #expect(rig.announced.isEmpty)
+        #expect(rig.heard.isEmpty)
         rig.displays = [Self.primary]
         rig.cover.screensChanged()
         let shown = try #require(rig.cover.shown)
         #expect(shown.headline.english == "1% Remaining")
-        #expect(rig.announced == [Self.spoken(shown)])
+        #expect(rig.heard == [Heard(text: Self.spoken(shown), kind: .interrupting)])
     }
 }
