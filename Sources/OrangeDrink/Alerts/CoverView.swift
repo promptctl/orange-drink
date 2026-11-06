@@ -21,17 +21,32 @@ struct CoverContent: Equatable, Sendable {
     }
 }
 
+/// The content of the cover up, which every display's view reads, so a newer reading rewrites them all in place.
+@MainActor @Observable final class CoverShown {
+    private(set) var content: CoverContent
+    init(_ content: CoverContent) { self.content = content }
+
+    /// Every write redraws every display, so content equal to what is shown is not written.
+    /// - Returns: whether the cover changed.
+    @discardableResult func show(_ new: CoverContent) -> Bool {
+        guard new != content else { return false }
+        content = new
+        return true
+    }
+}
+
 /// The full-screen alert of design-docs/alerts.md: a dark translucent cover with the charge ring,
 /// the headline, its second line, and one "Dismiss" button centred on it.
 struct CoverView: View {
     private static let ring: CGFloat = 14
 
-    let content: CoverContent
+    let shown: CoverShown
     let onDismiss: () -> Void
     @Environment(\.appLanguage) private var language
 
     var body: some View {
-        ZStack {
+        let content = shown.content
+        return ZStack {
             Color.black.opacity(0.78).ignoresSafeArea()
             VStack(spacing: 22) {
                 ZStack {
@@ -43,9 +58,7 @@ struct CoverView: View {
                 .frame(width: 168, height: 168)
                 .accessibilityHidden(true)
                 content.headline.text(in: language).font(.system(size: 56, weight: .bold)).foregroundStyle(.white)
-                if let subline = content.subline {
-                    subline.text(in: language).font(.system(size: 22)).foregroundStyle(.white.opacity(0.65))
-                }
+                CoverSubline(subline: content.subline)
                 Button(action: onDismiss) {
                     ("Dismiss" as Phrase).text(in: language).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
                         .padding(.horizontal, 32).padding(.vertical, 12)
@@ -55,5 +68,20 @@ struct CoverView: View {
                 .padding(.top, 12)
             }
         }
+    }
+}
+
+/// The cover's second line. While macOS recalculates its estimate there is none, and an invisible
+/// estimate in the same language and font holds its place, so the headline does not move between readings.
+struct CoverSubline: View {
+    static let stand: Phrase = PillContent.untilEmpty("9min")
+
+    let subline: Phrase?
+    @Environment(\.appLanguage) private var language
+
+    var body: some View {
+        (subline ?? Self.stand).text(in: language).font(.system(size: 22)).foregroundStyle(.white.opacity(0.65))
+            .opacity(subline == nil ? 0 : 1)
+            .accessibilityHidden(subline == nil)
     }
 }

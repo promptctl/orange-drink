@@ -54,6 +54,14 @@ import Testing
         #expect(rig.covers.cover.shown == nil)
     }
 
+    @Test func aCoverFollowsTheBatteryWithoutChimingAgain() throws {
+        let rig = Rig()
+        defer { rig.close() }
+        rig.read(try Self.onBattery(3), firing: [.threshold(CoverTests.critical)])
+        rig.read(try Self.onBattery(2))
+        #expect(rig.covers.cover.shown?.headline.english == "2% Remaining" && rig.chimes == 1)
+    }
+
     @Test func aLowCoverFiredOnTheAdapterWaitsForDismissOrEsc() throws {
         let rig = Rig()
         defer { rig.close() }

@@ -15,10 +15,11 @@ import os
     let log: Logger
 
     /// [LAW:no-ambient-temporal-coupling] One reading is handed over whole, so the order within it is
-    /// decided here and not by the user's list: the adapter change answers the cover up first, then
-    /// the reading's most urgent full-screen alert shows, then its pills meet the cover they fired beside.
+    /// decided here and not by the user's list. First the cover up meets the reading: its adapter change
+    /// takes it down, or else it shows the reading. Then the reading's most urgent full-screen alert
+    /// shows, then its pills meet the cover they fired beside.
     func deliver(_ fired: ReadingAlerts) {
-        cover.observe(fired.changes)
+        cover.observe(fired.reading, changes: fired.changes)
         var covers: [Alert] = []
         var rest: [Firing] = []
         for firing in fired.firings {
